@@ -1,0 +1,30 @@
+Heron AI for AutoCAD
+====================
+
+NOT FINISHED. The plug-in has not passed its live checks in every AutoCAD version yet.
+Use it for testing only, and only on drawings you can afford to undo.
+
+You need
+  - Windows 64-bit and full AutoCAD 2021 to 2027 (not AutoCAD LT)
+  - Claude Code or Claude Desktop, signed in
+You do NOT need Python, the .NET SDK or an administrator password.
+
+Install
+  1. Close AutoCAD.
+  2. Double-click Install.bat.
+  3. Restart Claude Desktop if you use it.
+  4. Start AutoCAD. On the Heron tab press Heron to connect.
+     Everything starts locked: turn on the Changes padlock before Claude may draw.
+
+What it changes (your Windows user only)
+  - %APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle   (the plug-in)
+  - %LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe                 (the server)
+  - the Claude Code and Claude Desktop settings get one "autocad" entry
+    (the old Claude Desktop settings are saved as claude_desktop_config.json.heron-backup)
+  No registry, no services, no firewall rules, no network ports.
+
+Remove it
+  Close AutoCAD, then run Install.bat from a command window with the word: uninstall
+
+Windows SmartScreen or company antivirus may warn about autocad-mcp.exe because it is
+not code-signed. If your IT team blocks it, ask them to allow that file.
