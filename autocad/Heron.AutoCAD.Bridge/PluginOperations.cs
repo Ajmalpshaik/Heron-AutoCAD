@@ -19,6 +19,7 @@ namespace Heron.AutoCAD.Bridge
             ["press_pull"] = Risk.Change,
             ["thicken"] = Risk.Change,
             ["super_hatch"] = Risk.Change,
+            ["publish_pdf"] = Risk.Publish,
         };
 
         public static IEnumerable<string> Names => Levels.Keys;

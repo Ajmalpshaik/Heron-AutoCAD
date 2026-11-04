@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **From Autodesk's ADN-DevTech samples** ([D-41](docs/DECISIONS.md), [11](docs/11-adn-repos-study.md));
+  plug-in **1.3.0**, three new tools, 126 in all (live rows group I, NOT RUN):
+  `autocad_xref_tree` (every xref, nested ones under their parent, loaded / unloaded / not found,
+  Read), `autocad_drawing_report` (units, layers off / frozen / locked, blocks, xrefs, styles,
+  sheets and model-space counts of a received drawing, Read) and `autocad_publish_pdf` (the
+  drawing's sheets in one multi-page PDF through AutoCAD's publisher, done by the plug-in, Publish).
+  "AutoCAD did not get to the request" now names the command AutoCAD is in, from its command and
+  LISP events. `tools/memory_check.py` measures acad.exe's Private Bytes over 100 rounds of reads.
+  Known limits [05 §20](docs/05-known-limits.md#20-the-tools-from-the-adn-devtech-study-have-their-own-limits),
+  including Plant 3D objects.
 - **Plug-in 1.2.0: the plug-in does what COM has no call for** ([D-40](docs/DECISIONS.md)). A new
   bridge request, `run`, asks it for one operation from a fixed list, only inside this chat's
   running job, on the drawing that job began on, at a level that covers it. Each runs under a

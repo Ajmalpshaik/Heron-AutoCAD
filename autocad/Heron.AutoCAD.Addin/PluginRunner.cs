@@ -26,6 +26,8 @@ namespace Heron.AutoCAD.Addin
             if (!DrawingNames.Same(doc.Name, request.Drawing)) return RunResult.Failed(Texts.WrongDrawing(doc.Name, request.Drawing));
             PluginOperations.TryLevel(request.Operation, out var level);
             HeronLog.Write("operation " + request.Operation + " on " + doc.Name);
+            // Publishing opens the sheets itself: no lock, no transaction around it.
+            if (request.Operation == "publish_pdf") return Outside(request, doc);
             try
             {
                 using (var args = RunArgs.Parse(request.Args))
@@ -54,6 +56,30 @@ namespace Heron.AutoCAD.Addin
             {
                 HeronLog.Error("Operation " + request.Operation, ex);
                 return RunResult.Failed("Heron in AutoCAD hit an error: " + ex.Message + " " + Texts.NothingChanged);
+            }
+        }
+
+        /// <summary>An operation that must not run inside a lock and a transaction; it changes nothing in the drawing.</summary>
+        private static RunResult Outside(RunRequest request, Document doc)
+        {
+            try
+            {
+                using (var args = RunArgs.Parse(request.Args))
+                    return PublishPdf.Run(doc, args);
+            }
+            catch (RunRefusal refusal)
+            {
+                return RunResult.Failed(refusal.Message);
+            }
+            catch (AcException ex)
+            {
+                HeronLog.Error("Operation " + request.Operation, ex);
+                return RunResult.Failed("AutoCAD refused it (" + ex.ErrorStatus + "). The drawing was not changed.");
+            }
+            catch (System.Exception ex)
+            {
+                HeronLog.Error("Operation " + request.Operation, ex);
+                return RunResult.Failed("Heron in AutoCAD hit an error: " + ex.Message + " The drawing was not changed.");
             }
         }
 

@@ -82,7 +82,7 @@ namespace Heron.AutoCAD.Addin
         public RunResult Run(RunRequest request)
         {
             var started = IdleQueue.TryInvoke(() => PluginRunner.Run(request), RunStartWait, out var result);
-            return started && result != null ? result : RunResult.Failed(Texts.NotStarted((int)RunStartWait.TotalSeconds));
+            return started && result != null ? result : RunResult.Failed(Texts.NotStarted((int)RunStartWait.TotalSeconds, CommandWatch.Current));
         }
 
         /// <summary>Main thread. Select and zoom to what the job made, so the modeller sees it before choosing.</summary>

@@ -145,7 +145,31 @@ public class RunTests
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Change, level);
         }
+        Assert.True(PluginOperations.TryLevel("publish_pdf", out var publish));
+        Assert.Equal(Risk.Publish, publish);
         Assert.False(PluginOperations.TryLevel("explode", out _));
+    }
+
+    [Fact]
+    public void Publishing_needs_the_Publish_padlock_even_inside_a_publish_job()
+    {
+        _config.PublishEnabled = true;
+        Begin("publish");
+        _config.PublishEnabled = false;
+        var reply = Run("publish_pdf");
+        Assert.False(reply.GetProperty("ok").GetBoolean());
+        Assert.Equal("Publish", reply.GetProperty("refusedBy").GetString());
+        Assert.Empty(_host.Runs);
+    }
+
+    [Fact]
+    public void A_change_job_cannot_publish()
+    {
+        _config.PublishEnabled = true;
+        Begin("change");
+        var reply = Run("publish_pdf");
+        Assert.False(reply.GetProperty("ok").GetBoolean());
+        Assert.Empty(_host.Runs);
     }
 }
 
@@ -553,5 +577,157 @@ public class SolidBoxTests
         var cone = new List<TopologyPart> { new() { Index = 0, Kind = "circle", Min = new[] { -50.0, -50, 0 }, Max = new[] { 50.0, 50, 0 } } };
         SolidPicks.Box(cone, new[] { -50.0, -50, 0 }, new[] { 50.0, 50, 300 }, out _, out var high);
         Assert.Equal(300.0, high[2]);
+    }
+}
+
+/// <summary>Which sheets a multi-sheet PDF takes, where it goes, and the DSD settings.</summary>
+public class PublishPlanTests
+{
+    private static readonly PublishPlan.Sheet[] Sheets =
+    {
+        new("M-102", 2, false), new("Model", 0, true), new("M-101", 1, false),
+    };
+
+    [Fact]
+    public void None_named_means_every_sheet_in_tab_order_without_model()
+    {
+        var chosen = PublishPlan.Choose(Sheets, Array.Empty<string>(), false, out var refusal);
+        Assert.Null(refusal);
+        Assert.Equal(new[] { "M-101", "M-102" }, chosen);
+    }
+
+    [Fact]
+    public void Model_comes_first_when_asked_for()
+    {
+        Assert.Equal(new[] { "Model", "M-101", "M-102" }, PublishPlan.Choose(Sheets, Array.Empty<string>(), true, out _));
+    }
+
+    [Fact]
+    public void Named_sheets_keep_tab_order_and_ignore_case()
+    {
+        var chosen = PublishPlan.Choose(Sheets, new[] { "m-102", "M-101" }, false, out var refusal);
+        Assert.Null(refusal);
+        Assert.Equal(new[] { "M-101", "M-102" }, chosen);
+    }
+
+    [Fact]
+    public void A_missing_sheet_is_named_with_the_ones_there_are()
+    {
+        PublishPlan.Choose(Sheets, new[] { "M-999" }, false, out var refusal);
+        Assert.NotNull(refusal);
+        Assert.Contains("'M-999'", refusal);
+        Assert.Contains("M-101", refusal);
+    }
+
+    [Fact]
+    public void A_drawing_with_only_model_space_is_refused_unless_model_is_asked_for()
+    {
+        var onlyModel = new[] { new PublishPlan.Sheet("Model", 0, true) };
+        PublishPlan.Choose(onlyModel, Array.Empty<string>(), false, out var refusal);
+        Assert.NotNull(refusal);
+        Assert.Equal(new[] { "Model" }, PublishPlan.Choose(onlyModel, Array.Empty<string>(), true, out _));
+    }
+
+    private static readonly string Issue = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Issue");
+
+    private static string? Check(string target, bool overwrite = false) =>
+        PublishPlan.CheckTarget(target, overwrite, f => f.EndsWith("old.pdf"), d => d == Issue);
+
+    [Fact]
+    public void A_bad_target_is_refused()
+    {
+        Assert.Contains("full path", Check(""));
+        Assert.Contains("not a full path", Check("set.pdf"));
+        Assert.Contains("does not end in .pdf", Check(System.IO.Path.Combine(Issue, "set.dwf")));
+        Assert.Contains("does not exist", Check(System.IO.Path.Combine(Issue + "-missing", "set.pdf")));
+        Assert.Contains("already there", Check(System.IO.Path.Combine(Issue, "old.pdf")));
+        Assert.Null(Check(System.IO.Path.Combine(Issue, "new.pdf")));
+    }
+
+    [Fact]
+    public void An_existing_pdf_is_replaced_only_with_overwrite()
+    {
+        Assert.Null(Check(System.IO.Path.Combine(Issue, "old.pdf"), overwrite: true));
+    }
+
+    [Fact]
+    public void The_dsd_is_made_quiet_and_initialises_layouts()
+    {
+        var quiet = PublishPlan.Quiet("[Target]\r\nPromptForDwfName=TRUE\r\n[PublishOptions]\r\nInclude_Layer=FALSE\r\n");
+        Assert.Contains("PromptForDwfName=FALSE", quiet);
+        Assert.Contains("[PublishOptions]\r\nInitLayouts=TRUE", quiet);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(quiet, "InitLayouts"));
+    }
+
+    [Fact]
+    public void An_existing_init_layouts_line_is_set_true_not_repeated()
+    {
+        var quiet = PublishPlan.Quiet("[PublishOptions]\r\nInitLayouts=FALSE\r\n");
+        Assert.Contains("InitLayouts=TRUE", quiet);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(quiet, "InitLayouts"));
+    }
+
+    [Fact]
+    public void A_dsd_without_publish_options_gets_them()
+    {
+        Assert.EndsWith("[PublishOptions]\r\nInitLayouts=TRUE\r\n", PublishPlan.Quiet("[Target]\r\nType=6\r\n"));
+    }
+}
+
+/// <summary>Which command a drawing is in, from AutoCAD's command events.</summary>
+public class CommandTrackerTests
+{
+    [Fact]
+    public void Nothing_running_is_null()
+    {
+        Assert.Null(new CommandTracker().Current);
+    }
+
+    [Fact]
+    public void A_command_is_current_until_it_ends()
+    {
+        var tracker = new CommandTracker();
+        tracker.Started("HATCH");
+        Assert.Equal("HATCH", tracker.Current);
+        tracker.Ended("HATCH");
+        Assert.Null(tracker.Current);
+    }
+
+    [Fact]
+    public void A_transparent_command_stacks_on_the_one_it_interrupts()
+    {
+        var tracker = new CommandTracker();
+        tracker.Started("LINE");
+        tracker.Started("'ZOOM");
+        Assert.Equal("ZOOM", tracker.Current);
+        tracker.Ended("ZOOM");
+        Assert.Equal("LINE", tracker.Current);
+    }
+
+    [Fact]
+    public void Ending_an_outer_command_closes_the_ones_inside_it()
+    {
+        var tracker = new CommandTracker();
+        tracker.Started("_.PLINE");
+        tracker.Started("PAN");
+        tracker.Ended("pline");
+        Assert.Null(tracker.Current);
+    }
+
+    [Fact]
+    public void An_end_with_no_start_changes_nothing()
+    {
+        var tracker = new CommandTracker();
+        tracker.Started("MOVE");
+        tracker.Ended("COPY");
+        Assert.Equal("MOVE", tracker.Current);
+    }
+
+    [Fact]
+    public void The_busy_message_names_the_command_when_there_is_one()
+    {
+        Assert.Contains("still in the HATCH command", Texts.NotStarted(30, "HATCH"));
+        Assert.Contains("may be open", Texts.NotStarted(30, null));
+        Assert.EndsWith(Texts.NothingChanged, Texts.NotStarted(30, "HATCH"));
     }
 }

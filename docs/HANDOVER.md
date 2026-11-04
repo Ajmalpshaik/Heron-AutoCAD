@@ -27,6 +27,13 @@
 
 ## Next, in order
 
+0. **2026-11-04: from Autodesk's ADN-DevTech samples** (plug-in **1.3.0**, D-41; 3 new tools, 126
+   in all): `autocad_xref_tree`, `autocad_drawing_report`, `autocad_publish_pdf` (a plug-in
+   operation through AutoCAD's publisher), the command name in the busy message, and
+   `tools/memory_check.py`. Offline gates green, the add-in compiles for all three builds; **group
+   I of NEEDS-CHECKING is NOT RUN**. To prove: merge, rebuild and reinstall the plug-in with AutoCAD
+   closed, then I3 (three sheets, one never opened, one PDF) and I1 (a renamed xref shows as
+   broken) first. What was taken and why: [11](11-adn-repos-study.md).
 0. **2026-10-29: the plug-in does its own operations** (plug-in **1.2.0**, D-40; 8 new tools, 123
    in all): `autocad_list_solid_faces_and_edges`, `autocad_loft`, `autocad_fillet_solid_edges`,
    `autocad_chamfer_solid_edges`, `autocad_shell_solid`, `autocad_press_pull_faces`,

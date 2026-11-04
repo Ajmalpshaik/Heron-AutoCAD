@@ -30,12 +30,14 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions |
 | `tools/dimensions.py` | dimension runs (chain, baseline, ordinate), centre marks |
 | `tools/drafting.py` | splines, multilines (MLINE), wipeouts |
-| `tools/xrefs.py` | attach an xref; reload, unload, detach, bind |
+| `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths |
 | `tools/patterns.py` | write custom hatch pattern (.pat) and linetype (.lin) files; the text is `acad/patterns.py` |
 | `tools/annotate.py` | multileaders, tables, revision clouds |
 | `tools/solids.py` | 3D solids, extrude and revolve, booleans, mass properties, 3D views |
 | `tools/solid_edits.py` | loft, fillet and chamfer solid edges, shell, press-pull, thicken, and the face and edge list: done by the plug-in (`run`, D-40) |
 | `tools/superhatch.py` | super hatch with a block, done by the plug-in |
+| `tools/publish.py` | several sheets in one PDF, done by the plug-in's publisher |
+| `tools/drawing_report.py` | one read of a whole received drawing: units, layers, blocks, xrefs, styles, sheets, counts |
 | `tools/resources.py` | MCP resources and prompts |
 | `tools/_shared.py` | option types and helpers shared by the tool files, including the UCS funnel and `in_plugin` (the way to the plug-in's own operations) |
 

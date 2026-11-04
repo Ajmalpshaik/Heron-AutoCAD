@@ -141,3 +141,23 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
   again when it starts. It may wait up to 30 s for AutoCAD to be free; a disconnect in those
   seconds does not stop it.
 - None of the eight is proven in AutoCAD yet.
+
+## 20. The tools from the ADN-DevTech study have their own limits
+
+- `autocad_publish_pdf` publishes the drawing **as last saved**: save first, or it is refused. It
+  publishes this drawing's own sheets only, not a folder of drawings. Each sheet uses its own page
+  setup; a sheet whose page setup has no PDF-capable paper comes out on the publisher's default. It
+  needs plug-in **1.3.0** or newer ([D-41](DECISIONS.md)).
+- `autocad_xref_tree` finds an xref's file the way AutoCAD does first (full path, then from the
+  drawing's folder, then the bare name beside it), but not through AutoCAD's support path: an xref
+  found only there still reads `loaded`, because AutoCAD itself reports it loaded. Overlay or
+  attach is not shown; COM does not say.
+- `autocad_drawing_report` counts model space by type up to 50,000 objects, then gives the total.
+- The busy message names the command for the plug-in's own operations (super hatch, 3D edits,
+  publish), and only when the add-in saw the command start: one already running when Heron loaded,
+  or a dialog box, is reported as "a command or a dialog box may be open".
+- **Plant 3D drawings:** Plant 3D pipes, valves and equipment are .NET objects that AutoLISP
+  `entmod` / `entmake` cannot change, so `autocad_run_lisp` edits on them will not take; Heron's
+  COM tools are not proven on them either. Treat them as read-only until checked.
+- None of it is proven in AutoCAD yet ([NEEDS-CHECKING group I](NEEDS-CHECKING.md)).
+

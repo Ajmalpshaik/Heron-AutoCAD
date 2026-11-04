@@ -238,6 +238,24 @@ height=400)`.
 | H12 | Ask to keep on: fillet the box, answer Discard; super hatch, answer Discard | The sharp box back; the hatch reference gone, and PURGE finds no SUPERHATCH block left | NOT RUN |
 | H13 | Put the box on a locked layer, then fillet it | Refused: "on a locked layer ... Nothing was changed" | NOT RUN |
 
+## Group I - From the ADN-DevTech study: xref tree, drawing report, multi-sheet PDF, busy command (AutoCAD 2027, this PC)
+
+Added on 2026-11-04 ([D-41](DECISIONS.md), [11](11-adn-repos-study.md)). The logic is tested
+offline (`tests/test_adn_tools.py`, `tests/test_memory_check.py`, `RunTests.cs`), and the add-in
+**compiles** for all three AutoCAD builds; **every row below is NOT RUN**. I3-I6 need plug-in
+**1.3.0** installed.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| I1 | `autocad_xref_tree` on a drawing with one xref that holds a nested xref, and one xref whose file was renamed | The nested one listed under its parent, both `loaded`; the renamed one `not found` and in `broken`. Matches the External References palette | NOT RUN |
+| I2 | `autocad_drawing_report` on a consultant's drawing | Units, layer counts (off / frozen / locked), blocks, xrefs, styles, sheets with their paper, and model-space counts match LAYER, the palettes and QSELECT by hand | NOT RUN |
+| I3 | Changes and Publish on; save; `autocad_publish_pdf(path=...)` on a drawing with 3 sheets, one never opened | One PDF, 3 pages in tab order, each with its own page setup; the never-opened sheet is not blank. BACKGROUNDPLOT reads as before | NOT RUN |
+| I4 | Change something, do not save, then `autocad_publish_pdf` | Refused: "unsaved changes ... Save it first"; no PDF | NOT RUN |
+| I5 | Publish off, then `autocad_publish_pdf` | Refused by the Publish padlock; no PDF | NOT RUN |
+| I6 | Start HATCH and leave its dialog open; from the chat call `autocad_super_hatch` | After 30 s: "it is still in the HATCH command. Finish it or press Esc" | NOT RUN |
+| I7 | `tools/memory_check.py --rounds 100` with Heron connected | PASS: the last Private Bytes reading within 10 % of the first. A FAIL is a leak to chase | NOT RUN |
+| I8 | `autocad_publish_pdf` and `autocad_drawing_report` on AutoCAD 2025/2026 and 2021-2024 | As I2-I3 | NO MACHINE |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
