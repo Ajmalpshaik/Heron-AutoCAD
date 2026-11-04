@@ -98,6 +98,15 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 - [ ] A sheet-set tool: one call per drawing list (sheet number, title, scale, view) across a whole
   package, on top of `autocad_sequence`.
 - [ ] Split long `autocad_run_lisp` expressions instead of failing silently.
+- [ ] From the ADN-DevTech study ([11](11-adn-repos-study.md)), all new code written fresh:
+  - **Multi-sheet PDF**: publish every layout of a folder of drawings to one PDF (DSD file and the
+    Publisher), as a plug-in operation behind the Publish padlock.
+  - **Plot engine in the plug-in** instead of `PlotToFile`, which fails on 2027
+    ([05 §5](05-known-limits.md#5-pdf-on-autocad-2027)). Prove on 2027 first, then 2021-2026.
+  - **Xref tree report** (read only): found name, saved path, resolved or not, nested levels.
+  - **Drawing audit** (read only): layers, blocks, styles and units in one call, for a received DWG.
+  - **Document events** in the add-in (command started / ended, drawing activated) to feed the
+    wrong-drawing guard and the Companion activity list; no separate COM service.
 - [ ] `core/audit.py`: with `%LOCALAPPDATA%` unset, `audit_dir()` resolves to a relative
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway.
