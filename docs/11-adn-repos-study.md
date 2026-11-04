@@ -77,8 +77,9 @@ From `BatchPublishApp/src/CommandClass.cs`, read in full:
   `ServicedComponent`, a second process attached to AutoCAD. That is the opposite of Heron's
   padlock design ([05 §11](05-known-limits.md#11-com-is-still-open-to-other-programs)). Idea 7
   above takes only the event list.
-- **RevitTrainingMaterial**: Revit API labs (C# and VB, `.docx` instructions, slides). Useful for
-  the Revit tools (Heron AI), not this repository.
+- **RevitTrainingMaterial**: Revit API labs (C# and VB, `.docx` instructions, slides). All 16 C#
+  files read; useful for the Revit tools (shared parameters, extensible storage, filters, family
+  creation, ribbon), not this repository. Notes kept outside this repository.
 - **learnings.md pattern** (append-only log, human promotes): Heron already does this with
   NEEDS-CHECKING and DECISIONS.
 
