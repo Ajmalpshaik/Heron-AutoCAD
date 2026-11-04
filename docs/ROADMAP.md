@@ -107,6 +107,10 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
   - **Drawing audit** (read only): layers, blocks, styles and units in one call, for a received DWG.
   - **Document events** in the add-in (command started / ended, drawing activated) to feed the
     wrong-drawing guard and the Companion activity list; no separate COM service.
+  - **Busy / idle from lock-mode and command-ended events**, instead of a fixed wait (rows D8, D33).
+  - **Memory check**: `acad.exe` Private Bytes before and after 100 Heron calls; pass within 10%.
+  - **Known limit**: Plant 3D objects cannot be changed by AutoLISP `entmod` / `entmake`; check
+    what COM can do on them before an MEP user relies on it.
 - [ ] `core/audit.py`: with `%LOCALAPPDATA%` unset, `audit_dir()` resolves to a relative
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway.
