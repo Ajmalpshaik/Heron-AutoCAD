@@ -26,6 +26,7 @@ off that when a title block wants the sheet corner instead.
 
 from __future__ import annotations
 
+import time
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, StrictInt
@@ -63,6 +64,9 @@ PLOT_ROTATIONS = {0: 0, 90: 1, 180: 2, 270: 3}
 PAPER_UNITS = {"inches": 0, "mm": 1, "millimeters": 1}
 
 PDF_PLOTTER = "DWG To PDF.pc3"
+# Setting a plotter on a sheet AutoCAD is still building: tries, and the wait between.
+PLOTTER_TRIES = 3
+PLOTTER_RETRY_DELAY = 0.4
 Anchor = Literal["printable", "paper"]
 
 
@@ -103,6 +107,15 @@ def _write(target: Any, name: str, value: Any) -> bool:
         setattr(target, name, value)
         return True
     except BaseException:  # noqa: BLE001 - a refusal is the answer, not a crash
+        return False
+
+
+def _write_delete(target: Any) -> bool:
+    """Delete one COM object. True when it went."""
+    try:
+        target.Delete()
+        return True
+    except BaseException:  # noqa: BLE001 - reported by the caller
         return False
 
 
@@ -220,13 +233,25 @@ def _set_page(
     written: dict[str, Any] = {}
 
     if plotter:
-        try:
-            layout.ConfigName = str(plotter).strip()
-        except BaseException as exc:  # noqa: BLE001
+        # Right after Layouts.Add AutoCAD is still building the sheet, and
+        # pywin32 reports that busy moment as "Property 'Add.ConfigName' can
+        # not be set" (2026-11-05). A short retry gets past it; a plotter that
+        # really is missing fails every time.
+        failure: BaseException | None = None
+        for attempt in range(PLOTTER_TRIES):
+            try:
+                layout.ConfigName = str(plotter).strip()
+                failure = None
+                break
+            except BaseException as exc:  # noqa: BLE001
+                failure = exc
+                if attempt < PLOTTER_TRIES - 1:
+                    time.sleep(PLOTTER_RETRY_DELAY)
+        if failure is not None:
             raise AutocadError(
-                f"AutoCAD does not have a plotter called '{plotter}' ({com_message(exc)}). "
+                f"AutoCAD would not set the plotter '{plotter}' ({com_message(failure)}). "
                 "Use the name exactly as it appears in Page Setup, e.g. 'DWG To PDF.pc3'."
-            ) from exc
+            ) from failure
         # The new device may not offer the sheet that was set, so AutoCAD has
         # to be asked what it does offer before the media name is chosen.
         _try(lambda: layout.RefreshPlotDeviceInfo())
@@ -549,10 +574,24 @@ async def autocad_create_layout(
                 except BaseException as exc:  # noqa: BLE001
                     raise AutocadError(f"AutoCAD would not add the layout '{clean}': {com_message(exc)}") from exc
 
-            page = _set_page(
-                layout, plotter, paper_size, orientation, "layout", None, None,
-                "1:1", True, plot_style_table, None, None, None,
-            )
+            try:
+                # Fetched again from the collection: the object Add returned is
+                # the one pywin32 could not set the plotter on.
+                layout = _pick_layout(doc, clean)
+                page = _set_page(
+                    layout, plotter, paper_size, orientation, "layout", None, None,
+                    "1:1", True, plot_style_table, None, None, None,
+                )
+            except BaseException as exc:
+                # Never leave a half-made sheet: the retry would only be told
+                # the name is taken (2026-11-05).
+                kept = not _write_delete(layout)
+                if isinstance(exc, AutocadError) and not kept:
+                    raise AutocadError(
+                        f"{exc} The layout '{clean}' was not kept, so the call can be "
+                        "repeated as it is."
+                    ) from exc
+                raise
             if activate:
                 _activate(doc, layout)
 

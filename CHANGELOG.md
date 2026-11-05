@@ -4,6 +4,25 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The DONE card always closes.** The activity banner counted begins and ends, so one job whose
+  end never came (AutoCAD left mid-command and the COM link dropped, 2026-11-05) kept every later
+  "Heron AI has finished" card on screen. `BannerJobs` (Bridge, tested offline in
+  `BannerJobsTests.cs`) now tracks jobs by name: an end sent twice changes nothing, the next job
+  from the same chat clears a lost end, and a job older than 15 minutes no longer holds the card.
+  Compiled for all three AutoCAD builds; live rows J1-J2 NOT RUN.
+- **Fillet, chamfer, shell, press-pull and the face listing work again.** Every one failed on
+  every solid: the Brep was built from the entity, which carries no subentity paths. It is now
+  built from the solid's FullSubentityPath; the solid is read first and opened for write after.
+  Live row J3 NOT RUN.
+- **`autocad_run_lisp` can no longer leave AutoCAD stuck in a command.** A command the
+  expression leaves at a prompt is cancelled before the result is written and named in
+  `cancelled_command`; running object snaps are off for the call and put back through COM.
+  Live row J4 NOT RUN.
+- **`autocad_create_layout` never leaves a half-made sheet.** The plotter is retried on a
+  freshly fetched layout, and a failed page setup deletes the new layout, so the call can be
+  repeated. Live row J5 NOT RUN.
+- **`autocad_preview` comes out upright** on a layout set to plot turned 90 degrees; the layout's
+  own rotation is put back. Live row J6 NOT RUN.
 - **From Autodesk's ADN-DevTech samples** ([D-41](docs/DECISIONS.md), [11](docs/11-adn-repos-study.md));
   plug-in **1.3.0**, three new tools, 126 in all (live rows group I, NOT RUN):
   `autocad_xref_tree` (every xref, nested ones under their parent, loaded / unloaded / not found,

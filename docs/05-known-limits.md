@@ -161,3 +161,20 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
   COM tools are not proven on them either. Treat them as read-only until checked.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group I](NEEDS-CHECKING.md)).
 
+
+## 21. A command left open by AutoLISP blocks everything
+
+`autocad_run_lisp` returns its value by having AutoCAD evaluate a second expression. If the first
+one leaves a command waiting at a prompt (DVIEW, CAMERA, any `(command ...)` missing its last
+answer), that second expression is typed into the prompt instead: AutoCAD sits in the command, the
+banner shows "Evaluate AutoLISP" counting up, and later calls fail until someone presses Esc
+(bedroom model, 2026-11-05). Running object snaps also catch typed points ("Too many objects
+selected for INTERSECT").
+
+**Fix:** in one expression, save OSMODE and set it to 0 (or put `"_non"` before each point),
+answer every prompt including the exit, then `(while (> (getvar "CMDACTIVE") 0) (command))`, and
+put OSMODE back. Never split an interactive command across two calls.
+
+**Since 2026-11-05 the server does both itself** (cancel and snaps off; NEEDS-CHECKING J4, NOT
+RUN). The rule still stands: a cancelled command did not finish, so `cancelled_command` in the
+result means the expression has to be written again, complete.

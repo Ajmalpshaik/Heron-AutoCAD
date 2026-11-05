@@ -256,6 +256,22 @@ offline (`tests/test_adn_tools.py`, `tests/test_memory_check.py`, `RunTests.cs`)
 | I7 | `tools/memory_check.py --rounds 100` with Heron connected | PASS: the last Private Bytes reading within 10 % of the first. A FAIL is a leak to chase | NOT RUN |
 | I8 | `autocad_publish_pdf` and `autocad_drawing_report` on AutoCAD 2025/2026 and 2021-2024 | As I2-I3 | NO MACHINE |
 
+## Group J - Fixes from the cassette and bedroom models: banner, fillet, open commands, layout, preview (AutoCAD 2027, this PC)
+
+Added on 2026-11-05. The rules are tested offline (`BannerJobsTests.cs`, `test_run_lisp_guard.py`,
+`test_create_layout_cleanup.py`, the preview tests) and the add-in
+**compiles** for all three AutoCAD builds; **every row below is NOT RUN**. Needs the rebuilt
+plug-in installed.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| J1 | Banner on. `autocad_run_lisp('(command "_.CAMERA")')` so AutoCAD is left at the camera prompt; when the call fails, press Esc. Then `autocad_zoom(mode="extents")` | The zoom's card shows DONE and **closes about 1.4 s later**; it does not stay on screen | NOT RUN |
+| J2 | Ten quick reads in a row (`autocad_status` x10) | Each card closes after its DONE; no card is left showing at the end | NOT RUN |
+| J3 | `autocad_add_solid` a 500 x 700 x 160 box, then `autocad_fillet_solid_edges(box, radius=60, edges="all")`; also `autocad_list_solid_faces_and_edges(box)` | The box rounded on every edge, volume down; the listing gives 6 faces and 12 edges. No "BoundaryRepresentation.Exception" | NOT RUN |
+| J4 | `autocad_run_lisp('(command "_.CAMERA" "0,0,0" "1,1,1")')` with running snaps on | Returns at once with `cancelled_command: "CAMERA"`; AutoCAD is free (no prompt left), the next call works, OSMODE is as it was | NOT RUN |
+| J5 | `autocad_create_layout(name="J5", paper_size="A3")` on this PC | The sheet made with the PDF plotter; if it fails, the error says the layout was not kept and the Layout tabs show no J5 | NOT RUN |
+| J6 | On a layout with PlotRotation 90, `autocad_preview` | The picture upright, as on screen; Page Setup still shows 90 afterwards | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
