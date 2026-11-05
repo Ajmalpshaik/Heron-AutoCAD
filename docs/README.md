@@ -30,6 +30,7 @@
 | 07 | [Drafting rules](07-drafting-rules.md) | How every drawing is set out: blocks, TLD labels, aligned views, preview check |
 | 08 | [Lee Mac study](08-lee-mac-study.md) | His licence, which ideas became Heron tools, what comes next |
 | 10 | [Complex geometry, annotation and 3D](10-geometry-annotation-3d.md) | The shape library, dimension runs, multileaders, tables, revision clouds, solids, booleans, 3D views |
+| 11 | [ADN-DevTech repositories study](11-adn-repos-study.md) | Autodesk's AutoCAD sample repositories: licences, what was built from them, what was left out |
 | 09 | [Sheets, coordinates and shop drawings](09-sheets-and-coordinates.md) | The UCS, saved locations, layouts, title blocks, viewports, drawing settings, an import into a shop drawing, `autocad_sequence` |
 
 ## Registers and working pages

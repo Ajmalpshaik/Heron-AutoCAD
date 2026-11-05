@@ -67,3 +67,11 @@ GitHub has no AutoCAD, so **live tests run only on your PC**, with AutoCAD open:
 2. Never touch the AutoCAD API from a pipe thread: use `IdleQueue`, and lock the document to change it.
 3. Build all three targets: `dotnet build autocad/Heron.AutoCAD.sln -c Release`.
 4. A change to what the modeller sees adds or updates a row in [docs/NEEDS-CHECKING.md](docs/NEEDS-CHECKING.md).
+
+## Looking up the AutoCAD API
+
+Before inventing an API call, look it up: the [.NET Developer's Guide](https://help.autodesk.com/view/OARX/2027/ENU/)
+and the ActiveX reference have working examples. An AI agent can search Autodesk's help itself
+through Autodesk's public **Help MCP server**, `https://developer.api.autodesk.com/knowledge/public/v1/mcp`
+(from the [ADN study](docs/11-adn-repos-study.md), item 6). Add it to your own agent's settings
+for development only; it is not part of Heron and Heron's shipped configs do not include it.

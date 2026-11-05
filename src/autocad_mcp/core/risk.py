@@ -48,6 +48,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "solid_properties",
         "list_solid_faces_and_edges",
         "list_materials",
+        "xref_tree",
+        "drawing_report",
     ),
     Risk.VIEW: (
         "zoom",
@@ -144,6 +146,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "export",
         "create_hatch_pattern",
         "create_linetype",
+        "publish_pdf",
     ),
     Risk.ADMIN: (
         "render",

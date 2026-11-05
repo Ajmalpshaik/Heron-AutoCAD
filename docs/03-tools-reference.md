@@ -34,6 +34,7 @@ The group headings below give the level.
 | `autocad_switch_drawing` | Make another open drawing active |
 | `autocad_export` | PDF, DXF, WMF, SAT, BMP, EPS, STL. PDF takes `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
+| `autocad_publish_pdf` | **Publish, done by the plug-in.** The drawing's sheets in ONE multi-page PDF through AutoCAD's publisher, in tab order, each with its own page setup; `layouts` to choose, `include_model`, `overwrite`. Made from the drawing as last saved: unsaved changes are refused ([D-41](DECISIONS.md)) |
 | `autocad_get_variable` | Read a system variable |
 | `autocad_set_variable` | Write a system variable |
 
@@ -55,6 +56,7 @@ The group headings below give the level.
 | `autocad_add_wipeout` | Mask an area, from corners or a closed straight-sided polyline (`erase_boundary`); `frames` sets WIPEOUTFRAME. No Automation call exists: it types WIPEOUT with world, unsnapped points (`_non *x,y`), in the current space ([D-38](DECISIONS.md)) |
 | `autocad_attach_xref` | XATTACH a .dwg: name from the file, insertion, scale, rotation, `overlay`. A name already in the drawing is refused. `autocad_list_blocks` lists xrefs with their paths |
 | `autocad_manage_xref` | `reload`, `unload`, `detach`, `bind` (names kept apart, NAME$0$...) or `insert` (names merged). Detach and both binds need `confirm=true` |
+| `autocad_xref_tree` | **Read.** Every xref with the xrefs inside it (8 levels), its saved path, the file found on this PC and `loaded` / `unloaded` / `not found`; `broken` lists the ones that lead nowhere ([11](11-adn-repos-study.md)) |
 
 ## Custom hatch patterns and linetypes (Publish)
 
@@ -111,6 +113,7 @@ arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autoli
 | `autocad_find_text` | Search text, mtext and block attributes |
 | `autocad_get_extents` | Bounding box of the drawing or one layer |
 | `autocad_measure` | Point-to-point distance, or total length / area of entities or a layer |
+| `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000) |
 
 ## Modifying (Change)
 

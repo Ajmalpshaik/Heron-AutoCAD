@@ -130,6 +130,23 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-41 - What was taken from Autodesk's ADN-DevTech samples, and how
+
+**Decided:** 2026-11-04, on Ajmal's "take everything useful from these repositories into Heron".
+**Status:** in force. Six ADN-DevTech repositories were read in full; the AutoCAD ones gave five
+things, each written fresh (two of the repositories carry no licence, so no code was copied):
+`autocad_xref_tree` and `autocad_drawing_report` (reads over COM), `autocad_publish_pdf` (a
+plug-in operation, `publish_pdf`, at **Publish**), the command name in "AutoCAD did not get to the
+request" (the add-in follows command and LISP events), and `tools/memory_check.py`. The multi-sheet
+PDF goes through AutoCAD's publisher, outside a transaction and a document lock (the publisher opens
+the sheets itself), and is made from the drawing **as last saved**: a drawing with unsaved changes
+is refused rather than published out of date. It never renames or moves the modeller's files, which
+the sample does. Rejected: replacing `autocad_export`'s PDF route with the plot engine (the current
+route works on 2027 and is pinned by tests; the publisher covers the multi-sheet case), APS Design
+Automation (cloud credentials, and not the modeller's own AutoCAD) and an outside COM event
+service (needs `regasm` as administrator and works round the padlocks). Detail:
+[11](11-adn-repos-study.md).
+
 ## D-40 - The plug-in does what COM has no call for, one listed operation at a time
 
 **Decided:** 2026-10-29, on Ajmal's "start the super hatch and 3D tools in the plug-in".

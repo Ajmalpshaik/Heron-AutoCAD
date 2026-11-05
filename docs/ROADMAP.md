@@ -98,6 +98,14 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 - [ ] A sheet-set tool: one call per drawing list (sheet number, title, scale, view) across a whole
   package, on top of `autocad_sequence`.
 - [ ] Split long `autocad_run_lisp` expressions instead of failing silently.
+- [x] From the ADN-DevTech study ([11](11-adn-repos-study.md), D-41, 2026-11-04): multi-sheet PDF
+  (`autocad_publish_pdf`), xref tree, drawing report, the command name in the busy message,
+  `tools/memory_check.py`, the Plant 3D known limit. Built; group I NOT RUN.
+- [ ] Multi-sheet PDF of **a folder of drawings**, not only the open one (the publisher takes other
+  DWGs; each must be checked for unsaved changes and xrefs first).
+- [ ] Use the add-in's command tracker for the server's own busy answers too, not only plug-in
+  operations ("Outcome unknown: AutoCAD went busy", rows D8, D33).
+- [ ] Document events to feed the wrong-drawing guard and a Companion activity list.
 - [ ] `core/audit.py`: with `%LOCALAPPDATA%` unset, `audit_dir()` resolves to a relative
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway.

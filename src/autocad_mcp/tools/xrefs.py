@@ -214,3 +214,122 @@ async def autocad_manage_xref(
         return result
 
     return dumps(await run(work))
+
+
+# Nested xrefs deeper than this are not followed: a real project is three or
+# four levels at most, and a loop of references must not run forever.
+XREF_DEPTH = 8
+
+
+def _found_file(saved: str, drawing_folder: str) -> str:
+    """Where the saved path points on this PC, or '' when nothing is there.
+
+    AutoCAD looks for a full path first, then a relative one ('..\\Arch\\A.dwg')
+    from the host drawing's folder, then the bare file name in that folder.
+    Its support-path search is not repeated here: an xref found only there
+    reads 'loaded' from AutoCAD itself, which wins.
+    """
+    saved = (saved or "").strip().replace("\\", os.sep).replace("/", os.sep)
+    if not saved:
+        return ""
+    tries = [saved] if os.path.isabs(saved) else []
+    if drawing_folder:
+        if not os.path.isabs(saved):
+            tries.append(os.path.join(drawing_folder, saved))
+        tries.append(os.path.join(drawing_folder, os.path.basename(saved)))
+    for path in tries:
+        if os.path.isfile(path):
+            return os.path.normpath(path)
+    return ""
+
+
+def _xref_nodes(blocks: Any, drawing_folder: str, depth: int, seen: set[str]) -> list[dict[str, Any]]:
+    """The xrefs in one drawing's block table, each with the xrefs inside it."""
+    nodes = []
+    for i in range(int(_try(lambda: blocks.Count, 0))):
+        block = _try(lambda i=i: blocks.Item(i))
+        if block is None or not bool(_try(lambda b=block: b.IsXRef, False)):
+            continue
+        name = str(_try(lambda b=block: b.Name, ""))
+        saved = str(_try(lambda b=block: b.Path, ""))
+        found = _found_file(saved, drawing_folder)
+        inner = _try(lambda b=block: b.XRefDatabase)
+        node: dict[str, Any] = {"name": name, "saved_path": saved, "found_path": found}
+        if inner is not None:
+            node["status"] = "loaded"
+        elif found:
+            node["status"] = "unloaded"
+        else:
+            node["status"] = "not found"
+        children: list[dict[str, Any]] = []
+        key = (found or saved).lower()
+        if inner is not None and key in seen:
+            node["note"] = "Refers back to a drawing already above it; not followed again."
+        elif inner is not None and depth >= XREF_DEPTH:
+            node["note"] = f"Deeper than {XREF_DEPTH} levels; not followed."
+        elif inner is not None:
+            folder = os.path.dirname(found) if found else drawing_folder
+            children = _xref_nodes(_try(lambda d=inner: d.Blocks), folder, depth + 1, seen | {key})
+        node["children"] = children
+        nodes.append(node)
+    return sorted(nodes, key=lambda n: n["name"].lower())
+
+
+def _walk(nodes: list[dict[str, Any]]):
+    for node in nodes:
+        yield node
+        yield from _walk(node["children"])
+
+
+@mcp.tool(name="autocad_xref_tree", **tool_meta("Xref Tree And Broken Paths", read_only=True, idempotent=True))
+@tool_errors
+async def autocad_xref_tree() -> str:
+    """The whole xref tree of this drawing: each xref, the xrefs inside it, and which ones are broken.
+
+    For each xref: its name, the path saved in the drawing, the file it points
+    to on this PC (empty when there is none), and its status - 'loaded',
+    'unloaded' (the file is there but not loaded) or 'not found' (the path
+    leads nowhere: a broken xref). Nested xrefs are listed under the one that
+    carries them, up to 8 levels.
+
+    Changes nothing.
+
+    Returns:
+        str: JSON: {"drawing": str, "count": int, "broken": [str],
+             "xrefs": [{"name": str, "saved_path": str, "found_path": str,
+                        "status": str, "children": [...]}]}
+
+    Examples:
+        - Use when: "which xrefs are broken before I issue this?"
+        - Use when: "show me the xref tree, nested ones too".
+        - Use when: "where is the architect's xref pointing?"
+        - Don't use when: you only want the names and instance counts -
+          autocad_list_blocks lists every xref with its saved path.
+        - Don't use when: you want to fix one - autocad_manage_xref reloads,
+          unloads, detaches or binds it.
+
+    Error Handling:
+        - A drawing with no xrefs answers count 0, not an error.
+        - A nested xref that refers back up the tree is marked, not followed.
+    """
+
+    def work() -> dict[str, Any]:
+        doc = get_doc()
+        folder = str(_try(lambda: doc.Path, "") or "")
+        tree = _xref_nodes(doc.Blocks, folder, 1, {str(_try(lambda: doc.FullName, "")).lower()})
+        every = list(_walk(tree))
+        broken = sorted({n["name"] for n in every if n["status"] == "not found"}, key=str.lower)
+        result: dict[str, Any] = {
+            "drawing": str(_try(lambda: doc.Name, "")),
+            "count": len(every),
+            "broken": broken,
+            "xrefs": tree,
+        }
+        if broken:
+            result["advice"] = (
+                "Broken xrefs point at a file that is not there. Find the file, then re-path it in "
+                "AutoCAD's External References palette, or detach it with autocad_manage_xref."
+            )
+        return result
+
+    return dumps(await run(work))

@@ -9,6 +9,7 @@
 | `smoke_test.py` | Yes, with a drawing open | Live checks against a scratch drawing, then cleans up |
 | `live_check.py` | Yes, with Changes on | Measures 65 of the 90 live rows in `docs/NEEDS-CHECKING.md` in its own scratch drawing and, with `--write`, records the results there |
 | `protocol_check.py` | Yes | Starts the server as Claude does and does the MCP handshake over stdio |
+| `memory_check.py` | Yes, Heron connected | Reads acad.exe's Private Bytes over 100 rounds of Heron reads; PASS when the last reading is within 10 % of the first (NEEDS-CHECKING I7) |
 
 ```bash
 .venv\Scripts\python.exe tools/build_plugin.py
