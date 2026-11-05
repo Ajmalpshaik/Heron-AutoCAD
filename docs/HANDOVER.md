@@ -8,6 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
+## Latest - 2026-11-05 (fixes from the cassette and bedroom models)
+
+Five faults met while drawing were fixed offline, on branch `claude/autocad-3d-metal-detailed-be50a3`,
+**not committed yet** (check `git status`): the banner's DONE card that never closed (`BannerJobs`),
+fillet / chamfer / shell / press-pull / face listing failing on every solid (Brep built from the
+entity, now from its FullSubentityPath), `autocad_run_lisp` leaving AutoCAD stuck in a command
+(wrapper cancels it, snaps off), `autocad_create_layout` leaving a half-made sheet, and previews on
+their side. All gates green (2319 Python, 145 C#, 3 add-in builds). **Next:** close AutoCAD,
+`tools/build_plugin.py` + `tools/install_plugin.py`, restart the chat's server, then run
+[NEEDS-CHECKING group J](NEEDS-CHECKING.md) J1-J6.
+
 ## Where things stand - 2026-10-26
 
 | Area | State | Evidence |
@@ -34,11 +45,11 @@
    refraction, glow in cd/m² with a Kelvin white, bump, metal), both plug-in operations through
    AutoCAD's .NET `Light` and `Material` classes; and `autocad_save_view(from_screen=true)` for a
    3D camera view. A light goes into a block with `autocad_make_block` like any object. Offline
-   gates green, the add-in compiles for all three builds; **group J of NEEDS-CHECKING is NOT RUN**.
+   gates green, the add-in compiles for all three builds; **group K of NEEDS-CHECKING is NOT RUN**.
    To prove: merge, rebuild and reinstall the plug-in with AutoCAD closed, set LIGHTINGUNITS 2,
-   then J2 (the spot's cone angles read back as given), J7 (a light block lights every insert) and
-   J8 (a made material applies at once) first. Not done: the `autocad_preview` portrait / left-edge
-   item (ROADMAP) - its cause needs a live AutoCAD to find, and was not guessed at.
+   then K2 (the spot's cone angles read back as given), K7 (a light block lights every insert) and
+   K8 (a made material applies at once) first. The `autocad_preview` 90-degree turn was fixed
+   separately the same day (group J, J6).
 0. **2026-11-04: from Autodesk's ADN-DevTech samples** (plug-in **1.3.0**, D-41; 3 new tools, 126
    in all): `autocad_xref_tree`, `autocad_drawing_report`, `autocad_publish_pdf` (a plug-in
    operation through AutoCAD's publisher), the command name in the busy message, and

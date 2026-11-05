@@ -30,6 +30,8 @@ EXPORT_FORMATS = {"dxf", "wmf", "sat", "bmp", "eps", "stl"}
 PDF_PLOTTER = "DWG To PDF.pc3"
 AC_EXTENTS = 1
 AC_SCALE_TO_FIT = 0
+# AcPlotRotation: ac0degrees.
+AC_0_DEGREES = 0
 # Named page setup that holds the layout's own settings while a PDF plots.
 SNAPSHOT_NAME = "MCP_EXPORT_RESTORE"
 
@@ -269,6 +271,14 @@ def _plot_png(
         if sizes:
             size = min(sizes)[1]
             layout.CanonicalMediaName = size
+        # The picture must read the way the screen does. A layout set to plot
+        # turned 90 degrees (an A3 portrait sheet laid landscape, or a template's
+        # Model tab) gave a preview on its side (2026-11-05). The snapshot puts
+        # the layout's own rotation back afterwards.
+        try:
+            layout.PlotRotation = AC_0_DEGREES
+        except BaseException:  # noqa: BLE001 - a preview on its side beats no preview
+            pass
         if area == "window":
             layout.SetWindowToPlot(_point2d(corner1, "corner1"), _point2d(corner2, "corner2"))
         layout.PlotType = _PREVIEW_AREAS[area]
