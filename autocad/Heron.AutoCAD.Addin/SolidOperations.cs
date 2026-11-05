@@ -109,8 +109,11 @@ namespace Heron.AutoCAD.Addin
             var handle = args.Text("handle");
             var radius = args.Number("radius");
             if (!(radius > 0)) throw new RunRefusal("The radius must be above zero.");
-            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForWrite, "a 3D solid");
+            // Read first: the topology's Brep opens the solid itself, and it must be
+            // let go before the solid is opened for write.
+            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForRead, "a 3D solid");
             var topology = SolidTopology.Of(solid);
+            solid.UpgradeOpen();
             var picked = Pick(topology, PartKind.Edge, args.Element("edges"));
             var before = Volume(solid);
             var radii = new DoubleCollection();
@@ -143,8 +146,11 @@ namespace Heron.AutoCAD.Addin
             var distance = args.Number("distance");
             var other = args.Number("other_distance", distance);
             if (!(distance > 0) || !(other > 0)) throw new RunRefusal("Both chamfer distances must be above zero.");
-            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForWrite, "a 3D solid");
+            // Read first: the topology's Brep opens the solid itself, and it must be
+            // let go before the solid is opened for write.
+            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForRead, "a 3D solid");
             var topology = SolidTopology.Of(solid);
+            solid.UpgradeOpen();
             var faces = Pick(topology, PartKind.Face, args.Element("face"));
             if (faces.Length != 1)
                 throw new RunRefusal("A chamfer is measured from one face, and that picks " + faces.Length + ". Give the face's number from " + Lister + ".");
@@ -187,8 +193,11 @@ namespace Heron.AutoCAD.Addin
             var thickness = args.Number("thickness");
             if (!(thickness > 0)) throw new RunRefusal("The wall thickness must be above zero.");
             var outward = args.Flag("outward", false);
-            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForWrite, "a 3D solid");
+            // Read first: the topology's Brep opens the solid itself, and it must be
+            // let go before the solid is opened for write.
+            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForRead, "a 3D solid");
             var topology = SolidTopology.Of(solid);
+            solid.UpgradeOpen();
             var removed = args.Has("remove") ? Pick(topology, PartKind.Face, args.Element("remove")) : new int[0];
             if (removed.Length >= topology.Faces.Count) throw new RunRefusal("Removing every face would leave nothing to shell.");
             var before = Volume(solid);
@@ -218,8 +227,11 @@ namespace Heron.AutoCAD.Addin
             if (distance == 0 || double.IsNaN(distance)) throw new RunRefusal("The distance cannot be zero: positive pulls the face out, negative pushes it in.");
             var taper = args.Number("taper", 0.0);
             if (Math.Abs(taper) >= Math.PI / 2) throw new RunRefusal("The taper must be less than 90 degrees either way.");
-            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForWrite, "a 3D solid");
+            // Read first: the topology's Brep opens the solid itself, and it must be
+            // let go before the solid is opened for write.
+            var solid = RunDrawing.Open<Solid3d>(tr, db, handle, OpenMode.ForRead, "a 3D solid");
             var topology = SolidTopology.Of(solid);
+            solid.UpgradeOpen();
             var picked = Pick(topology, PartKind.Face, args.Element("faces"));
             var curved = picked.Where(i => topology.Faces[i].Kind != "plane").ToArray();
             if (curved.Length > 0)
@@ -352,7 +364,7 @@ namespace Heron.AutoCAD.Addin
         {
             var topology = new SolidTopology();
             var numbers = new Dictionary<string, int>();
-            using (var brep = new Brep(solid))
+            using (var brep = OpenBrep(solid))
             {
                 foreach (Edge edge in brep.Edges)
                 {
@@ -397,6 +409,21 @@ namespace Heron.AutoCAD.Addin
                 // No extents: the words fall back to the box round the parts.
             }
             return topology;
+        }
+
+        /// <summary>
+        /// A Brep built from the entity alone has no subentity paths: reading
+        /// edge.SubentityPath on it throws, so every fillet, chamfer, shell and
+        /// listing failed on every solid (cassette and bedroom models,
+        /// 2026-11-05). Built from the solid's own path, each edge and face
+        /// knows its SubentityId. The caller must have the solid open for read,
+        /// not write, and upgrade only after this Brep is disposed.
+        /// </summary>
+        private static Brep OpenBrep(Solid3d solid)
+        {
+            if (solid.ObjectId.IsNull) return new Brep(solid);
+            var path = new FullSubentityPath(new[] { solid.ObjectId }, new SubentityId(SubentityType.Null, IntPtr.Zero));
+            return new Brep(path);
         }
 
         private static string Key(SubentityId id) => (int)id.Type + ":" + id.IndexPtr.ToInt64();

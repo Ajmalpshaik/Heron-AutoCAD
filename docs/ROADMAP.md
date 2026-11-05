@@ -52,6 +52,30 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
   with the fault already fixed in a2acf6a, because that server was older than the merge. Have
   `autocad_status` report the server's version or commit so a stale server shows up at once.
 
+## Found on 2026-11-05 (cassette AC and bedroom 3D models, AutoCAD 2027)
+
+- [x] The DONE card stayed on screen after a job whose end was lost: `BannerJobs`, live rows J1-J2.
+- [x] `autocad_fillet_solid_edges` failed with "BoundaryRepresentation.Exception ... Nothing was
+  changed" on every solid tried, **even a plain 500 x 700 x 160 box** (`edges='all'`, r=60) and
+  extruded rounded rectangles (`edges='top'`). Rows H3-H4 are likely to FAIL; find the cause
+  before relying on the tool. **Fixed:** the Brep was built from the entity, which has no
+  subentity paths (`get_SubentityPath` threw, Heron log); now built from the solid's
+  FullSubentityPath, read first and upgraded after. Live row J3.
+- [x] `autocad_run_lisp` left AutoCAD inside an interactive command (DVIEW, CAMERA): the plug-in's
+  own result write was then typed into that prompt and every later call waited, until the COM
+  link dropped. After evaluating, check CMDACTIVE and cancel what the expression left open, and
+  say so in the result ([05 §21](05-known-limits.md#21-a-command-left-open-by-autolisp-blocks-everything)).
+  **Fixed:** the wrapper cancels it before writing the result and names it in
+  `cancelled_command`; running snaps are off for the call. Live row J4.
+- [x] `autocad_create_layout` with the default plotter failed ("no plotter called 'DWG To
+  PDF.pc3'") but **still created the layout**, so the retry said the name was taken. Create the
+  layout only after the plotter is found, or remove it on failure. **Fixed:** the plotter is
+  retried on a freshly fetched layout, and a failed page setup deletes the new layout. Live row J5.
+- [x] `autocad_preview` of 3D views in the cassette drawing came out turned 90 degrees (the same
+  calls in a fresh drawing were upright). Probably the layout's plot rotation; set it for the
+  preview and put it back. **Fixed:** the preview plots at 0 degrees; the snapshot restores the
+  layout's own rotation. Live row J6.
+
 ## Asked for on 2026-10-28, not buildable over COM
 
 - [x] **Super hatch** with a block: `autocad_super_hatch`, done by the plug-in (D-40, 2026-10-29).

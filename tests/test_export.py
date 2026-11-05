@@ -50,6 +50,7 @@ PAGE_SETUP = (
     "StandardScale",
     "CustomScale",
     "CenterPlot",
+    "PlotRotation",
 )
 
 
@@ -97,6 +98,8 @@ class FakeLayout:
                 "CustomScale": 1.0,
                 "ViewToPlot": "",
                 "CenterPlot": False,
+                # A sheet set to plot turned 90 degrees, as the cassette drawing was.
+                "PlotRotation": 1,
             },
         )
 

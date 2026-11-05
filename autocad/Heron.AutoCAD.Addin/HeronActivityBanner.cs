@@ -42,7 +42,8 @@ namespace Heron.AutoCAD.Addin
         private DispatcherTimer? _clock, _hide;
         private DateTime _started;
         private string _jobText = "";
-        private int _inFlight;
+        // By job name, not a count: a lost end must not hold the DONE card open.
+        private readonly BannerJobs _jobs = new BannerJobs();
 
         public HeronActivityBanner(IntPtr acadWindow)
         {
@@ -51,7 +52,7 @@ namespace Heron.AutoCAD.Addin
 
         public void Begin(JobInfo job)
         {
-            Interlocked.Increment(ref _inFlight);
+            _jobs.Begin(job, DateTime.UtcNow);
             var changing = job.Risk != Risk.Read && job.Risk != Risk.View;
             Run(() =>
             {
@@ -69,8 +70,7 @@ namespace Heron.AutoCAD.Addin
 
         public void End(JobEnd end)
         {
-            var left = Interlocked.Decrement(ref _inFlight);
-            if (left < 0) Interlocked.Exchange(ref _inFlight, 0);
+            _jobs.End(end.Job);
             Run(() =>
             {
                 _clock!.Stop();
@@ -185,7 +185,10 @@ namespace Heron.AutoCAD.Addin
             _hide.Tick += (s, e) =>
             {
                 _hide!.Stop();
-                if (Volatile.Read(ref _inFlight) == 0) _window!.Hide();
+                if (_jobs.AllDone(DateTime.UtcNow)) _window!.Hide();
+                // A job is still running: look again, so a lost end clears
+                // itself after BannerJobs.StaleAfter instead of never.
+                else _hide.Start();
             };
         }
 

@@ -8,6 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
+## Latest - 2026-11-05 (fixes from the cassette and bedroom models)
+
+Five faults met while drawing were fixed offline, on branch `claude/autocad-3d-metal-detailed-be50a3`,
+**not committed yet** (check `git status`): the banner's DONE card that never closed (`BannerJobs`),
+fillet / chamfer / shell / press-pull / face listing failing on every solid (Brep built from the
+entity, now from its FullSubentityPath), `autocad_run_lisp` leaving AutoCAD stuck in a command
+(wrapper cancels it, snaps off), `autocad_create_layout` leaving a half-made sheet, and previews on
+their side. All gates green (2319 Python, 145 C#, 3 add-in builds). **Next:** close AutoCAD,
+`tools/build_plugin.py` + `tools/install_plugin.py`, restart the chat's server, then run
+[NEEDS-CHECKING group J](NEEDS-CHECKING.md) J1-J6.
+
 ## Where things stand - 2026-10-26
 
 | Area | State | Evidence |

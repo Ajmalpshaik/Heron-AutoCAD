@@ -117,6 +117,13 @@ async def test_preview_plots_to_png_and_restores_page_setup(preview_doc):
     assert preview_doc.ActiveLayout.state == before
 
 
+async def test_preview_plots_upright_and_puts_the_rotation_back(preview_doc):
+    # A layout turned 90 degrees gave a preview on its side (2026-11-05).
+    await document.autocad_preview()
+    assert preview_doc.Plot.calls[0]["layout"]["PlotRotation"] == 0
+    assert preview_doc.ActiveLayout.state["PlotRotation"] == 1
+
+
 async def test_preview_rejects_window_without_corners(preview_doc):
     result = await document.autocad_preview(area="window")
     assert isinstance(result, str) and result.startswith("Error:")
