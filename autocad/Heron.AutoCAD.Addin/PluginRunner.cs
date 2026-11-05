@@ -95,6 +95,8 @@ namespace Heron.AutoCAD.Addin
                 case "press_pull": return SolidOperations.PressPull(db, tr, args);
                 case "thicken": return SolidOperations.Thicken(db, tr, args);
                 case "super_hatch": return SuperHatch.Make(db, tr, args);
+                case "add_light": return RenderSetup.AddLight(db, tr, args);
+                case "create_material": return RenderSetup.CreateMaterial(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

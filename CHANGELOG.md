@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Lights, materials and a saved 3D view for a render** ([D-42](docs/DECISIONS.md)); plug-in
+  **1.4.0**, two new tools, 128 in all (live rows group K, NOT RUN): `autocad_add_light` (a
+  photometric point, spot, web or distant light: lumens or candela, Kelvin or a colour, a spot's
+  cones, an IES file, on / off, shadows, name, layer; warns when LIGHTINGUNITS is not 2; done by the
+  plug-in) and `autocad_create_material` (a named material from its colour, texture image,
+  glossiness, reflectivity, transparency and refraction, glow in cd/m² and Kelvin, bump image,
+  metal shading; done by the plug-in, and `autocad_apply_material` takes it straight away).
+  `autocad_save_view(from_screen=true)` saves the view on screen, 3D angle included. Known limits
+  [05 §22](docs/05-known-limits.md#22-lights-materials-and-the-saved-3d-view-have-their-own-limits).
 - **The DONE card always closes.** The activity banner counted begins and ends, so one job whose
   end never came (AutoCAD left mid-command and the COM link dropped, 2026-11-05) kept every later
   "Heron AI has finished" card on screen. `BannerJobs` (Bridge, tested offline in

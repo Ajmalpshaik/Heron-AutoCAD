@@ -38,6 +38,18 @@ their side. All gates green (2319 Python, 145 C#, 3 add-in builds). **Next:** cl
 
 ## Next, in order
 
+0. **2026-11-05: lights, materials and a saved 3D view, for the villa model** (plug-in **1.4.0**,
+   D-42; 2 new tools, 128 in all): `autocad_add_light` (point, spot, web, distant; lm / cd / lux,
+   Kelvin or a colour, cones, IES file, on / off, shadows, name, layer; warns when LIGHTINGUNITS is
+   not 2) and `autocad_create_material` (colour, texture image, gloss, reflectivity, transparency,
+   refraction, glow in cd/m² with a Kelvin white, bump, metal), both plug-in operations through
+   AutoCAD's .NET `Light` and `Material` classes; and `autocad_save_view(from_screen=true)` for a
+   3D camera view. A light goes into a block with `autocad_make_block` like any object. Offline
+   gates green, the add-in compiles for all three builds; **group K of NEEDS-CHECKING is NOT RUN**.
+   To prove: merge, rebuild and reinstall the plug-in with AutoCAD closed, set LIGHTINGUNITS 2,
+   then K2 (the spot's cone angles read back as given), K7 (a light block lights every insert) and
+   K8 (a made material applies at once) first. The `autocad_preview` 90-degree turn was fixed
+   separately the same day (group J, J6).
 0. **2026-11-04: from Autodesk's ADN-DevTech samples** (plug-in **1.3.0**, D-41; 3 new tools, 126
    in all): `autocad_xref_tree`, `autocad_drawing_report`, `autocad_publish_pdf` (a plug-in
    operation through AutoCAD's publisher), the command name in the busy message, and

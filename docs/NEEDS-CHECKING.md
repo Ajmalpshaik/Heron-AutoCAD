@@ -272,6 +272,30 @@ plug-in installed.
 | J5 | `autocad_create_layout(name="J5", paper_size="A3")` on this PC | The sheet made with the PDF plotter; if it fails, the error says the layout was not kept and the Layout tabs show no J5 | NOT RUN |
 | J6 | On a layout with PlotRotation 90, `autocad_preview` | The picture upright, as on screen; Page Setup still shows 90 afterwards | NOT RUN |
 
+## Group K - Lights, materials and a saved 3D view for a render (AutoCAD 2027, this PC)
+
+Added on 2026-11-05 ([D-42](DECISIONS.md)), for the two-storey villa model. The logic is tested
+offline (`tests/test_render_setup.py`, `tests/test_make_block.py`, `RunTests.cs`), and the add-in
+**compiles** for all three AutoCAD builds; **every row below is NOT RUN**. K1-K12 need plug-in
+**1.4.0** installed. Set LIGHTINGUNITS to 2 first (K4 checks the warning when it is not).
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| K1 | `autocad_add_light(position=[0,0,3000], intensity=1500)` | One point light; LIST shows AcDbLight named Pointlight1; Properties: photometric intensity 1500 cd, lamp colour 3000 K, on, shadows on; one Ctrl+Z removes it | NOT RUN |
+| K2 | `autocad_add_light(kind='spot', position=[0,0,3000], intensity=800, intensity_unit='lm', hotspot=40, falloff=60)` | A targeted spot pointing straight down, target just below it; Properties: 800 lm (flux), hotspot **40**, falloff **60**. If it shows 20 / 30 or 80 / 120, the API reads the angle as half or double the cone: record it, the tool needs changing | NOT RUN |
+| K3 | `autocad_add_light(kind='distant', position=[0,0,10000], target=[5000,0,0], intensity=50000)` | Properties: 50000 lux; in a realistic view with DEFAULTLIGHTING 0 the faces turned towards +Z and +X are lit (the direction is light travel, from position to target) | NOT RUN |
+| K4 | LIGHTINGUNITS 0, then add any light | The light is made, and the reply's `warning` names LIGHTINGUNITS 0 and says to set it to 2 | NOT RUN |
+| K5 | `autocad_add_light(kind='web', web_file=<a maker's .ies>, ...)` | Properties: Photometric web shows that file; the web glyph is drawn | NOT RUN |
+| K6 | `autocad_add_light(rgb=[0,120,255], ...)` | Properties: lamp colour 6500 K, filter colour 0,120,255; resulting colour blue | NOT RUN |
+| K7 | Draw a downlight can, add a spot under it, `autocad_make_block` with both handles; insert 3 more copies; render | The block holds the light (BEDIT shows it); all 4 inserts light the floor in the render; the Lights in Model palette lists them | NOT RUN |
+| K8 | `autocad_create_material(name='Laterite', diffuse_rgb=[178,84,52], glossiness=0.1)`, then `autocad_apply_material(material='Laterite', handles=[<a box>])` | The Materials Browser shows Laterite; apply finds it straight away; the box is laterite red in a realistic view | NOT RUN |
+| K9 | `autocad_create_material(name='Teak', texture=<a .jpg>)`, apply, realistic view | The wood image shows on the faces (its size is AutoCAD's default mapping; MATERIALMAP adjusts it) | NOT RUN |
+| K10 | `autocad_create_material(name='Glass', transparency=0.9, refraction_index=1.5, reflectivity=0.1)`, apply to a pane, render | The pane is see-through in the render | NOT RUN |
+| K11 | `autocad_create_material(name='LED Strip', luminance=2000, glow_kelvin=3000)`, apply to a thin box in a cove, night render (sun off) | The strip glows warm white; note whether the glow takes the diffuse colour as D-42 expects | NOT RUN |
+| K12 | `autocad_create_material` with a name already there, then again with `replace=true` | Refused the first time; the second changes it, and objects already using it change too | NOT RUN |
+| K13 | `autocad_set_3d_view(view='southwest')`, orbit a little, then `autocad_save_view(name='LIVING-3D', from_screen=true)`; zoom away; VIEW, restore LIVING-3D | The 3D angle comes back exactly; `autocad_list_views` shows it with `plan: false` | NOT RUN |
+| K14 | K1-K13 on AutoCAD 2025/2026 and 2021-2024 | As K1-K13 | NO MACHINE |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

@@ -131,3 +131,16 @@ def test_make_block_is_a_change_level_tool():
     from autocad_mcp.core.risk import Risk, risk_of
 
     assert risk_of("autocad_make_block") is Risk.CHANGE
+
+
+def test_a_light_goes_into_the_block_with_its_fitting(setup):
+    """A downlight's can and its light become one block (D-42).
+
+    make_block copies whatever it is handed with CopyObjects, which deep-clones
+    any object, a light (AcDbLight) included; nothing filters by type.
+    """
+    doc = setup()
+    doc.objs["1B"].ObjectName = "AcDbLight"
+    call(name="DL-01 DOWNLIGHT", handles=["1A", "1B"], base_point=[0, 0, 2950])
+    assert doc.copied == (["1A", "1B"], "DL-01 DOWNLIGHT")
+    assert doc.objs["1B"].deleted

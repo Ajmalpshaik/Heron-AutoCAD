@@ -3,8 +3,8 @@
 Ajmal's doubt, in his words: *"still, I have doubt that it will find
 everything fast."* He was right to doubt it - the first version put the right
 tool first on 36 of 55 phrases and missed six altogether. This file is how
-that stopped being an opinion. It now stands at 76 of 91 first and 91 of 91
-in the top three, over all 123 tools.
+that stopped being an opinion. It now stands at 79 of 96 first and 96 of 96
+in the top three, over all 128 tools.
 
 **These phrases are our own**, so the score is a floor on a sample, not a
 promise about every phrase anyone will ever type. What it does catch is
@@ -30,13 +30,13 @@ from autocad_mcp.tools import register_all, resources
 
 register_all()
 
-# The floors. Current, over 123 tools: 76 of these put the right tool first
-# and all 91 find it in the top three. Set a little under, so ordinary
+# The floors. Current, over 128 tools: 79 of these put the right tool first
+# and all 96 find it in the top three. Set a little under, so ordinary
 # rewording does not fail the build but a real loss does. The top-three floor
 # is deliberately the full count minus one: a phrase that stops finding its
 # tool at all is the failure that costs someone time at the machine.
-FIRST_PLACE_FLOOR = 71
-TOP_THREE_FLOOR = 90
+FIRST_PLACE_FLOOR = 74
+TOP_THREE_FLOOR = 95
 
 
 CASES = [
@@ -135,6 +135,12 @@ CASES = [
     ("thicken this roof surface", "autocad_thicken_surface"),
     ("fill the terrace with the paver block like a hatch", "autocad_super_hatch"),
     ("superhatch this area with a block", "autocad_super_hatch"),
+    # Lights and materials for a render (2026-11-05).
+    ("put a warm white LED downlight over the dining table", "autocad_add_light"),
+    ("add an IES web light for the bedroom", "autocad_add_light"),
+    ("make a laterite stone material for the wall", "autocad_create_material"),
+    ("make the cove LED strip glow in the night render", "autocad_create_material"),
+    ("save this 3D angle as a camera view for the render", "autocad_save_view"),
 ]
 
 def entries() -> list[Entry]:

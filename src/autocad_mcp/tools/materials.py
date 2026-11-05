@@ -6,10 +6,11 @@ front:
 
 * **Every entity has a ``Material`` property**, a string naming a material in
   the drawing. Setting it is how a material gets applied, and that works.
-* **A material has to already be in the drawing.** There is no automation route
-  into Autodesk's material library, so a name that is not in the drawing cannot
-  be created from here. These tools say so and list what *is* there, rather
-  than failing with a shrug.
+* **A material has to be in the drawing.** There is no automation route into
+  Autodesk's material library. A material can be *made* from its settings
+  (colour, texture image, gloss, transparency, glow) with
+  ``autocad_create_material``, which the Heron plug-in does through AutoCAD's
+  .NET API (D-42); COM cannot set those.
 * **A material carries no density.** It is appearance only. MASSPROP and this
   server's ``autocad_solid_properties`` both work as if density were 1, so a
   weight is volume times a density *you* supply. Assigning "Steel" to a solid
@@ -19,8 +20,8 @@ front:
   padlock, and why it reports what it sent rather than pretending to more
   certainty than it has.
 
-The honest summary: materials can be listed and applied; a render can be asked
-for; neither can be invented from nothing.
+The honest summary: materials can be made, listed and applied; a render can be
+asked for; nothing comes from Autodesk's library.
 """
 
 from __future__ import annotations
@@ -31,10 +32,19 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from ..acad.entities import resolve_handles, short_type
+from ..acad.render import (
+    IMAGE_EXTENSIONS,
+    KELVIN_MAX,
+    KELVIN_MIN,
+    check_rgb,
+    kelvin_to_rgb,
+)
 from ..acad.selection import select_filtered
+from ..acad.tables import validate_name
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
+from ._shared import in_plugin
 
 # AutoCAD's built-in render presets, in the order its own prompt lists them.
 RENDER_PRESETS = ("Low", "Medium", "High", "Coffee-Break", "Lunch", "Overnight")
@@ -89,8 +99,9 @@ async def autocad_list_materials() -> str:
 
     Worth running before you try to apply one: only a material already in the
     drawing can be applied, and this is the list of those. If what you want is
-    not here, it has to be brought in through AutoCAD's own Materials Browser
-    first — there is no automation route into Autodesk's library.
+    not here, make it with autocad_create_material, or bring it in through
+    AutoCAD's own Materials Browser — there is no automation route into
+    Autodesk's library.
 
     Reads only.
 
@@ -132,9 +143,10 @@ async def autocad_list_materials() -> str:
             "count": len(rows),
             "materials": rows,
             "note": (
-                "Only a material listed here can be applied. Bring others in through "
-                "AutoCAD's Materials Browser first: automation cannot reach the library. "
-                "A material is appearance only and carries no density."
+                "Only a material listed here can be applied. Make others with "
+                "autocad_create_material, or bring them in through AutoCAD's Materials "
+                "Browser: automation cannot reach the library. A material is appearance "
+                "only and carries no density."
             ),
         }
 
@@ -165,8 +177,9 @@ async def autocad_apply_material(
     style, and in a render. They do not change its geometry and they do not
     give it a weight.
 
-    The material must already be in the drawing. If it is not, this says so and
-    lists what is, rather than silently doing nothing.
+    The material must already be in the drawing (autocad_create_material makes
+    one). If it is not, this says so and lists what is, rather than silently
+    doing nothing.
 
     One undo step.
 
@@ -185,8 +198,8 @@ async def autocad_apply_material(
           layer_filter='S-BEAM'.
         - Use when: "put the concrete material on the slab" before a render or
           a shaded view.
-        - Don't use when: the material is not in the drawing yet — bring it in
-          with AutoCAD's Materials Browser first; autocad_list_materials shows
+        - Don't use when: the material is not in the drawing yet — make it
+          with autocad_create_material first; autocad_list_materials shows
           what is available.
     """
     if bool(handles) == bool(layer_filter):
@@ -203,8 +216,8 @@ async def autocad_apply_material(
             raise AutocadError(
                 f"There is no material called '{wanted}' in this drawing. "
                 + (f"It has: {', '.join(sorted(available))}. " if available else "It has none. ")
-                + "A material has to be brought in through AutoCAD's Materials Browser "
-                "first — automation cannot reach Autodesk's library."
+                + "Make it with autocad_create_material, or bring it in through AutoCAD's "
+                "Materials Browser — automation cannot reach Autodesk's library."
             )
 
         if handles:
@@ -251,6 +264,190 @@ async def autocad_apply_material(
             "Set a shaded or realistic visual style to see it: "
             "autocad_set_3d_view(visual_style='realistic')."
         )
+        return payload
+
+    return dumps(await run(work))
+
+
+# Names AutoCAD keeps for itself in every drawing's material list.
+RESERVED_MATERIALS = ("global", "bylayer", "byblock")
+
+
+def image_path(value: str | None, name: str) -> str | None:
+    """An image file on this PC, as a full path, or a refusal that says what is wrong."""
+    if value is None or not value.strip():
+        return None
+    path = os.path.normpath(os.path.abspath(os.path.expanduser(value.strip())))
+    if not path.lower().endswith(IMAGE_EXTENSIONS):
+        raise AutocadError(
+            f"'{path}' is not an image AutoCAD takes for {name}: use "
+            + ", ".join(IMAGE_EXTENSIONS) + "."
+        )
+    if not os.path.isfile(path):
+        raise AutocadError(f"There is no file at '{path}' for {name}.")
+    return path
+
+
+@mcp.tool(name="autocad_create_material", **tool_meta("Create A Material"))
+@tool_errors
+async def autocad_create_material(
+    name: Annotated[
+        str,
+        Field(min_length=1, description="The material's name, e.g. 'Laterite Stone', 'Teak Veneer', 'LED Strip 3000K'."),
+    ],
+    diffuse_rgb: Annotated[
+        list[int] | None,
+        Field(default=None, description="Its colour, [red, green, blue] 0-255, e.g. [196, 98, 45] for laterite. Omit to take the object's own colour, or with a texture."),
+    ] = None,
+    texture: Annotated[
+        str | None,
+        Field(default=None, description="An image laid on the surface (wood grain, stone, tiles): a full path to a .jpg, .png, .tif or .bmp on this PC."),
+    ] = None,
+    glossiness: Annotated[
+        float | None,
+        Field(default=None, ge=0, le=1, description="0 matt (plaster, laterite) to 1 mirror-polished (granite, glazed tile)."),
+    ] = None,
+    reflectivity: Annotated[
+        float | None,
+        Field(default=None, ge=0, le=1, description="How much it reflects its surroundings: 0 none, 0.1 polished floor, 0.9 a mirror."),
+    ] = None,
+    transparency: Annotated[
+        float | None,
+        Field(default=None, ge=0, le=1, description="0 solid, 1 fully clear. Clear glass about 0.9, frosted about 0.5."),
+    ] = None,
+    refraction_index: Annotated[
+        float | None,
+        Field(default=None, ge=1, le=5, description="With transparency: how it bends light. Glass 1.5, water 1.33."),
+    ] = None,
+    luminance: Annotated[
+        float | None,
+        Field(default=None, ge=0, le=1_000_000, description="Makes it glow, in cd/m² (self-illumination): an LED strip about 1000-3000, a lit panel about 500."),
+    ] = None,
+    glow_kelvin: Annotated[
+        float | None,
+        Field(default=None, ge=KELVIN_MIN, le=KELVIN_MAX, description="The white it glows in: 2700-3000 warm, 4000 neutral, 6500 daylight. Sets the colour, so give this or diffuse_rgb."),
+    ] = None,
+    bump: Annotated[
+        str | None,
+        Field(default=None, description="A greyscale image for a raised or rough surface (stone joints, rough plaster): full path, as texture."),
+    ] = None,
+    bump_amount: Annotated[
+        float,
+        Field(default=0.3, ge=0, le=1, description="How strong the bump is, 0-1."),
+    ] = 0.3,
+    metallic: Annotated[bool, Field(default=False, description="Shade it as a metal (steel, brass, aluminium).")] = False,
+    description: Annotated[str | None, Field(default=None, description="A line saying what it is, shown in AutoCAD's Materials Browser.")] = None,
+    replace: Annotated[
+        bool,
+        Field(default=False, description="Change a material of this name that is already in the drawing; everything using it changes too."),
+    ] = False,
+) -> str:
+    """Make a material in this drawing from its look: colour, texture, gloss, glass, glow.
+
+    For renders and realistic views: laterite walls, teak doors, granite
+    floors, glass, and glowing LED strips. Once made, autocad_apply_material
+    puts it on objects straight away.
+
+    Only the settings given are written; everything else keeps AutoCAD's
+    default. Texture and bump images are sized by AutoCAD's own mapping: set
+    the real size of a tile or a plank in the Materials Editor afterwards.
+
+    A glow (luminance) takes the material's colour: AutoCAD's API has no
+    separate glow colour, so glow_kelvin sets the colour to that white.
+
+    One undo step. Done by Heron's plug-in in AutoCAD (COM cannot set a
+    material's colour, maps or glow).
+
+    Args:
+        name (str): the material's name.
+        diffuse_rgb (Optional[list[int]]): its colour.
+        texture (Optional[str]): image laid on the surface.
+        glossiness / reflectivity / transparency (Optional[float]): 0-1.
+        refraction_index (Optional[float]): glass 1.5.
+        luminance (Optional[float]): glow, cd/m².
+        glow_kelvin (Optional[float]): the white it glows in.
+        bump (Optional[str]), bump_amount (float): a rough surface.
+        metallic (bool): shade as metal.
+        description (Optional[str]): a line saying what it is.
+        replace (bool): change one that is already there.
+
+    Returns:
+        str: JSON: {"created" | "replaced": true, "name": str, "handle": str,
+             "set": [str], "in_drawing": bool, "next": str}
+
+    Examples:
+        - Use when: "make a laterite stone material for the boundary wall" —
+          diffuse_rgb=[178, 84, 52], glossiness=0.1, and a texture if there is
+          a photo of the stone.
+        - Use when: "make the window glass" — transparency=0.9,
+          refraction_index=1.5, reflectivity=0.1.
+        - Use when: "the cove LED strip must glow warm white in the night
+          render" — luminance=2000, glow_kelvin=3000.
+        - Use when: "make a teak wood material from this image" —
+          texture='D:/Textures/teak.jpg'.
+        - Don't use when: the material is already in the drawing — apply it
+          with autocad_apply_material (autocad_list_materials lists them).
+        - Don't use when: the room must actually be lit — a glowing material
+          lights little around it; add lights with autocad_add_light.
+
+    Error Handling:
+        - A name already in the drawing is refused unless replace=true.
+        - An image path that is not there, or not an image, is refused.
+        - Both diffuse_rgb and glow_kelvin is refused: the glow takes the
+          colour.
+        - Needs the Heron plug-in 1.4.0 or newer in AutoCAD.
+    """
+    clean = validate_name(name, "material")
+    if clean.lower() in RESERVED_MATERIALS:
+        raise AutocadError(f"'{clean}' is AutoCAD's own material name. Choose another.")
+    colour = check_rgb(diffuse_rgb, "diffuse_rgb")
+    if colour is not None and glow_kelvin is not None:
+        raise AutocadError(
+            "Give diffuse_rgb or glow_kelvin, not both: the glow takes the material's colour, "
+            "so glow_kelvin sets that colour."
+        )
+    if glow_kelvin is not None:
+        colour = kelvin_to_rgb(glow_kelvin)
+    if refraction_index is not None and not transparency:
+        raise AutocadError("refraction_index bends light through a clear material: give transparency too.")
+    image = image_path(texture, "texture")
+    rough = image_path(bump, "bump")
+
+    def work() -> dict[str, Any]:
+        doc = get_doc()
+        require_idle(doc)
+        args: dict[str, Any] = {
+            "name": clean,
+            "diffuse_rgb": colour,
+            "texture": image,
+            "glossiness": glossiness,
+            "reflectivity": reflectivity,
+            "opacity": None if transparency is None else round(1.0 - float(transparency), 9),
+            "refraction_index": refraction_index,
+            "luminance": luminance,
+            "bump": rough,
+            "bump_amount": float(bump_amount) if rough else None,
+            "metallic": True if metallic else None,
+            "description": description.strip() if description and description.strip() else None,
+            "replace": bool(replace),
+        }
+        report = in_plugin("create_material", args, "Making a material")
+        # Read it back the way autocad_apply_material will look for it.
+        there = match_name(clean, material_names(doc)) is not None
+        payload: dict[str, Any] = dict(report)
+        payload["in_drawing"] = there
+        if glow_kelvin is not None:
+            payload["glow_rgb"] = colour
+        if there:
+            payload["next"] = (
+                f"Apply it with autocad_apply_material(material='{clean}', ...), then look at it "
+                "with autocad_set_3d_view(visual_style='realistic')."
+            )
+        else:
+            payload["warning"] = (
+                f"Heron in AutoCAD made '{clean}', but it could not be read back from the drawing's "
+                "material list straight away. Check autocad_list_materials; do not make it again."
+            )
         return payload
 
     return dumps(await run(work))

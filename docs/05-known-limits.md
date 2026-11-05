@@ -178,3 +178,20 @@ put OSMODE back. Never split an interactive command across two calls.
 **Since 2026-11-05 the server does both itself** (cancel and snaps off; NEEDS-CHECKING J4, NOT
 RUN). The rule still stands: a cancelled command did not finish, so `cancelled_command` in the
 result means the expression has to be written again, complete.
+
+## 22. Lights, materials and the saved 3D view have their own limits
+
+- `autocad_add_light` and `autocad_create_material` need plug-in **1.4.0** or newer; an older one
+  answers that it does not have the operation ([D-42](DECISIONS.md)). With `--no-bridge` they
+  cannot run.
+- Lights are photometric. They light as asked only with **LIGHTINGUNITS 2**; the tool warns, it
+  does not change it. They show in a render, or in the realistic visual style with
+  **DEFAULTLIGHTING 0**.
+- A light's name is unique in model space only; the same light inside a block repeats with every
+  insert, which is what a light block is for.
+- A material's texture and bump images are laid by AutoCAD's default mapping: the real size of a
+  tile or a plank is set afterwards in the Materials Editor or with MATERIALMAP.
+- A glowing material glows in its own colour: `glow_kelvin` sets that colour, so it cannot be
+  combined with `diffuse_rgb`. A glowing strip lights little around it; add lights for that.
+- `autocad_save_view(from_screen=true)` types `-VIEW _Save`, so a name with spaces is refused.
+- None of it is proven in AutoCAD yet ([NEEDS-CHECKING group K](NEEDS-CHECKING.md)).
