@@ -46,6 +46,16 @@ public class RunTests
         Assert.Empty(_host.Runs);
     }
 
+    [Theory]
+    [InlineData("add_light")]
+    [InlineData("create_material")]
+    public void A_light_or_a_material_is_refused_inside_a_read_job(string operation)
+    {
+        Begin("read");
+        Assert.False(Run(operation).GetProperty("ok").GetBoolean());
+        Assert.Empty(_host.Runs);
+    }
+
     [Fact]
     public void A_read_operation_runs_inside_a_read_job()
     {
@@ -140,7 +150,7 @@ public class RunTests
     {
         Assert.True(PluginOperations.TryLevel("solid_topology", out var read));
         Assert.Equal(Risk.Read, read);
-        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch" })
+        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material" })
         {
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Change, level);

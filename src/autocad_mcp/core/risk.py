@@ -122,6 +122,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "press_pull_faces",
         "thicken_surface",
         "super_hatch",
+        "add_light",
+        "create_material",
         "transform_3d",
         "apply_material",
         "draw_3d_path",

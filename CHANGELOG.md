@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Lights, materials and a saved 3D view for a render** ([D-42](docs/DECISIONS.md)); plug-in
+  **1.4.0**, two new tools, 128 in all (live rows group J, NOT RUN): `autocad_add_light` (a
+  photometric point, spot, web or distant light: lumens or candela, Kelvin or a colour, a spot's
+  cones, an IES file, on / off, shadows, name, layer; warns when LIGHTINGUNITS is not 2; done by the
+  plug-in) and `autocad_create_material` (a named material from its colour, texture image,
+  glossiness, reflectivity, transparency and refraction, glow in cd/m² and Kelvin, bump image,
+  metal shading; done by the plug-in, and `autocad_apply_material` takes it straight away).
+  `autocad_save_view(from_screen=true)` saves the view on screen, 3D angle included. Known limits
+  [05 §21](docs/05-known-limits.md#21-lights-materials-and-the-saved-3d-view-have-their-own-limits).
 - **From Autodesk's ADN-DevTech samples** ([D-41](docs/DECISIONS.md), [11](docs/11-adn-repos-study.md));
   plug-in **1.3.0**, three new tools, 126 in all (live rows group I, NOT RUN):
   `autocad_xref_tree` (every xref, nested ones under their parent, loaded / unloaded / not found,

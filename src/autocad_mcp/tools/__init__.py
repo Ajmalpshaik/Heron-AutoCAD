@@ -26,6 +26,7 @@ def register_all() -> None:
         geometry_tools,
         labels,
         layers,
+        lighting,
         materials,
         modify,
         patterns,

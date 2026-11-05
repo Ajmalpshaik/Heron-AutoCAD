@@ -23,7 +23,7 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/standards.py` | standards check, attribute extraction |
 | `tools/coordinates.py` | the UCS: read it, set it, convert points through it |
 | `tools/sheets.py` | layouts, page setup, title blocks, viewports |
-| `tools/views.py` | saved views: one named location, plotted and viewported |
+| `tools/views.py` | saved views: one named location, plotted and viewported, or the 3D view on screen |
 | `tools/settings.py` | drawing settings, text and dimension styles |
 | `tools/convert.py` | an import into a shop drawing: remap layers, tidy overrides |
 | `tools/sequence.py` | `autocad_sequence`: several tools in one call |
@@ -36,6 +36,8 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/solids.py` | 3D solids, extrude and revolve, booleans, mass properties, 3D views |
 | `tools/solid_edits.py` | loft, fillet and chamfer solid edges, shell, press-pull, thicken, and the face and edge list: done by the plug-in (`run`, D-40) |
 | `tools/superhatch.py` | super hatch with a block, done by the plug-in |
+| `tools/materials.py` | list, make (done by the plug-in) and apply materials; render |
+| `tools/lighting.py` | photometric lights, done by the plug-in |
 | `tools/publish.py` | several sheets in one PDF, done by the plug-in's publisher |
 | `tools/drawing_report.py` | one read of a whole received drawing: units, layers, blocks, xrefs, styles, sheets, counts |
 | `tools/resources.py` | MCP resources and prompts |

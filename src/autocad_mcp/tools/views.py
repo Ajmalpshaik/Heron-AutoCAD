@@ -20,6 +20,7 @@ area the modeller actually meant.
 
 from __future__ import annotations
 
+import time
 from typing import Annotated, Any
 
 from pydantic import Field
@@ -32,6 +33,11 @@ from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
 from ._shared import COORDS_OPT, ucs_for, world_coords
+
+# How long -VIEW gets to finish saving before a prompt still open means it did
+# not take the answer.
+VIEW_COMMAND_WAIT_S = 2.0
+VIEW_COMMAND_POLL_S = 0.1
 
 
 def _read(target: Any, name: str, default: Any = None) -> Any:
@@ -131,6 +137,16 @@ async def autocad_save_view(
         Field(default=False, description="Also put that area on screen, so the modeller sees what was saved."),
     ] = False,
     coords: Annotated[str, COORDS_OPT] = "world",
+    from_screen: Annotated[
+        bool,
+        Field(
+            default=False,
+            description=(
+                "Save exactly what is on screen now, 3D angle and all (a camera view for a "
+                "render), instead of a plan area. Give no corners or handles."
+            ),
+        ),
+    ] = False,
 ) -> str:
     """Name an area of the drawing so the same location can be plotted, viewported and found again.
 
@@ -141,6 +157,10 @@ async def autocad_save_view(
     One undo step. Windows given with coords='ucs' are converted to world
     coordinates first, so a rotated plan saves the area that was meant.
 
+    With from_screen=true it saves the view on screen as it is, a 3D angle
+    included, the way AutoCAD's VIEW command does (it types -VIEW Save), so a
+    render angle set with autocad_set_3d_view can be gone back to.
+
     Args:
         name (str): the location's name.
         corner1 / corner2 (Optional[list[float]]): the area.
@@ -149,6 +169,7 @@ async def autocad_save_view(
         replace (bool): overwrite a view already saved under this name.
         zoom_to (bool): put it on screen as well.
         coords (str): 'world' or 'ucs' for the corners.
+        from_screen (bool): save what is on screen, 3D angle included.
 
     Returns:
         str: JSON: {"saved": str, "replaced": bool, "view": {"name", "centre",
@@ -159,6 +180,8 @@ async def autocad_save_view(
           on it" — then autocad_export(area='view') and
           autocad_add_viewport(view_name=...).
         - Use when: "save the area round the pump skid" — handles + pad.
+        - Use when: "save this 3D angle of the villa as a camera view for the
+          render" — from_screen=true.
         - Don't use when: you only need the numbers once
           (autocad_get_extents gives them without saving anything).
 
@@ -167,14 +190,24 @@ async def autocad_save_view(
         - Objects that report no extents are named rather than silently skipped.
     """
     clean = validate_name(name, "view")
-    if (corner1 or corner2) and handles:
+    if from_screen:
+        if corner1 or corner2 or handles:
+            raise AutocadError("from_screen saves what is on screen: give no corners or handles with it.")
+        if " " in clean:
+            raise AutocadError(
+                f"'{clean}' has a space, which the typed VIEW command would take as the end of "
+                "the name. Use a name without spaces, e.g. 'LIVING-3D'."
+            )
+    elif (corner1 or corner2) and handles:
         raise AutocadError("Give either the two corners or the handles, not both.")
-    if not handles and not (corner1 and corner2):
+    elif not handles and not (corner1 and corner2):
         raise AutocadError("Say which area to save: corner1 and corner2, or handles.")
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        if from_screen:
+            return _save_screen(doc, clean, replace)
         ucs = ucs_for(doc, coords)
 
         if handles:
@@ -270,3 +303,70 @@ async def autocad_save_view(
         return result
 
     return dumps(await run(work))
+
+
+def _command_done(doc: Any) -> bool:
+    """Whether the typed command has finished, given a moment to do so."""
+    def busy() -> bool:
+        try:
+            return bool(int(doc.GetVariable("CMDACTIVE")))
+        except BaseException:  # noqa: BLE001 - unreadable: assume it finished
+            return False
+
+    deadline = time.monotonic() + VIEW_COMMAND_WAIT_S
+    while busy():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(VIEW_COMMAND_POLL_S)
+    return True
+
+
+def _save_screen(doc: Any, clean: str, replace: bool) -> dict[str, Any]:
+    """Save the view on screen as it is, 3D angle included, with AutoCAD's own -VIEW Save.
+
+    COM's Views.Add makes a view, but its direction and target have to be
+    written by hand and their meaning differs for a 3D view; -VIEW Save takes
+    everything AutoCAD itself keeps for the view on screen.
+    """
+    saved = _views(doc)
+    existing = next((v for k, v in saved.items() if k.lower() == clean.lower()), None)
+    if existing is not None and not replace:
+        raise AutocadError(
+            f"This drawing already has a view called '{clean}'. Pass replace=true to "
+            "overwrite it, or pick another name."
+        )
+    with undo_mark(doc):
+        if existing is not None:
+            try:
+                existing.Delete()
+            except BaseException as exc:  # noqa: BLE001
+                raise AutocadError(
+                    f"The view '{clean}' could not be replaced ({com_message(exc)}). "
+                    "Save under another name."
+                ) from exc
+        try:
+            doc.SendCommand(f"_.-VIEW _Save {clean}\n")
+        except BaseException as exc:  # noqa: BLE001
+            raise AutocadError(f"AutoCAD would not take the VIEW command: {com_message(exc)}") from exc
+        if not _command_done(doc):
+            try:
+                doc.SendCommand("\x1b\x1b")
+            except BaseException:  # noqa: BLE001 - the refusal below says what matters
+                pass
+            raise AutocadError(
+                f"AutoCAD's VIEW command did not finish saving '{clean}' and was cancelled. "
+                "Save it by hand: VIEW, New."
+                + (" The old view of that name was already removed." if existing is not None else "")
+            )
+    view = next((v for k, v in _views(doc).items() if k.lower() == clean.lower()), None)
+    if view is None:
+        raise AutocadError(
+            f"AutoCAD's VIEW command ran, but no view called '{clean}' is in the drawing. "
+            "Save it by hand: VIEW, New."
+        )
+    return {
+        "saved": clean,
+        "replaced": existing is not None,
+        "from": "the screen",
+        "view": _describe(view),
+    }
