@@ -130,6 +130,33 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-42 - Lights and materials are made by the plug-in; a 3D view is saved by typing -VIEW
+
+**Decided:** 2026-11-05, for Ajmal's villa model: materials that look like the renders, and real
+lights inside light blocks for a night render. **Status:** in force; extends D-40.
+`autocad_add_light` and `autocad_create_material` are two more plug-in operations (`add_light`,
+`create_material`, at **Changes**; plug-in **1.4.0**). Three routes were weighed. **COM** has no
+light object at all, and its material object has only a name and a description: no colour, maps,
+gloss or glow. **AutoLISP** could `entmake` a LIGHT, but its group codes are thinly documented and
+a material's colour and maps live in nested dictionaries with no LISP call to set them; typing the
+LIGHT or MATERIALS commands means answering prompts that change between releases. The **.NET API**
+has `Light` and `Material` classes with every setting typed and the same in all three reference
+packages (24.0, 25.0, 26.0, checked member by member), so that is the route: one object, every
+setting, one transaction, as D-40 does. Lights are made in model space; `autocad_make_block`
+copies them into a block like any object (COM `CopyObjects` deep-clones whatever it is given), so
+a light block lights every insert. Light names are unique in model space, as AutoCAD's LIGHT
+keeps them. A coloured light is a 6500 K lamp behind a filter colour. A material glows in its own
+colour (the API has no separate glow colour), so `glow_kelvin` sets the colour to that white.
+Only the settings asked for are written, and only their channels switched on, so a replace never
+turns on, say, an empty transparency. A texture's mapping is left to inherit (AutoCAD's default,
+adjusted with MATERIALMAP): its real-world size is not set, because how the API's mapper
+transform reads is not proven. The tool reads LIGHTINGUNITS and warns when it is not 2; it does
+not change it. `autocad_save_view(from_screen=true)` types `-VIEW _Save` over COM, as
+`autocad_set_3d_view` types VSCURRENT (D-35): COM's `Views.Add` needs the direction, target and
+twist written by hand, and a 3D view's numbers are not proven. Rejected: a general "set any
+property" request (D-40's reason), and changing LIGHTINGUNITS or DEFAULTLIGHTING behind the
+modeller's back.
+
 ## D-41 - What was taken from Autodesk's ADN-DevTech samples, and how
 
 **Decided:** 2026-11-04, on Ajmal's "take everything useful from these repositories into Heron".

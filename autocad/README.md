@@ -23,6 +23,7 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `PluginRunner.cs` | The plug-in's own operations ([D-40](../docs/DECISIONS.md)): right drawing, document lock, one transaction, refusals that say "Nothing was changed." |
 | `SolidOperations.cs` | Loft, fillet / chamfer edges, shell, press-pull, thicken, and the numbered faces and edges (Brep) |
 | `SuperHatch.cs` | A block tiled in a grid, inserted once and clipped to an outline like XCLIP |
+| `RenderSetup.cs` | Photometric lights and materials made from their settings ([D-42](../docs/DECISIONS.md)) |
 | `IdleQueue.cs` | Gets pipe-thread work onto AutoCAD's main thread through `Application.Idle` |
 | `UndoSwitch.cs` | Undo recording off while a read runs, back on after, with safety nets (rules: `Bridge/UndoPause.cs`, [D-34](../docs/DECISIONS.md)) |
 | `HeronActivityBanner.cs` | The READING / CHANGING / DONE / STOPPED card, on its own thread |

@@ -88,6 +88,16 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 - [ ] `autocad_draw_multiline` close with a mitred corner (MLINE's own Close) - needs the plug-in.
 - [ ] `autocad_draw_spline` by control points, and editing a spline's fit points.
 
+## Asked for on 2026-11-05 (villa model, render)
+
+- [x] **Lights** (point, spot, web, distant) and **materials** made from their settings:
+  `autocad_add_light`, `autocad_create_material`, done by the plug-in (D-42). Live rows K1-K12 NOT RUN.
+- [x] Save a **3D view** as a named view: `autocad_save_view(from_screen=true)`. Live row K13 NOT RUN.
+- [ ] A material texture's **real-world size** (a 600 x 600 tile, a 150 plank): needs the mapper
+  transform proven live first (D-42).
+- [ ] List and switch lights (the Lights in Model palette), and turn the sun and DEFAULTLIGHTING
+  on and off, from the chat.
+
 ## Server
 
 - [x] Dynamic blocks: read and set properties (`autocad_get/set_dynamic_properties`). Authoring

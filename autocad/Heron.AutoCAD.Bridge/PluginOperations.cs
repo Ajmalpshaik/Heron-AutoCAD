@@ -19,6 +19,8 @@ namespace Heron.AutoCAD.Bridge
             ["press_pull"] = Risk.Change,
             ["thicken"] = Risk.Change,
             ["super_hatch"] = Risk.Change,
+            ["add_light"] = Risk.Change,
+            ["create_material"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 
