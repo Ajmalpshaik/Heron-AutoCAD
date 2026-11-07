@@ -265,9 +265,9 @@ plug-in installed.
 
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
-| J1 | Banner on. `autocad_run_lisp('(command "_.CAMERA")')` so AutoCAD is left at the camera prompt; when the call fails, press Esc. Then `autocad_zoom(mode="extents")` | The zoom's card shows DONE and **closes about 1.4 s later**; it does not stay on screen | NOT RUN |
-| J2 | Ten quick reads in a row (`autocad_status` x10) | Each card closes after its DONE; no card is left showing at the end | NOT RUN |
-| J3 | `autocad_add_solid` a 500 x 700 x 160 box, then `autocad_fillet_solid_edges(box, radius=60, edges="all")`; also `autocad_list_solid_faces_and_edges(box)` | The box rounded on every edge, volume down; the listing gives 6 faces and 12 edges. No "BoundaryRepresentation.Exception" | NOT RUN |
+| J1 | Banner on. `autocad_run_lisp('(command "_.CAMERA")')` so AutoCAD is left at the camera prompt; when the call fails, press Esc. Then `autocad_zoom(mode="extents")` | The zoom's card shows DONE and **closes about 1.4 s later**; it does not stay on screen | PASS 2026-11-05, AutoCAD 2027: the zoom's card closed by itself after DONE (user's eye). The CAMERA prompt was answered by hand, not Esc; old server code, which J1 does not depend on |
+| J2 | Ten quick reads in a row (`autocad_status` x10) | Each card closes after its DONE; no card is left showing at the end | PASS 2026-11-05, AutoCAD 2027: 10 x autocad_status all answered; no card left showing (user's eye) |
+| J3 | `autocad_add_solid` a 500 x 700 x 160 box, then `autocad_fillet_solid_edges(box, radius=60, edges="all")`; also `autocad_list_solid_faces_and_edges(box)` | The box rounded on every edge, volume down; the listing gives 6 faces and 12 edges. No "BoundaryRepresentation.Exception" | PASS 2026-11-05, AutoCAD 2027: box 56,000,000 -> 52,086,512.24 after R60 on all 12 edges (formula gives 52,086,512.3); listing 6 faces / 12 edges before, 26 / 48 after; no BoundaryRepresentation error |
 | J4 | `autocad_run_lisp('(command "_.CAMERA" "0,0,0" "1,1,1")')` with running snaps on | Returns at once with `cancelled_command: "CAMERA"`; AutoCAD is free (no prompt left), the next call works, OSMODE is as it was | NOT RUN |
 | J5 | `autocad_create_layout(name="J5", paper_size="A3")` on this PC | The sheet made with the PDF plotter; if it fails, the error says the layout was not kept and the Layout tabs show no J5 | NOT RUN |
 | J6 | On a layout with PlotRotation 90, `autocad_preview` | The picture upright, as on screen; Page Setup still shows 90 afterwards | NOT RUN |
