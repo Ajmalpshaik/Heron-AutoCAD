@@ -26,11 +26,15 @@ namespace Heron.AutoCAD.Addin
         public const string DoneTitle = "Heron AI has finished";
         public const string StoppedTitle = "Heron AI stopped";
 
-        private static readonly Color Card = Rgb(0x23, 0x26, 0x29);
-        private static readonly Color Reading = Rgb(0x2F, 0x9B, 0xE3);
-        private static readonly Color Changing = Rgb(0xF0, 0xA3, 0x2C);
-        private static readonly Color Done = Rgb(0x4C, 0xC3, 0x8A);
-        private static readonly Color Stopped = Rgb(0xE5, 0x53, 0x4B);
+        // Heron brand (HeronBrand): Ink glass at 92 %, as Heron's Revit banner.
+        // Reading is quiet Mist, Changing is the Accent to look at, then Success
+        // or Error. Chip text is White on Accent (the brand's rule), Ink elsewhere.
+        private static readonly Color Card = HeronBrand.At(HeronBrand.Ink, 0xEB);
+        private static readonly Color Rim = HeronBrand.At(HeronBrand.Mist, 0x24);
+        private static readonly Color Reading = HeronBrand.Mist;
+        private static readonly Color Changing = HeronBrand.Accent;
+        private static readonly Color Done = HeronBrand.Success;
+        private static readonly Color Stopped = HeronBrand.Error;
         private static readonly TimeSpan HoldOutcome = TimeSpan.FromMilliseconds(1400);
 
         private readonly IntPtr _owner;
@@ -59,7 +63,8 @@ namespace Heron.AutoCAD.Addin
                 _hide?.Stop();
                 _started = DateTime.Now;
                 _jobText = job.Summary;
-                Paint(changing ? ChangingTitle : ReadingTitle, changing ? "CHANGING" : "READING", changing ? Changing : Reading);
+                if (changing) Paint(ChangingTitle, "CHANGING", Changing, HeronBrand.White);
+                else Paint(ReadingTitle, "READING", Reading, HeronBrand.Ink);
                 _drawing!.Text = string.IsNullOrEmpty(job.Drawing) ? "No drawing open" : System.IO.Path.GetFileName(job.Drawing);
                 Tick();
                 Place();
@@ -74,18 +79,19 @@ namespace Heron.AutoCAD.Addin
             Run(() =>
             {
                 _clock!.Stop();
-                if (end.Ok) Paint(DoneTitle, "DONE", Done);
-                else Paint(StoppedTitle, "STOPPED", Stopped);
+                if (end.Ok) Paint(DoneTitle, "DONE", Done, HeronBrand.Ink);
+                else Paint(StoppedTitle, "STOPPED", Stopped, HeronBrand.Ink);
                 _job!.Text = string.IsNullOrEmpty(end.Summary) ? _jobText : end.Summary;
                 _hide!.Stop();
                 _hide.Start();
             });
         }
 
-        private void Paint(string title, string chip, Color color)
+        private void Paint(string title, string chip, Color color, Color chipText)
         {
             _title!.Text = title;
             _chip!.Text = chip;
+            _chip.Foreground = new SolidColorBrush(chipText);
             _chipBox!.Background = new SolidColorBrush(color);
             _lamp!.Fill = new SolidColorBrush(color);
         }
@@ -138,11 +144,11 @@ namespace Heron.AutoCAD.Addin
             var pulse = new DoubleAnimation(1.0, 0.35, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
             _lamp.BeginAnimation(UIElement.OpacityProperty, pulse);
 
-            _title = Text(15, FontWeights.SemiBold, Colors.White);
-            _chip = Text(11, FontWeights.Bold, Colors.White);
+            _title = Text(15, FontWeights.SemiBold, HeronBrand.Mist);
+            _chip = Text(11, FontWeights.Bold, HeronBrand.Ink);
             _chipBox = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(7, 2, 7, 2), Margin = new Thickness(10, 0, 0, 0), Child = _chip, VerticalAlignment = VerticalAlignment.Center };
-            _drawing = Text(12, FontWeights.Normal, Rgb(0xC9, 0xD1, 0xD9));
-            _job = Text(12, FontWeights.Normal, Rgb(0x9A, 0xA4, 0xAE));
+            _drawing = Text(12, FontWeights.Normal, HeronBrand.At(HeronBrand.Mist, 0xB8));
+            _job = Text(12, FontWeights.Normal, HeronBrand.At(HeronBrand.Mist, 0x8C));
 
             var head = new StackPanel { Orientation = Orientation.Horizontal };
             head.Children.Add(_title);
@@ -173,7 +179,7 @@ namespace Heron.AutoCAD.Addin
                     CornerRadius = new CornerRadius(10),
                     Padding = new Thickness(18, 12, 18, 12),
                     Child = row,
-                    BorderBrush = new SolidColorBrush(Rgb(0x3A, 0x3F, 0x44)),
+                    BorderBrush = new SolidColorBrush(Rim),
                     BorderThickness = new Thickness(1),
                 },
             };
@@ -206,9 +212,7 @@ namespace Heron.AutoCAD.Addin
         }
 
         private static TextBlock Text(double size, FontWeight weight, Color color) =>
-            new TextBlock { FontSize = size, FontWeight = weight, Foreground = new SolidColorBrush(color), FontFamily = new FontFamily("Segoe UI") };
-
-        private static Color Rgb(byte r, byte g, byte b) => Color.FromRgb(r, g, b);
+            new TextBlock { FontSize = size, FontWeight = weight, Foreground = new SolidColorBrush(color), FontFamily = new FontFamily(HeronBrand.FontList) };
 
         private const int GwlExStyle = -20;
         private const int WsExTransparent = 0x20, WsExToolWindow = 0x80, WsExLayered = 0x80000, WsExNoActivate = 0x8000000;

@@ -49,7 +49,7 @@ namespace Heron.AutoCAD.Addin
                 "No commands, AutoLISP or system-variable changes."));
             body.Children.Add(HeronUi.Card("Ask to Keep", config.AskBeforeKeeping,
                 "After each change Heron asks: keep it, or discard it.",
-                "Changes are kept at once, still as one undo step."));
+                "Changes are kept at once, still as one undo step.", onIsSafe: true));
 
             var details = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
             if (state == HeronBridgeState.Connected && server != null)

@@ -130,6 +130,21 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-43 - Heron's windows wear the Heron brand; the release has its own Remove button
+
+**Decided:** 2026-11-08, in the tidy-and-release round Ajmal asked for after the same round on Heron AI.
+**Status:** in force.
+The status window, the keep question and the activity banner now take every colour from the Heron
+palette (Heron AI `docs/brand/README.md`): Mist windows, Ink text, Accent for the focused choice and
+the CHANGING chip, Success and Error for DONE and STOPPED, Ink glass at 92 % for the banner as in
+Revit. Shades are those colours at an opacity, never new ones; `HeronBrand` in `HeronUi.cs` holds
+them and `tests/test_brand_and_installer.py` fails on any other value. Manrope is first in the font
+list, with Segoe UI behind it until Manrope ships. A padlock that lets Heron change the drawing
+shows ON in Error (the brand's "state to notice"), not green; Ask to Keep, whose ON is the safe side,
+shows ON in Success. The release zip gains `Uninstall.bat`, which lists what it removes and asks
+before removing anything; refusals say what to do in plain words, and a `claude` error line no
+longer stops a first install on Windows PowerShell 5.1.
+
 ## D-42 - Lights and materials are made by the plug-in; a 3D view is saved by typing -VIEW
 
 **Decided:** 2026-11-05, for Ajmal's villa model: materials that look like the renders, and real

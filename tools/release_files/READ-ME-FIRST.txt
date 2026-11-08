@@ -24,7 +24,8 @@ What it changes (your Windows user only)
   No registry, no services, no firewall rules, no network ports.
 
 Remove it
-  Close AutoCAD, then run Install.bat from a command window with the word: uninstall
+  Close AutoCAD, then double-click Uninstall.bat. It shows what it removes and asks
+  before removing anything. Keep this folder so Uninstall.bat is at hand.
 
 Windows SmartScreen or company antivirus may warn about autocad-mcp.exe because it is
 not code-signed. If your IT team blocks it, ask them to allow that file.
