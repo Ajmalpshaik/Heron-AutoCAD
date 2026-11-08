@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Fix: the heron stays on top after Free this AutoCAD or Bridge Status.** AutoCAD makes a pick
+  from the Heron menu the button's current item only after the pick has run, so the heron put back
+  inside the pick was overwritten and "Free this AutoCAD" stayed on top; picking Heron to get it
+  back disconnected (live, 2026-11-08). The ribbon now watches the button and puts the heron back
+  once AutoCAD has finished with the click. Live row L12.
 - **Fix: the Heron button connects again.** #21 set the Heron split button to
   `IsSynchronizedWithCurrentItem = false` to copy Revit; AutoCAD then runs the button's own (empty)
   action, so pressing Heron did nothing and only Bridge Status -> Connect worked. Back to `true`;
