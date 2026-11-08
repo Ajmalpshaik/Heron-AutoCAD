@@ -24,7 +24,7 @@ ADDIN_BIN = ROOT / "autocad" / "Heron.AutoCAD.Addin" / "bin" / "Release"
 DIST = ROOT / "dist"
 BUNDLE = "HeronAutoCAD.bundle"
 MODULE = "Heron.AutoCAD.Addin.dll"
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 # (target framework, Contents folder, SeriesMin, SeriesMax, which AutoCADs)
 SERIES = (

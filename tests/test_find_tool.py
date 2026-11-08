@@ -140,6 +140,7 @@ CASES = [
     ("add an IES web light for the bedroom", "autocad_add_light"),
     ("make a laterite stone material for the wall", "autocad_create_material"),
     ("make the cove LED strip glow in the night render", "autocad_create_material"),
+    ("make a walnut veneer material with the grain at 1 m", "autocad_create_material"),
     ("save this 3D angle as a camera view for the render", "autocad_save_view"),
 ]
 

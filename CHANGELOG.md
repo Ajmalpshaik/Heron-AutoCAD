@@ -8,6 +8,13 @@ Newest first. Dates are when the change was made.
   `IsSynchronizedWithCurrentItem = false` to copy Revit; AutoCAD then runs the button's own (empty)
   action, so pressing Heron did nothing and only Bridge Status -> Connect worked. Back to `true`;
   Bridge Status and Free this AutoCAD put the heron back on top afterwards. Live row L11.
+- **A material's texture gets its real size** ([D-46](docs/DECISIONS.md)); plug-in **1.4.1**.
+  `autocad_create_material` takes `texture_size` (the real width of one image tile, in drawing
+  units) and `texture_height` for a non-square image. The plug-in writes the texture's and the bump's
+  map transform with 1/size on the diagonal, the fix done by hand with entmod on 2026-11-08 (walnut
+  at 1000 mm, marble at 2000 mm). Without a size nothing changes, but the result now warns that the
+  image repeats every 1 unit; with a size, an older plug-in that ignores it is warned about too.
+  Matrix tested offline (`TextureScaleTests.cs`); live row K15 NOT RUN.
 - **Every Heron window and the banner as in Heron for Revit** ([D-45](docs/DECISIONS.md)): the
   activity banner is Revit's status bar (glass card, sheen, turning aura, glow, slide in and out;
   "Heron AI · Changing" with the drawing, the job and the time; Done in green, Needs attention in

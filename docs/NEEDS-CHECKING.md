@@ -295,6 +295,7 @@ offline (`tests/test_render_setup.py`, `tests/test_make_block.py`, `RunTests.cs`
 | K12 | `autocad_create_material` with a name already there, then again with `replace=true` | Refused the first time; the second changes it, and objects already using it change too | NOT RUN |
 | K13 | `autocad_set_3d_view(view='southwest')`, orbit a little, then `autocad_save_view(name='LIVING-3D', from_screen=true)`; zoom away; VIEW, restore LIVING-3D | The 3D angle comes back exactly; `autocad_list_views` shows it with `plan: false` | NOT RUN |
 | K14 | K1-K13 on AutoCAD 2025/2026 and 2021-2024 | As K1-K13 | NO MACHINE |
+| K15 | Plug-in **1.4.1**, a mm drawing. `autocad_create_material(name='Walnut', texture=<Autodesk library walnut .jpg>, texture_size=1000)` and `(name='Marble', texture=<library marble>, texture_size=2000)`; apply each to a box 2000 x 2000 x 2000; realistic view, then a render. Then `(name='Tile', texture=<a tile .jpg>, bump=<same>, texture_size=600, texture_height=300, replace=true)` on the same box | Walnut grain and marble veining show, not flat colour; the result has `texture_size` and no warning; `(dictsearch (cdr (assoc -1 (dictsearch (namedobjdict) "ACAD_MATERIAL"))) "Walnut")` shows the diffuse group-43 diagonal 0.001 / 0.0005 and 1 at the end, as the hand fix of 2026-11-08. For the tile: 600 across, 300 up the side faces; record which way the X-facing faces lay it. Made without `texture_size`, the result warns "texture size not set" | NOT RUN |
 
 ## Group L - Ribbon, Settings window, icons and brand colours (AutoCAD 2027, this PC)
 
