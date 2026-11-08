@@ -130,6 +130,20 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-44 - The padlocks live in a Settings window; the ribbon icons are Heron's brand set
+
+**Decided:** 2026-11-08, on Ajmal's word (in Revit the icons changed and the on/off switches moved
+into a window; do the same here). **Status:** in force; follows Heron AI's D-150.
+The Heron tab has two buttons: **Heron** (connect, Bridge Status under the arrow) and **Settings**.
+The four switches - Changes, Admin, Publish, Ask to Keep, in Revit's order - left the ribbon for
+`HeronSettingsWindow`: per switch its padlock picture, its name, one line and the state as an
+ON / OFF button. Pressing it runs the same `HeronActions.TogglePadlock` as the old ribbon button, so
+the question on the way to the risky side and the settings file are unchanged, and the
+`HERONCHANGES`-style commands stay. The cost, accepted as in Revit: the ribbon no longer shows at a
+glance whether Changes is on; the banner and Bridge Status still do. The ribbon pictures are copied
+from Heron for Revit's `Resources` (brand set of 2026-11-07, plus `Settings.png`); the banner's
+on/off stays in the settings file, as no Revit switch matches it.
+
 ## D-43 - Heron's windows wear the Heron brand; the release has its own Remove button
 
 **Decided:** 2026-11-08, in the tidy-and-release round Ajmal asked for after the same round on Heron AI.

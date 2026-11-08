@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The ribbon and icons match Heron for Revit** ([D-44](docs/DECISIONS.md)): the Heron tab now has
+  two buttons, **Heron** (Bridge Status under its arrow) and **Settings**. The Changes, Admin,
+  Publish and Ask to Keep padlocks left the ribbon for the Settings window (`HERONSETTINGS`), each
+  with its padlock picture and an ON / OFF button. The 10 ribbon icons and the new Settings icon are
+  Heron for Revit's brand set of 2026-11-07. The refusals now say "press Settings on the Heron tab".
+  Live rows group L, NOT RUN.
+- **Installer Remove button and the Heron brand colours** ([D-43](docs/DECISIONS.md), #19):
+  `Uninstall.bat` asks before removing anything; installer refusals in plain words; a first install
+  no longer stops on Windows PowerShell 5.1 when `claude mcp remove` prints an error. The status
+  window, the keep question and the banner use the Heron palette, Manrope first.
+
 - **Lights, materials and a saved 3D view for a render** ([D-42](docs/DECISIONS.md)); plug-in
   **1.4.0**, two new tools, 128 in all (live rows group K, NOT RUN): `autocad_add_light` (a
   photometric point, spot, web or distant light: lumens or candela, Kelvin or a colour, a spot's

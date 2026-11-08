@@ -50,3 +50,23 @@ def test_release_scripts_use_windows_line_endings():
     for path in RELEASE.iterdir():
         data = path.read_bytes()
         assert data.count(b"\n") == data.count(b"\r\n"), f"{path.name}: needs CRLF line endings"
+
+
+def test_ribbon_is_heron_and_settings_and_the_padlocks_live_in_settings():
+    """D-44: the same layout as Heron for Revit."""
+    ribbon = (ADDIN / "HeronRibbon.cs").read_text(encoding="utf-8")
+    assert "HeronActions.ShowSettings" in ribbon
+    assert "TogglePadlock" not in ribbon, "a padlock is back on the ribbon"
+    window = (ADDIN / "HeronSettingsWindow.cs").read_text(encoding="utf-8")
+    for padlock in ("Padlock.Changes", "Padlock.Admin", "Padlock.Publish", "Padlock.AskToKeep"):
+        assert padlock in window
+    assert "HeronActions.TogglePadlock" in window, "Settings must run the same toggle, with its question"
+    commands = (ADDIN / "HeronCommands.cs").read_text(encoding="utf-8")
+    assert '"HERONSETTINGS"' in commands
+    assert (ADDIN / "Resources" / "Settings.png").is_file()
+
+
+def test_refusals_send_the_modeller_to_settings():
+    texts = (ROOT / "autocad" / "Heron.AutoCAD.Bridge" / "Texts.cs").read_text(encoding="utf-8")
+    assert "padlock on the Heron tab" not in texts
+    assert texts.count("press Settings on the Heron tab") == 3

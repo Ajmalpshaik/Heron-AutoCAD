@@ -91,7 +91,7 @@ connected. Build it (needs the .NET SDK), close AutoCAD, install, start AutoCAD:
 .venv\Scripts\python.exe tools/install_plugin.py
 ```
 
-The **Heron** tab appears on the ribbon. Press **Heron** to connect; turn on **Changes** when you want
+The **Heron** tab appears on the ribbon. Press **Heron** to connect; turn on **Changes** in **Settings** when you want
 Heron to draw. What every button does: [06](06-heron-plugin.md).
 
 ## 5. Connect Claude

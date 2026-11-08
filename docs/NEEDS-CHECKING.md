@@ -296,6 +296,21 @@ offline (`tests/test_render_setup.py`, `tests/test_make_block.py`, `RunTests.cs`
 | K13 | `autocad_set_3d_view(view='southwest')`, orbit a little, then `autocad_save_view(name='LIVING-3D', from_screen=true)`; zoom away; VIEW, restore LIVING-3D | The 3D angle comes back exactly; `autocad_list_views` shows it with `plan: false` | NOT RUN |
 | K14 | K1-K13 on AutoCAD 2025/2026 and 2021-2024 | As K1-K13 | NO MACHINE |
 
+## Group L - Ribbon, Settings window, icons and brand colours (AutoCAD 2027, this PC)
+
+Added on 2026-11-08 ([D-43](DECISIONS.md), [D-44](DECISIONS.md)). The add-in **compiles** for all
+three AutoCAD builds and the colours are checked offline (`tests/test_brand_and_installer.py`);
+**every row below is NOT RUN**.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| L1 | Start AutoCAD, open the Heron tab | Two buttons: **Heron** (black heron) and **Settings** (gear); no padlock buttons | NOT RUN |
+| L2 | Press **Heron** | The heron turns orange; the arrow shows Bridge Status | NOT RUN |
+| L3 | Press **Settings** | One Mist window: Changes, Admin, Publish, Ask to Keep, each with its padlock picture, one line and OFF | NOT RUN |
+| L4 | In Settings press Changes' OFF, answer Yes | The question comes first; then Changes shows a red ON and the open padlock; the window stays open | NOT RUN |
+| L5 | `autocad_draw_line` while Changes is on, then while it is off | On: the banner shows the orange CHANGING chip, then green DONE. Off: the refusal says "press Settings on the Heron tab" | NOT RUN |
+| L6 | Bridge Status and the Keep question (Ask to Keep on) | Mist background, Ink text; the focused choice has an orange border | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

@@ -43,22 +43,26 @@ press **Heron** on the ribbon.
 
 ## What you see in AutoCAD
 
-Ribbon tab **Heron**, panel **AI Bridge**:
+Ribbon tab **Heron**, panel **AI Bridge**, laid out as in Heron for Revit:
 
-| Button | Off (safe) | On |
+| Button | What it does |
+|---|---|
+| **Heron** | black heron: no chat can see this AutoCAD; orange heron: a chat can reach it. The arrow opens **Bridge Status** |
+| **Settings** | one window with the four switches below, each with its padlock picture and an ON / OFF button |
+
+| Switch in Settings | Off (safe) | On |
 |---|---|---|
-| **Heron** | dark heron: no chat can see this AutoCAD | lit heron: a chat can reach it. The arrow opens **Bridge Status** |
-| **Changes** | blue padlock: Heron can only read and look | red padlock: Heron may draw, modify and delete |
-| **Publish** | Heron may not save or export | Heron may save, export, plot |
-| **Admin** | no commands or AutoLISP | Heron may run commands, AutoLISP, system variables |
-| **Ask to Keep** | changes are kept at once | after each change: **Keep it / Discard it** |
+| **Changes** | Heron can only read and look | red ON: Heron may draw, modify and delete |
+| **Admin** | no commands or AutoLISP | red ON: Heron may run commands, AutoLISP, system variables |
+| **Publish** | Heron may not save or export | red ON: Heron may save, export, plot |
+| **Ask to Keep** | changes are kept at once | green ON: after each change, **Keep it / Discard it** |
 
 While Heron works, a small card at the top of AutoCAD says **"Heron AI is reading your drawing"**
-(blue) or **"Heron AI is changing your drawing"** (amber), then **finished** (green) or **stopped**
-(red). The command line keeps a line such as `Heron: Draw Line. Done in 0.4 s`.
+(light chip) or **"Heron AI is changing your drawing"** (orange), then **finished** (green) or
+**stopped** (red). The command line keeps a line such as `Heron: Draw Line. Done in 0.4 s`.
 
 Everything starts **off**. Turning a padlock on asks first; turning it off never asks. The same
-switches are commands: `HERON`, `HERONSTATUS`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
+switches are commands: `HERON`, `HERONSTATUS`, `HERONSETTINGS`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
 `HERONASKTOKEEP`. Full detail: [docs/06-heron-plugin.md](docs/06-heron-plugin.md).
 
 ## Parts

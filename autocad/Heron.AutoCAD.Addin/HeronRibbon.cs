@@ -9,9 +9,10 @@ using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
 namespace Heron.AutoCAD.Addin
 {
     /// <summary>
-    /// Tab "Heron", panel "AI Bridge": the Heron button (lit = connected),
-    /// the Changes / Publish / Admin padlocks and Ask to Keep. Each picture
-    /// is the state: blue and closed is off, red and open is on.
+    /// Tab "Heron", panel "AI Bridge", the same as Heron for Revit (D-44): the
+    /// Heron button (orange heron = connected) with Bridge Status under its
+    /// arrow, and Settings, the one window that holds the Changes / Admin /
+    /// Publish padlocks and Ask to Keep.
     ///
     /// AutoCAD rebuilds its ribbon when the workspace changes, which drops
     /// tabs added by code, so the tab is added again whenever it goes missing.
@@ -21,7 +22,7 @@ namespace Heron.AutoCAD.Addin
         public const string TabId = "HERON_AUTOCAD_TAB";
 
         private static RibbonSplitButton? _split;
-        private static RibbonButton? _connect, _status, _changes, _publish, _admin, _keep;
+        private static RibbonButton? _connect, _status, _settings;
 
         public static void Init()
         {
@@ -68,14 +69,10 @@ namespace Heron.AutoCAD.Addin
                 _split.Current = _connect;
                 source.Items.Add(_split);
 
-                _changes = Button("Changes off", () => HeronActions.TogglePadlock(Padlock.Changes));
-                _publish = Button("Publish off", () => HeronActions.TogglePadlock(Padlock.Publish));
-                _admin = Button("Admin off", () => HeronActions.TogglePadlock(Padlock.Admin));
-                _keep = Button("Ask to Keep off", () => HeronActions.TogglePadlock(Padlock.AskToKeep));
-                source.Items.Add(_changes);
-                source.Items.Add(_publish);
-                source.Items.Add(_admin);
-                source.Items.Add(_keep);
+                _settings = Button("Settings", HeronActions.ShowSettings);
+                _settings.LargeImage = IconLoader.Large("Settings");
+                _settings.Image = IconLoader.Small("Settings");
+                source.Items.Add(_settings);
 
                 ribbon.Tabs.Add(tab);
                 Repaint();
@@ -91,7 +88,6 @@ namespace Heron.AutoCAD.Addin
         {
             if (_connect == null) return;
             var running = HeronApplication.Server?.IsRunning == true;
-            var config = HeronApplication.LoadConfig();
             Paint(_connect, running, "BridgeConnected", "BridgeDisconnected", "Heron", "Heron");
             if (_split != null)
             {
@@ -99,12 +95,6 @@ namespace Heron.AutoCAD.Addin
                 _split.LargeImage = _connect.LargeImage;
                 _split.Image = _connect.Image;
             }
-            Paint(_changes!, config.WriteEnabled, "WriteUnlocked", "WriteLocked", "Changes ON", "Changes off");
-            Paint(_publish!, config.PublishEnabled, "PublishUnlocked", "PublishLocked", "Publish ON", "Publish off");
-            Paint(_admin!, config.AdminEnabled, "AdminUnlocked", "AdminLocked", "Admin ON", "Admin off");
-            var grant = HeronApplication.Server?.Protocol?.KeepGrantActive == true;
-            Paint(_keep!, config.AskBeforeKeeping, "KeepAsking", "KeepNotAsking",
-                grant ? "Keep: rest of job" : "Ask to Keep ON", "Ask to Keep off");
         }
 
         private static void Paint(RibbonButton button, bool on, string onIcon, string offIcon, string onText, string offText)

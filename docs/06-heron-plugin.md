@@ -5,17 +5,21 @@ What the modeller sees, what each switch allows, and how the plug-in and the ser
 
 ## 1. The ribbon
 
-Tab **Heron**, panel **AI Bridge**. Each picture *is* the state: **blue and closed = off and safe,
-red and open = on**.
+Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as Heron for Revit
+([D-44](DECISIONS.md)).
 
 | Button | What it does | Command |
 |---|---|---|
-| **Heron** (top half) | Connect, or disconnect. No pop-up when it works: the icon is the answer (lit = connected) | `HERON` |
+| **Heron** (top half) | Connect, or disconnect. No pop-up when it works: the icon is the answer (orange heron = connected, black = not) | `HERON` |
 | **Heron** (arrow) -> Bridge Status | The state, the padlocks, and Connect / Disconnect | `HERONSTATUS` |
+| **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep) | `HERONSETTINGS` |
+
+| Switch in Settings | What it does | Command |
+|---|---|---|
 | **Changes** | Allows drawing, modifying, layers, deleting | `HERONCHANGES` |
-| **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
 | **Admin** | Allows any command, AutoLISP, system variables, purge, audit (needs Changes) | `HERONADMIN` |
-| **Ask to Keep** | After each change, ask Keep or Discard. Shows **Keep: rest of job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
+| **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
+| **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
 
 - AutoCAD starts **disconnected** every time (unless `bridge.autoConnect` is set). Until you
   connect, a chat can learn only that AutoCAD is running and not connected: `autocad_status` returns
@@ -35,7 +39,7 @@ red and open = on**.
 | Not connected | **Not connected** | This AutoCAD is private. No chat can read your drawings or change them until you connect. | Connect this session, Close |
 | Did not start | **Heron did not start** | the error | Close, Open log folder |
 
-Below: one card per padlock (amber ON, grey OFF), then pipe, address file, process, AutoCAD, add-in
+Below: one card per padlock (red ON, green ON for Ask to Keep, grey OFF), then pipe, address file, process, AutoCAD, add-in
 and protocol versions. Close is always the default button, so Enter never disconnects.
 
 ## 3. The activity banner
