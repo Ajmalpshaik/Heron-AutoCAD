@@ -130,6 +130,26 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-45 - A texture's real size is written as the map transform's diagonal
+
+**Decided:** 2026-11-08, after the bedroom + bathroom model: 11 library textures all rendered as a
+flat colour until each material's diffuse map matrix was rewritten by hand. **Status:** in force;
+replaces D-42's "a texture's real-world size is not set".
+AutoCAD keeps a map's size in its 4x4 map transform (the material's 16 DXF group-43 values). A map
+made with the identity repeats the image every 1 drawing unit, 1 mm in a metric drawing, which
+renders as a flat colour. Setting indices 0, 5 and 10 to 1/size and 15 to 1 was proven by hand that
+day (walnut grain at 1000, marble at 2000), so `autocad_create_material(texture_size=...)` writes
+exactly that through the .NET API: a new `Gi.Mapper` with AutoCAD's default projection, tiling and
+auto-transform and only the transform changed (the API's `Transform` is read-only). The numbers
+come from `TextureScale` in the Bridge, so they are tested offline. The bump map takes the same
+size, as a photo and its bump image are the same tile. For a non-square image the width goes on X
+(index 0) and the height on Y and Z (5 and 10), so on a wall the image's height runs up the wall;
+which way a box mapping lays a face along X is **not proven**. Without a size the old behaviour
+stays (identity) and the result warns. Plug-in **1.4.1**, as an older plug-in ignores the input;
+the server warns when the plug-in's `set` does not list "texture size". Rejected: a default size
+(a 600 tile and a 2 m slab need different numbers, and a wrong guess looks right in a preview),
+and typing MATERIALMAP (sizes objects, not the material).
+
 ## D-44 - The padlocks live in a Settings window; the ribbon icons are Heron's brand set
 
 **Decided:** 2026-11-08, on Ajmal's word (in Revit the icons changed and the on/off switches moved

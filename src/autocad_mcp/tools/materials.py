@@ -288,6 +288,33 @@ def image_path(value: str | None, name: str) -> str | None:
     return path
 
 
+TEXTURE_SIZE_MAX = 1_000_000.0  # the plug-in's TextureScale.Largest
+TEXTURE_SIZE_WARNING = (
+    "Texture size not set: the image repeats every 1 unit (1 mm in a metric drawing), so it "
+    "renders as a flat colour. Make it again with replace=true and texture_size, the real width "
+    "of one image tile, e.g. 1000 for 1 m."
+)
+
+
+def check_texture_size(
+    width: float | None, height: float | None, has_image: bool
+) -> tuple[float, float] | None:
+    """(width, height) of one image tile in drawing units, or None when not given."""
+    if width is None:
+        if height is not None:
+            raise AutocadError("texture_height needs texture_size (the tile's width) too.")
+        return None
+    if not has_image:
+        raise AutocadError("texture_size sizes a texture or bump image: give texture or bump too.")
+    sizes = (float(width), float(height if height is not None else width))
+    for value in sizes:
+        if not (0 < value <= TEXTURE_SIZE_MAX):
+            raise AutocadError(
+                f"The texture size must be above zero and at most {TEXTURE_SIZE_MAX:.0f} drawing units."
+            )
+    return sizes
+
+
 @mcp.tool(name="autocad_create_material", **tool_meta("Create A Material"))
 @tool_errors
 async def autocad_create_material(
@@ -302,6 +329,24 @@ async def autocad_create_material(
     texture: Annotated[
         str | None,
         Field(default=None, description="An image laid on the surface (wood grain, stone, tiles): a full path to a .jpg, .png, .tif or .bmp on this PC."),
+    ] = None,
+    texture_size: Annotated[
+        float | None,
+        Field(
+            default=None, gt=0, le=TEXTURE_SIZE_MAX,
+            description=(
+                "The real width of one image tile, in drawing units, e.g. 1000 for a 1 m walnut "
+                "veneer photo in a mm drawing, 600 for a 600 mm floor tile. Sizes the bump image too. "
+                "Omit and the image repeats every 1 unit, which renders as a flat colour."
+            ),
+        ),
+    ] = None,
+    texture_height: Annotated[
+        float | None,
+        Field(
+            default=None, gt=0, le=TEXTURE_SIZE_MAX,
+            description="With texture_size, for an image that is not square: the real height of one tile. Omit for square.",
+        ),
     ] = None,
     glossiness: Annotated[
         float | None,
@@ -349,8 +394,12 @@ async def autocad_create_material(
     puts it on objects straight away.
 
     Only the settings given are written; everything else keeps AutoCAD's
-    default. Texture and bump images are sized by AutoCAD's own mapping: set
-    the real size of a tile or a plank in the Materials Editor afterwards.
+    default. Give a texture its real size with texture_size (the width of one
+    image tile in drawing units; texture_height too for a non-square image):
+    without it AutoCAD repeats the image every 1 unit (1 mm in a metric
+    drawing) and it renders as a flat colour, so the result warns. The same
+    size is used for the bump image. Width runs along X; height along Y and up
+    the walls (Z).
 
     A glow (luminance) takes the material's colour: AutoCAD's API has no
     separate glow colour, so glow_kelvin sets the colour to that white.
@@ -362,6 +411,8 @@ async def autocad_create_material(
         name (str): the material's name.
         diffuse_rgb (Optional[list[int]]): its colour.
         texture (Optional[str]): image laid on the surface.
+        texture_size (Optional[float]): real width of one image tile, drawing units.
+        texture_height (Optional[float]): real height of one tile, if not square.
         glossiness / reflectivity / transparency (Optional[float]): 0-1.
         refraction_index (Optional[float]): glass 1.5.
         luminance (Optional[float]): glow, cd/m².
@@ -373,7 +424,8 @@ async def autocad_create_material(
 
     Returns:
         str: JSON: {"created" | "replaced": true, "name": str, "handle": str,
-             "set": [str], "in_drawing": bool, "next": str}
+             "set": [str], "in_drawing": bool, "next": str,
+             "texture_size"?: [width, height], "warning"?: str}
 
     Examples:
         - Use when: "make a laterite stone material for the boundary wall" —
@@ -384,7 +436,12 @@ async def autocad_create_material(
         - Use when: "the cove LED strip must glow warm white in the night
           render" — luminance=2000, glow_kelvin=3000.
         - Use when: "make a teak wood material from this image" —
-          texture='D:/Textures/teak.jpg'.
+          texture='D:/Textures/teak.jpg', texture_size=1000.
+        - Use when: "walnut veneer, 1 m grain" — texture=<the walnut .jpg>,
+          texture_size=1000 in a mm drawing, so the grain shows instead of a
+          flat brown.
+        - Use when: "white marble floor, 2 m slab" or "600 x 300 wall tile" —
+          texture_size=2000, or texture_size=600 with texture_height=300.
         - Don't use when: the material is already in the drawing — apply it
           with autocad_apply_material (autocad_list_materials lists them).
         - Don't use when: the room must actually be lit — a glowing material
@@ -393,9 +450,12 @@ async def autocad_create_material(
     Error Handling:
         - A name already in the drawing is refused unless replace=true.
         - An image path that is not there, or not an image, is refused.
+        - texture_size without a texture or bump image, or texture_height
+          without texture_size, is refused.
         - Both diffuse_rgb and glow_kelvin is refused: the glow takes the
           colour.
-        - Needs the Heron plug-in 1.4.0 or newer in AutoCAD.
+        - Needs the Heron plug-in 1.4.0 or newer in AutoCAD; texture_size
+          needs 1.4.1 (an older one ignores it, and the result warns).
     """
     clean = validate_name(name, "material")
     if clean.lower() in RESERVED_MATERIALS:
@@ -412,6 +472,7 @@ async def autocad_create_material(
         raise AutocadError("refraction_index bends light through a clear material: give transparency too.")
     image = image_path(texture, "texture")
     rough = image_path(bump, "bump")
+    tile = check_texture_size(texture_size, texture_height, bool(image or rough))
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -427,6 +488,8 @@ async def autocad_create_material(
             "luminance": luminance,
             "bump": rough,
             "bump_amount": float(bump_amount) if rough else None,
+            "texture_size": tile[0] if tile else None,
+            "texture_height": tile[1] if tile and texture_height is not None else None,
             "metallic": True if metallic else None,
             "description": description.strip() if description and description.strip() else None,
             "replace": bool(replace),
@@ -438,16 +501,26 @@ async def autocad_create_material(
         payload["in_drawing"] = there
         if glow_kelvin is not None:
             payload["glow_rgb"] = colour
+        warnings: list[str] = []
+        if (image or rough) and tile is None:
+            warnings.append(TEXTURE_SIZE_WARNING)
+        elif tile is not None and "texture size" not in (report.get("set") or []):
+            warnings.append(
+                "Heron in AutoCAD did not set the texture size (a plug-in older than 1.4.1 ignores it), "
+                "so the image repeats every 1 unit. Update the plug-in, then make it again with replace=true."
+            )
         if there:
             payload["next"] = (
                 f"Apply it with autocad_apply_material(material='{clean}', ...), then look at it "
                 "with autocad_set_3d_view(visual_style='realistic')."
             )
         else:
-            payload["warning"] = (
+            warnings.append(
                 f"Heron in AutoCAD made '{clean}', but it could not be read back from the drawing's "
                 "material list straight away. Check autocad_list_materials; do not make it again."
             )
+        if warnings:
+            payload["warning"] = " ".join(warnings)
         return payload
 
     return dumps(await run(work))

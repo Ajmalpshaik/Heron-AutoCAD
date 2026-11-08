@@ -189,8 +189,10 @@ result means the expression has to be written again, complete.
   **DEFAULTLIGHTING 0**.
 - A light's name is unique in model space only; the same light inside a block repeats with every
   insert, which is what a light block is for.
-- A material's texture and bump images are laid by AutoCAD's default mapping: the real size of a
-  tile or a plank is set afterwards in the Materials Editor or with MATERIALMAP.
+- A material's texture and bump images take their real size from `texture_size` (plug-in
+  **1.4.1**, [D-45](DECISIONS.md)). Without it the image repeats every 1 drawing unit (1 mm in a
+  metric drawing) and renders as a flat colour; the result warns. A non-square image's height runs
+  along Y and up the walls; how a box mapping lays a face along X is not proven (K15).
 - A glowing material glows in its own colour: `glow_kelvin` sets that colour, so it cannot be
   combined with `diffuse_rgb`. A glowing strip lights little around it; add lights for that.
 - `autocad_save_view(from_screen=true)` types `-VIEW _Save`, so a name with spaces is refused.

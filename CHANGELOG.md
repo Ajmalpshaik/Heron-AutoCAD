@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A material's texture gets its real size** ([D-45](docs/DECISIONS.md)); plug-in **1.4.1**.
+  `autocad_create_material` takes `texture_size` (the real width of one image tile, in drawing
+  units) and `texture_height` for a non-square image. The plug-in writes the texture's and the bump's
+  map transform with 1/size on the diagonal, the fix done by hand with entmod on 2026-11-08 (walnut
+  at 1000 mm, marble at 2000 mm). Without a size nothing changes, but the result now warns that the
+  image repeats every 1 unit; with a size, an older plug-in that ignores it is warned about too.
+  Matrix tested offline (`TextureScaleTests.cs`); live row K15 NOT RUN.
 - **The ribbon and icons match Heron for Revit** ([D-44](docs/DECISIONS.md)): the Heron tab now has
   two buttons, **Heron** (Bridge Status under its arrow) and **Settings**. The Changes, Admin,
   Publish and Ask to Keep padlocks left the ribbon for the Settings window (`HERONSETTINGS`), each

@@ -85,12 +85,14 @@ class Plugin:
     def __init__(self, doc):
         self.calls: list[tuple[str, dict]] = []
         self.doc = doc
+        self.sizes = True  # False: an older plug-in (before 1.4.1) that ignores texture_size
 
     def __call__(self, operation, args):
         self.calls.append((operation, args))
         if operation == "create_material":
             self.doc.Materials.names.append(args["name"])
-            return {"created": True, "name": args["name"], "handle": "4C", "set": ["diffuse colour"]}
+            done = ["diffuse colour"] + (["texture size"] if "texture_size" in args and self.sizes else [])
+            return {"created": True, "name": args["name"], "handle": "4C", "set": done}
         return {"created": True, "handle": "3A", "name": args.get("name") or "Pointlight1", "kind": args["kind"]}
 
 
@@ -272,6 +274,75 @@ class TestCreateMaterial:
         monkeypatch.setattr(materials, "material_names", lambda doc: ["Global"])
         out = call(materials.autocad_create_material(name="Laterite", diffuse_rgb=[1, 2, 3]))
         assert out["in_drawing"] is False and "do not make it again" in out["warning"]
+
+    def test_a_texture_without_a_size_warns_it_repeats_every_unit(self, plugin, tmp_path):
+        """Seen live 2026-11-08: the identity map matrix made walnut a flat brown."""
+        image = tmp_path / "walnut.jpg"
+        image.write_bytes(b"\xff\xd8")
+        out = call(materials.autocad_create_material(name="Walnut", texture=str(image)))
+        assert "texture_size" not in plugin.calls[0][1]
+        assert "texture size not set: the image repeats every 1 unit" in out["warning"].lower()
+
+    def test_a_bump_alone_without_a_size_warns_too(self, plugin, tmp_path):
+        image = tmp_path / "joints.png"
+        image.write_bytes(b"\x89PNG")
+        out = call(materials.autocad_create_material(name="Stone", diffuse_rgb=[1, 2, 3], bump=str(image)))
+        assert "texture size not set" in out["warning"].lower()
+
+    def test_no_image_no_size_warning(self, plugin):
+        out = call(materials.autocad_create_material(name="Laterite", diffuse_rgb=[1, 2, 3]))
+        assert "warning" not in out
+
+    def test_a_square_texture_size_is_sent_without_a_height(self, plugin, tmp_path):
+        image = tmp_path / "walnut.jpg"
+        image.write_bytes(b"\xff\xd8")
+        out = call(materials.autocad_create_material(name="Walnut", texture=str(image), texture_size=1000))
+        args = plugin.calls[0][1]
+        assert args["texture_size"] == 1000.0 and "texture_height" not in args
+        assert "warning" not in out
+
+    def test_a_non_square_texture_sends_both_sizes(self, plugin, tmp_path):
+        image = tmp_path / "tile.jpg"
+        image.write_bytes(b"\xff\xd8")
+        call(materials.autocad_create_material(
+            name="Wall Tile", texture=str(image), bump=str(image), texture_size=600, texture_height=300))
+        args = plugin.calls[0][1]
+        assert args["texture_size"] == 600.0 and args["texture_height"] == 300.0
+
+    def test_the_not_read_back_warning_keeps_the_size_warning(self, plugin, monkeypatch, tmp_path):
+        image = tmp_path / "walnut.jpg"
+        image.write_bytes(b"\xff\xd8")
+        monkeypatch.setattr(materials, "material_names", lambda doc: ["Global"])
+        out = call(materials.autocad_create_material(name="Walnut", texture=str(image)))
+        assert "texture size not set" in out["warning"].lower() and "do not make it again" in out["warning"]
+
+    def test_an_older_plugin_that_ignores_the_size_is_warned_about(self, plugin, tmp_path):
+        image = tmp_path / "walnut.jpg"
+        image.write_bytes(b"\xff\xd8")
+        plugin.sizes = False
+        out = call(materials.autocad_create_material(name="Walnut", texture=str(image), texture_size=1000))
+        assert "older than 1.4.1" in out["warning"]
+
+    @pytest.mark.parametrize("width,height,words", [
+        (1000, None, "texture or bump"),
+        (None, 300, "needs texture_size"),
+    ])
+    def test_a_size_with_nothing_to_size_is_refused(self, plugin, width, height, words):
+        answer = error(materials.autocad_create_material(
+            name="Walnut", diffuse_rgb=[1, 2, 3], texture_size=width, texture_height=height))
+        assert words in answer
+        assert plugin.calls == []
+
+    @pytest.mark.parametrize("width,height", [(0, None), (-5, None), (1000, 0), (2_000_000, None), (1000, 2_000_000)])
+    def test_a_size_out_of_range_is_refused(self, width, height):
+        with pytest.raises(AutocadError, match="above zero"):
+            materials.check_texture_size(width, height, True)
+
+    def test_check_texture_size(self):
+        assert materials.check_texture_size(None, None, True) is None
+        assert materials.check_texture_size(None, None, False) is None
+        assert materials.check_texture_size(1000, None, True) == (1000.0, 1000.0)
+        assert materials.check_texture_size(600, 300, True) == (600.0, 300.0)
 
     @pytest.mark.parametrize("kwargs,words", [
         ({"name": "ByLayer"}, "own material"),
