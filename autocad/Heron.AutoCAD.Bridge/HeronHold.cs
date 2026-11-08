@@ -2,6 +2,9 @@ using System;
 
 namespace Heron.AutoCAD.Bridge
 {
+    /// <summary>What pressing "Free this AutoCAD" did.</summary>
+    public enum HoldFree { Freed, NothingHeld, Busy }
+
     /// <summary>
     /// One chat at a time per AutoCAD. The hold frees itself after three quiet
     /// minutes, on release, or on disconnect (each connect gets a new hold).
@@ -56,6 +59,23 @@ namespace Heron.AutoCAD.Bridge
             lock (_gate)
             {
                 if (_holder == conversation) _holder = null;
+            }
+        }
+
+        /// <summary>
+        /// "Free this AutoCAD" (as Heron for Revit's "Free this model", D-45):
+        /// lets another chat in at once, whichever chat holds it, without
+        /// closing that chat. Not while an operation of the holder is running -
+        /// that one finishes first.
+        /// </summary>
+        public HoldFree Free()
+        {
+            lock (_gate)
+            {
+                if (_holder == null) return HoldFree.NothingHeld;
+                if (_pinned > 0) return HoldFree.Busy;
+                _holder = null;
+                return HoldFree.Freed;
             }
         }
 

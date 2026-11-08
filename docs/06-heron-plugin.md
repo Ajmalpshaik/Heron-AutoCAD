@@ -11,7 +11,8 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | Button | What it does | Command |
 |---|---|---|
 | **Heron** (top half) | Connect, or disconnect. No pop-up when it works: the icon is the answer (orange heron = connected, black = not) | `HERON` |
-| **Heron** (arrow) -> Bridge Status | The state, the padlocks, and Connect / Disconnect | `HERONSTATUS` |
+| **Heron** (arrow) -> Bridge Status | The state, the Changes card, and Connect / Disconnect | `HERONSTATUS` |
+| **Heron** (arrow) -> Free this AutoCAD | Lets another chat use this AutoCAD now, whichever chat holds it (not while one of its jobs is running). Changes nothing in a drawing | `HERONFREE` |
 | **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep) | `HERONSETTINGS` |
 
 | Switch in Settings | What it does | Command |
@@ -31,30 +32,39 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 - The padlocks are saved in `%APPDATA%\Heron\autocad\heron-autocad.config` and read fresh on every
   call, so they apply to every open AutoCAD. A file that cannot be read means **every padlock off**.
 
+Every Heron window - Bridge Status, Settings, the switch question and Keep or Discard - is drawn in
+Heron for Revit's window style ([D-45](DECISIONS.md)): a dark card with a coloured strip on top, a
+header with the orange heron and "Heron  *name*", an ✕, and flat brand buttons in a dark footer. Esc
+or the ✕ closes, and dragging the header moves it. Turning a padlock on (or Ask to Keep off) asks in
+that style first: the padlock picture, "Turn Changes on?", a tick for what still protects you, a
+warning sign for what Ctrl+Z cannot take back, then **Leave off** and an amber **Turn on**.
+
 ## 2. Bridge Status
 
-| State | Headline | Says | Buttons |
+| State | Lamp and headline | Says | Buttons |
 |---|---|---|---|
-| Connected | **Connected** | A chat can reach this AutoCAD session. Nothing in your drawings changes unless Changes is on. | Close (default), Disconnect |
-| Not connected | **Not connected** | This AutoCAD is private. No chat can read your drawings or change them until you connect. | Connect this session, Close |
-| Did not start | **Heron did not start** | the error | Close, Open log folder |
+| Connected | orange, **Connected** | A chat can reach this AutoCAD session. Nothing in your drawings changes unless Changes is on. | Disconnect, **Close** (default) |
+| Not connected | grey, **Not connected** | This AutoCAD is private. No chat can read your drawings or change them until you connect. | Close, **Connect this session** (default) |
+| Did not start | red, **Heron did not start** | the error | Open log folder, **Close** (default) |
 
-Below: one card per padlock (red ON, green ON for Ask to Keep, grey OFF), then pipe, address file, process, AutoCAD, add-in
-and protocol versions. Close is always the default button, so Enter never disconnects.
+Below: the Changes card (amber ON, grey OFF), then THIS SESSION (pipe, process, AutoCAD, add-in and
+protocol versions), the address file, and **Copy details** in the footer. Enter presses the lit
+button, so it never disconnects.
 
 ## 3. The activity banner
 
-A small dark card near the top of the AutoCAD window, shown from the moment a job is accepted:
+Heron for Revit's status bar ([D-45](DECISIONS.md)): a smoked-glass card with rounded corners that
+slides down near the top of the AutoCAD window the moment a job is accepted. While a job runs it is
+orange, with a sheen travelling across it, an aura turning on its rim and a breathing glow.
 
-| Chip | Title | Colour |
+| Top line | Colour | Second line |
 |---|---|---|
-| READING | Heron AI is reading your drawing | blue |
-| CHANGING | Heron AI is changing your drawing | amber |
-| DONE | Heron AI has finished | green |
-| STOPPED | Heron AI stopped | red |
+| Heron AI  ·  Reading | orange | the drawing  ·  the job, and the time so far beside three dots |
+| Heron AI  ·  Changing | orange | the same; the word says whether the drawing is being touched |
+| Heron AI  ·  Done | green | the drawing  ·  what was done, and the time it took |
+| Heron AI  ·  Needs attention | red | the drawing  ·  why it stopped |
 
-Line two is the drawing name, line three the job and the time so far. The outcome stays up for 1.4 s.
-The card runs on its own thread (it keeps painting while AutoCAD is busy), lets clicks pass through,
+The outcome stays up for 1.4 s, then the card slides away. The card runs on its own thread (it keeps painting while AutoCAD is busy), lets clicks pass through,
 and never takes focus. Afterwards the command line keeps a line: `Heron: Draw Line. Done in 0.4 s`.
 Switch it off with `"ui.activityBanner": false` in the config file.
 

@@ -47,7 +47,7 @@ Ribbon tab **Heron**, panel **AI Bridge**, laid out as in Heron for Revit:
 
 | Button | What it does |
 |---|---|
-| **Heron** | black heron: no chat can see this AutoCAD; orange heron: a chat can reach it. The arrow opens **Bridge Status** |
+| **Heron** | black heron: no chat can see this AutoCAD; orange heron: a chat can reach it. The arrow holds **Bridge Status** and **Free this AutoCAD** |
 | **Settings** | one window with the four switches below, each with its padlock picture and an ON / OFF button |
 
 | Switch in Settings | Off (safe) | On |
@@ -57,12 +57,13 @@ Ribbon tab **Heron**, panel **AI Bridge**, laid out as in Heron for Revit:
 | **Publish** | Heron may not save or export | red ON: Heron may save, export, plot |
 | **Ask to Keep** | changes are kept at once | green ON: after each change, **Keep it / Discard it** |
 
-While Heron works, a small card at the top of AutoCAD says **"Heron AI is reading your drawing"**
-(light chip) or **"Heron AI is changing your drawing"** (orange), then **finished** (green) or
-**stopped** (red). The command line keeps a line such as `Heron: Draw Line. Done in 0.4 s`.
+While Heron works, Heron for Revit's status bar slides down at the top of AutoCAD: a glass card
+saying **"Heron AI · Reading"** or **"Heron AI · Changing"** (orange, with the drawing, the job and the
+time), then **Done** (green) or **Needs attention** (red). Every Heron window uses Revit's dark Heron
+style. The command line keeps a line such as `Heron: Draw Line. Done in 0.4 s`.
 
 Everything starts **off**. Turning a padlock on asks first; turning it off never asks. The same
-switches are commands: `HERON`, `HERONSTATUS`, `HERONSETTINGS`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
+switches are commands: `HERON`, `HERONSTATUS`, `HERONFREE`, `HERONSETTINGS`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
 `HERONASKTOKEEP`. Full detail: [docs/06-heron-plugin.md](docs/06-heron-plugin.md).
 
 ## Parts

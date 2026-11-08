@@ -15,7 +15,10 @@ BRAND = {
     "0F0F10", "F7F5F2", "FD641A", "FF9A5C", "1B1B1F",
     "3ECF8E", "F5A524", "FF5A4E", "FFFFFF", "000000",
 }
-WINDOWS = ["HeronUi.cs", "HeronKeepQuestion.cs", "HeronActivityBanner.cs", "HeronStatusWindow.cs"]
+WINDOWS = [
+    "HeronBrand.cs", "HeronWindowStyle.cs", "HeronKeepQuestion.cs", "HeronActivityBanner.cs",
+    "HeronStatusWindow.cs", "HeronSettingsWindow.cs", "HeronSwitchWindow.cs",
+]
 RGB = re.compile(r"FromRgb\(\s*0x(\w\w),\s*0x(\w\w),\s*0x(\w\w)\s*\)")
 
 
@@ -26,12 +29,12 @@ def test_window_colours_are_heron_brand_colours():
         for match in RGB.finditer(text):
             found.append("".join(match.groups()).upper())
         assert "Colors." not in text and "Brushes.White" not in text, f"{name}: a WPF named colour, not a brand one"
-    assert found, "no colours found: the pattern no longer matches HeronUi.cs"
+    assert found, "no colours found: the pattern no longer matches HeronBrand.cs"
     assert set(found) <= BRAND, f"not in the Heron brand: {sorted(set(found) - BRAND)}"
 
 
 def test_windows_put_manrope_first():
-    ui = (ADDIN / "HeronUi.cs").read_text(encoding="utf-8")
+    ui = (ADDIN / "HeronBrand.cs").read_text(encoding="utf-8")
     assert 'FontList = "Manrope, Segoe UI"' in ui
     for name in WINDOWS:
         assert 'FontFamily("Segoe UI")' not in (ADDIN / name).read_text(encoding="utf-8"), name
@@ -70,3 +73,17 @@ def test_refusals_send_the_modeller_to_settings():
     texts = (ROOT / "autocad" / "Heron.AutoCAD.Bridge" / "Texts.cs").read_text(encoding="utf-8")
     assert "padlock on the Heron tab" not in texts
     assert texts.count("press Settings on the Heron tab") == 3
+
+
+def test_windows_are_drawn_like_heron_for_revit():
+    """D-45: one shared window style, the switch question, Free this AutoCAD, hover texts."""
+    for name in ("HeronSettingsWindow.cs", "HeronStatusWindow.cs", "HeronKeepQuestion.cs", "HeronSwitchWindow.cs"):
+        assert "S.Build(" in (ADDIN / name).read_text(encoding="utf-8"), f"{name} is not in the Heron window style"
+    actions = (ADDIN / "HeronActions.cs").read_text(encoding="utf-8")
+    assert "HeronSwitchWindow.Ask(" in actions, "the switches must ask with the Heron question window"
+    ribbon = (ADDIN / "HeronRibbon.cs").read_text(encoding="utf-8")
+    assert "HeronActions.FreeHold" in ribbon and ribbon.count("ToolTip = tip") == 1
+    assert "IsSynchronizedWithCurrentItem = false" in ribbon
+    banner = (ADDIN / "HeronActivityBanner.cs").read_text(encoding="utf-8")
+    for part in ("_auraBrush", "_bloomLeft", "_sweep", "DropShadowEffect", "BackEase"):
+        assert part in banner, f"the banner lost the status bar design's {part}"
