@@ -8,7 +8,16 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-08 (tidy-and-release round)
+## Latest - 2026-11-08 (texture size for materials)
+
+Branch `claude/charming-wright-x62eri`: `autocad_create_material` takes `texture_size` /
+`texture_height` and writes the texture and bump map transform itself ([D-46](DECISIONS.md)),
+plug-in **1.4.1**. Found live on the bedroom + bathroom model: 11 library textures rendered flat until
+the group-43 matrix was fixed by hand. Offline gates run in the cloud (Linux): see the PR. **Next:**
+merge, close AutoCAD, `tools/build_plugin.py` + `tools/install_plugin.py`, then
+[NEEDS-CHECKING K15](NEEDS-CHECKING.md).
+
+## Earlier - 2026-11-08 (tidy-and-release round)
 
 Branches tidied to main only (bundle backup in `Documents\Heron backups\2026-11-08-heron-autocad-housekeeping`).
 Branch `claude/installer-remove-and-brand-colours`: `Uninstall.bat` that asks first, plain-word

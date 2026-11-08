@@ -158,6 +158,7 @@ namespace Heron.AutoCAD.Addin
 
             var texture = ImageArg(args, "texture");
             var bump = ImageArg(args, "bump");
+            var tile = TileSize(args, texture.Length > 0 || bump.Length > 0);
 
             var materials = (DBDictionary)tr.GetObject(db.MaterialDictionaryId, OpenMode.ForRead);
             var existing = ObjectId.Null;
@@ -216,7 +217,7 @@ namespace Heron.AutoCAD.Addin
                 }
                 if (texture.Length > 0)
                 {
-                    map = ImageMap(texture, 1.0);
+                    map = ImageMap(texture, 1.0, tile);
                     set.Add("texture");
                 }
                 material.Diffuse = new Gi.MaterialDiffuseComponent(colour, map);
@@ -262,10 +263,11 @@ namespace Heron.AutoCAD.Addin
             }
             if (bump.Length > 0)
             {
-                material.Bump = ImageMap(bump, Share(args, "bump_amount", 0.3));
+                material.Bump = ImageMap(bump, Share(args, "bump_amount", 0.3), tile);
                 channels |= Gi.ChannelFlags.UseBump;
                 set.Add("bump");
             }
+            if (tile != null) set.Add("texture size");
             material.ChannelFlags = channels;
 
             return RunResult.Done(w =>
@@ -276,6 +278,13 @@ namespace Heron.AutoCAD.Addin
                 w.WriteStartArray("set");
                 foreach (var item in set) w.WriteStringValue(item);
                 w.WriteEndArray();
+                if (tile != null)
+                {
+                    w.WriteStartArray("texture_size");
+                    w.WriteNumberValue(1.0 / tile[0]);
+                    w.WriteNumberValue(1.0 / tile[5]);
+                    w.WriteEndArray();
+                }
             });
         }
 
@@ -304,13 +313,37 @@ namespace Heron.AutoCAD.Addin
         }
 
         /// <summary>
-        /// An image map. Its mapping is left to inherit, so the texture follows
-        /// the object's own mapping (MATERIALMAP) as AutoCAD's defaults lay it.
+        /// The map transform for texture_size / texture_height, or null when no
+        /// size was given (AutoCAD's identity: one tile per drawing unit).
         /// </summary>
-        private static Gi.MaterialMap ImageMap(string path, double blend)
+        private static double[]? TileSize(RunArgs args, bool hasImage)
+        {
+            if (!args.Has("texture_size"))
+            {
+                if (args.Has("texture_height")) throw new RunRefusal("texture_height needs texture_size (the tile's width) too.");
+                return null;
+            }
+            if (!hasImage) throw new RunRefusal("texture_size sizes a texture or bump image: give one.");
+            double? height = args.Has("texture_height") ? args.Number("texture_height") : (double?)null;
+            var why = TextureScale.Matrix(args.Number("texture_size"), height, out var values);
+            if (why != null) throw new RunRefusal(why);
+            return values;
+        }
+
+        /// <summary>
+        /// An image map. Projection, tiling and auto-transform keep AutoCAD's
+        /// defaults, so the texture follows the object's own mapping
+        /// (MATERIALMAP). With a tile size, the map transform is scaled so one
+        /// image covers that many drawing units (TextureScale); without one it
+        /// stays the identity, one image per drawing unit.
+        /// </summary>
+        private static Gi.MaterialMap ImageMap(string path, double blend, double[]? tile)
         {
             var image = new Gi.ImageFileTexture { SourceFileName = path };
-            return new Gi.MaterialMap(Gi.Source.File, image, blend, new Gi.Mapper());
+            var mapper = new Gi.Mapper();
+            if (tile != null)
+                mapper = new Gi.Mapper(mapper.Projection, mapper.UTiling, mapper.VTiling, mapper.AutoTransform, new Matrix3d(tile));
+            return new Gi.MaterialMap(Gi.Source.File, image, blend, mapper);
         }
 
         private static HashSet<string> LightNames(BlockTableRecord space, Transaction tr)
