@@ -11,7 +11,7 @@
 ## Latest - 2026-11-08 (texture size for materials)
 
 Branch `claude/charming-wright-x62eri`: `autocad_create_material` takes `texture_size` /
-`texture_height` and writes the texture and bump map transform itself ([D-45](DECISIONS.md)),
+`texture_height` and writes the texture and bump map transform itself ([D-46](DECISIONS.md)),
 plug-in **1.4.1**. Found live on the bedroom + bathroom model: 11 library textures rendered flat until
 the group-43 matrix was fixed by hand. Offline gates run in the cloud (Linux): see the PR. **Next:**
 merge, close AutoCAD, `tools/build_plugin.py` + `tools/install_plugin.py`, then
@@ -26,7 +26,9 @@ colours ([D-43](DECISIONS.md)): merged as #19. Then branch `claude/ribbon-settin
 the ribbon is Heron + Settings, the padlocks in a Settings window, Revit's brand icons ([D-44](DECISIONS.md)).
 **Next:** after it merges, close AutoCAD, `tools/build_plugin.py`, `tools/install_plugin.py`, then
 `tools/make_release.py` from `C:\hbuild\v` (diff its `autocad_mcp` against `src` first). Owed:
-[NEEDS-CHECKING group L](NEEDS-CHECKING.md) L1-L6.
+[NEEDS-CHECKING group L](NEEDS-CHECKING.md) L1-L10. Then branch `claude/banner-like-revit`: the
+banner, Bridge Status, Settings, Keep and a new switch question all drawn as Heron for Revit's, plus
+Free this AutoCAD ([D-45](DECISIONS.md)).
 
 ## Earlier - 2026-11-05 (fixes from the cassette and bedroom models)
 

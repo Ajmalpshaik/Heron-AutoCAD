@@ -190,7 +190,7 @@ result means the expression has to be written again, complete.
 - A light's name is unique in model space only; the same light inside a block repeats with every
   insert, which is what a light block is for.
 - A material's texture and bump images take their real size from `texture_size` (plug-in
-  **1.4.1**, [D-45](DECISIONS.md)). Without it the image repeats every 1 drawing unit (1 mm in a
+  **1.4.1**, [D-46](DECISIONS.md)). Without it the image repeats every 1 drawing unit (1 mm in a
   metric drawing) and renders as a flat colour; the result warns. A non-square image's height runs
   along Y and up the walls; how a box mapping lays a face along X is not proven (K15).
 - A glowing material glows in its own colour: `glow_kelvin` sets that colour, so it cannot be

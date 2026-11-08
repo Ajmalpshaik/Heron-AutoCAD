@@ -130,7 +130,7 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
-## D-45 - A texture's real size is written as the map transform's diagonal
+## D-46 - A texture's real size is written as the map transform's diagonal
 
 **Decided:** 2026-11-08, after the bedroom + bathroom model: 11 library textures all rendered as a
 flat colour until each material's diffuse map matrix was rewritten by hand. **Status:** in force;
@@ -149,6 +149,21 @@ stays (identity) and the result warns. Plug-in **1.4.1**, as an older plug-in ig
 the server warns when the plug-in's `set` does not list "texture size". Rejected: a default size
 (a 600 tile and a 2 m slab need different numbers, and a wrong guess looks right in a preview),
 and typing MATERIALMAP (sizes objects, not the material).
+
+## D-45 - Every Heron window and the banner are drawn as Heron for Revit's
+
+**Decided:** 2026-11-08, on Ajmal's word ("what you did for Heron AI in Revit, do the same here - no
+difference: the icons, the settings window, the status bar, everything"). **Status:** in force.
+`HeronWindowStyle.cs` is a port of Heron for Revit's: Surface card, top strip, Ink header with the
+orange heron, ✕, Ink insets, Mist text at 92 / 72 / 55 per cent, flat brand button templates.
+Bridge Status, Settings, the Keep question and `HeronSwitchWindow` (the question a padlock asks,
+in place of a Windows message box, which stays only as the fallback when the window cannot open) are
+built on it with Revit's layouts. The activity banner is Revit's status bar from the designer's
+"Heron status bar" design, ported onto AutoCAD's own banner thread and `BannerJobs`. "Free this
+AutoCAD" matches Revit's "Free this model" (`HeronHold.Free`, refused while an operation of the
+holder runs). Not copied, because AutoCAD has no counterpart: the Companion button and page, and the
+Keep question as a Revit TaskDialog (AutoCAD's is a Heron window). The banner stays 110 px below
+AutoCAD's top edge so it clears the ribbon.
 
 ## D-44 - The padlocks live in a Settings window; the ribbon icons are Heron's brand set
 

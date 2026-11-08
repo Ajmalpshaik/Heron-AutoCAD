@@ -18,6 +18,9 @@ namespace Heron.AutoCAD.Addin
 
         public static ImageSource? Small(string name) => Load(name, 16);
 
+        /// <summary>Any size, e.g. the 64 px heron in a window's title bar.</summary>
+        public static ImageSource? Sized(string name, int pixels) => Load(name, pixels);
+
         private static ImageSource? Load(string name, int size)
         {
             try

@@ -65,6 +65,26 @@ namespace Heron.AutoCAD.Addin
             else if (action == "logs") OpenLogs();
         }
 
+        /// <summary>"Free this AutoCAD": another chat may use it now (D-45). Changes nothing in a drawing.</summary>
+        public static void FreeHold()
+        {
+            var hold = HeronApplication.Server?.Protocol?.Hold;
+            var result = hold?.Free() ?? HoldFree.NothingHeld;
+            HeronLog.Write("free this AutoCAD: " + result);
+            switch (result)
+            {
+                case HoldFree.Freed:
+                    Say("Heron: this AutoCAD is free. Another chat may use it now.");
+                    break;
+                case HoldFree.Busy:
+                    Say("Heron is working for a chat right now. Free it again when the banner says Done.");
+                    break;
+                default:
+                    Say("Heron: no chat is holding this AutoCAD.");
+                    break;
+            }
+        }
+
         /// <summary>The Settings window: the four switches, as in Heron for Revit (D-44).</summary>
         public static void ShowSettings()
         {
@@ -97,24 +117,62 @@ namespace Heron.AutoCAD.Addin
 
         private static bool Confirm(Padlock padlock, bool turningOn)
         {
-            string question;
+            var question = Question(padlock, HeronApplication.LoadConfig().WriteEnabled);
+            var answer = HeronSwitchWindow.Ask(question);
+            if (answer.HasValue) return answer.Value;
+            // The window could not be shown: ask the same thing plainly, never assume.
+            var title = turningOn ? "Heron - turn " + Name(padlock) + " on" : "Heron - turn " + Name(padlock) + " off";
+            var plain = question.Headline + "\n\n" + question.What;
+            return MessageBox.Show(plain, title, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
+        }
+
+        /// <summary>The words each switch asks with - Heron for Revit's, in AutoCAD's terms.</summary>
+        internal static HeronSwitchQuestion Question(Padlock padlock, bool changesOn)
+        {
+            string? ChangesOff(string name) => changesOn ? null : "Changes is off - " + name + " needs it on too.";
             switch (padlock)
             {
                 case Padlock.Changes:
-                    question = "Turn Changes on?\n\nWhile Changes is on, a connected chat may draw, move, change and delete objects in your open drawings. Each change is one undo step, and the banner shows whenever Heron is working.";
-                    break;
-                case Padlock.Publish:
-                    question = "Turn Publish on?\n\nA connected chat may then save drawings and export or plot files (Changes must be on too).";
-                    break;
+                    return new HeronSwitchQuestion
+                    {
+                        Name = "Changes",
+                        Icon = "WriteUnlocked",
+                        Headline = "Turn Changes on?",
+                        What = "Heron can draw, move, change and delete objects when you ask.",
+                        Promises = new[] { "Every change is one Ctrl+Z.", "Ask to Keep can show each change first." },
+                    };
                 case Padlock.Admin:
-                    question = "Turn Admin on?\n\nA connected chat may then run any AutoCAD command, AutoLISP and system-variable change (Changes must be on too). Turn it on only for a job that needs it.";
-                    break;
+                    return new HeronSwitchQuestion
+                    {
+                        Name = "Admin",
+                        Icon = "AdminUnlocked",
+                        Headline = "Turn Admin on?",
+                        What = "Heron can run AutoCAD commands, AutoLISP and system variables.",
+                        Caution = "Ctrl+Z may not undo what a command does outside the drawing.",
+                        ChangesOff = ChangesOff("Admin"),
+                    };
+                case Padlock.Publish:
+                    return new HeronSwitchQuestion
+                    {
+                        Name = "Publish",
+                        Icon = "PublishUnlocked",
+                        Headline = "Turn Publish on?",
+                        What = "Heron can save, export and plot drawings.",
+                        Caution = "Ctrl+Z can't undo a save, an export or a plot.",
+                        ChangesOff = ChangesOff("Publish"),
+                    };
                 default:
-                    question = "Turn Ask to Keep off?\n\nHeron will keep each change at once, without asking. Each change is still one undo step.";
-                    break;
+                    return new HeronSwitchQuestion
+                    {
+                        Name = "Ask to Keep",
+                        Icon = "KeepNotAsking",
+                        Headline = "Stop asking Keep or Discard?",
+                        What = "Changes from a chat are kept at once.",
+                        Promises = new[] { "Ctrl+Z still undoes each change." },
+                        TurnOn = "Stop asking",
+                        Decline = "Keep asking",
+                    };
             }
-            var title = turningOn ? "Heron - turn " + Name(padlock) + " on" : "Heron - turn " + Name(padlock) + " off";
-            return MessageBox.Show(question, title, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
         }
 
         private static string Name(Padlock padlock) => padlock == Padlock.AskToKeep ? "Ask to Keep" : padlock.ToString();
