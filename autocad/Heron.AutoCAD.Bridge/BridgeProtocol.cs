@@ -23,6 +23,9 @@ namespace Heron.AutoCAD.Bridge
         private readonly Func<HeronConfig> _config;
         private readonly string _token;
         private readonly HeronHold _hold;
+
+        /// <summary>Which chat holds this AutoCAD - for "Free this AutoCAD".</summary>
+        public HeronHold Hold => _hold;
         private readonly Func<DateTime> _clock;
         private readonly object _grantGate = new object();
         private string? _grantConversation;

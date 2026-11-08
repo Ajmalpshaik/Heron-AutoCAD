@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Every Heron window and the banner as in Heron for Revit** ([D-45](docs/DECISIONS.md)): the
+  activity banner is Revit's status bar (glass card, sheen, turning aura, glow, slide in and out;
+  "Heron AI · Changing" with the drawing, the job and the time; Done in green, Needs attention in
+  red). Bridge Status, Settings, the Keep question and a new switch question ("Turn Changes on?",
+  replacing the plain Windows box) share Revit's dark window style. The Heron menu gains **Free this
+  AutoCAD** (`HERONFREE`), and the ribbon buttons have Revit's one-line hover texts. Live rows
+  L7-L10, NOT RUN.
 - **The ribbon and icons match Heron for Revit** ([D-44](docs/DECISIONS.md)): the Heron tab now has
   two buttons, **Heron** (Bridge Status under its arrow) and **Settings**. The Changes, Admin,
   Publish and Ask to Keep padlocks left the ribbon for the Settings window (`HERONSETTINGS`), each

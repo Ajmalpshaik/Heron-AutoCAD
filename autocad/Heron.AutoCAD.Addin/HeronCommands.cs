@@ -17,6 +17,9 @@ namespace Heron.AutoCAD.Addin
         [CommandMethod("HERONSTATUS", CommandFlags.Session)]
         public void Status() => HeronActions.ShowStatus();
 
+        [CommandMethod("HERONFREE", CommandFlags.Session)]
+        public void Free() => HeronActions.FreeHold();
+
         [CommandMethod("HERONSETTINGS", CommandFlags.Session)]
         public void Settings() => HeronActions.ShowSettings();
 

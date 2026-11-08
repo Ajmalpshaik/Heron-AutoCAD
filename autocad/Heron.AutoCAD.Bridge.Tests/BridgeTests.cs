@@ -144,6 +144,33 @@ public class HoldTests
         hold.Release("chat-a");
         Assert.True(hold.TryTake("chat-b", T0));
     }
+
+    [Fact]
+    public void Free_lets_another_chat_in_at_once_whoever_holds_it()
+    {
+        var hold = new HeronHold();
+        hold.TryTake("chat-a", T0);
+        Assert.Equal(HoldFree.Freed, hold.Free());
+        Assert.Null(hold.Holder);
+        Assert.True(hold.TryTake("chat-b", T0.AddSeconds(1)));
+    }
+
+    [Fact]
+    public void Free_says_when_nothing_was_held()
+    {
+        Assert.Equal(HoldFree.NothingHeld, new HeronHold().Free());
+    }
+
+    [Fact]
+    public void Free_waits_while_an_operation_is_running()
+    {
+        var hold = new HeronHold();
+        hold.TryPin("chat-a", T0);
+        Assert.Equal(HoldFree.Busy, hold.Free());
+        Assert.Equal("chat-a", hold.Holder);
+        hold.Unpin(T0.AddSeconds(5));
+        Assert.Equal(HoldFree.Freed, hold.Free());
+    }
 }
 
 public class FakeHost : IJobHost

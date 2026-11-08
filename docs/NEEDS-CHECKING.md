@@ -309,7 +309,11 @@ three AutoCAD builds and the colours are checked offline (`tests/test_brand_and_
 | L3 | Press **Settings** | One Mist window: Changes, Admin, Publish, Ask to Keep, each with its padlock picture, one line and OFF | NOT RUN |
 | L4 | In Settings press Changes' OFF, answer Yes | The question comes first; then Changes shows a red ON and the open padlock; the window stays open | NOT RUN |
 | L5 | `autocad_draw_line` while Changes is on, then while it is off | On: the banner shows the orange CHANGING chip, then green DONE. Off: the refusal says "press Settings on the Heron tab" | NOT RUN |
-| L6 | Bridge Status and the Keep question (Ask to Keep on) | Mist background, Ink text; the focused choice has an orange border | NOT RUN |
+| L6 | Bridge Status and the Keep question (Ask to Keep on) | Dark Heron window: orange heron and "Heron  Bridge Status" in the header, the lamp, the Changes card, THIS SESSION, Copy details; the Keep choices as dark cards, the focused one with an orange border | NOT RUN |
+| L7 | `autocad_status`, then `autocad_draw_line` with Changes on | The glass card slides down: "Heron AI · Reading" then "Heron AI · Changing", orange, with the sheen, the turning rim and the time counting; then "Heron AI · Done" in green; it slides away about 1.4 s later | NOT RUN |
+| L8 | In Settings press Admin's OFF while Changes is off | The Heron switch window: the padlock, "Turn Admin on?", the warning lines (including "Changes is off - Admin needs it on too"), Leave off and an amber Turn on; Esc and Leave off change nothing | NOT RUN |
+| L9 | With a chat holding AutoCAD, Heron arrow -> Free this AutoCAD | The command line says it is free; a second chat is then accepted at once | NOT RUN |
+| L10 | Hover over Heron, Bridge Status, Free this AutoCAD and Settings | One short sentence each | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

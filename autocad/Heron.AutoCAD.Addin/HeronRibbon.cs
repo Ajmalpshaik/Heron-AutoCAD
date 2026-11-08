@@ -22,7 +22,7 @@ namespace Heron.AutoCAD.Addin
         public const string TabId = "HERON_AUTOCAD_TAB";
 
         private static RibbonSplitButton? _split;
-        private static RibbonButton? _connect, _status, _settings;
+        private static RibbonButton? _connect, _status, _free, _settings;
 
         public static void Init()
         {
@@ -52,8 +52,10 @@ namespace Heron.AutoCAD.Addin
                 var source = new RibbonPanelSource { Title = "AI Bridge" };
                 tab.Panels.Add(new RibbonPanel { Source = source });
 
-                _connect = Button("Heron", HeronActions.ToggleConnect);
-                _status = Button("Bridge Status", HeronActions.ShowStatus);
+                // Hover texts are one short sentence each, as in Heron for Revit (D-45).
+                _connect = Button("Heron", HeronActions.ToggleConnect, "Connect Heron to this AutoCAD. Orange heron: connected. Click again to disconnect.");
+                _status = Button("Bridge Status", HeronActions.ShowStatus, "See whether Heron is connected to this AutoCAD.");
+                _free = Button("Free this AutoCAD", HeronActions.FreeHold, "Let another chat use this AutoCAD now.");
                 _split = new RibbonSplitButton
                 {
                     Text = "Heron",
@@ -62,14 +64,17 @@ namespace Heron.AutoCAD.Addin
                     Size = RibbonItemSize.Large,
                     Orientation = Orientation.Vertical,
                     IsSplit = true,
-                    IsSynchronizedWithCurrentItem = true,
+                    // The top button's picture IS the connected state; a pick
+                    // from the list must never replace it.
+                    IsSynchronizedWithCurrentItem = false,
                 };
                 _split.Items.Add(_connect);
                 _split.Items.Add(_status);
+                _split.Items.Add(_free);
                 _split.Current = _connect;
                 source.Items.Add(_split);
 
-                _settings = Button("Settings", HeronActions.ShowSettings);
+                _settings = Button("Settings", HeronActions.ShowSettings, "Turn Heron's switches on or off: Changes, Admin, Publish, Ask to Keep.");
                 _settings.LargeImage = IconLoader.Large("Settings");
                 _settings.Image = IconLoader.Small("Settings");
                 source.Items.Add(_settings);
@@ -104,9 +109,10 @@ namespace Heron.AutoCAD.Addin
             button.Text = on ? onText : offText;
         }
 
-        private static RibbonButton Button(string text, Action action) => new RibbonButton
+        private static RibbonButton Button(string text, Action action, string tip) => new RibbonButton
         {
             Text = text,
+            ToolTip = tip,
             ShowText = true,
             ShowImage = true,
             Size = RibbonItemSize.Large,
