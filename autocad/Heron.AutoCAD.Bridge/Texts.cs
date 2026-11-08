@@ -14,13 +14,13 @@ namespace Heron.AutoCAD.Bridge
         public const string InUse = "This AutoCAD is in use by another chat. " + NothingSent;
 
         public const string ChangesOff =
-            "Changes is off, so Heron may not change this drawing. To allow it, click the Changes padlock on the Heron tab in AutoCAD (or type HERONCHANGES). " + NothingSent;
+            "Changes is off, so Heron may not change this drawing. To allow it, press Settings on the Heron tab in AutoCAD and turn Changes on (or type HERONCHANGES). " + NothingSent;
 
         public const string PublishOff =
-            "Publish is off, so Heron may not save, export or plot drawings. To allow it, click the Publish padlock on the Heron tab in AutoCAD (or type HERONPUBLISH). " + NothingSent;
+            "Publish is off, so Heron may not save, export or plot drawings. To allow it, press Settings on the Heron tab in AutoCAD and turn Publish on (or type HERONPUBLISH). " + NothingSent;
 
         public const string AdminOff =
-            "Admin is off, so Heron may not run AutoCAD commands, AutoLISP or system-variable changes. To allow it, click the Admin padlock on the Heron tab in AutoCAD (or type HERONADMIN). " + NothingSent;
+            "Admin is off, so Heron may not run AutoCAD commands, AutoLISP or system-variable changes. To allow it, press Settings on the Heron tab in AutoCAD and turn Admin on (or type HERONADMIN). " + NothingSent;
 
         public const string UnknownRisk =
             "Heron in AutoCAD did not recognise this tool's level, so it refused it. " + NothingSent;

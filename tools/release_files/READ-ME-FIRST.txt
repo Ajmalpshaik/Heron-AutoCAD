@@ -14,7 +14,7 @@ Install
   2. Double-click Install.bat.
   3. Restart Claude Desktop if you use it.
   4. Start AutoCAD. On the Heron tab press Heron to connect.
-     Everything starts locked: turn on the Changes padlock before Claude may draw.
+     Everything starts locked: press Settings and turn Changes on before Claude may draw.
 
 What it changes (your Windows user only)
   - %APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle   (the plug-in)

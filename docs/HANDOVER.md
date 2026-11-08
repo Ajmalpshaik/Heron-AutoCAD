@@ -13,9 +13,11 @@
 Branches tidied to main only (bundle backup in `Documents\Heron backups\2026-11-08-heron-autocad-housekeeping`).
 Branch `claude/installer-remove-and-brand-colours`: `Uninstall.bat` that asks first, plain-word
 installer refusals, a first-install fix for PowerShell 5.1, and the three Heron windows in the brand
-colours ([D-43](DECISIONS.md)). **Next:** after it merges, close AutoCAD, `tools/build_plugin.py`,
-`tools/install_plugin.py`, then `tools/make_release.py` from `C:\hbuild\v`. Owed: one look at the
-status window, keep question and banner in AutoCAD (the colours are NOT RUN live).
+colours ([D-43](DECISIONS.md)): merged as #19. Then branch `claude/ribbon-settings-window-and-brand-icons`:
+the ribbon is Heron + Settings, the padlocks in a Settings window, Revit's brand icons ([D-44](DECISIONS.md)).
+**Next:** after it merges, close AutoCAD, `tools/build_plugin.py`, `tools/install_plugin.py`, then
+`tools/make_release.py` from `C:\hbuild\v` (diff its `autocad_mcp` against `src` first). Owed:
+[NEEDS-CHECKING group L](NEEDS-CHECKING.md) L1-L6.
 
 ## Earlier - 2026-11-05 (fixes from the cassette and bedroom models)
 

@@ -17,6 +17,9 @@ namespace Heron.AutoCAD.Addin
         [CommandMethod("HERONSTATUS", CommandFlags.Session)]
         public void Status() => HeronActions.ShowStatus();
 
+        [CommandMethod("HERONSETTINGS", CommandFlags.Session)]
+        public void Settings() => HeronActions.ShowSettings();
+
         [CommandMethod("HERONCHANGES", CommandFlags.Session)]
         public void Changes() => HeronActions.TogglePadlock(Padlock.Changes);
 

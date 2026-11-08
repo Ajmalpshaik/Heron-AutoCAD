@@ -122,7 +122,7 @@ async def tool_index() -> str:
         },
         "note": (
             "A tool's padlock is a property of the tool, not of the request, so nothing you "
-            "write can raise or lower it. Turn a padlock on from the Heron tab in AutoCAD."
+            "write can raise or lower it. Turn a padlock on in Settings on the Heron tab in AutoCAD."
         ),
     })
 
@@ -199,7 +199,7 @@ def draw_from_spec(spec: str) -> str:
         "Work like this: call autocad_status first for the units; use autocad_batch_draw for more "
         "than about ten objects; put everything on named layers; then call autocad_preview and "
         "look at the picture before you tell me it is done. If Changes is off, tell me to turn it "
-        "on with the Changes padlock on the Heron tab."
+        "on with Changes in Settings on the Heron tab."
     )
 
 

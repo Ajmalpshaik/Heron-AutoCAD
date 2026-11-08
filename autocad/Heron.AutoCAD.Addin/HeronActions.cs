@@ -65,6 +65,13 @@ namespace Heron.AutoCAD.Addin
             else if (action == "logs") OpenLogs();
         }
 
+        /// <summary>The Settings window: the four switches, as in Heron for Revit (D-44).</summary>
+        public static void ShowSettings()
+        {
+            HeronLog.Write("settings window");
+            HeronSettingsWindow.Show();
+        }
+
         public static void TogglePadlock(Padlock padlock)
         {
             HeronLog.Write("toggle padlock: " + padlock);
