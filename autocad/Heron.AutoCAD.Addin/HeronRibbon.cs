@@ -1,7 +1,9 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Autodesk.Windows;
 using Heron.AutoCAD.Bridge;
 using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
@@ -67,11 +69,11 @@ namespace Heron.AutoCAD.Addin
                     // MUST stay true. AutoCAD runs the top half of a split
                     // button only through its current item; with false the
                     // Heron button did nothing (live, 2026-11-08). Revit's
-                    // ribbon differs here. That a pick from the list never
-                    // replaces the heron is kept by Repaint, which every
-                    // list row calls, putting Heron back as the current item.
+                    // ribbon differs here. A pick from the list must never
+                    // replace the heron: see KeepHeronOnTop.
                     IsSynchronizedWithCurrentItem = true,
                 };
+                _split.PropertyChanged += KeepHeronOnTop;
                 _split.Items.Add(_connect);
                 _split.Items.Add(_status);
                 _split.Items.Add(_free);
@@ -104,6 +106,22 @@ namespace Heron.AutoCAD.Addin
                 _split.LargeImage = _connect.LargeImage;
                 _split.Image = _connect.Image;
             }
+        }
+
+        /// <summary>
+        /// AutoCAD makes a list pick the split button's current item AFTER the
+        /// pick's own command has run, so the Repaint inside that command was
+        /// overwritten and "Free this AutoCAD" stayed on top; the only quick way
+        /// back was picking Heron, which disconnects (live, 2026-11-08). Put the
+        /// heron back once AutoCAD has finished with the click.
+        /// </summary>
+        private static void KeepHeronOnTop(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != "Current" || _split == null || _split.Current == _connect) return;
+            Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (_split != null && _split.Current != _connect) Repaint();
+            }));
         }
 
         private static void Paint(RibbonButton button, bool on, string onIcon, string offIcon, string onText, string offText)

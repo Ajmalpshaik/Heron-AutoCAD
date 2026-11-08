@@ -86,6 +86,12 @@ def test_windows_are_drawn_like_heron_for_revit():
     # AutoCAD runs the top half of a split button only when it is synchronized with
     # its current item; with false the Heron button did nothing (live, 2026-11-08).
     assert "IsSynchronizedWithCurrentItem = true" in ribbon
+    # ...and AutoCAD moves a menu pick to the top AFTER the pick has run, so the heron
+    # is put back once AutoCAD is done, not only inside the pick (live, 2026-11-08).
+    assert "_split.PropertyChanged += KeepHeronOnTop" in ribbon
+    keep = ribbon[ribbon.index("private static void KeepHeronOnTop"):]
+    keep = keep[:keep.index("\n        }\n")]
+    assert "BeginInvoke" in keep and "Repaint()" in keep
     for name in ("ShowStatus", "FreeHold"):
         body = actions[actions.index("public static void " + name):]
         body = body[:body.index("\n        }\n")]

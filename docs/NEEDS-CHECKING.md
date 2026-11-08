@@ -316,6 +316,7 @@ three AutoCAD builds and the colours are checked offline (`tests/test_brand_and_
 | L9 | With a chat holding AutoCAD, Heron arrow -> Free this AutoCAD | The command line says it is free; a second chat is then accepted at once | NOT RUN |
 | L10 | Hover over Heron, Bridge Status, Free this AutoCAD and Settings | One short sentence each | NOT RUN |
 | L11 | Press the top half of **Heron** to connect, again to disconnect; then open Bridge Status from the arrow and close it | Each press connects or disconnects; after Bridge Status the button still shows the heron and still connects | PASS 2026-11-08, AutoCAD 2027, fix build f32d68b: the top half of Heron connects (user's eye). The #21 build had failed it: the top half did nothing |
+| L12 | While connected, pick **Free this AutoCAD** from the Heron arrow, then **Bridge Status** and close it | After each, the big button shows the orange heron again within a moment, still connected; no need to press Heron | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
