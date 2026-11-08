@@ -8,7 +8,16 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-05 (fixes from the cassette and bedroom models)
+## Latest - 2026-11-08 (tidy-and-release round)
+
+Branches tidied to main only (bundle backup in `Documents\Heron backups\2026-11-08-heron-autocad-housekeeping`).
+Branch `claude/installer-remove-and-brand-colours`: `Uninstall.bat` that asks first, plain-word
+installer refusals, a first-install fix for PowerShell 5.1, and the three Heron windows in the brand
+colours ([D-43](DECISIONS.md)). **Next:** after it merges, close AutoCAD, `tools/build_plugin.py`,
+`tools/install_plugin.py`, then `tools/make_release.py` from `C:\hbuild\v`. Owed: one look at the
+status window, keep question and banner in AutoCAD (the colours are NOT RUN live).
+
+## Earlier - 2026-11-05 (fixes from the cassette and bedroom models)
 
 Five faults met while drawing were fixed offline, on branch `claude/autocad-3d-metal-detailed-be50a3`,
 **not committed yet** (check `git status`): the banner's DONE card that never closed (`BannerJobs`),

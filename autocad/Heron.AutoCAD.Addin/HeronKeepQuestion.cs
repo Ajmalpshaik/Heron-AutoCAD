@@ -86,7 +86,7 @@ namespace Heron.AutoCAD.Addin
             var normal = button.BorderBrush;
             button.GotKeyboardFocus += (s, e) =>
             {
-                button.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2F, 0x9B, 0xE3));
+                button.BorderBrush = HeronUi.Accent;
                 button.BorderThickness = new Thickness(3);
             };
             button.LostKeyboardFocus += (s, e) =>
