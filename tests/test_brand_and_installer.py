@@ -83,7 +83,13 @@ def test_windows_are_drawn_like_heron_for_revit():
     assert "HeronSwitchWindow.Ask(" in actions, "the switches must ask with the Heron question window"
     ribbon = (ADDIN / "HeronRibbon.cs").read_text(encoding="utf-8")
     assert "HeronActions.FreeHold" in ribbon and ribbon.count("ToolTip = tip") == 1
-    assert "IsSynchronizedWithCurrentItem = false" in ribbon
+    # AutoCAD runs the top half of a split button only when it is synchronized with
+    # its current item; with false the Heron button did nothing (live, 2026-11-08).
+    assert "IsSynchronizedWithCurrentItem = true" in ribbon
+    for name in ("ShowStatus", "FreeHold"):
+        body = actions[actions.index("public static void " + name):]
+        body = body[:body.index("\n        }\n")]
+        assert "HeronRibbon.Repaint()" in body, f"{name} must put the heron back on top of the split button"
     banner = (ADDIN / "HeronActivityBanner.cs").read_text(encoding="utf-8")
     for part in ("_auraBrush", "_bloomLeft", "_sweep", "DropShadowEffect", "BackEase"):
         assert part in banner, f"the banner lost the status bar design's {part}"

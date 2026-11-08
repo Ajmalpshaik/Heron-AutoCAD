@@ -63,6 +63,9 @@ namespace Heron.AutoCAD.Addin
             if (action == "connect" && server != null && !server.IsRunning) ToggleConnect();
             else if (action == "disconnect" && server != null && server.IsRunning) ToggleConnect();
             else if (action == "logs") OpenLogs();
+            // A pick from the Heron menu makes it the split button's current
+            // item; put the heron back on top.
+            HeronRibbon.Repaint();
         }
 
         /// <summary>"Free this AutoCAD": another chat may use it now (D-45). Changes nothing in a drawing.</summary>
@@ -83,6 +86,7 @@ namespace Heron.AutoCAD.Addin
                     Say("Heron: no chat is holding this AutoCAD.");
                     break;
             }
+            HeronRibbon.Repaint();
         }
 
         /// <summary>The Settings window: the four switches, as in Heron for Revit (D-44).</summary>

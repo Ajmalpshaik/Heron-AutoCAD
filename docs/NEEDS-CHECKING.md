@@ -314,6 +314,7 @@ three AutoCAD builds and the colours are checked offline (`tests/test_brand_and_
 | L8 | In Settings press Admin's OFF while Changes is off | The Heron switch window: the padlock, "Turn Admin on?", the warning lines (including "Changes is off - Admin needs it on too"), Leave off and an amber Turn on; Esc and Leave off change nothing | NOT RUN |
 | L9 | With a chat holding AutoCAD, Heron arrow -> Free this AutoCAD | The command line says it is free; a second chat is then accepted at once | NOT RUN |
 | L10 | Hover over Heron, Bridge Status, Free this AutoCAD and Settings | One short sentence each | NOT RUN |
+| L11 | Press the top half of **Heron** to connect, again to disconnect; then open Bridge Status from the arrow and close it | Each press connects or disconnects; after Bridge Status the button still shows the heron and still connects | NOT RUN (the #21 build failed this: the top half did nothing, 2026-11-08) |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

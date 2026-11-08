@@ -4,6 +4,10 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Fix: the Heron button connects again.** #21 set the Heron split button to
+  `IsSynchronizedWithCurrentItem = false` to copy Revit; AutoCAD then runs the button's own (empty)
+  action, so pressing Heron did nothing and only Bridge Status -> Connect worked. Back to `true`;
+  Bridge Status and Free this AutoCAD put the heron back on top afterwards. Live row L11.
 - **Every Heron window and the banner as in Heron for Revit** ([D-45](docs/DECISIONS.md)): the
   activity banner is Revit's status bar (glass card, sheen, turning aura, glow, slide in and out;
   "Heron AI · Changing" with the drawing, the job and the time; Done in green, Needs attention in
