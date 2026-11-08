@@ -64,9 +64,13 @@ namespace Heron.AutoCAD.Addin
                     Size = RibbonItemSize.Large,
                     Orientation = Orientation.Vertical,
                     IsSplit = true,
-                    // The top button's picture IS the connected state; a pick
-                    // from the list must never replace it.
-                    IsSynchronizedWithCurrentItem = false,
+                    // MUST stay true. AutoCAD runs the top half of a split
+                    // button only through its current item; with false the
+                    // Heron button did nothing (live, 2026-11-08). Revit's
+                    // ribbon differs here. That a pick from the list never
+                    // replaces the heron is kept by Repaint, which every
+                    // list row calls, putting Heron back as the current item.
+                    IsSynchronizedWithCurrentItem = true,
                 };
                 _split.Items.Add(_connect);
                 _split.Items.Add(_status);

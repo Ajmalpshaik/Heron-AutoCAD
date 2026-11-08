@@ -4,6 +4,10 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Fix: the Heron button connects again.** #21 set the Heron split button to
+  `IsSynchronizedWithCurrentItem = false` to copy Revit; AutoCAD then runs the button's own (empty)
+  action, so pressing Heron did nothing and only Bridge Status -> Connect worked. Back to `true`;
+  Bridge Status and Free this AutoCAD put the heron back on top afterwards. Live row L11.
 - **A material's texture gets its real size** ([D-46](docs/DECISIONS.md)); plug-in **1.4.1**.
   `autocad_create_material` takes `texture_size` (the real width of one image tile, in drawing
   units) and `texture_height` for a non-square image. The plug-in writes the texture's and the bump's
