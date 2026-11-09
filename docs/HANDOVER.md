@@ -8,7 +8,16 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-08 (texture size for materials)
+## Latest - 2026-11-09 (housekeeping check, nothing built)
+
+All three branches above are merged: texture size (#22), the Heron button connects again (#23), the
+heron stays on top (#24). `main` CI green; no open pull requests or issues. **No tag and no GitHub
+release**: [ROADMAP](ROADMAP.md) holds the tag until NEEDS-CHECKING groups A, D, E and F pass, and
+most of D and E are still NOT RUN. Branch `claude/charming-wright-x62eri` is merged and can be
+deleted. **Next:** close AutoCAD, `tools/build_plugin.py` + `tools/install_plugin.py`, then
+[NEEDS-CHECKING K15](NEEDS-CHECKING.md) and `tools/live_check.py --group all --write`.
+
+## Earlier - 2026-11-08 (texture size for materials)
 
 Branch `claude/charming-wright-x62eri`: `autocad_create_material` takes `texture_size` /
 `texture_height` and writes the texture and bump map transform itself ([D-46](DECISIONS.md)),
