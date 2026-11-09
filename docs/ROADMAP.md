@@ -98,6 +98,21 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 - [ ] List and switch lights (the Lights in Model palette), and turn the sun and DEFAULTLIGHTING
   on and off, from the chat.
 
+## Asked for on 2026-11-09 (Luxury Suite 2 3D model and its interior drawing set)
+
+- [ ] **Camera views**: a perspective camera at an eye point with a lens (24 mm inside a room).
+  `-VIEW` saves only the screen; a VIEW record made with entmake restores at 50 mm and DVIEW hangs.
+  What worked: `CAMERA cam target _N name _LE 24 _X`, then CAMERADISPLAY 0.
+- [ ] **Sun date, time and place**: no system variable; the SUN object of the active VPORT
+  (group 361) takes 91 = Julian day and 92 = milliseconds after midnight. LATITUDE, LONGITUDE,
+  TIMEZONE and SUNSTATUS are plain variables.
+- [ ] **Render exposure**: the LOGEXP* variables are gone in 2027; exposure lives only in the
+  RENDEREXPOSURE palette. Find whether the render preset or render environment object exposes it.
+- [ ] **Quiet results**: an `autocad_sequence` of eight `autocad_dimension_run` steps returned about
+  15,000 characters of per-dimension detail. A `quiet` option that returns counts and handles only.
+- [ ] **Sheets by the plug-in**: make layouts and viewports in .NET (Layout + Viewport in the layout's
+  block), so neither depends on `doc.PaperSpace`, which threw on 2026-11-09 (known limit 23).
+
 ## Server
 
 - [x] Dynamic blocks: read and set properties (`autocad_get/set_dynamic_properties`). Authoring

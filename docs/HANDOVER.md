@@ -8,7 +8,15 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-09 (housekeeping check, nothing built)
+## Latest - 2026-11-09 (fixes found on the Luxury Suite 2 interior set)
+
+Branch `claude/fix-session-bugs-1109`: four fixes found live while building a 3D suite and its
+interior drawing set in AutoCAD 2027 - run_lisp length cap and timeout note, status survives a
+paper space that throws, viewport fallback through MVIEW, and plug-in **1.4.2** clearing a material's
+old image on a colour-only replace. Plus five roadmap items (camera views, sun, exposure, quiet
+results, sheets by the plug-in). Known limit 23. **Next:** merge, then live rows K16, S8-S10.
+
+## Earlier - 2026-11-09 (housekeeping check, nothing built)
 
 All three branches above are merged: texture size (#22), the Heron button connects again (#23), the
 heron stays on top (#24). `main` CI green; no open pull requests or issues. **No tag and no GitHub

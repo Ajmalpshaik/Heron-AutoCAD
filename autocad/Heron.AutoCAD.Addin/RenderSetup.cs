@@ -220,6 +220,14 @@ namespace Heron.AutoCAD.Addin
                     map = ImageMap(texture, 1.0, tile);
                     set.Add("texture");
                 }
+                else if (replaced && diffuse.Map != null && diffuse.Map.Texture != null)
+                {
+                    // A colour with no image is a plain colour. The old image would
+                    // otherwise stay and cover the new colour completely (Luxury
+                    // Suite 2, 2026-11-09: ivory asked, terracotta plaster image kept).
+                    map = new Gi.MaterialMap();
+                    set.Add("texture cleared");
+                }
                 material.Diffuse = new Gi.MaterialDiffuseComponent(colour, map);
                 channels |= Gi.ChannelFlags.UseDiffuse;
             }
