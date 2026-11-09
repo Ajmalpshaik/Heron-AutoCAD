@@ -1,0 +1,11 @@
+# Keeps the GitHub Actions in .github/workflows/ up to date, once a month, as pull requests that
+# CI checks like any other. Python packages are pinned in uv.lock and moved by hand on purpose.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+    open-pull-requests-limit: 3
