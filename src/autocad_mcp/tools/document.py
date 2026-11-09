@@ -313,6 +313,24 @@ def _units_of(doc: Any) -> str:
         return "unknown"
 
 
+def _paper_space_count(doc: Any) -> int | None:
+    """How many objects the active sheet holds, or None when AutoCAD will not say.
+
+    ``doc.PaperSpace`` can throw a bare Automation error on a sheet AutoCAD has
+    half set up (Luxury Suite 2, 2026-11-09: after a viewport hung on a sheet
+    made with Layouts.Add), and one bad count used to sink the whole status
+    report. The active layout's own block still answers, so that is asked next.
+    """
+    try:
+        return int(doc.PaperSpace.Count)
+    except BaseException:  # noqa: BLE001 - see the docstring
+        pass
+    try:
+        return int(doc.ActiveLayout.Block.Count)
+    except BaseException:  # noqa: BLE001 - report the drawing without it
+        return None
+
+
 @mcp.tool(
     name="autocad_status",
     **tool_meta("AutoCAD Connection Status", read_only=True, idempotent=True),
@@ -362,7 +380,7 @@ async def autocad_status(
             "ucs_advice": str | null,  # present only when the UCS is not the world one
             "current_layer": str,
             "model_space_entities": int,
-            "paper_space_entities": int,
+            "paper_space_entities": int | null,  # null when AutoCAD will not say
             "layer_count": int,
             "block_definition_count": int
           } | null
@@ -406,7 +424,7 @@ async def autocad_status(
             "ucs": ucs.describe(_ucs_name_of(doc) or None),
             "current_layer": str(doc.ActiveLayer.Name),
             "model_space_entities": int(doc.ModelSpace.Count),
-            "paper_space_entities": int(doc.PaperSpace.Count),
+            "paper_space_entities": _paper_space_count(doc),
             "layer_count": int(doc.Layers.Count),
             "block_definition_count": int(doc.Blocks.Count),
         }

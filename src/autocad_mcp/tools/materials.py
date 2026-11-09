@@ -384,7 +384,14 @@ async def autocad_create_material(
     description: Annotated[str | None, Field(default=None, description="A line saying what it is, shown in AutoCAD's Materials Browser.")] = None,
     replace: Annotated[
         bool,
-        Field(default=False, description="Change a material of this name that is already in the drawing; everything using it changes too."),
+        Field(
+            default=False,
+            description=(
+                "Change a material of this name that is already in the drawing; everything using it changes too. "
+                "Giving diffuse_rgb without a texture makes it a plain colour: its old image is cleared "
+                "(plug-in 1.4.2 or newer)."
+            ),
+        ),
     ] = False,
 ) -> str:
     """Make a material in this drawing from its look: colour, texture, gloss, glass, glow.

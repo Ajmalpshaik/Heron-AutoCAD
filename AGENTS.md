@@ -45,6 +45,7 @@ once, read only).
   ([05 §1](docs/05-known-limits.md#1-reinstalling-while-the-server-runs)).
 - **Never drive AutoCAD from two sessions at once.**
 - **Never send an AutoLISP expression near 3,600 characters**; keep chunks under about 700.
+  `autocad_run_lisp` refuses anything over 2,000 ([05 §3](docs/05-known-limits.md#3-long-autolisp-fails-silently)).
 - **Never draw parts as loose lines or fake a leader**: [07 drafting rules](docs/07-drafting-rules.md).
 - **Never copy Lee Mac's code into this public repository**: ideas only, re-implemented and credited ([D-26](docs/DECISIONS.md), [08](docs/08-lee-mac-study.md)).
 - **Never draw before `autocad_status` on that drawing.** It gives the units; the gate refuses changes until it has run ([D-19](docs/DECISIONS.md)).

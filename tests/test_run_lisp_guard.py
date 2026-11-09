@@ -127,3 +127,33 @@ class TestTool:
         call("(+ 1 2)")
         assert doc.variables[LISP_RESULT_VAR] == "mine"
         assert doc.variables[LISP_CANCELLED_VAR] == "also mine"
+
+
+class TestLength:
+    """A ~3,000-character defun block arrived in AutoCAD as nothing (Luxury Suite 2, 2026-11-09)."""
+
+    def test_an_expression_over_the_limit_is_refused_and_nothing_is_sent(self, make):
+        doc = make()
+        body = "(+ 1 2)" * (advanced.LISP_MAX_CHARS // 7 + 1)
+        answer = call(f"(progn {body})")
+        assert answer.startswith("Error")
+        assert "Split it" in answer
+        assert doc.sent == []
+
+    def test_an_expression_at_the_limit_is_sent(self, make):
+        doc = make()
+        text = "(+ 1 " + "1" * (advanced.LISP_MAX_CHARS - 6) + ")"
+        assert len(text) == advanced.LISP_MAX_CHARS
+        json.loads(call(text))
+        assert len(doc.sent) == 1
+
+    def test_the_schema_says_the_same_limit(self):
+        assert advanced.LISP_MAX_CHARS == 2000
+
+    def test_a_timeout_warns_that_the_expression_may_still_have_run(self, make, monkeypatch):
+        make(result=advanced.LISP_SENTINEL)
+        monkeypatch.setattr(advanced, "LISP_POLL_ATTEMPTS", 1)
+        monkeypatch.setattr(advanced.time, "sleep", lambda s: None)
+        answer = json.loads(call("(+ 1 2)"))
+        assert answer["timed_out"] is True
+        assert "count what landed" in answer["note"]

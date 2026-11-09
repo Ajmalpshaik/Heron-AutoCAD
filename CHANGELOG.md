@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Fixes from the Luxury Suite 2 interior set (2026-11-09, AutoCAD 2027).** `autocad_run_lisp`
+  refuses expressions over 2,000 characters (a ~3,000-character one arrived as nothing) and its
+  timeout note says the expression may still have run, so count before re-sending.
+  `autocad_status` no longer fails whole when `doc.PaperSpace` throws: the count comes from the
+  layout's block. `autocad_add_viewport` falls back to MVIEW typed with two corners when
+  AddPViewport is refused. Plug-in **1.4.2**: `autocad_create_material(replace=true)` with a colour
+  and no texture clears the old image. Known limit 23; live rows K16, S8-S10 NOT RUN.
 - **Fix: the heron stays on top after Free this AutoCAD or Bridge Status.** AutoCAD makes a pick
   from the Heron menu the button's current item only after the pick has run, so the heron put back
   inside the pick was overwritten and "Free this AutoCAD" stayed on top; picking Heron to get it

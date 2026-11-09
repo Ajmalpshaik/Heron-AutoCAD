@@ -20,7 +20,10 @@ reconnect the MCP server) after changing anything in `src/`.
 ## 3. Long AutoLISP fails silently
 
 `autocad_run_lisp` expressions near 3,600 characters fail with no error. Keep chunks under about
-700 characters.
+700 characters. On 2026-11-09 (AutoCAD 2027) a ~3,000-character `defun` block arrived as nothing,
+while calls under 2,000 worked all day, so `autocad_run_lisp` now **refuses anything over 2,000**
+with a plain message. A ~2,400-character call ran but its result came after the 10 s wait and it
+reported a timeout: the timeout note now says to count what landed before sending it again.
 
 ## 4. Two sessions on one AutoCAD
 
@@ -197,3 +200,15 @@ result means the expression has to be written again, complete.
   combined with `diffuse_rgb`. A glowing strip lights little around it; add lights for that.
 - `autocad_save_view(from_screen=true)` types `-VIEW _Save`, so a name with spaces is refused.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group K](NEEDS-CHECKING.md)).
+
+## 23. Sheets with a heavy 3D xref, and a paper space that will not answer
+
+- With a 5 MB 3D drawing attached as an xref, `autocad_create_layout` came back "went busy" twice
+  and the first viewport hung AutoCAD (its regen of every viewport redraws the xref). **Unload a
+  heavy xref before sheet work** (`autocad_manage_xref action='unload'`) and reload it for the 3D sheet.
+- After that, `doc.PaperSpace` threw a bare Automation error on a sheet made with `Layouts.Add`,
+  while `ActiveLayout.Block` still answered. `autocad_status` now reports `paper_space_entities`
+  from the layout's block (or null) instead of failing whole, and `autocad_add_viewport` falls back
+  to MVIEW typed with the two corners. Both NOT RUN live (NEEDS-CHECKING S8, S9).
+- `create_material(replace=true)` with only `diffuse_rgb` kept the old texture image, which covers
+  the colour; from plug-in **1.4.2** the image is cleared (K16, NOT RUN).

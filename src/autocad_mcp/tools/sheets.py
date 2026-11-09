@@ -1025,13 +1025,7 @@ async def autocad_add_viewport(
             if layer:
                 ensure_layer(doc, layer)
             _activate(doc, sheet)
-            try:
-                viewport = doc.PaperSpace.AddPViewport(apoint(cx, cy, 0.0), pw, ph)
-            except BaseException as exc:  # noqa: BLE001
-                raise AutocadError(
-                    f"AutoCAD would not add a viewport to '{sheet.Name}' ({com_message(exc)}). "
-                    "Check the sheet is a layout and not model space."
-                ) from exc
+            viewport = _new_viewport(doc, str(sheet.Name), cx, cy, pw, ph)
             if layer:
                 viewport.Layer = layer.strip()
             if aci is not None:
@@ -1138,6 +1132,75 @@ def _view_area(doc: Any, view_name: str) -> tuple[plan.Box, tuple[float, float]]
         middle[0] + width / 2.0,
         middle[1] + height / 2.0,
     ), (middle[0], middle[1])
+
+
+MVIEW_POLL_ATTEMPTS = 20
+MVIEW_POLL_DELAY = 0.1
+
+
+def _viewports_in(block: Any) -> list[Any]:
+    """The viewports a layout's block holds, in the order AutoCAD keeps them."""
+    found = []
+    for index in range(int(_try(lambda: block.Count, 0) or 0)):
+        item = _try(lambda index=index: block.Item(index))
+        if item is not None and str(_try(lambda item=item: item.ObjectName, "")) == "AcDbViewport":
+            found.append(item)
+    return found
+
+
+def mview_command(cx: float, cy: float, pw: float, ph: float) -> str:
+    """MVIEW typed with two corners: the same viewport AddPViewport would make.
+
+    Each space is one Enter. There is none after the second corner's own, or the
+    empty prompt would repeat MVIEW.
+    """
+    x1, y1, x2, y2 = cx - pw / 2.0, cy - ph / 2.0, cx + pw / 2.0, cy + ph / 2.0
+    return f"_.MVIEW {x1:.4f},{y1:.4f} {x2:.4f},{y2:.4f} "
+
+
+def _new_viewport(doc: Any, sheet_name: str, cx: float, cy: float, pw: float, ph: float) -> Any:
+    """Add a viewport to the active sheet, through MVIEW when AddPViewport will not.
+
+    ``doc.PaperSpace`` can throw a bare Automation error on a sheet AutoCAD has
+    half set up (Luxury Suite 2, 2026-11-09), and with it AddPViewport. MVIEW
+    typed with two corners still worked on that sheet, so it is the fallback;
+    the new viewport is found as the one the layout's block did not hold before.
+    """
+    try:
+        return doc.PaperSpace.AddPViewport(apoint(cx, cy, 0.0), pw, ph)
+    except BaseException as first:  # noqa: BLE001 - MVIEW is tried next
+        refusal = com_message(first)
+
+    block = _try(lambda: doc.ActiveLayout.Block)
+    if block is None:
+        raise AutocadError(
+            f"AutoCAD would not add a viewport to '{sheet_name}' ({refusal}). "
+            "Check the sheet is a layout and not model space."
+        )
+    before = {str(_try(lambda v=v: v.Handle, "")) for v in _viewports_in(block)}
+    osmode = _try(lambda: doc.GetVariable("OSMODE"))
+    _try(lambda: doc.SetVariable("OSMODE", 0))
+    try:
+        doc.SendCommand(mview_command(cx, cy, pw, ph))
+    except BaseException as exc:  # noqa: BLE001
+        raise AutocadError(
+            f"AutoCAD would not add a viewport to '{sheet_name}' ({refusal}), and MVIEW was "
+            f"refused too ({com_message(exc)}). Press Esc in AutoCAD and try again."
+        ) from exc
+    finally:
+        if osmode is not None:
+            _try(lambda: doc.SetVariable("OSMODE", osmode))
+
+    for _ in range(MVIEW_POLL_ATTEMPTS):
+        fresh = [v for v in _viewports_in(block) if str(_try(lambda v=v: v.Handle, "")) not in before]
+        if fresh:
+            return fresh[-1]
+        time.sleep(MVIEW_POLL_DELAY)
+    raise AutocadError(
+        f"AutoCAD would not add a viewport to '{sheet_name}' ({refusal}), and MVIEW made "
+        "none either. Check the sheet is a layout, not model space, and nothing is "
+        "waiting at the command line."
+    )
 
 
 def _aim(

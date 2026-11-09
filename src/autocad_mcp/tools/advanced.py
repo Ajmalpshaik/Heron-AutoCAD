@@ -91,6 +91,12 @@ def lisp_wrapper(expression: str) -> str:
         f'(setvar "{LISP_RESULT_VAR}" heron:r)'
         "(princ)\n"
     )
+# Longest expression autocad_run_lisp accepts. The wrapper adds about 300
+# characters, and AutoCAD's command line drops longer text: a ~3,000-character
+# defun block arrived as nothing at all (Luxury Suite 2, 2026-11-09), while
+# calls under 2,000 worked all day. Refused here, with a plain message, rather
+# than failing silently in AutoCAD.
+LISP_MAX_CHARS = 2000
 LISP_POLL_ATTEMPTS = 100
 LISP_POLL_DELAY = 0.1
 
@@ -249,10 +255,13 @@ async def autocad_run_lisp(
                 "One AutoLISP expression to evaluate, e.g. "
                 "'(getvar \"DIMSCALE\")' or "
                 "'(length (vlax-safearray->list (vla-get-coordinates obj)))'. "
-                "Its value is returned as text."
+                "Its value is returned as text. At most "
+                f"{LISP_MAX_CHARS} characters: split longer code into several "
+                "calls (define helpers with defun in one call, use them in the "
+                "next)."
             ),
             min_length=1,
-            max_length=4000,
+            max_length=LISP_MAX_CHARS,
         ),
     ],
 ) -> str:
@@ -297,8 +306,16 @@ async def autocad_run_lisp(
           means the expression raised a LISP error or is waiting for input.
         - Unbalanced parentheses are rejected before the expression is sent,
           since AutoCAD would otherwise sit waiting for the closing bracket.
+        - An expression over LISP_MAX_CHARS (2,000) characters is refused:
+          AutoCAD drops longer command-line text without a word.
     """
     text = expression.strip()
+    if len(text) > LISP_MAX_CHARS:
+        raise AutocadError(
+            f"The expression is {len(text)} characters; AutoCAD drops command-line "
+            f"text much past {LISP_MAX_CHARS} without a word. Split it into several "
+            "calls: define helpers with defun in one call, then use them in the next."
+        )
     if not text.startswith("("):
         raise AutocadError(
             f"An AutoLISP expression must start with '('. Got: {text[:60]}"
@@ -385,10 +402,13 @@ async def autocad_run_lisp(
                 "result": None,
                 "timed_out": True,
                 "note": (
-                    "AutoCAD never wrote a result. The expression probably "
-                    "raised a LISP error, referenced an undefined symbol, or is "
-                    "waiting for input. Check AutoCAD's command line, and press "
-                    "Esc there if a prompt is showing."
+                    "AutoCAD never wrote a result within the wait. The "
+                    "expression probably raised a LISP error, referenced an "
+                    "undefined symbol, or is waiting for input. But a long "
+                    "expression can still have run and finished after the wait: "
+                    "count what landed before sending it again, or it is drawn "
+                    "twice. Check AutoCAD's command line, and press Esc there if "
+                    "a prompt is showing."
                 ),
             }
         answer: dict[str, Any] = {"expression": text, "result": value, "timed_out": False}
