@@ -28,7 +28,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
-from . import audit, connection
+from .. import __version__
+from . import audit, connection, diagnose, progress
 from .bridge import (
     CONVERSATION,
     NOT_CONNECTED,
@@ -52,6 +53,8 @@ BRIDGE_OFF = (
     "Heron's plug-in checks are switched off for this server (--no-bridge, "
     "developer use): no padlocks, banner or Keep or Discard apply."
 )
+DIAGNOSE_HINT = "Read the resource autocad://diagnose: it checks the install, the connection and the versions."
+KEEP_WAITING = "Waiting for the answer in AutoCAD: keep or discard '{what}'? ({seconds} s so far)."
 COULD_NOT_ASK = (
     "Heron could not ask whether to keep this change, so it was kept. "
     "One Ctrl+Z in AutoCAD reverses it."
@@ -218,6 +221,21 @@ def _created(text: str) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def _versions(state: dict[str, Any], job: Job | None) -> dict[str, Any]:
+    """What autocad_status adds about Heron itself: versions, and an update the chat has not loaded."""
+    state["server_version"] = __version__
+    if job and job.bridge:
+        address = job.bridge.find() or {}
+        if address.get("addinVersion"):
+            state["plugin_version"] = address["addinVersion"]
+    if diagnose.changed_since_start():
+        state["update_waiting"] = (
+            "Heron's server files were updated after this chat started it, so it still runs the old "
+            "code. Close and reopen the chat (or restart Claude) to load the update."
+        )
+    return state
+
+
 def _status_heron(state: dict[str, Any]) -> str:
     return json.dumps({"heron": state}, indent=2)
 
@@ -291,7 +309,9 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
             if tool == STATUS_TOOL:
                 # Status still answers, but says nothing about a drawing in
                 # an AutoCAD that is not connected.
-                return _status_heron({"connected": False, "message": refusal})
+                return _status_heron(
+                    _versions({"connected": False, "message": refusal, "diagnose": DIAGNOSE_HINT}, None)
+                )
             return f"Error: {refusal}"
 
         ok, outcome, result = False, "failed", None
@@ -302,6 +322,8 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
 
             writes_before = connection.write_count()
             _current = job
+            what = job.title if job else _title(tool)
+            beat = progress.start(lambda seconds: progress.note(what, seconds))
             try:
                 result = await work()
             except asyncio.CancelledError:
@@ -309,6 +331,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 raise
             finally:
                 _current = None
+                progress.stop(beat)
             text = result if isinstance(result, str) else ""
             ok = not text.startswith("Error:")
             outcome = "done" if ok else ("unknown" if "Outcome unknown" in text else "failed")
@@ -318,7 +341,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 state: dict[str, Any] = (
                     {"connected": True} if job else {"connected": False, "bridge": "off", "message": BRIDGE_OFF}
                 )
-                result = _with_heron(result, state)
+                result = _with_heron(result, _versions(state, job))
 
             if ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE:
                 result, outcome = await _keep_or_discard(job, text, marked)
@@ -340,7 +363,11 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
 
 async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str]:
     """Ask the plug-in; act only on a clear answer. Returns (result, outcome)."""
-    answer = await asyncio.to_thread(job.bridge.ask_keep, job.id, job.title, _handles(text))
+    beat = progress.start(lambda seconds: KEEP_WAITING.format(what=job.title, seconds=int(seconds)))
+    try:
+        answer = await asyncio.to_thread(job.bridge.ask_keep, job.id, job.title, _handles(text))
+    finally:
+        progress.stop(beat)
     if answer in ("keep", "keep_rest"):
         return text, "done"
     if answer != "discard":

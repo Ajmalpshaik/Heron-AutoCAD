@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using Autodesk.AutoCAD.DatabaseServices;
 using Heron.AutoCAD.Bridge;
 using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
 
@@ -14,7 +12,6 @@ namespace Heron.AutoCAD.Addin
     /// </summary>
     internal sealed class AcadJobHost : IJobHost
     {
-        private const int MostToHighlight = 500;
         // Longer than the box's own deadline (it closes as Discard first), shorter
         // than the server's wait, so a question can never outlive its chat.
         private static readonly TimeSpan KeepWait = HeronKeepQuestion.Deadline + TimeSpan.FromSeconds(30);
@@ -33,9 +30,13 @@ namespace Heron.AutoCAD.Addin
             _config = config;
         }
 
+        /// <summary>No save, plot or export inside a job while Publish is off (HeronApplication vetoes).</summary>
+        public static PublishGuard Guard { get; } = new PublishGuard(() => DateTime.UtcNow);
+
         public void Begin(JobInfo job)
         {
             HeronLog.Write("begin " + job.Tool + " (" + job.Risk + ") on " + job.Drawing);
+            Guard.Begin(job.Job, job.Risk);
             _undo.Begin(job);
             if (_config().ActivityBanner) _banner.Begin(job);
         }
@@ -43,6 +44,7 @@ namespace Heron.AutoCAD.Addin
         public void End(JobEnd end)
         {
             HeronLog.Write("end " + end.Job + " " + end.Outcome + " " + end.Ms + " ms");
+            Guard.End(end.Job);
             // Before the reply, so the next job never starts with recording off.
             _undo.End(end.Job);
             _banner.End(end);
@@ -58,7 +60,8 @@ namespace Heron.AutoCAD.Addin
         {
             var asked = IdleQueue.TryInvoke(() =>
             {
-                var count = SelectAndZoom(request.Handles);
+                var doc = AcApp.DocumentManager.MdiActiveDocument;
+                var count = doc == null ? request.Handles.Length : Showing.SelectAndZoom(doc, request.Handles);
                 return HeronKeepQuestion.Ask(request.Summary, count);
             }, KeepWait, out var answer);
             // No answer in time, or the box failed: only a clear "keep" keeps.
@@ -83,73 +86,6 @@ namespace Heron.AutoCAD.Addin
         {
             var started = IdleQueue.TryInvoke(() => PluginRunner.Run(request), RunStartWait, out var result);
             return started && result != null ? result : RunResult.Failed(Texts.NotStarted((int)RunStartWait.TotalSeconds, CommandWatch.Current));
-        }
-
-        /// <summary>Main thread. Select and zoom to what the job made, so the modeller sees it before choosing.</summary>
-        private static int SelectAndZoom(string[] handles)
-        {
-            var doc = AcApp.DocumentManager.MdiActiveDocument;
-            if (doc == null || handles.Length == 0 || handles.Length > MostToHighlight) return handles.Length;
-            var ids = new List<ObjectId>();
-            Extents3d? box = null;
-            using (doc.LockDocument())
-            using (var tr = doc.Database.TransactionManager.StartTransaction())
-            {
-                foreach (var text in handles)
-                {
-                    long value;
-                    try
-                    {
-                        value = Convert.ToInt64(text, 16);
-                    }
-                    catch (FormatException)
-                    {
-                        continue;
-                    }
-                    if (!doc.Database.TryGetObjectId(new Handle(value), out var id) || id.IsErased) continue;
-                    ids.Add(id);
-                    if (tr.GetObject(id, OpenMode.ForRead) is Entity entity)
-                    {
-                        try
-                        {
-                            var e = entity.GeometricExtents;
-                            if (box == null) box = e;
-                            else
-                            {
-                                var grow = box.Value;
-                                grow.AddExtents(e);
-                                box = grow;
-                            }
-                        }
-                        catch (Autodesk.AutoCAD.Runtime.Exception)
-                        {
-                            // Some objects have no extents; they are still selected.
-                        }
-                    }
-                }
-                tr.Commit();
-            }
-            if (ids.Count == 0) return 0;
-            doc.Editor.SetImpliedSelection(ids.ToArray());
-            if (box != null) ZoomTo(box.Value);
-            return ids.Count;
-        }
-
-        private static void ZoomTo(Extents3d box)
-        {
-            var dx = Math.Max(box.MaxPoint.X - box.MinPoint.X, 1.0) * 0.15;
-            var dy = Math.Max(box.MaxPoint.Y - box.MinPoint.Y, 1.0) * 0.15;
-            try
-            {
-                dynamic acad = AcApp.AcadApplication;
-                acad.ZoomWindow(
-                    new[] { box.MinPoint.X - dx, box.MinPoint.Y - dy, 0.0 },
-                    new[] { box.MaxPoint.X + dx, box.MaxPoint.Y + dy, 0.0 });
-            }
-            catch (Exception ex)
-            {
-                HeronLog.Error("Zoom to the change", ex);
-            }
         }
     }
 }

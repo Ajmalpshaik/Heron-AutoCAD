@@ -122,7 +122,11 @@ def test_not_connected_status_answers_without_drawing_data(env):
     tool, calls = make_tool("autocad_status", '{"connected": true, "active_drawing": {"name": "secret.dwg"}}', writes=False)
     result = json.loads(call(tool))
     assert calls == []  # a private AutoCAD's drawing is not read out
-    assert result["heron"] == {"connected": False, "message": NOT_CONNECTED}
+    heron = result["heron"]
+    assert heron["connected"] is False and heron["message"] == NOT_CONNECTED
+    # Only Heron's own facts are added: its version and where to look next.
+    assert set(heron) <= {"connected", "message", "diagnose", "server_version", "update_waiting"}
+    assert "autocad://diagnose" in heron["diagnose"]
     assert "active_drawing" not in result
 
 

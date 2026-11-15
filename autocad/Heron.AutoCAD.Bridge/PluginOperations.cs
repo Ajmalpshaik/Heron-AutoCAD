@@ -12,6 +12,8 @@ namespace Heron.AutoCAD.Bridge
         private static readonly Dictionary<string, Risk> Levels = new Dictionary<string, Risk>
         {
             ["solid_topology"] = Risk.Read,
+            // Selects, zooms and isolates what was asked for: on screen only.
+            ["show"] = Risk.View,
             ["loft"] = Risk.Change,
             ["fillet_edges"] = Risk.Change,
             ["chamfer_edges"] = Risk.Change,

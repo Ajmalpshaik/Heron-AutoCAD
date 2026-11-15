@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The weekly run calls this whole file against today's packages (weekly.yml).
+  workflow_call:
 
 # Read-only: CI builds and tests, it never writes to the repository.
 permissions:
@@ -28,6 +30,9 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Install
         run: python -m pip install -e ".[dev]"
+      - name: Secrets
+        # Public repository: a key that reaches GitHub is published to every clone.
+        run: python tools/check_secrets.py
       - name: Lint
         run: python -m ruff check .
       - name: Offline tests

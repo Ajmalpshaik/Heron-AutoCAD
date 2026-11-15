@@ -130,6 +130,30 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-48 - "Diagnose Heron" is a resource that needs no AutoCAD
+
+**Decided:** 2026-11-15, from Heron AI for Revit's `heron_diagnose`. **Status:** in force.
+The question after an update is "why does it not work", and the answer is in files: the plug-in
+bundle, the address file the Heron button writes, the padlock file, and the server's own code
+against what is on disk. So `autocad://diagnose` reads only those, never COM and never a drawing,
+and answers with AutoCAD closed. It is a resource, not a tool, because every tool goes through the
+gate, which refuses when AutoCAD is not reachable: the one moment a diagnosis is needed most. It
+never prints the session token. `autocad_status` carries the server and plug-in versions and says
+when the chat still runs code older than its files.
+
+## D-47 - A raw command or AutoLISP may not save, plot or export
+
+**Decided:** 2026-11-15, from Heron AI for Revit's run guard. **Status:** in force.
+Saving over a shared drawing is the one change Ctrl+Z cannot take back, and the tools that save or
+export need Publish. Admin alone let `autocad_send_command` and `autocad_run_lisp` type QSAVE or
+-PLOT. Two layers now: the server refuses a command string or LISP that names one of these commands
+(or calls `vla-save`, `vla-saveas`, `vla-plottofile`...) and points at the typed tool; the plug-in
+vetoes the same commands (`PublishGuard`) through `DocumentLockModeChanged` while a Change or Admin
+job runs and for 3 s after it, when Publish is off. Read, View and Publish jobs are not watched: a
+preview plots to a PNG through COM inside a Read job. The modeller's own Ctrl+S outside a job is
+never touched. Known gap: an office LISP that saves through ActiveX inside a routine the server
+cannot read is not caught by either layer.
+
 ## D-46 - A texture's real size is written as the map transform's diagonal
 
 **Decided:** 2026-11-08, after the bedroom + bathroom model: 11 library textures all rendered as a

@@ -319,6 +319,25 @@ three AutoCAD builds and the colours are checked offline (`tests/test_brand_and_
 | L11 | Press the top half of **Heron** to connect, again to disconnect; then open Bridge Status from the arrow and close it | Each press connects or disconnects; after Bridge Status the button still shows the heron and still connects | PASS 2026-11-08, AutoCAD 2027, fix build f32d68b: the top half of Heron connects (user's eye). The #21 build had failed it: the top half did nothing |
 | L12 | While connected, pick **Free this AutoCAD** from the Heron arrow, then **Bridge Status** and close it | After each, the big button shows the orange heron again within a moment, still connected; no need to press Heron | NOT RUN |
 
+## Group M - Ideas from Heron AI for Revit, batch 1 (AutoCAD 2027, this PC)
+
+Added on 2026-11-15 ([D-47](DECISIONS.md), [D-48](DECISIONS.md)). Built and tested offline
+(`tests/test_publish_guard.py`, `tests/test_diagnose.py`, `tests/test_progress.py`,
+`PublishGuardTests.cs`); **every row below is NOT RUN**. Install plug-in 1.5.0 first.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| M1 | Draw three circles; ask "show me the circles" (`autocad_show` with their handles), Changes OFF | The three are selected with grips and the view zooms to them; nothing else changes and one Ctrl+Z does not undo a drawing change | NOT RUN |
+| M2 | Same circles, `isolate=true`; then `end_isolation=true` | Only the circles stay visible, then everything comes back; saving and reopening shows everything | NOT RUN |
+| M3 | Admin ON, Publish OFF: `autocad_send_command("_QSAVE
+")` and `autocad_run_lisp('(command "_.QSAVE")')` | Both refused at once with "use autocad_save_drawing"; the file's time on disk is unchanged | NOT RUN |
+| M4 | Admin ON, Publish OFF: type `(defun c:HSV () (command "_.QSAVE"))` yourself at the command line, then `autocad_send_command("HSV
+")` | The command line says "Heron stopped QSAVE"; the file's time on disk is unchanged | NOT RUN |
+| M5 | Right after M4, press Ctrl+S yourself (wait 5 s) | The drawing saves as normal | NOT RUN |
+| M6 | Publish OFF: `autocad_preview` | The picture comes back as before: the veto never touches a preview | NOT RUN |
+| M7 | `autocad_publish_pdf` of a 10-sheet drawing in Claude Code | "Still working: ..." notes while it runs, if Claude Code shows progress (say if it does not) | NOT RUN |
+| M8 | Read `autocad://diagnose` with AutoCAD closed, then open and connected | Closed: WARNING "press the Heron button"; connected: HEALTHY with AutoCAD's version and plug-in 1.5.0 | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

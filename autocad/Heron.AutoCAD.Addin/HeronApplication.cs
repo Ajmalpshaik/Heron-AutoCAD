@@ -59,6 +59,7 @@ namespace Heron.AutoCAD.Addin
                 Server = new BridgeServer(new AcadJobHost(banner, LoadConfig), LoadConfig, AcadVersion, AddinVersion);
                 IdleQueue.Hook();
                 CommandWatch.Hook();
+                PublishVeto.Hook();
                 HeronRibbon.Init();
                 AcApp.QuitWillStart += (s, e) => Server?.Stop();
 
@@ -86,6 +87,7 @@ namespace Heron.AutoCAD.Addin
                 Server?.Stop();
                 IdleQueue.Unhook();
                 CommandWatch.Unhook();
+                PublishVeto.Unhook();
             }
             catch (System.Exception ex)
             {
