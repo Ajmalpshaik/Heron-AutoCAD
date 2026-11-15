@@ -66,6 +66,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
     ),
     Risk.CHANGE: (
         "undo_last",
+        "saved_command",
         "draw_spline",
         "draw_multiline",
         "add_wipeout",

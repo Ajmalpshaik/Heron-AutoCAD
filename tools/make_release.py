@@ -2,7 +2,7 @@
 
     python tools/make_release.py
 
-The zip holds the plug-in bundle, the server as one autocad-mcp.exe (no Python needed on the
+It also writes dist/checksums.txt (the zip's SHA-256). The zip holds the plug-in bundle, the server as one autocad-mcp.exe (no Python needed on the
 target PC), Install.bat and a short READ-ME-FIRST.txt. Run it from a venv that has the project
 and PyInstaller installed:
 
@@ -57,8 +57,20 @@ def main() -> int:
         for f in FILES.iterdir():
             shutil.copy2(f, folder / f.name)
     archive = shutil.make_archive(str(build_plugin.DIST / name), "zip", build_plugin.DIST, name)
+    sums = write_checksums(Path(archive))
     print(f"Release: {archive}")
+    print(f"Checksums: {sums}")
     return 0
+
+
+def write_checksums(archive: Path) -> Path:
+    """dist/checksums.txt: the zip's SHA-256, so anyone can check the download is the one built."""
+    import hashlib
+
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    sums = archive.parent / "checksums.txt"
+    sums.write_text(f"{digest}  {archive.name}\n", encoding="ascii")
+    return sums
 
 
 if __name__ == "__main__":

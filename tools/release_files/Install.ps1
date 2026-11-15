@@ -3,7 +3,9 @@
 #   2. the server   -> %LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe
 #   3. tells Claude Code and Claude Desktop where the server is (existing settings are kept)
 # -Uninstall removes all three, after asking. Uninstall.bat runs it that way.
-param([switch]$Uninstall)
+# -Rollback puts back the version this one replaced, after asking. Rollback.bat runs it that way.
+# -CheckUpdate says whether a newer release exists. It never installs anything by itself.
+param([switch]$Uninstall, [switch]$Rollback, [switch]$CheckUpdate)
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $plugins = Join-Path $env:APPDATA 'Autodesk\ApplicationPlugins'
@@ -11,6 +13,9 @@ $target = Join-Path $plugins 'HeronAutoCAD.bundle'
 $serverDir = Join-Path $env:LOCALAPPDATA 'Heron\autocad'
 $server = Join-Path $serverDir 'autocad-mcp.exe'
 $desktopCfg = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
+# The version an update replaced, kept so Rollback.bat can put it back.
+$previous = Join-Path $serverDir 'previous'
+$releases = 'https://api.github.com/repos/Ajmalpshaik/Heron-AutoCAD/releases/latest'
 
 # Anything unexpected: say it in plain words, not a PowerShell error.
 trap {
@@ -18,6 +23,50 @@ trap {
     Write-Host "Heron could not finish. Windows said: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host 'Close AutoCAD and Claude, then try again. If it happens again, send this window''s text to whoever gave you Heron.' -ForegroundColor Red
     exit 1
+}
+
+# The version a bundle says it is (PackageContents.xml), or '' when it is not there.
+function Get-BundleVersion([string]$folder) {
+    $file = Join-Path $folder 'PackageContents.xml'
+    if (-not (Test-Path $file)) { return '' }
+    $found = Select-String -Path $file -Pattern 'AppVersion="([^"]+)"' | Select-Object -First 1
+    if ($found) { return $found.Matches[0].Groups[1].Value }
+    return 'unknown'
+}
+
+# Run from inside the Claude app's own private folder (the Microsoft Store app keeps one), the
+# files would land where AutoCAD never looks. Say so instead.
+if ($here -match '\\AppData\\Local\\Packages\\') {
+    Write-Host 'This folder is inside an app''s private storage, so AutoCAD would never see what it installs.' -ForegroundColor Red
+    Write-Host 'Copy the whole folder to your Desktop or Downloads, then double-click Install.bat there. Nothing was changed.' -ForegroundColor Red
+    exit 1
+}
+
+if ($CheckUpdate) {
+    $installed = Get-BundleVersion $target
+    Write-Host ('Installed: ' + $(if ($installed) { $installed } else { 'not installed' }))
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $latest = Invoke-RestMethod -Uri $releases -TimeoutSec 15
+    } catch {
+        $code = 0
+        try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+        if ($code -eq 404) {
+            Write-Host 'No Heron release has been published on GitHub yet, so there is nothing newer. Nothing was changed.' -ForegroundColor Green
+        } else {
+            Write-Host 'Could not reach GitHub to look for a newer version. Try again later. Nothing was changed.' -ForegroundColor Yellow
+        }
+        exit 0
+    }
+    $newest = ([string]$latest.tag_name).TrimStart('v')
+    if ($installed -and [version]($newest -replace '[^0-9.]', '') -le [version]($installed -replace '[^0-9.]', '')) {
+        Write-Host "You have the newest version ($installed)." -ForegroundColor Green
+    } else {
+        Write-Host "A newer version is out: $newest. Download it from:" -ForegroundColor Yellow
+        Write-Host "  $($latest.html_url)"
+        Write-Host 'Nothing was installed: unzip the new one and run its Install.bat when AutoCAD is closed.'
+    }
+    exit 0
 }
 
 # Windows PowerShell's "utf8" adds a byte-order mark, which Claude Desktop cannot read.
@@ -73,6 +122,27 @@ if ($Uninstall) {
     exit 0
 }
 
+if ($Rollback) {
+    $oldBundle = Join-Path $previous 'HeronAutoCAD.bundle'
+    $oldServer = Join-Path $previous 'autocad-mcp.exe'
+    if (-not ((Test-Path $oldBundle) -and (Test-Path $oldServer))) {
+        Write-Host 'There is no earlier version kept on this PC to go back to. Nothing was changed.' -ForegroundColor Yellow
+        exit 0
+    }
+    Write-Host ('Installed now:  ' + (Get-BundleVersion $target))
+    Write-Host ('Kept earlier:   ' + (Get-BundleVersion $oldBundle))
+    $answer = Read-Host 'Go back to the earlier version? Type Y and press Enter, or just press Enter to keep this one'
+    if ($answer -notmatch '^\s*(y|yes)\s*$') {
+        Write-Host 'Kept. Nothing was changed.' -ForegroundColor Green
+        exit 0
+    }
+    if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+    Copy-Item $oldBundle $target -Recurse
+    Copy-Item $oldServer $server -Force
+    Write-Host ('Back on ' + (Get-BundleVersion $target) + '. Restart Claude Desktop if it is open.') -ForegroundColor Green
+    exit 0
+}
+
 $bundle = Join-Path $here 'HeronAutoCAD.bundle'
 $exe = Join-Path $here 'autocad-mcp.exe'
 if (-not ((Test-Path $bundle) -and (Test-Path $exe))) {
@@ -81,16 +151,46 @@ if (-not ((Test-Path $bundle) -and (Test-Path $exe))) {
     exit 1
 }
 
-# 1. plug-in
-New-Item -ItemType Directory -Force $plugins | Out-Null
-if (Test-Path $target) { Remove-Item $target -Recurse -Force }
-Copy-Item $bundle $target -Recurse
-Write-Host "Plug-in installed:  $target"
+$was = Get-BundleVersion $target
+$now = Get-BundleVersion $bundle
+if ($was) { Write-Host "Updating Heron from $was to $now." } else { Write-Host "Installing Heron $now." }
 
-# 2. server
+# 0. keep what is there now, so Rollback.bat can put it back and a failed copy is undone
 New-Item -ItemType Directory -Force $serverDir | Out-Null
-Copy-Item $exe $server -Force
-Write-Host "Server installed:   $server"
+if ($was -and (Test-Path $server)) {
+    if (Test-Path $previous) { Remove-Item $previous -Recurse -Force }
+    New-Item -ItemType Directory -Force $previous | Out-Null
+    Copy-Item $target (Join-Path $previous 'HeronAutoCAD.bundle') -Recurse
+    Copy-Item $server (Join-Path $previous 'autocad-mcp.exe') -Force
+    Write-Host "Earlier version kept: $previous"
+}
+
+try {
+    # 1. plug-in
+    New-Item -ItemType Directory -Force $plugins | Out-Null
+    if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+    Copy-Item $bundle $target -Recurse
+    Write-Host "Plug-in installed:  $target"
+
+    # 2. server
+    Copy-Item $exe $server -Force
+    Write-Host "Server installed:   $server"
+} catch {
+    if ($was -and (Test-Path (Join-Path $previous 'HeronAutoCAD.bundle'))) {
+        if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+        Copy-Item (Join-Path $previous 'HeronAutoCAD.bundle') $target -Recurse
+        Copy-Item (Join-Path $previous 'autocad-mcp.exe') $server -Force
+        Write-Host "The copy failed, so $was was put back." -ForegroundColor Yellow
+    }
+    throw
+}
+
+# Check what landed is what was meant to land.
+if ((Get-BundleVersion $target) -ne $now -or -not (Test-Path $server) -or (Get-Item $server).Length -ne (Get-Item $exe).Length) {
+    Write-Host 'The files on disk are not the ones just installed. Run Install.bat again with AutoCAD and Claude closed.' -ForegroundColor Red
+    exit 1
+}
+Write-Host "Checked:            plug-in $now and the server are in place"
 
 # 3. connect Claude
 if (Get-Command claude -ErrorAction SilentlyContinue) {
@@ -123,3 +223,4 @@ if (Test-Path $desktopDir) {
 Write-Host ''
 Write-Host 'Done. Start AutoCAD, open the Heron tab and press Heron to connect.' -ForegroundColor Green
 Write-Host 'To remove Heron later, double-click Uninstall.bat in this folder.'
+if ($was) { Write-Host 'If this version gives trouble, Rollback.bat puts back the one before.' }

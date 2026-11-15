@@ -4,7 +4,7 @@
 |---|---|---|
 | `build_plugin.py` | No (needs the .NET SDK) | Builds the plug-in for all three AutoCAD ranges into `dist/HeronAutoCAD.bundle` |
 | `install_plugin.py` | **Closed** | Copies the bundle into `%APPDATA%\Autodesk\ApplicationPlugins`; `--uninstall` removes it |
-| `make_release.py` | No (needs the .NET SDK and PyInstaller) | Builds `dist/HeronAutoCAD-<version>-win64.zip`: the bundle, the server as one `autocad-mcp.exe`, and `Install.bat` / `Uninstall.bat` (asks before removing) from `release_files/`. The target PC needs no Python, .NET SDK or admin password |
+| `make_release.py` | No (needs the .NET SDK and PyInstaller) | Builds `dist/HeronAutoCAD-<version>-win64.zip` and `dist/checksums.txt` (its SHA-256): the bundle, the server as one `autocad-mcp.exe`, and `Install.bat` / `Uninstall.bat` (asks before removing) / `Rollback.bat` (asks before going back) / `CheckForUpdate.bat` (never installs) from `release_files/`. On GitHub, a `v` tag builds and publishes it (`release.yml`). The target PC needs no Python, .NET SDK or admin password |
 | `check_secrets.py` | No | No credential in any tracked file (key shapes, private keys, passwords in config lines) or file named like one (.env, *.pem). Runs in CI; exit 2 = could not look, never a pass |
 | `check_structure.py` | No | Repository rules (AutoCAD API only in the add-in, every tool has a level, doc links). Runs in CI |
 | `smoke_test.py` | Yes, with a drawing open | Live checks against a scratch drawing, then cleans up |

@@ -371,6 +371,21 @@ RUN**. Plug-in 1.5.0 installed.
 | O6 | Draw a circle with Heron, then draw a line yourself, then `autocad_undo_last` | Refused: "the drawing changed after Heron's last change"; both stay | NOT RUN |
 | O7 | Ask to Keep ON (Keep): draw with Heron, `autocad_zoom`, then `autocad_undo_last` | Undone exactly back to the mark: the drawing is as before Heron's job | NOT RUN |
 
+## Group P - Ideas from Heron AI for Revit, batch 4 (this PC)
+
+Added on 2026-11-15 ([D-55](DECISIONS.md), [D-56](DECISIONS.md)). Built and tested offline
+(`tests/test_saved_and_release.py`); the installer's install, update, keep, rollback and update
+check were run in a throwaway user folder on this PC (AutoCAD's own check switched off for that
+run only). **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| P1 | Draw a plinth with the chat; "save that as plinth with width and depth as inputs"; then "plinth again, 1500 by 900" | The second plinth is the same shape at 1500 x 900, on the same layer, through Keep or Discard as usual | NOT RUN |
+| P2 | With 1.4.2 installed, run the 1.5.0 zip's Install.bat (AutoCAD closed) | "Updating Heron from 1.4.2 to 1.5.0", "Earlier version kept", "Checked"; AutoCAD loads 1.5.0 | NOT RUN |
+| P3 | Rollback.bat, answer Y; start AutoCAD | Back on 1.4.2; `autocad://diagnose` says plug-in 1.4.2 installed | NOT RUN |
+| P4 | CheckForUpdate.bat with and without a newer release on GitHub | Says "newest version" or names the newer one with its page; installs nothing | NOT RUN |
+| P5 | Push tag `v1.5.0` | The release workflow publishes a pre-release with the zip and checksums.txt; the zip's SHA-256 matches | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

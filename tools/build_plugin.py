@@ -24,7 +24,20 @@ ADDIN_BIN = ROOT / "autocad" / "Heron.AutoCAD.Addin" / "bin" / "Release"
 DIST = ROOT / "dist"
 BUNDLE = "HeronAutoCAD.bundle"
 MODULE = "Heron.AutoCAD.Addin.dll"
-VERSION = "1.4.2"
+PROPS = ROOT / "autocad" / "Directory.Build.props"
+
+
+def _version() -> str:
+    """The plug-in's version, from the one place that owns it (the DLLs get it from there too)."""
+    import re
+
+    found = re.search(r"<Version>([^<]+)</Version>", PROPS.read_text(encoding="utf-8"))
+    if not found:
+        raise SystemExit(f"No <Version> in {PROPS}")
+    return found.group(1).strip()
+
+
+VERSION = _version()
 
 # (target framework, Contents folder, SeriesMin, SeriesMax, which AutoCADs)
 SERIES = (
