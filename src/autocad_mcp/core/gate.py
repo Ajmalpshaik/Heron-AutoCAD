@@ -24,12 +24,13 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from .. import __version__
-from . import audit, connection, diagnose, progress
+from . import audit, connection, diagnose, progress, project_notes
 from .bridge import (
     CONVERSATION,
     NOT_CONNECTED,
@@ -66,6 +67,12 @@ COULD_NOT_ASK = (
 )
 
 _lock = asyncio.Lock()
+# What Heron did in this chat, for autocad_activity, and its last change for autocad_undo_last (D-54).
+_activity: deque[dict[str, Any]] = deque(maxlen=50)
+_last_change: dict[str, Any] | None = None
+MOST_HANDLES = 200
+# Undoes Heron's own last change: no UNDO mark, no Keep or Discard, no erase question about it.
+UNDOES = {"autocad_undo_last"}
 _last_drawing: str | None = None
 _current: Job | None = None  # the job whose tool is running right now
 
@@ -246,6 +253,10 @@ def _versions(state: dict[str, Any], job: Job | None) -> dict[str, Any]:
         address = job.bridge.find() or {}
         if address.get("addinVersion"):
             state["plugin_version"] = address["addinVersion"]
+        notes = project_notes.for_status(job.drawing)
+        if notes:
+            # The modeller's own answers for this project (D-53): use them, do not ask again.
+            state["project_notes"] = notes
     if diagnose.changed_since_start():
         state["update_waiting"] = (
             "Heron's server files were updated after this chat started it, so it still runs the old "
@@ -346,9 +357,10 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
             return f"Error: {refusal}"
 
         ok, outcome, result = False, "failed", None
+        counted: dict[str, Any] | None = None
+        wrote = marked = False
         try:
-            marked = False
-            if job and job.ask_to_keep and risk is Risk.CHANGE:
+            if job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES:
                 marked = await _mark()
 
             writes_before = connection.write_count()
@@ -374,14 +386,15 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 )
                 result = _with_heron(result, _versions(state, job))
 
-            counted = None
             if job and job.bridge and risk in WATCHED:
                 counted = await asyncio.to_thread(job.bridge.changes, job.id)
                 if counted is not None:
                     result = _with_changes(result, counted)
 
-            asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE
-            if asked_keep:
+            asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES
+            if tool in UNDOES:
+                pass  # the modeller asked for exactly this undo: no question about it
+            elif asked_keep:
                 result, outcome = await _keep_or_discard(job, result if isinstance(result, str) else text, marked)
                 ok = outcome != "failed"
             elif counted and counted["erased"] > 0:
@@ -400,6 +413,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
             if job and job.bridge:
                 await asyncio.to_thread(job.bridge.end, job.id, ok, outcome, job.title, _ms(started))
             _record(tool, risk, drawing, ok, outcome, started)
+            _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked)
 
 
 async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str]:
@@ -472,6 +486,62 @@ async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
             "Tell the modeller, and look at the drawing."
         )
     return _with_note(result, note) if isinstance(result, str) else result
+
+
+def _remember(
+    tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float, job: Job | None,
+    result: Any, counted: dict[str, Any] | None, wrote: bool, marked: bool,
+) -> None:
+    """The activity list, and what "undo Heron's last change" may undo (D-54)."""
+    global _last_change
+    text = result if isinstance(result, str) else ""
+    created = _created(text) if ok else []
+    entry = {
+        "at": time.strftime("%H:%M:%S"),
+        "tool": tool,
+        "what": job.title if job else _title(tool),
+        "risk": risk.value,
+        "drawing": drawing,
+        "outcome": outcome,
+        "seconds": round(_ms(started) / 1000, 1),
+    }
+    if created:
+        entry["created"] = created[:MOST_HANDLES]
+    if counted:
+        entry["changes"] = {key: counted[key] for key in ("added", "modified", "erased")}
+    if risk is not Risk.READ:
+        _activity.append(entry)
+    if tool in UNDOES:
+        if ok:
+            _last_change = None
+        return
+    if risk is Risk.VIEW and _last_change is not None:
+        _last_change["views_since"] += 1
+    elif risk is Risk.CHANGE and wrote:
+        _last_change = (
+            {**entry, "created": created, "marked": marked, "views_since": 0}
+            if ok and outcome == "done" else None
+        )  # fmt: skip
+    elif risk in (Risk.ADMIN, Risk.PUBLISH) and wrote:
+        _last_change = None  # a raw command or a save in between: no safe undo of what came before
+
+
+def activity(limit: int = 20) -> list[dict[str, Any]]:
+    """What Heron did in this chat, newest first (reads are left out)."""
+    return list(reversed(list(_activity)))[:limit]
+
+
+def last_change() -> dict[str, Any] | None:
+    """Heron's last change in this chat that is still safe to undo, or None."""
+    return dict(_last_change) if _last_change else None
+
+
+def changed_by_modeller_since() -> bool | None:
+    """Inside a job: did anything change between Heron's last change and now? None when the plug-in cannot tell."""
+    job = _current
+    if job is None or job.bridge is None or job.id is None:
+        return None
+    return job.bridge.since_last(job.id)
 
 
 def _ms(started: float) -> int:

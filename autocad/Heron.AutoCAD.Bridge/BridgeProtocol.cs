@@ -130,6 +130,8 @@ namespace Heron.AutoCAD.Bridge
                             return Changes(root, conversation);
                         case "ask_erase":
                             return AskErase(root, conversation);
+                        case "since_last":
+                            return SinceLast(root, conversation);
                         default:
                             return Refuse("BadRequest", Texts.UnknownOp(op));
                     }
@@ -360,6 +362,19 @@ namespace Heron.AutoCAD.Bridge
                 w.WriteNumber("erased", report.Erased);
                 w.WriteNumber("restored", said == "restored" ? answer?.Restored ?? 0 : 0);
                 if (!string.IsNullOrEmpty(answer?.Message)) w.WriteString("message", answer!.Message);
+            });
+        }
+
+        /// <summary>For "undo Heron's last change" (D-54): did the modeller change anything since?</summary>
+        private string SinceLast(JsonElement root, string conversation)
+        {
+            var running = Running(root, conversation);
+            if (running == null) return Refuse("Job", Texts.NoRunJob);
+            var before = _host.ChangedBefore(Str(root, "job"));
+            return Ok(w =>
+            {
+                w.WriteBoolean("known", before.HasValue);
+                w.WriteBoolean("changedSince", before ?? true);
             });
         }
 

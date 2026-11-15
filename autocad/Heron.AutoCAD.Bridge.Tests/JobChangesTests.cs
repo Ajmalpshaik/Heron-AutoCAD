@@ -229,3 +229,61 @@ public class StopTests
         Assert.True(Send(new { op = "ping", token = Token, conversation = "chat-a" }).GetProperty("stopped").GetBoolean());
     }
 }
+
+/// <summary>Undo Heron's last change only when the modeller changed nothing since (D-54).</summary>
+public class ChangedBeforeTests
+{
+    private readonly JobChanges _changes = new();
+
+    [Fact]
+    public void Nothing_between_two_jobs_means_nothing_changed_before()
+    {
+        _changes.Begin("j1", Risk.Change);
+        _changes.End("j1");
+        _changes.Begin("j2", Risk.Change);
+        Assert.False(_changes.ChangedBefore("j2"));
+    }
+
+    [Fact]
+    public void The_modellers_own_change_between_jobs_is_seen()
+    {
+        _changes.Begin("j1", Risk.Change);
+        _changes.End("j1");
+        _changes.Outside();
+        _changes.Begin("j2", Risk.Change);
+        Assert.True(_changes.ChangedBefore("j2"));
+    }
+
+    [Fact]
+    public void A_read_job_between_does_not_hide_the_modellers_change()
+    {
+        _changes.Begin("j1", Risk.Change);
+        _changes.End("j1");
+        _changes.Outside();
+        _changes.Begin("r1", Risk.Read);
+        _changes.End("r1");
+        _changes.Begin("j2", Risk.Change);
+        Assert.True(_changes.ChangedBefore("j2"));
+    }
+
+    [Fact]
+    public void Another_job_is_not_known()
+    {
+        _changes.Begin("j1", Risk.Change);
+        Assert.Null(_changes.ChangedBefore("other"));
+    }
+
+    [Fact]
+    public void Since_last_answers_inside_the_running_job_only()
+    {
+        var host = new FakeHost { Before = false };
+        var config = new HeronConfig { WriteEnabled = true };
+        var protocol = new BridgeProtocol(host, () => config, "tok", new HeronHold(), () => DateTime.UtcNow);
+        JsonElement Send(object request) => JsonDocument.Parse(protocol.Handle(JsonSerializer.Serialize(request))).RootElement;
+        Send(new { op = "begin", token = "tok", client = "pc", conversation = "c", job = "j2", tool = "autocad_undo_last", risk = "change", summary = "Undo", drawing = "a.dwg" });
+        var reply = Send(new { op = "since_last", token = "tok", conversation = "c", job = "j2" });
+        Assert.True(reply.GetProperty("known").GetBoolean());
+        Assert.False(reply.GetProperty("changedSince").GetBoolean());
+        Assert.False(Send(new { op = "since_last", token = "tok", conversation = "other", job = "j2" }).GetProperty("ok").GetBoolean());
+    }
+}

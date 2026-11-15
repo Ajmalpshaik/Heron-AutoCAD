@@ -23,6 +23,11 @@ namespace Heron.AutoCAD.Bridge
         private readonly object _gate = new object();
         private string? _job;
         private string? _last;
+        // Something changed in a drawing while no watched job ran (the modeller,
+        // or another program), and whether that happened before the job now
+        // running began: what "undo Heron's last change" must know (D-54).
+        private bool _outside;
+        private bool _before;
         private readonly HashSet<string> _added = new HashSet<string>();
         private readonly HashSet<string> _modified = new HashSet<string>();
         private readonly List<string> _erased = new List<string>();
@@ -40,12 +45,20 @@ namespace Heron.AutoCAD.Bridge
         {
             lock (_gate)
             {
+                if (!Watches(risk))
+                {
+                    // A read or view job counts nothing and leaves the last count readable.
+                    _job = null;
+                    return;
+                }
                 _added.Clear();
                 _modified.Clear();
                 _erased.Clear();
                 _erasedSet.Clear();
-                _job = Watches(risk) ? job : null;
+                _job = job;
                 _last = _job;
+                _before = _outside;
+                _outside = false;
             }
         }
 
@@ -54,6 +67,21 @@ namespace Heron.AutoCAD.Bridge
         {
             lock (_gate)
                 if (_job == job) _job = null;
+        }
+
+        /// <summary>Something changed while no watched job ran. Cheap: called for every such event.</summary>
+        public void Outside()
+        {
+            lock (_gate) _outside = true;
+        }
+
+        /// <summary>
+        /// For the job now running: did anything change between the watched job
+        /// before it and its own begin? Null when it is not the job being counted.
+        /// </summary>
+        public bool? ChangedBefore(string job)
+        {
+            lock (_gate) return _last != null && _last == job ? _before : (bool?)null;
         }
 
         public void Appended(string handle)

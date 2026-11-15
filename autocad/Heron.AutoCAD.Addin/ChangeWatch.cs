@@ -69,9 +69,25 @@ namespace Heron.AutoCAD.Addin
 
         private static bool CountsErased(DBObject obj) => obj is Entity || obj is SymbolTableRecord;
 
+        /// <summary>An entity changed with no Heron change job running: the modeller's own work.</summary>
+        private static void Outside(DBObject obj)
+        {
+            try
+            {
+                if (obj is Entity) AcadJobHost.Counter.Outside();
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
         private static void OnAppended(object? sender, ObjectEventArgs e)
         {
-            if (!AcadJobHost.Counter.Counting) return;
+            if (!AcadJobHost.Counter.Counting)
+            {
+                Outside(e.DBObject);
+                return;
+            }
             try
             {
                 if (Counts(e.DBObject)) AcadJobHost.Counter.Appended(e.DBObject.Handle.ToString());
@@ -84,7 +100,11 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnModified(object? sender, ObjectEventArgs e)
         {
-            if (!AcadJobHost.Counter.Counting) return;
+            if (!AcadJobHost.Counter.Counting)
+            {
+                Outside(e.DBObject);
+                return;
+            }
             try
             {
                 if (Counts(e.DBObject)) AcadJobHost.Counter.Modified(e.DBObject.Handle.ToString());
@@ -96,7 +116,11 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnErased(object? sender, ObjectErasedEventArgs e)
         {
-            if (!AcadJobHost.Counter.Counting) return;
+            if (!AcadJobHost.Counter.Counting)
+            {
+                Outside(e.DBObject);
+                return;
+            }
             try
             {
                 if (CountsErased(e.DBObject)) AcadJobHost.Counter.Erased(e.DBObject.Handle.ToString(), e.Erased);
