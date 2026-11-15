@@ -23,12 +23,14 @@ time — which is what a drafter wants when step four of five was wrong. With th
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Annotated, Any
 
 import pythoncom
 from pydantic import Field
 
+from ..core import gate
 from ..core.connection import get_doc, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
@@ -265,8 +267,11 @@ async def autocad_sequence(
 
     rows: list[dict[str, Any]] = []
     ran = failed = 0
-    stopped = False
+    stopped = halted = False
     for step in planned:
+        if not stopped and rows and await asyncio.to_thread(gate.stopped_by_modeller):
+            # The modeller pressed HERONSTOP (D-51): not one more step.
+            stopped = halted = True
         if stopped:
             rows.append({**_head(step), "ok": None, "skipped": True})
             continue
@@ -289,7 +294,13 @@ async def autocad_sequence(
         "skipped": sum(1 for r in rows if r.get("skipped")),
         "steps": rows,
     }
-    if failed and stop_on_error and result["skipped"]:
+    if halted:
+        done = sum(1 for row in rows if row.get("ok") is not None)
+        result["hint"] = (
+            f"The modeller stopped Heron in AutoCAD (HERONSTOP) after step {done}. The steps before "
+            "it are in the drawing; the rest were not run. Do nothing more until the modeller says so."
+        )
+    elif failed and stop_on_error and result["skipped"]:
         stopped_at = next(row["index"] for row in rows if row.get("ok") is False)
         result["hint"] = (
             f"Stopped at step {stopped_at}. The steps before it are in the drawing; the ones "

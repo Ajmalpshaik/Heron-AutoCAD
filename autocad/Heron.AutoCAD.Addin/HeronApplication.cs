@@ -60,6 +60,7 @@ namespace Heron.AutoCAD.Addin
                 IdleQueue.Hook();
                 CommandWatch.Hook();
                 PublishVeto.Hook();
+                ChangeWatch.Hook();
                 HeronRibbon.Init();
                 AcApp.QuitWillStart += (s, e) => Server?.Stop();
 
@@ -88,6 +89,7 @@ namespace Heron.AutoCAD.Addin
                 IdleQueue.Unhook();
                 CommandWatch.Unhook();
                 PublishVeto.Unhook();
+                ChangeWatch.Unhook();
             }
             catch (System.Exception ex)
             {

@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Ideas from Heron AI for Revit, batch 2: the right AutoCAD, erasures, and a stop (2026-11-15).**
+  `autocad_use_autocad` ([D-49](docs/DECISIONS.md)): with one AutoCAD connected Heron works in it,
+  whichever COM would give; with two or more nothing is sent until one is picked; a picked one that
+  closes stops Heron. The plug-in counts what each Change, Admin or Publish job really added,
+  modified and erased ([D-50](docs/DECISIONS.md)), returned as `heron_changes`, and anything erased
+  is asked about in AutoCAD whatever Ask to Keep says (anything but "keep them erased" brings them
+  back). **Stop Heron now** / `HERONSTOP` ([D-51](docs/DECISIONS.md)) refuses every chat until lifted;
+  a running sequence stops between steps and a batch is never typed over COM instead. Live rows
+  N1-N8 NOT RUN.
 - **Ideas from Heron AI for Revit, batch 1: safety and "is it working" (2026-11-15).** Plug-in
   **1.5.0**, server **1.7.0**. `autocad_show` (View) selects objects by handle and zooms to them,
   with `isolate` / `end_isolation`. A raw command or AutoLISP may no longer save, plot or export

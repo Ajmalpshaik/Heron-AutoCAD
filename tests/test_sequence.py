@@ -250,3 +250,20 @@ class TestRunning:
         offline.open_undo_groups = 3
         _run(steps=self.STEPS[:1])
         assert offline.open_undo_groups == 0
+
+
+class TestEmergencyStop:
+    """HERONSTOP between steps: not one more step runs (D-51)."""
+
+    def test_a_stop_after_the_first_step_skips_the_rest(self, offline, monkeypatch):
+        presses = iter([True])
+        monkeypatch.setattr(sequence.gate, "stopped_by_modeller", lambda: next(presses, True))
+        out = _run(steps=TestRunning.STEPS[:3])
+        assert (out["ran"], out["skipped"]) == (1, 2)
+        assert len(offline.drawn) == 1
+        assert "HERONSTOP" in out["hint"] and "after step 1" in out["hint"]
+
+    def test_no_stop_runs_them_all(self, offline, monkeypatch):
+        monkeypatch.setattr(sequence.gate, "stopped_by_modeller", lambda: False)
+        out = _run(steps=TestRunning.STEPS[:2])
+        assert out["ran"] == 2 and "hint" not in out

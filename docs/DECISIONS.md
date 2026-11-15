@@ -130,6 +130,42 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-51 - An emergency stop the modeller presses in AutoCAD
+
+**Decided:** 2026-11-15, from Heron AI for Revit's `HeronStop` (a stop message, sticky until
+restart). **Status:** in force. **Stop Heron now** in the Heron menu, or `HERONSTOP`, marks the
+plug-in stopped: `begin`, `send_quiet` and `run` are refused with "The modeller stopped Heron",
+while `end`, Keep or Discard, `changes` and the erase question still answer, so a stopped job can be
+put back. The command running now gets Esc. `ping` says `stopped`, and `autocad_sequence` asks
+between steps. A refused `send_quiet` used to make the server type the batch over COM itself; for a
+stop it now ends the call instead. Sticky until picked again (not until restart: the modeller has
+no other way to lift it without closing AutoCAD). Known limit: a batch already handed to AutoCAD's
+input queue runs to its end; Esc in AutoCAD is the only way to cut it.
+
+## D-50 - The plug-in counts what a job really did; every erase gets a human yes
+
+**Decided:** 2026-11-15, from Heron AI for Revit's changed-set report and delete question (its
+D-142). **Status:** in force. The server only knew what a tool said it did, and the delete check
+was the chat setting its own `confirm=true`. Now the add-in hooks `ObjectAppended`,
+`ObjectModified` and `ObjectErased` on every drawing and counts (`JobChanges`) while a Change, Admin
+or Publish job runs: entities added and modified; entities and table records (layers, blocks,
+styles) erased. An object made and erased in the same job is neither; one an UNDO brings back is no
+longer erased. The server adds the count to the result (`heron_changes`) and, when the job erased
+anything and Keep or Discard is not being asked, asks the plug-in to ask the modeller
+(`ask_erase`). Anything but a clear "keep them erased" un-erases them in one transaction; if the
+box could not be shown in time, they are brought back as soon as AutoCAD is free.
+
+## D-49 - One AutoCAD connected is the one; two need a pick, and Heron never moves on
+
+**Decided:** 2026-11-15, from Heron AI for Revit's session binding (its docs/25). **Status:** in
+force; closes A15. `GetActiveObject` gives whichever AutoCAD registered first. Heron now reads the
+address files the Heron button writes: one AutoCAD connected is used whatever COM gives; two or more
+and none picked refuse every call but `autocad_use_autocad` (which runs without probing a drawing,
+like status, and is audited); a picked one that closes or disconnects stops Heron with "never moves
+on". A second AutoCAD is reached through one of its open drawings in Windows' Running Object Table,
+so an AutoCAD with no saved drawing open cannot be reached, and says so. Picking resets the units
+check: the other AutoCAD's drawing may be in other units.
+
 ## D-48 - "Diagnose Heron" is a resource that needs no AutoCAD
 
 **Decided:** 2026-11-15, from Heron AI for Revit's `heron_diagnose`. **Status:** in force.

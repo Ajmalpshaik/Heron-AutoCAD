@@ -192,13 +192,24 @@ class Bridge:
 
         True when the plug-in took them. False when it refused (no running
         change job, or an older plug-in without this op) or could not be
-        reached: the caller then sends them itself. Never raises.
+        reached: the caller then sends them itself. Raises BridgeRefused only
+        for the modeller's emergency stop (D-51), so a stopped batch is never
+        typed over COM instead.
         """
         try:
             reply = self.call("send_quiet", job=job, lines=lines)
         except AutocadError:
             return False
+        if reply.get("refusedBy") == "Stopped":
+            raise BridgeRefused(_ensure_sentence(str(reply.get("message", ""))))
         return reply.get("ok") is True
+
+    def stopped(self) -> bool:
+        """True when the modeller pressed the emergency stop (HERONSTOP). False if it cannot tell."""
+        try:
+            return self.call("ping").get("stopped") is True
+        except AutocadError:
+            return False
 
     def run(self, job: str, operation: str, args: dict[str, Any], timeout: float = RUN_TIMEOUT) -> dict:
         """Have the plug-in do one of its own operations (D-40); what it did.
@@ -233,6 +244,46 @@ class Bridge:
         if reply.get("refusedBy") == "BadRequest" and "does not know the request 'run'" in message:
             raise BridgeRefused(OLD_PLUGIN)
         raise BridgeRefused(_ensure_sentence(message))
+
+    def changes(self, job: str) -> dict | None:
+        """What the job really did, counted by the plug-in from AutoCAD's events (D-50).
+
+        None when it was not counted, the plug-in is older, or it could not be
+        asked. Never raises: the work is already done.
+        """
+        try:
+            reply = self.call("changes", job=job)
+        except AutocadError:
+            return None
+        if reply.get("ok") is not True or reply.get("counted") is not True:
+            return None
+        return {
+            "added": int(reply.get("added", 0)),
+            "modified": int(reply.get("modified", 0)),
+            "erased": int(reply.get("erased", 0)),
+            "erased_handles": [str(h) for h in reply.get("erasedHandles", [])],
+        }
+
+    def ask_erase(self, job: str, summary: str) -> dict:
+        """Ask the modeller about what the job erased; the plug-in brings them back unless kept.
+
+        {"answer": "keep_erased" | "restored" | "nothing_erased" | "unknown", "restored": int}.
+        "unknown" means the plug-in could not be asked: the objects may still be erased.
+        """
+        try:
+            reply = self.call("ask_erase", timeout=KEEP_TIMEOUT, job=job, summary=summary)
+        except AutocadError:
+            return {"answer": "unknown", "restored": 0}
+        if reply.get("ok") is not True:
+            return {"answer": "unknown", "restored": 0}
+        answer = reply.get("answer")
+        result = {
+            "answer": answer if answer in {"keep_erased", "restored", "nothing_erased"} else "unknown",
+            "restored": int(reply.get("restored", 0)),
+        }
+        if reply.get("message"):
+            result["message"] = str(reply["message"])
+        return result
 
     def ask_keep(self, job: str, summary: str, handles: list[str]) -> str:
         """keep | discard | keep_rest, or "unknown" when the plug-in could not answer.

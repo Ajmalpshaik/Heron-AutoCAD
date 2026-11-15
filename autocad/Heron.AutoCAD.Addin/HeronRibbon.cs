@@ -24,6 +24,7 @@ namespace Heron.AutoCAD.Addin
         public const string TabId = "HERON_AUTOCAD_TAB";
 
         private static RibbonSplitButton? _split;
+        private static RibbonButton? _stop;
         private static RibbonButton? _connect, _status, _free, _settings;
 
         public static void Init()
@@ -58,6 +59,7 @@ namespace Heron.AutoCAD.Addin
                 _connect = Button("Heron", HeronActions.ToggleConnect, "Connect Heron to this AutoCAD. Orange heron: connected. Click again to disconnect.");
                 _status = Button("Bridge Status", HeronActions.ShowStatus, "See whether Heron is connected to this AutoCAD.");
                 _free = Button("Free this AutoCAD", HeronActions.FreeHold, "Let another chat use this AutoCAD now.");
+                _stop = Button("Stop Heron now", HeronActions.ToggleStop, "Stop every chat at once. Pick it again (or type HERONSTOP) to allow Heron again.");
                 _split = new RibbonSplitButton
                 {
                     Text = "Heron",
@@ -77,6 +79,7 @@ namespace Heron.AutoCAD.Addin
                 _split.Items.Add(_connect);
                 _split.Items.Add(_status);
                 _split.Items.Add(_free);
+                _split.Items.Add(_stop);
                 _split.Current = _connect;
                 source.Items.Add(_split);
 

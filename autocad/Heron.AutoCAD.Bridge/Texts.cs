@@ -53,6 +53,9 @@ namespace Heron.AutoCAD.Bridge
         public static string PublishVetoed(string command) =>
             "Heron stopped " + command + ": a Heron job may not save, plot or export while Publish is off. Turn Publish on in Heron's Settings to allow it.";
 
+        public const string Stopped =
+            "The modeller stopped Heron in AutoCAD (HERONSTOP). Nothing more is done until they type HERONSTOP again. " + NothingSent;
+
         public static string UnknownOp(string op) =>
             "Heron in AutoCAD does not know the request '" + op + "'. Update Heron so both sides match. " + NothingSent;
     }

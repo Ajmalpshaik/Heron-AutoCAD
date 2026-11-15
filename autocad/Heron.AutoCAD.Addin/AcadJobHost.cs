@@ -33,10 +33,14 @@ namespace Heron.AutoCAD.Addin
         /// <summary>No save, plot or export inside a job while Publish is off (HeronApplication vetoes).</summary>
         public static PublishGuard Guard { get; } = new PublishGuard(() => DateTime.UtcNow);
 
+        /// <summary>What the running job really did, from AutoCAD's own events (ChangeWatch feeds it).</summary>
+        public static JobChanges Counter { get; } = new JobChanges();
+
         public void Begin(JobInfo job)
         {
             HeronLog.Write("begin " + job.Tool + " (" + job.Risk + ") on " + job.Drawing);
             Guard.Begin(job.Job, job.Risk);
+            Counter.Begin(job.Job, job.Risk);
             _undo.Begin(job);
             if (_config().ActivityBanner) _banner.Begin(job);
         }
@@ -45,6 +49,7 @@ namespace Heron.AutoCAD.Addin
         {
             HeronLog.Write("end " + end.Job + " " + end.Outcome + " " + end.Ms + " ms");
             Guard.End(end.Job);
+            Counter.End(end.Job);
             // Before the reply, so the next job never starts with recording off.
             _undo.End(end.Job);
             _banner.End(end);
@@ -80,6 +85,29 @@ namespace Heron.AutoCAD.Addin
                 if (doc == null) return;
                 foreach (var line in lines) doc.SendStringToExecute(line + "\n", true, false, false);
             });
+        }
+
+        public ChangeReport? Changes(string job) => Counter.Read(job);
+
+        public EraseAnswer AskErase(EraseRequest request)
+        {
+            var asked = IdleQueue.TryInvoke(() =>
+            {
+                var choice = HeronEraseQuestion.Ask(request.Summary, request.Handles.Length);
+                if (choice == "keep_erased") return new EraseAnswer { Answer = "keep_erased" };
+                var doc = AcApp.DocumentManager.MdiActiveDocument;
+                var back = doc == null ? 0 : HeronEraseQuestion.Restore(doc, request.Handles);
+                HeronLog.Write("brought back " + back + " of " + request.Handles.Length + " erased object(s)");
+                return new EraseAnswer { Answer = "restored", Restored = back };
+            }, KeepWait, out var answer);
+            if (asked && answer != null) return answer;
+            // Could not even ask: put them back, on the main thread, as soon as AutoCAD is free.
+            IdleQueue.Post(() =>
+            {
+                var doc = AcApp.DocumentManager.MdiActiveDocument;
+                if (doc != null) HeronEraseQuestion.Restore(doc, request.Handles);
+            });
+            return new EraseAnswer { Answer = "restored", Message = "Heron could not show the question in time, so it is bringing them back." };
         }
 
         public RunResult Run(RunRequest request)

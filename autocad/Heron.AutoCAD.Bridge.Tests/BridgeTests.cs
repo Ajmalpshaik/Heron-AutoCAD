@@ -199,6 +199,17 @@ public class FakeHost : IJobHost
         Runs.Add(request);
         return OnRun != null ? OnRun(request) : RunAnswer;
     }
+
+    public ChangeReport? Report { get; set; }
+    public ChangeReport? Changes(string job) => Report;
+
+    public List<EraseRequest> EraseAsked { get; } = new();
+    public EraseAnswer EraseReply { get; set; } = new() { Answer = "restored", Restored = 0 };
+    public EraseAnswer AskErase(EraseRequest request)
+    {
+        EraseAsked.Add(request);
+        return EraseReply;
+    }
 }
 
 public class ProtocolTests
@@ -759,6 +770,8 @@ public class ReadLeavesNoUndoStepTests
         public string AskKeep(KeepRequest request) => "keep";
         public void SendQuiet(string[] lines) { }
         public RunResult Run(RunRequest request) => RunResult.Done(null);
+        public ChangeReport? Changes(string job) => null;
+        public EraseAnswer AskErase(EraseRequest request) => new();
     }
 
     public ReadLeavesNoUndoStepTests() =>

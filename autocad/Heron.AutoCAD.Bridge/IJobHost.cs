@@ -29,6 +29,19 @@ namespace Heron.AutoCAD.Bridge
         /// inside this chat's running job at a level that covers the operation.
         /// </summary>
         RunResult Run(RunRequest request);
+
+        /// <summary>
+        /// What this job did to the drawing so far, counted from AutoCAD's own
+        /// events (<see cref="JobChanges"/>). Null when the job was not counted.
+        /// </summary>
+        ChangeReport? Changes(string job);
+
+        /// <summary>
+        /// "This job erased N objects: keep them erased, or bring them back?"
+        /// Called on a pipe thread; may wait for the modeller. Anything but a
+        /// clear "keep erased" brings them back.
+        /// </summary>
+        EraseAnswer AskErase(EraseRequest request);
     }
 
     public sealed class JobInfo

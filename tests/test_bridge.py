@@ -198,3 +198,19 @@ def test_send_quiet_refused_or_unreachable_is_false_not_an_error(home):
         write_address(home, os.getpid(), plugin.name)
         assert Bridge(os.getpid()).send_quiet("j1", ["x"]) is False
     assert Bridge(os.getpid()).send_quiet("j1", ["x"]) is False  # no plug-in at all
+
+
+def test_a_stopped_plug_in_ends_a_batch_instead_of_letting_com_type_it(home):
+    words = "The modeller stopped Heron in AutoCAD (HERONSTOP). Nothing more is done until they type HERONSTOP again."
+    with FakePlugin({"ok": False, "refusedBy": "Stopped", "message": words}) as plugin:
+        write_address(home, os.getpid(), plugin.name)
+        with pytest.raises(bridge.BridgeRefused) as caught:
+            Bridge(os.getpid()).send_quiet("j1", ["x"])
+    assert "HERONSTOP" in str(caught.value) and str(caught.value).endswith(bridge.NOTHING_SENT)
+
+
+def test_stopped_reads_the_ping(home):
+    with FakePlugin({"ok": True, "protocolVersion": 1, "stopped": True}) as plugin:
+        write_address(home, os.getpid(), plugin.name)
+        assert Bridge(os.getpid()).stopped() is True
+    assert Bridge(os.getpid()).stopped() is False  # cannot tell: not stopped
