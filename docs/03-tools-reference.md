@@ -32,6 +32,7 @@ The group headings below give the level.
 | `autocad_open_drawing` | Open a .dwg or .dxf |
 | `autocad_save_drawing` | Save, or Save As to a new path |
 | `autocad_switch_drawing` | Make another open drawing active |
+| `autocad_use_autocad` | **Read.** List the AutoCADs connected to Heron, or pick the one to work in. One connected: used without asking. Two or more: nothing is sent until one is picked ([D-49](DECISIONS.md)) |
 | `autocad_export` | PDF, DXF, WMF, SAT, BMP, EPS, STL. PDF takes `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
 | `autocad_show` | **View, done by the plug-in.** Selects the objects given by handle and zooms to them, so "which ones?" is answered in the drawing; `isolate` hides the rest for now (ISOLATEOBJECTS, not saved), `end_isolation` brings it back. At most 500 at once |

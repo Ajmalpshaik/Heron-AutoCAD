@@ -21,6 +21,7 @@ class Risk(str, Enum):
 _LEVELS: dict[Risk, tuple[str, ...]] = {
     Risk.READ: (
         "status",
+        "use_autocad",
         "list_drawings",
         "list_entities",
         "get_entity",

@@ -338,6 +338,23 @@ Added on 2026-11-15 ([D-47](DECISIONS.md), [D-48](DECISIONS.md)). Built and test
 | M7 | `autocad_publish_pdf` of a 10-sheet drawing in Claude Code | "Still working: ..." notes while it runs, if Claude Code shows progress (say if it does not) | NOT RUN |
 | M8 | Read `autocad://diagnose` with AutoCAD closed, then open and connected | Closed: WARNING "press the Heron button"; connected: HEALTHY with AutoCAD's version and plug-in 1.5.0 | NOT RUN |
 
+## Group N - Ideas from Heron AI for Revit, batch 2 (AutoCAD 2027, this PC)
+
+Added on 2026-11-15 ([D-49](DECISIONS.md), [D-50](DECISIONS.md), [D-51](DECISIONS.md)). Built and
+tested offline (`tests/test_sessions.py`, `tests/test_gate.py`, `JobChangesTests.cs`); **every row
+below is NOT RUN**. Plug-in 1.5.0 installed.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| N1 | Open AutoCAD 2027 and a second AutoCAD (any version), each with a saved drawing; press Heron in BOTH; ask for `autocad_status` | Refused: "2 AutoCADs are connected to Heron", both listed by version and process; nothing drawn anywhere | NOT RUN |
+| N2 | `autocad_use_autocad(pid=<the second one>)`, then `autocad_status`, then draw a line | Status and the line are in the SECOND AutoCAD, even though COM's first choice is the other one | NOT RUN |
+| N3 | Close the AutoCAD picked in N2, then ask to draw a line | Refused with "never moves on"; nothing is drawn in the AutoCAD still open | NOT RUN |
+| N4 | Ask to Keep OFF: `autocad_send_command("_ERASE\n_L\n\n")` on a drawing with a line | The Heron box "Heron erased 1 object." appears; press Enter: the line is back. The result has `heron_changes` erased 1 and a note that it was brought back | NOT RUN |
+| N5 | Same, but choose "Keep them erased" | The line stays erased; the note says the modeller kept it erased | NOT RUN |
+| N6 | Ask to Keep ON: `autocad_delete_entities(..., confirm=true)` | Only Keep or Discard is asked (not the erase box too) | NOT RUN |
+| N7 | Start a 20-step `autocad_sequence`; pick **Stop Heron now** after the first steps land | The sequence ends at the next step with "HERONSTOP" in its hint; later steps not drawn; the next call is refused until HERONSTOP is typed again | NOT RUN |
+| N8 | `autocad_batch_draw` of 2,000 objects; HERONSTOP while it draws | What AutoCAD had queued may finish (say how much); no second copy is typed over COM; the next call is refused | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

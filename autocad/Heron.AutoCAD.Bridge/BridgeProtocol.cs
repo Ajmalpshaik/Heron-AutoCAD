@@ -41,6 +41,22 @@ namespace Heron.AutoCAD.Bridge
             _clock = clock;
         }
 
+        private volatile bool _stopped;
+
+        /// <summary>
+        /// The modeller's emergency stop (HERONSTOP). Sticky until they lift it:
+        /// no new job, no drawing input and no plug-in operation for the job
+        /// already running, which stops at its next request. Ending a job,
+        /// Keep or Discard and the erase question still answer, so a stopped
+        /// job can still be put back. Answered on the pipe thread, never waits
+        /// for AutoCAD.
+        /// </summary>
+        public bool Stopped => _stopped;
+
+        public void Stop() => _stopped = true;
+
+        public void Resume() => _stopped = false;
+
         /// <summary>Set by the server so info can report it.</summary>
         public Dictionary<string, object> Info { get; } = new Dictionary<string, object>();
 
@@ -78,12 +94,19 @@ namespace Heron.AutoCAD.Bridge
                 if (!BridgeIdentity.TokenEquals(_token, Str(root, "token"))) return Refuse("Session", Texts.WrongSession);
                 var conversation = Str(root, "conversation");
 
+                if (_stopped && (op == "begin" || op == "send_quiet" || op == "run"))
+                    return Refuse("Stopped", Texts.Stopped);
+
                 try
                 {
                     switch (op)
                     {
                         case "ping":
-                            return Ok(w => w.WriteNumber("protocolVersion", Version));
+                            return Ok(w =>
+                            {
+                                w.WriteNumber("protocolVersion", Version);
+                                w.WriteBoolean("stopped", _stopped);
+                            });
                         case "info":
                             return Ok(w =>
                             {
@@ -103,6 +126,10 @@ namespace Heron.AutoCAD.Bridge
                             return SendQuiet(root, conversation);
                         case "run":
                             return Run(root, conversation);
+                        case "changes":
+                            return Changes(root, conversation);
+                        case "ask_erase":
+                            return AskErase(root, conversation);
                         default:
                             return Refuse("BadRequest", Texts.UnknownOp(op));
                     }
@@ -281,6 +308,59 @@ namespace Heron.AutoCAD.Bridge
                     parsed.RootElement.WriteTo(w);
                 });
             }
+        }
+
+        /// <summary>
+        /// What the job did, counted by the add-in (D-50). Only this chat's
+        /// running job: one chat never reads another's.
+        /// </summary>
+        private string Changes(JsonElement root, string conversation)
+        {
+            var running = Running(root, conversation);
+            if (running == null) return Refuse("Job", Texts.NoRunJob);
+            var report = _host.Changes(Str(root, "job"));
+            if (report == null) return Ok(w => w.WriteBoolean("counted", false));
+            return Ok(w =>
+            {
+                w.WriteBoolean("counted", true);
+                w.WriteNumber("added", report.Added);
+                w.WriteNumber("modified", report.Modified);
+                w.WriteNumber("erased", report.Erased);
+                w.WriteStartArray("erasedHandles");
+                foreach (var handle in report.ErasedHandles) w.WriteStringValue(handle);
+                w.WriteEndArray();
+            });
+        }
+
+        /// <summary>
+        /// Anything a job erased is asked about, whatever Ask to Keep says
+        /// (D-50): the server cannot let a chat approve its own delete. Only
+        /// inside this chat's running job; anything but a clear "keep erased"
+        /// brings the objects back.
+        /// </summary>
+        private string AskErase(JsonElement root, string conversation)
+        {
+            var running = Running(root, conversation);
+            if (running == null || running.Risk == Risk.Read || running.Risk == Risk.View) return Refuse("Job", Texts.NoRunJob);
+            var report = _host.Changes(Str(root, "job"));
+            if (report == null || report.Erased == 0) return Ok(w => { w.WriteString("answer", "nothing_erased"); w.WriteNumber("restored", 0); });
+            EraseAnswer answer;
+            try
+            {
+                answer = _host.AskErase(new EraseRequest { Job = Str(root, "job"), Summary = Str(root, "summary"), Handles = report.AllErasedHandles });
+            }
+            catch (Exception ex)
+            {
+                answer = new EraseAnswer { Answer = "restored", Restored = 0, Message = "Heron in AutoCAD could not ask or put them back: " + ex.Message };
+            }
+            var said = answer?.Answer == "keep_erased" ? "keep_erased" : "restored";
+            return Ok(w =>
+            {
+                w.WriteString("answer", said);
+                w.WriteNumber("erased", report.Erased);
+                w.WriteNumber("restored", said == "restored" ? answer?.Restored ?? 0 : 0);
+                if (!string.IsNullOrEmpty(answer?.Message)) w.WriteString("message", answer!.Message);
+            });
         }
 
         /// <summary>This chat's running job named in the request, or null.</summary>

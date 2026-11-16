@@ -89,6 +89,48 @@ namespace Heron.AutoCAD.Addin
             HeronRibbon.Repaint();
         }
 
+        /// <summary>
+        /// The emergency stop (D-51): every chat is refused until the modeller
+        /// types HERONSTOP again. A job already running stops at its next
+        /// request to the plug-in; what AutoCAD already has queued finishes,
+        /// so Esc is pressed for it too.
+        /// </summary>
+        // Two Ctrl+C characters: AutoCAD's Esc, typed.
+        private const string EscEsc = "\x03\x03";
+
+        public static void ToggleStop()
+        {
+            var protocol = HeronApplication.Server?.Protocol;
+            if (protocol == null)
+            {
+                Say("Heron is not connected, so no chat can reach this AutoCAD. Nothing to stop.");
+                return;
+            }
+            if (protocol.Stopped)
+            {
+                protocol.Resume();
+                HeronLog.Write("stop lifted");
+                Say("Heron: the stop is lifted. A chat may work in this AutoCAD again.");
+            }
+            else
+            {
+                protocol.Stop();
+                HeronLog.Write("STOPPED by the modeller");
+                try
+                {
+                    // Cancel whatever command is running now, as Esc does.
+                    AcApp.DocumentManager.MdiActiveDocument?.SendStringToExecute(EscEsc, true, false, false);
+                }
+                catch (Exception ex)
+                {
+                    HeronLog.Error("Stop: cancel the running command", ex);
+                }
+                Say("Heron: STOPPED. No chat can do anything in this AutoCAD until you type HERONSTOP again. "
+                    + "Look at the drawing: what was done before the stop is still there (Ctrl+Z undoes it).");
+            }
+            HeronRibbon.Repaint();
+        }
+
         /// <summary>The Settings window: the four switches, as in Heron for Revit (D-44).</summary>
         public static void ShowSettings()
         {

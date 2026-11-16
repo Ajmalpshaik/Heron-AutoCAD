@@ -12,6 +12,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 |---|---|---|
 | **Heron** (top half) | Connect, or disconnect. No pop-up when it works: the icon is the answer (orange heron = connected, black = not) | `HERON` |
 | **Heron** (arrow) -> Bridge Status | The state, the Changes card, and Connect / Disconnect | `HERONSTATUS` |
+| **Heron** (arrow) -> Stop Heron now | The emergency stop ([D-51](DECISIONS.md)): every chat is refused at once, a running job stops at its next request to the plug-in, and Esc is pressed for the command running now. Sticky until picked again. What AutoCAD already has queued (one batch) still finishes | `HERONSTOP` |
 | **Heron** (arrow) -> Free this AutoCAD | Lets another chat use this AutoCAD now, whichever chat holds it (not while one of its jobs is running). Changes nothing in a drawing | `HERONFREE` |
 | **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep) | `HERONSETTINGS` |
 
@@ -174,3 +175,13 @@ If no answer comes within 300 s the result is "Outcome unknown": the operation m
 `--no-bridge` (or `HERON_AUTOCAD_BRIDGE=off`) runs the server without asking the plug-in: no
 padlocks, no banner, no Keep or Discard. The wrong-drawing guard and the audit still run.
 `autocad_status` then says Heron is off. Never use it for real work.
+
+## What a job really did, and erasures ([D-50](DECISIONS.md))
+
+While a Change, Admin or Publish job runs, the plug-in counts every object appended, modified and
+erased from AutoCAD's own database events, whoever did it: a typed tool, a raw command, AutoLISP or
+a purge. The count comes back to the chat as `heron_changes`. Anything the job erased is asked about
+in a Heron box, **whether Ask to Keep is on or off**: *Bring them back* (Enter, Esc, closing the box
+or no answer in 9 minutes) or *Keep them erased*. When Ask to Keep is on, its Keep or Discard
+question already covers the erase, so it is not asked twice. A chat can set `confirm=true` by
+itself; it cannot answer this box.

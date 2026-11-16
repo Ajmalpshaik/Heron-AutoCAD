@@ -42,6 +42,17 @@ class FakeBridge:
         FakeBridge.calls.append(("ask_keep", job, tuple(handles)))
         return FakeBridge.answer
 
+    counted: dict | None = None
+    erase_answer: dict = {"answer": "restored", "restored": 0}
+
+    def changes(self, job):
+        FakeBridge.calls.append(("changes", job))
+        return FakeBridge.counted
+
+    def ask_erase(self, job, summary):
+        FakeBridge.calls.append(("ask_erase", job, summary))
+        return FakeBridge.erase_answer
+
 
 @pytest.fixture
 def env(monkeypatch):
@@ -50,6 +61,8 @@ def env(monkeypatch):
     FakeBridge.ask_to_keep = False
     FakeBridge.answer = "keep"
     FakeBridge.calls = []
+    FakeBridge.counted = None
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 0}
     state = {"drawing": r"C:\a.dwg", "marks": 0, "discards": 0, "undo_on": True, "left": []}
 
     async def probe():
@@ -496,3 +509,63 @@ def test_a_plugin_operation_runs_in_its_job_and_keep_or_discard_covers_it(env, m
     assert env["marks"] == 1
     assert ("ask_keep", "job1", ("5D",)) in FakeBridge.calls
     assert env["discards"] == 1 and result == "Discarded: nothing was kept."
+
+
+# ---------------------------------------------------------------------------
+# What the job really did, and the erase question (D-50)
+# ---------------------------------------------------------------------------
+
+
+def test_the_plug_ins_count_is_added_to_the_result(env):
+    FakeBridge.counted = {"added": 3, "modified": 1, "erased": 0, "erased_handles": []}
+    draw, _ = make_tool("autocad_draw_line")
+    result = json.loads(call(draw))
+    assert result["heron_changes"] == {"added": 3, "modified": 1, "erased": 0}
+    assert not any(c[0] == "ask_erase" for c in FakeBridge.calls)
+
+
+def test_an_erase_is_asked_even_with_ask_to_keep_off(env):
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 4, "erased_handles": ["A", "B", "C", "D"]}
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 4}
+    send, _ = make_tool("autocad_send_command", '{"sent": "_ERASE"}')
+    result = json.loads(call(send))
+    assert [c[1] for c in FakeBridge.calls if c[0] == "ask_erase"] == ["job1"]
+    assert "brought back (4 restored)" in result["heron_note"]
+
+
+def test_keeping_them_erased_is_said(env):
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 2, "erased_handles": ["A", "B"]}
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 2}')
+    result = json.loads(call(erase))
+    assert "keep the 2 erased object(s) erased" in result["heron_note"]
+
+
+def test_keep_or_discard_covers_an_erase_so_it_is_not_asked_twice(env):
+    FakeBridge.ask_to_keep = True
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 1, "erased_handles": ["A"]}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 1}')
+    call(erase)
+    asked = [c[0] for c in FakeBridge.calls]
+    assert "ask_keep" in asked and "ask_erase" not in asked
+
+
+def test_an_erase_that_could_not_be_asked_is_said_plainly(env):
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 1, "erased_handles": ["A"]}
+    FakeBridge.erase_answer = {"answer": "unknown", "restored": 0}
+    send, _ = make_tool("autocad_run_lisp", '{"result": "nil"}')
+    result = json.loads(call(send))
+    assert "could not ask the modeller" in result["heron_note"]
+
+
+def test_reads_are_not_counted(env):
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 9, "erased_handles": []}
+    read, _ = make_tool("autocad_list_layers", "[]", writes=False)
+    call(read)
+    assert not any(c[0] in ("changes", "ask_erase") for c in FakeBridge.calls)
+
+
+def test_an_older_plug_in_that_cannot_count_changes_nothing(env):
+    FakeBridge.counted = None
+    draw, _ = make_tool("autocad_draw_line")
+    assert json.loads(call(draw)) == {"created": True, "handle": "2A"}

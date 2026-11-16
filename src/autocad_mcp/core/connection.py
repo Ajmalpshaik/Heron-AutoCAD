@@ -180,8 +180,26 @@ class _AppCache:
 
     def __init__(self) -> None:
         self.app: Any = None
+        self.pid: int | None = None  # the process self.app belongs to, when known
 
-    def _dispatch(self, launch_if_needed: bool) -> Any:
+    def _dispatch(self, launch_if_needed: bool, target: int | None = None) -> Any:
+        if target is not None:
+            # A particular AutoCAD (D-49): COM's first choice if it is that one,
+            # else that AutoCAD reached through one of its open drawings.
+            try:
+                first = win32com.client.GetActiveObject(PROG_ID)
+                if _pid_of(first) == target:
+                    return first
+            except BaseException:  # noqa: BLE001 - the drawing search below decides
+                pass
+            found = _app_of_process(target)
+            if found is None:
+                raise AutocadError(
+                    f"Heron could not reach the AutoCAD it works in (process {target}) through "
+                    "Windows: Windows lists an AutoCAD by its saved drawings, and that one has "
+                    "none open. Open or save a drawing in it, then try again. Nothing was sent to AutoCAD."
+                )
+            return found
         try:
             return win32com.client.GetActiveObject(PROG_ID)
         except BaseException as exc:  # noqa: BLE001
@@ -206,8 +224,14 @@ class _AppCache:
             ) from exc
 
     def get(self, launch_if_needed: bool = False) -> Any:
+        from . import sessions
+
+        target = sessions.target()
+        if self.app is not None and target is not None and self.pid != target:
+            self.app = None  # the pointer is to another AutoCAD than the one to work in
         if self.app is None:
-            self.app = self._dispatch(launch_if_needed)
+            self.app = self._dispatch(launch_if_needed, target)
+            self.pid = target if target is not None else None
 
         # Probe the property callers actually go through, not a cheaper one:
         # Documents is where a stale dispatch shows up first.
@@ -223,12 +247,54 @@ class _AppCache:
             ) from exc
 
 
+def _pid_of(app: Any) -> int | None:
+    try:
+        import win32process
+
+        return int(win32process.GetWindowThreadProcessId(int(app.HWND))[1])
+    except BaseException:  # noqa: BLE001
+        return None
+
+
+DRAWING_FILES = (".dwg", ".dxf", ".dwt", ".dws")
+
+
+def _app_of_process(pid: int) -> Any:
+    """That AutoCAD's Application, found through a drawing it has open, or None.
+
+    Only the first AutoCAD started answers GetActiveObject. Every AutoCAD puts
+    its open drawings in Windows' Running Object Table by file name, and a
+    drawing knows its Application: that is the only way COM offers to the
+    second one. Worker-thread only.
+    """
+    try:
+        rot = pythoncom.GetRunningObjectTable()
+        context = pythoncom.CreateBindCtx(0)
+        monikers = list(rot.EnumRunning())
+    except BaseException:  # noqa: BLE001
+        return None
+    for moniker in monikers:
+        try:
+            name = str(moniker.GetDisplayName(context, None))
+            if not name.lower().endswith(DRAWING_FILES):
+                continue
+            unknown = rot.GetObject(moniker)
+            document = win32com.client.Dispatch(unknown.QueryInterface(pythoncom.IID_IDispatch))
+            app = document.Application
+            if _pid_of(app) == pid:
+                return app
+        except BaseException:  # noqa: BLE001 - another program's entry, or a drawing closing
+            continue
+    return None
+
+
 _cache = _AppCache()
 
 
 def invalidate() -> None:
     """Drop the cached Application pointer so the next call re-dispatches."""
     _cache.app = None
+    _cache.pid = None
 
 
 def get_app(launch_if_needed: bool = False) -> Any:

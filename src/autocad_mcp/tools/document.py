@@ -1062,6 +1062,77 @@ async def autocad_show(
 
 
 @mcp.tool(
+    name="autocad_use_autocad",
+    **tool_meta("Choose Which AutoCAD", idempotent=True),
+)
+@tool_errors
+async def autocad_use_autocad(
+    pid: Annotated[
+        int | None,
+        Field(
+            default=None,
+            ge=1,
+            description=(
+                "The process number of the AutoCAD to work in, from this tool's own list. "
+                "Leave it out to list the AutoCADs connected to Heron."
+            ),
+        ),
+    ] = None,
+) -> str:
+    """List the AutoCADs connected to Heron, or pick the one to work in.
+
+    With one AutoCAD connected, Heron works in it and this is not needed.
+    With two or more, nothing is sent until one is picked here: Heron never
+    guesses, because a change in the wrong AutoCAD is the worst mistake it
+    can make. If the picked one closes, Heron stops and asks again; it never
+    moves on to another by itself. After picking, call autocad_status before
+    drawing: the other AutoCAD's drawing may be in other units.
+
+    Args:
+        pid (int | None): the AutoCAD to work in; leave out to list them.
+
+    Returns:
+        str: JSON: {"connected": [{"pid", "acad_version", "plugin_version",
+             "connected_since", "in_use"}], "in_use": int | null, "note": str}
+
+    Examples:
+        - Use when: a tool says "2 AutoCADs are connected to Heron" - list
+          them, ask the modeller which (by version), then pick it.
+        - Use when: "work in the AutoCAD 2025 one" or "use the other AutoCAD".
+        - Don't use when: only one AutoCAD is connected - Heron already works in it.
+        - Don't use when: switching drawings inside one AutoCAD -
+          autocad_switch_drawing.
+
+    Error Handling:
+        - A process that is not an AutoCAD connected to Heron is refused, with
+          the list of those that are.
+    """
+    from ..core import gate, sessions
+    from ..core.connection import invalidate
+
+    if pid is not None:
+        picked = sessions.choose(pid)
+        invalidate()
+        gate.reset()  # another AutoCAD: its drawing's units are checked again
+    found = sessions.connected()
+    in_use = sessions.chosen() if sessions.chosen() is not None else (found[0]["pid"] if len(found) == 1 else None)
+    result: dict[str, Any] = {
+        "connected": [{**acad, "in_use": acad["pid"] == in_use} for acad in found],
+        "in_use": in_use,
+    }
+    if pid is not None:
+        result["note"] = (
+            f"Heron now works in {sessions.describe(picked)}. Call autocad_status before drawing: "
+            "it gives this drawing's units."
+        )
+    elif not found:
+        result["note"] = "No AutoCAD is connected to Heron. Press the Heron button on the Heron tab in AutoCAD."
+    elif in_use is None:
+        result["note"] = "More than one is connected and none is picked: ask the modeller which, then pass its pid."
+    return dumps(result)
+
+
+@mcp.tool(
     name="autocad_get_variable",
     **tool_meta("Read System Variable", read_only=True, idempotent=True),
 )

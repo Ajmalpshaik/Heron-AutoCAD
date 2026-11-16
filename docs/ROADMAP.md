@@ -7,7 +7,7 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 ## Plug-in
 
 - [ ] A Companion page like Heron's in Revit (drawing, view, selection, activity list).
-- [ ] Emergency stop: a ribbon button that refuses every job until pressed again.
+- [x] Emergency stop: **Stop Heron now** in the Heron menu, or `HERONSTOP` ([D-51](DECISIONS.md)).
 - [ ] Sign the add-in DLLs, so AutoCAD's SECURELOAD never asks.
 - [ ] An installer `.exe` / `.msi` for modellers (today: two Python scripts).
 - [ ] Move tools into the plug-in one at a time where it pays off (speed, true transactions), keeping COM as the fallback.
@@ -19,7 +19,7 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
   measured for COM SendCommand).
 - [ ] `autocad_preview`: the picture comes out portrait with the drawing at the left edge; fit and
   centre it, landscape when the drawing is wide.
-- [ ] **Choose which AutoCAD** when several are open (like Heron's `revit_use_session`): today the server always takes the one COM hands it, usually the first started (A15).
+- [x] **Choose which AutoCAD** when several are open: `autocad_use_autocad` ([D-49](DECISIONS.md)); one connected is used whichever COM gives, two need a pick (A15).
 - [ ] Remaining live rows: A9 ribbon label, A8e confirmation.
 - [x] `autocad_list_blocks` listed blank names and lost changed dynamic copies (`*U` names): now
   counted by real name, blank names skipped, `dynamic` flag added (A28).

@@ -45,6 +45,8 @@ from .risk import Risk, risk_of
 
 DISCARDED = "Discarded: nothing was kept."
 STATUS_TOOL = "autocad_status"
+# Says which AutoCAD to work in: needs no drawing, and no plug-in job (D-49).
+SESSION_TOOLS = {"autocad_use_autocad"}
 # The calls that tell Heron a drawing's units. Nothing is changed in a drawing
 # until one of them has run on it (Ajmal, 2026-10-26: "the first time in a
 # drawing, you have to understand the unit").
@@ -54,6 +56,9 @@ BRIDGE_OFF = (
     "developer use): no padlocks, banner or Keep or Discard apply."
 )
 DIAGNOSE_HINT = "Read the resource autocad://diagnose: it checks the install, the connection and the versions."
+ERASE_WAITING = "Waiting for the answer in AutoCAD: the job erased {count} object(s), keep them erased? ({seconds} s so far)."
+# Jobs whose real effect the plug-in counts (D-50).
+WATCHED = (Risk.CHANGE, Risk.ADMIN, Risk.PUBLISH)
 KEEP_WAITING = "Waiting for the answer in AutoCAD: keep or discard '{what}'? ({seconds} s so far)."
 COULD_NOT_ASK = (
     "Heron could not ask whether to keep this change, so it was kept. "
@@ -100,6 +105,19 @@ def plugin_runner() -> Callable[[str, dict[str, Any]], dict[str, Any]] | None:
     if job is None or job.bridge is None or job.id is None:
         return None
     return lambda operation, args: job.bridge.run(job.id, operation, args)
+
+
+def stopped_by_modeller() -> bool:
+    """True when the modeller pressed HERONSTOP during this job (D-51). Any thread.
+
+    Long tools ask between their steps; the plug-in itself refuses every
+    request of a stopped job, so a tool that never asks still stops at its
+    next request to the plug-in.
+    """
+    job = _current
+    if job is None or job.bridge is None or job.id is None:
+        return False
+    return job.bridge.stopped()
 
 
 def reset(looked_at: str | None = None) -> None:
@@ -266,6 +284,19 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         refusal: str | None = None
         probed = False
 
+        if tool in SESSION_TOOLS:
+            # Picking which AutoCAD to work in touches no drawing, and must
+            # answer exactly when the gate cannot tell which AutoCAD is meant
+            # (D-49). Audited like any call.
+            ok, outcome = False, "failed"
+            try:
+                result = await work()
+                ok = not (isinstance(result, str) and result.startswith("Error:"))
+                outcome = "done" if ok else "failed"
+                return result
+            finally:
+                _record(tool, risk, "", ok, outcome, started)
+
         try:
             pid, drawing = await _probe()
             probed = True
@@ -343,9 +374,19 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 )
                 result = _with_heron(result, _versions(state, job))
 
-            if ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE:
-                result, outcome = await _keep_or_discard(job, text, marked)
+            counted = None
+            if job and job.bridge and risk in WATCHED:
+                counted = await asyncio.to_thread(job.bridge.changes, job.id)
+                if counted is not None:
+                    result = _with_changes(result, counted)
+
+            asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE
+            if asked_keep:
+                result, outcome = await _keep_or_discard(job, result if isinstance(result, str) else text, marked)
                 ok = outcome != "failed"
+            elif counted and counted["erased"] > 0:
+                # Anything erased gets a human yes, whatever Ask to Keep says (D-50).
+                result = await _ask_erase(job, result, counted["erased"])
 
             if ok and tool in _CHECKS_DRAWING:
                 if risk is Risk.VIEW:
@@ -391,6 +432,46 @@ async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str]
             "failed",
         )
     return DISCARDED, "discarded"
+
+
+def _with_changes(result: Any, counted: dict[str, Any]) -> Any:
+    """Add what the plug-in counted, so the chat knows what really happened."""
+    if not isinstance(result, str):
+        return result
+    shown = {key: counted[key] for key in ("added", "modified", "erased")}
+    payload = _payload(result)
+    if isinstance(payload, dict):
+        payload["heron_changes"] = shown
+        return json.dumps(payload, indent=2, default=str)
+    if result.startswith("Error:") and not any(shown.values()):
+        return result
+    return f"{result}\n\nheron_changes: {json.dumps(shown)}"
+
+
+async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
+    beat = progress.start(lambda seconds: ERASE_WAITING.format(count=erased, seconds=int(seconds)))
+    try:
+        answer = await asyncio.to_thread(job.bridge.ask_erase, job.id, job.title)
+    finally:
+        progress.stop(beat)
+    said = answer.get("answer")
+    if said == "keep_erased":
+        note = f"The modeller chose to keep the {erased} erased object(s) erased."
+    elif said == "restored":
+        note = (
+            f"The job erased {erased} object(s), and the modeller had them brought back "
+            f"({answer.get('restored', 0)} restored). Do not erase them again without asking."
+        )
+        if answer.get("message"):
+            note += " " + answer["message"]
+    elif said == "nothing_erased":
+        return result
+    else:
+        note = (
+            f"The job erased {erased} object(s) and Heron could not ask the modeller about it. "
+            "Tell the modeller, and look at the drawing."
+        )
+    return _with_note(result, note) if isinstance(result, str) else result
 
 
 def _ms(started: float) -> int:
