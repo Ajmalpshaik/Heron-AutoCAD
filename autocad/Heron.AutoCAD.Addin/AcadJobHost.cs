@@ -89,6 +89,8 @@ namespace Heron.AutoCAD.Addin
 
         public ChangeReport? Changes(string job) => Counter.Read(job);
 
+        public bool? ChangedBefore(string job) => Counter.ChangedBefore(job);
+
         public EraseAnswer AskErase(EraseRequest request)
         {
             var asked = IdleQueue.TryInvoke(() =>

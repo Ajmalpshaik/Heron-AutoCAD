@@ -4,6 +4,14 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Ideas from Heron AI for Revit, batch 3: remember, check, take back (2026-11-15).**
+  `autocad_project_notes` ([D-53](docs/DECISIONS.md)) keeps the modeller's answers per project folder
+  and `autocad_status` hands them to the next chat, so the scale is asked once. `autocad_checklist`
+  ([D-52](docs/DECISIONS.md)) saves the modeller's own checks as a named list and runs it: PASS, FAIL
+  or NOT RUN per line, worst first, with the failing handles for `autocad_show`; "before issue"
+  ships ready. `autocad_activity` lists what Heron did in this chat; `autocad_undo_last`
+  ([D-54](docs/DECISIONS.md)) takes back Heron's last change only when the plug-in saw nothing else
+  change since. Live rows O1-O7 NOT RUN.
 - **Ideas from Heron AI for Revit, batch 2: the right AutoCAD, erasures, and a stop (2026-11-15).**
   `autocad_use_autocad` ([D-49](docs/DECISIONS.md)): with one AutoCAD connected Heron works in it,
   whichever COM would give; with two or more nothing is sent until one is picked; a picked one that

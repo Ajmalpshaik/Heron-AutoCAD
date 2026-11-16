@@ -22,6 +22,9 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
     Risk.READ: (
         "status",
         "use_autocad",
+        "checklist",
+        "project_notes",
+        "activity",
         "list_drawings",
         "list_entities",
         "get_entity",
@@ -62,6 +65,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "set_3d_view",
     ),
     Risk.CHANGE: (
+        "undo_last",
         "draw_spline",
         "draw_multiline",
         "add_wipeout",

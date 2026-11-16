@@ -355,6 +355,22 @@ below is NOT RUN**. Plug-in 1.5.0 installed.
 | N7 | Start a 20-step `autocad_sequence`; pick **Stop Heron now** after the first steps land | The sequence ends at the next step with "HERONSTOP" in its hint; later steps not drawn; the next call is refused until HERONSTOP is typed again | NOT RUN |
 | N8 | `autocad_batch_draw` of 2,000 objects; HERONSTOP while it draws | What AutoCAD had queued may finish (say how much); no second copy is typed over COM; the next call is refused | NOT RUN |
 
+## Group O - Ideas from Heron AI for Revit, batch 3 (AutoCAD 2027, this PC)
+
+Added on 2026-11-15 ([D-52](DECISIONS.md), [D-53](DECISIONS.md), [D-54](DECISIONS.md)). Built and
+tested offline (`tests/test_memory_and_checks.py`, `ChangedBeforeTests`); **every row below is NOT
+RUN**. Plug-in 1.5.0 installed.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| O1 | In a saved drawing, tell the chat "the scale is 1:50 for this job"; start a NEW chat and call `autocad_status` | The new chat's status has `project_notes` scale 1:50 and it does not ask the scale | NOT RUN |
+| O2 | Open a drawing in ANOTHER folder; `autocad_status` | No `project_notes` from the first folder | NOT RUN |
+| O3 | `autocad_checklist(action="run", name="before issue")` on a real sheet | Each line PASS / FAIL / NOT RUN; FAIL lines name handles; `autocad_show` of them selects the right objects | NOT RUN |
+| O4 | Save a list with your own sentences (title block pattern, text heights); run it | Your sentences come back as the labels; a title block with an empty attribute is named | NOT RUN |
+| O5 | Ask to Keep OFF: draw a circle with Heron, then "undo what you just did" (`autocad_undo_last`) | The circle is gone; nothing else changed | NOT RUN |
+| O6 | Draw a circle with Heron, then draw a line yourself, then `autocad_undo_last` | Refused: "the drawing changed after Heron's last change"; both stay | NOT RUN |
+| O7 | Ask to Keep ON (Keep): draw with Heron, `autocad_zoom`, then `autocad_undo_last` | Undone exactly back to the mark: the drawing is as before Heron's job | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

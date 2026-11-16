@@ -204,6 +204,19 @@ class Bridge:
             raise BridgeRefused(_ensure_sentence(str(reply.get("message", ""))))
         return reply.get("ok") is True
 
+    def since_last(self, job: str) -> bool | None:
+        """Did anything change in the drawing between Heron's previous change job and this one (D-54)?
+
+        None when the plug-in cannot tell (older plug-in, not reachable).
+        """
+        try:
+            reply = self.call("since_last", job=job)
+        except AutocadError:
+            return None
+        if reply.get("ok") is not True or reply.get("known") is not True:
+            return None
+        return reply.get("changedSince") is True
+
     def stopped(self) -> bool:
         """True when the modeller pressed the emergency stop (HERONSTOP). False if it cannot tell."""
         try:

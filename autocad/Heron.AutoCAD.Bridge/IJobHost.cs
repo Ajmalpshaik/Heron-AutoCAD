@@ -42,6 +42,12 @@ namespace Heron.AutoCAD.Bridge
         /// clear "keep erased" brings them back.
         /// </summary>
         EraseAnswer AskErase(EraseRequest request);
+
+        /// <summary>
+        /// Did anything change in the drawing between Heron's previous change
+        /// job and this one's begin (the modeller's own work)? Null when not known.
+        /// </summary>
+        bool? ChangedBefore(string job);
     }
 
     public sealed class JobInfo

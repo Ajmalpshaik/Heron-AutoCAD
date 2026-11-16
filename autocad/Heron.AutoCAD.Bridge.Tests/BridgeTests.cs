@@ -203,6 +203,9 @@ public class FakeHost : IJobHost
     public ChangeReport? Report { get; set; }
     public ChangeReport? Changes(string job) => Report;
 
+    public bool? Before { get; set; }
+    public bool? ChangedBefore(string job) => Before;
+
     public List<EraseRequest> EraseAsked { get; } = new();
     public EraseAnswer EraseReply { get; set; } = new() { Answer = "restored", Restored = 0 };
     public EraseAnswer AskErase(EraseRequest request)
@@ -772,6 +775,7 @@ public class ReadLeavesNoUndoStepTests
         public RunResult Run(RunRequest request) => RunResult.Done(null);
         public ChangeReport? Changes(string job) => null;
         public EraseAnswer AskErase(EraseRequest request) => new();
+        public bool? ChangedBefore(string job) => null;
     }
 
     public ReadLeavesNoUndoStepTests() =>

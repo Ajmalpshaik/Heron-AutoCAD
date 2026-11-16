@@ -11,10 +11,12 @@ from __future__ import annotations
 def register_all() -> None:
     """Import every tool module, registering its tools on the shared server."""
     from . import (  # noqa: F401
+        activity,
         advanced,
         annotate,
         batch,
         blocks,
+        checklists,
         convert,
         coordinates,
         dimensions,
@@ -30,6 +32,7 @@ def register_all() -> None:
         materials,
         modify,
         patterns,
+        project_notes,
         publish,
         query,
         resources,

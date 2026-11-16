@@ -130,6 +130,39 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-54 - "Undo Heron's last change" only when nothing else changed since
+
+**Decided:** 2026-11-15, from Heron AI for Revit's undo guard (its D-157). **Status:** in force.
+Ctrl+Z undoes whatever came last, which may be the modeller's own work. `autocad_undo_last` undoes
+Heron's last change in this chat only when: it is the active drawing; the plug-in saw no entity
+added, modified or erased outside Heron's change jobs since (`since_last`, from the same database
+events as D-50); and Heron itself did nothing since but read. With Ask to Keep on, the job's UNDO
+mark makes it exact (`UNDO _Back`, then the created handles must be gone). With it off there is no
+mark (D-18 is kept: no mark unless asking), so it is one `UNDO 1`, refused if Heron zoomed or showed
+anything since, because that step would be the zoom. A raw command or a save after the change
+leaves nothing to undo this way. One level only. `autocad_activity` lists the chat's jobs (reads
+left out) from the gate's own record.
+
+## D-53 - The modeller's answers are kept per project folder
+
+**Decided:** 2026-11-15, from Heron AI for Revit's design basis (its D-33, and its lesson D-113: an
+id inherited from the template made new projects reuse another project's answers). **Status:** in
+force. A project is the folder a drawing is saved in, which a template cannot carry over; an unsaved
+drawing keeps nothing. `autocad_project_notes` keeps a short named answer with the modeller's own
+words and the time, in `%LOCALAPPDATA%\Heron\autocad\projects`, never in the drawing.
+`autocad_status` hands them to every chat as `project_notes`, and the server instructions say: use
+them, ask only what is missing, keep only what the modeller said.
+
+## D-52 - Check lists are the modeller's sentences on a fixed catalogue
+
+**Decided:** 2026-11-15, from Heron AI for Revit's QA checklists (its docs/50). **Status:** in
+force. A check list is a named list on this PC; each line is the modeller's own sentence mapped to
+one of nine catalogue checks (layer 0, Defpoints, ByLayer colour and linetype, overlapping
+dimensions, layer names by pattern, xrefs found, title blocks filled, text heights), with severity,
+clause and advice. Running reads the drawing once and changes nothing; each line is PASS, FAIL or
+NOT RUN with the reason, never a silent pass. "before issue" ships with Heron. No free-text rules:
+a check Heron cannot do is refused when the list is saved, naming the line.
+
 ## D-51 - An emergency stop the modeller presses in AutoCAD
 
 **Decided:** 2026-11-15, from Heron AI for Revit's `HeronStop` (a stop message, sticky until
