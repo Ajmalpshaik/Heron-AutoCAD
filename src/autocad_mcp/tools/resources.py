@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 
 from ..acad.findtool import Entry, search, split_bullets
+from ..core import diagnose
 from ..core.registry import dumps, mcp
 from ..core.risk import RISK, Risk
 from . import document, layers
@@ -83,6 +84,20 @@ async def drawing_blocks() -> str:
 @mcp.resource("autocad://drawing/styles", name="drawing_styles", description="Text styles, dimension styles, linetypes.", mime_type=_JSON)
 async def drawing_styles() -> str:
     return await layers.autocad_list_styles()
+
+
+@mcp.resource(
+    "autocad://diagnose",
+    name="diagnose",
+    description=(
+        "Is Heron set up right on this PC: plug-in installed, AutoCAD connected, server and plug-in "
+        "versions, an update this chat has not loaded, the padlocks. Needs no AutoCAD."
+    ),
+    mime_type=_JSON,
+)
+async def diagnose_heron() -> str:
+    """The first thing to read when Heron does not work: each check with what to do."""
+    return dumps(diagnose.report())
 
 
 @mcp.resource("autocad://tools", name="tool_index", description="Every tool, grouped by the padlock it needs, with when to use it. Needs no AutoCAD.", mime_type=_JSON)

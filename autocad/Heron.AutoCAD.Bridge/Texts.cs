@@ -50,6 +50,9 @@ namespace Heron.AutoCAD.Bridge
         public static string WrongDrawing(string active, string job) =>
             "The active drawing is " + active + ", not " + job + " where this job began. Switch back to it, or call autocad_status on this one. " + NothingChanged;
 
+        public static string PublishVetoed(string command) =>
+            "Heron stopped " + command + ": a Heron job may not save, plot or export while Publish is off. Turn Publish on in Heron's Settings to allow it.";
+
         public static string UnknownOp(string op) =>
             "Heron in AutoCAD does not know the request '" + op + "'. Update Heron so both sides match. " + NothingSent;
     }

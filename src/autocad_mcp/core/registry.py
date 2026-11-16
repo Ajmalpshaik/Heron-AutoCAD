@@ -16,13 +16,14 @@ import pythoncom
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
+from . import progress
 from .connection import mark_writing
 from .errors import AutocadError, com_message
 
 mcp = MCPServer(
     "autocad_mcp",
     title="Heron AI for AutoCAD",
-    version="1.6.0",
+    version="1.7.0",
     instructions=(
         "Controls the AutoCAD instance running on this machine through its COM "
         "Automation interface. Changes appear live in the user's open drawing.\n\n"
@@ -61,7 +62,9 @@ mcp = MCPServer(
         "padlocks there decide what is allowed: Changes for drawing and "
         "modifying, Publish for saving and exporting, Admin for commands and "
         "AutoLISP. When a tool is refused, pass the refusal on in plain words; "
-        "never try to get round it. Call autocad_preview to look at what you "
+        "never try to get round it. If Heron itself seems broken (not connected, "
+        "an old plug-in, an update not taking), read autocad://diagnose: it says "
+        "what to fix, without AutoCAD. Call autocad_preview to look at what you "
         "drew before saying it is done.\n\n"
         "DRAFTING RULES (draw like a senior draftsman; the user's own standard):\n"
         "1. Units first: autocad_status on every drawing before drawing in it. "
@@ -119,6 +122,10 @@ mcp = MCPServer(
         "autocad_preview."
     ),
 )
+
+
+# Every call's context is kept, so the gate can send "still working" notes.
+progress.install(mcp)
 
 
 def tool_meta(

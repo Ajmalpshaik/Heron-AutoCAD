@@ -150,6 +150,8 @@ public class RunTests
     {
         Assert.True(PluginOperations.TryLevel("solid_topology", out var read));
         Assert.Equal(Risk.Read, read);
+        Assert.True(PluginOperations.TryLevel("show", out var show));
+        Assert.Equal(Risk.View, show);
         foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material" })
         {
             Assert.True(PluginOperations.TryLevel(name, out var level), name);

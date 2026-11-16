@@ -34,6 +34,7 @@ The group headings below give the level.
 | `autocad_switch_drawing` | Make another open drawing active |
 | `autocad_export` | PDF, DXF, WMF, SAT, BMP, EPS, STL. PDF takes `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
+| `autocad_show` | **View, done by the plug-in.** Selects the objects given by handle and zooms to them, so "which ones?" is answered in the drawing; `isolate` hides the rest for now (ISOLATEOBJECTS, not saved), `end_isolation` brings it back. At most 500 at once |
 | `autocad_publish_pdf` | **Publish, done by the plug-in.** The drawing's sheets in ONE multi-page PDF through AutoCAD's publisher, in tab order, each with its own page setup; `layouts` to choose, `include_model`, `overwrite`. Made from the drawing as last saved: unsaved changes are refused ([D-41](DECISIONS.md)) |
 | `autocad_get_variable` | Read a system variable |
 | `autocad_set_variable` | Write a system variable |

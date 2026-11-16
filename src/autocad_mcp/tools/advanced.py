@@ -12,6 +12,7 @@ guards here steer callers to it.
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Annotated, Any
 
@@ -48,6 +49,60 @@ DIALOG_COMMANDS = {
     "EXIT": "closing AutoCAD would end this session",
     "CLOSE": "closing the drawing may prompt to save and block AutoCAD",
 }
+
+# Commands that write the drawing or a file from it. The typed tools for these
+# (autocad_save_drawing, autocad_export, autocad_publish_pdf) need the Publish
+# padlock; a raw command or LISP must not get round it with Admin alone. The
+# plug-in vetoes the same list inside a job (PublishGuard.cs, D-47): this is the
+# first line, that is the net under it. tests/test_publish_guard.py keeps the
+# two lists the same.
+PUBLISH_COMMANDS = frozenset(
+    {
+        "SAVE", "QSAVE", "SAVEAS", "SAVEALL", "SAVETOWEBMOBILE",
+        "PLOT", "PUBLISH", "BATCHPLOT", "EXPORT", "EXPORTPDF", "EXPORTDWF", "EXPORTDWFX",
+        "EXPORTLAYOUT", "EXPORTTOAUTOCAD", "ETRANSMIT", "ARCHIVE", "WBLOCK",
+        "DXFOUT", "STLOUT", "ACISOUT", "PDFOUT", "JPGOUT", "PNGOUT", "BMPOUT", "TIFOUT", "WMFOUT",
+        "3DDWF", "3DPRINT", "SENDTO3DPRINTSERVICE", "IGESEXPORT", "STEPEXPORT",
+    }
+)  # fmt: skip
+# ActiveX calls from LISP that save or plot without any command running.
+_LISP_PUBLISH_CALLS = re.compile(
+    r"\bvla-(save|saveas|wblock|export|plottofile|plottodevice)\b", re.IGNORECASE
+)
+_LISP_STRINGS = re.compile(r'"((?:[^"\\]|\\.)*)"')
+PUBLISH_REFUSED = (
+    "{what} saves, plots or exports, and that needs the Publish padlock, which a raw "
+    "command or AutoLISP does not ask for. Use autocad_save_drawing, autocad_export or "
+    "autocad_publish_pdf instead. Nothing was sent to AutoCAD."
+)
+
+
+def _plain(word: str) -> str:
+    return word.strip().lstrip("#_.-+'").upper()
+
+
+def publish_command_in(text: str) -> str | None:
+    """The first save, plot or export command in a command string, or None."""
+    for word in text.split():
+        if _plain(word) in PUBLISH_COMMANDS:
+            return _plain(word)
+    return None
+
+
+def publish_call_in_lisp(expression: str) -> str | None:
+    """A save, plot or export a LISP expression would do: a vla- call, or a command name as a string.
+
+    In LISP a command is a string of its own - (command "_.QSAVE") - so only a
+    string that is nothing but the command counts: "save the date" does not.
+    """
+    found = _LISP_PUBLISH_CALLS.search(expression)
+    if found:
+        return found.group(0)
+    for literal in _LISP_STRINGS.findall(expression):
+        if _plain(literal) in PUBLISH_COMMANDS:
+            return _plain(literal)
+    return None
+
 
 # Commands that operate on the undo stack itself. Everything else sent through
 # autocad_send_command is wrapped in an undo mark so one tool call is one
@@ -180,6 +235,9 @@ async def autocad_send_command(
             "connection until someone closes it by hand. Instead, "
             f"{DIALOG_COMMANDS[first]}."
         )
+    named = publish_command_in(text)
+    if named:
+        raise AutocadError(PUBLISH_REFUSED.format(what=named))
 
     payload = text if text.endswith("\n") else text + "\n"
 
@@ -331,6 +389,9 @@ async def autocad_run_lisp(
             "Unbalanced double quotes in the expression. AutoCAD would wait for "
             "the closing quote and block the connection."
         )
+    named = publish_call_in_lisp(text)
+    if named:
+        raise AutocadError(PUBLISH_REFUSED.format(what=named))
 
     def work() -> dict[str, Any]:
         doc = get_doc()

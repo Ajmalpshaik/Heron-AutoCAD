@@ -20,7 +20,7 @@ from ..core.connection import get_app, get_doc, run
 from ..core.errors import AutocadError, com_message, is_retryable
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, point_to_list
-from ._shared import current_ucs
+from ._shared import current_ucs, in_plugin
 
 # Formats doc.Export writes directly. PDF goes through the plotter instead.
 EXPORT_FORMATS = {"dxf", "wmf", "sat", "bmp", "eps", "stl"}
@@ -979,6 +979,84 @@ async def autocad_zoom(
         else:
             app.ZoomExtents()
         return {"zoomed": mode}
+
+    return dumps(await run(work))
+
+
+SHOW_MOST = 500
+
+
+@mcp.tool(
+    name="autocad_show",
+    **tool_meta("Show Objects In The Drawing", idempotent=True),
+)
+@tool_errors
+async def autocad_show(
+    handles: Annotated[
+        list[str] | None,
+        Field(
+            default=None,
+            max_length=SHOW_MOST,
+            description=(
+                "The objects to show, by handle (from any query tool). Not needed with "
+                "end_isolation."
+            ),
+        ),
+    ] = None,
+    isolate: Annotated[
+        bool,
+        Field(
+            default=False,
+            description=(
+                "Also hide everything else for now (AutoCAD's ISOLATEOBJECTS). Temporary: "
+                "not saved with the drawing. End it with end_isolation=true."
+            ),
+        ),
+    ] = False,
+    end_isolation: Annotated[
+        bool,
+        Field(default=False, description="Bring back everything an earlier isolate hid (UNISOLATEOBJECTS)."),
+    ] = False,
+) -> str:
+    """Put objects in front of the modeller: select them and zoom to them.
+
+    The answer to "which ones?" given in the drawing, not as a list of
+    handles. The objects are left selected (grips on), so the modeller can
+    look at them, move them or press Delete themselves. Changes nothing in
+    the drawing and needs no padlock, only the connection.
+
+    Args:
+        handles (list[str]): what to show, at most 500.
+        isolate (bool): hide the rest for now.
+        end_isolation (bool): show everything again.
+
+    Returns:
+        str: JSON: {"shown": int, "isolated": bool, "not_found": [str]}
+             or {"isolation_ended": true}
+
+    Examples:
+        - Use when: "show me the blocks with no tag" - find them, then show
+          their handles.
+        - Use when: "where are the duplicates?" or "which lines are on layer 0?"
+          after a query tool found them.
+        - Use when: "show only the sprinkler pipes for now" -> isolate=true;
+          "bring everything back" -> end_isolation=true.
+        - Don't use when: the whole drawing or a window should fit the screen -
+          autocad_zoom.
+        - Don't use when: the objects should be changed - use the editing tool;
+          this only shows them.
+
+    Error Handling:
+        - Handles that are not in the drawing come back in not_found; the rest
+          are still shown.
+        - Needs Heron's plug-in in AutoCAD (it does the selecting).
+    """
+    if not end_isolation and not handles:
+        raise AutocadError("Give the handles to show, or end_isolation=true to show everything again.")
+
+    def work() -> dict[str, Any]:
+        args: dict[str, Any] = {"end_isolation": True} if end_isolation else {"handles": list(handles or []), "isolate": isolate}
+        return in_plugin("show", args, "Showing objects in the drawing", changes=False)
 
     return dumps(await run(work))
 

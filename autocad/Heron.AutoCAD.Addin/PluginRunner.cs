@@ -26,8 +26,9 @@ namespace Heron.AutoCAD.Addin
             if (!DrawingNames.Same(doc.Name, request.Drawing)) return RunResult.Failed(Texts.WrongDrawing(doc.Name, request.Drawing));
             PluginOperations.TryLevel(request.Operation, out var level);
             HeronLog.Write("operation " + request.Operation + " on " + doc.Name);
-            // Publishing opens the sheets itself: no lock, no transaction around it.
-            if (request.Operation == "publish_pdf") return Outside(request, doc);
+            // Publishing opens the sheets itself, and showing only selects and
+            // zooms: no lock, no transaction around either.
+            if (request.Operation == "publish_pdf" || request.Operation == "show") return Outside(request, doc);
             try
             {
                 using (var args = RunArgs.Parse(request.Args))
@@ -65,7 +66,7 @@ namespace Heron.AutoCAD.Addin
             try
             {
                 using (var args = RunArgs.Parse(request.Args))
-                    return PublishPdf.Run(doc, args);
+                    return request.Operation == "show" ? Showing.Show(doc, args) : PublishPdf.Run(doc, args);
             }
             catch (RunRefusal refusal)
             {

@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Ideas from Heron AI for Revit, batch 1: safety and "is it working" (2026-11-15).** Plug-in
+  **1.5.0**, server **1.7.0**. `autocad_show` (View) selects objects by handle and zooms to them,
+  with `isolate` / `end_isolation`. A raw command or AutoLISP may no longer save, plot or export
+  ([D-47](docs/DECISIONS.md)): `autocad_send_command` and `autocad_run_lisp` refuse QSAVE, -PLOT,
+  `vla-save` and the rest with "use autocad_save_drawing", and the plug-in vetoes the same commands
+  inside a Change or Admin job while Publish is off. Long calls send "Still working" progress notes,
+  and "Waiting for the answer in AutoCAD" during Keep or Discard. `autocad://diagnose`
+  ([D-48](docs/DECISIONS.md)) checks the install, the connection, the versions and an update the
+  chat has not loaded, without AutoCAD; `autocad_status` now gives the server and plug-in versions.
+  CI scans every tracked file for credentials (`tools/check_secrets.py`), and a weekly run repeats
+  CI and audits the Python packages for advisories. Live rows M1-M8 NOT RUN.
 - **Fixes from the Luxury Suite 2 interior set (2026-11-09, AutoCAD 2027).** `autocad_run_lisp`
   refuses expressions over 2,000 characters (a ~3,000-character one arrived as nothing) and its
   timeout note says the expression may still have run, so count before re-sending.

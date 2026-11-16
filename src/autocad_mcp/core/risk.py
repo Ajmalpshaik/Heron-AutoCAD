@@ -53,6 +53,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
     ),
     Risk.VIEW: (
         "zoom",
+        "show",
         "regen",
         "switch_drawing",
         "open_drawing",

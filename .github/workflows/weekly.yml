@@ -1,0 +1,33 @@
+name: weekly
+
+# Every Monday: the whole CI again against today's packages, and the Python
+# packages Heron installs checked for known security advisories. A red run
+# here is a question for the owner, not a broken pull request.
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Everything, against today's packages
+    uses: ./.github/workflows/ci.yml
+
+  audit:
+    name: Known advisories on Heron's Python packages
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install Heron and pip-audit
+        run: python -m pip install -e . pip-audit
+      - name: Audit what is installed
+        # --skip-editable: Heron itself is not on PyPI. A finding names the
+        # package, the advisory and the version that fixes it.
+        run: python -m pip_audit --skip-editable --progress-spinner off
