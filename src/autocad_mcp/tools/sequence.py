@@ -83,6 +83,11 @@ def plan_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
             raise AutocadError(f"{where} has no 'tool'. Give the tool name, e.g. 'autocad_draw_line'.")
         if not name.startswith("autocad_"):
             name = f"autocad_{name}"
+        if name == "autocad_saved_command":
+            raise AutocadError(
+                f"{where} runs a saved command. A sequence cannot contain one; run the saved "
+                "command on its own, or put its steps in this list."
+            )
         if name == SELF:
             raise AutocadError(
                 f"{where} is {SELF} itself. A sequence cannot contain a sequence; put its steps "

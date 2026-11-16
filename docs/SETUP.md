@@ -57,7 +57,7 @@ from connection problems:
 .venv\Scripts\autocad-mcp.exe --list-tools
 ```
 
-You should see 134 tools. If this fails, the problem is the install.
+You should see 135 tools. If this fails, the problem is the install.
 
 ---
 

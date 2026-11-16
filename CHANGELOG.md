@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Ideas from Heron AI for Revit, batch 4: saved commands, a safer installer, releases from
+  GitHub (2026-11-15).** `autocad_saved_command` ([D-55](docs/DECISIONS.md)) keeps a proven job with
+  named `{{inputs}}` and replays it through the same gate as a sequence. The release installer
+  ([D-56](docs/DECISIONS.md)) says which version it replaces, keeps it for `Rollback.bat`, puts it
+  back if the copy fails, checks what landed, refuses to run from an app's private folder, and
+  `CheckForUpdate.bat` says whether a newer release is out without installing it.
+  `tools/make_release.py` writes `checksums.txt`; `release.yml` builds and publishes a pre-release
+  from a `v` tag that matches the plug-in's version. Fix: the bundle's `AppVersion` now comes from
+  `Directory.Build.props` (it was typed separately and said 1.4.2 under a 1.5.0 plug-in). Live rows
+  P1-P5 NOT RUN.
 - **Ideas from Heron AI for Revit, batch 3: remember, check, take back (2026-11-15).**
   `autocad_project_notes` ([D-53](docs/DECISIONS.md)) keeps the modeller's answers per project folder
   and `autocad_status` hands them to the next chat, so the scale is asked once. `autocad_checklist`

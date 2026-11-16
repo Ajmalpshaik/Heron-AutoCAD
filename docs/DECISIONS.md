@@ -130,6 +130,33 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-56 - The installer keeps the version it replaces; releases are built from a tag
+
+**Decided:** 2026-11-15, from Heron AI for Revit's installer (install-backup, the update check
+that never installs, the check after install, the Store-app trap) and its release workflow.
+**Status:** in force. `Install.ps1` reads both versions from `PackageContents.xml`, copies the
+installed bundle and server to `%LOCALAPPDATA%\Heron\autocad\previous` before replacing them,
+puts them back if the copy fails, and checks the version and the server's size afterwards.
+`Rollback.bat` shows both versions and asks before swapping back. `CheckForUpdate.bat` asks GitHub
+for the latest release and only says so. A folder under `AppData\Local\Packages` is refused,
+because files written from an app's private storage never reach AutoCAD. `release.yml` builds on
+GitHub's Windows machine from the tagged code, refuses a tag that is not `v` + the version in
+`Directory.Build.props`, writes the zip's SHA-256 to `checksums.txt`, and publishes a pre-release.
+The bundle's `AppVersion` is read from `Directory.Build.props`, so it can never differ from the
+DLLs' version again.
+
+## D-55 - Saved commands are sequences with named inputs
+
+**Decided:** 2026-11-15, from Heron AI for Revit's saved commands (its docs/49). **Status:** in
+force. A job worked out once is kept on this PC as the very steps `autocad_sequence` takes, with
+`{{input}}` where a value changes; a value that is a whole `{{input}}` keeps its type (a number
+stays a number). Saving checks every step as a sequence would, with each input's example, and
+refuses an input used but not declared, declared but not used, or without an example. Running
+fills the inputs and calls the sequence's own body inside the saved command's one job: the same
+gate, Changes padlock, Keep or Discard and HERONSTOP check between steps. A saved command cannot run
+another, and a sequence cannot hold one. Heron AI's docked palette that runs a command with no AI
+is not copied: the server lives in the chat, so the chat runs it, with one call and no planning.
+
 ## D-54 - "Undo Heron's last change" only when nothing else changed since
 
 **Decided:** 2026-11-15, from Heron AI for Revit's undo guard (its D-157). **Status:** in force.

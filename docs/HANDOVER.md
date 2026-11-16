@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-09 (fixes found on the Luxury Suite 2 interior set)
+## Latest - 2026-11-15 (15 ideas adopted from Heron AI for Revit, four stacked PRs)
+
+Studied Heron AI for Revit and built what fits AutoCAD, in four stacked branches / PRs:
+**#28** batch 1 (`autocad_show`, save guard D-47, progress notes, `autocad://diagnose` D-48, secret
+scan, weekly audit); **#29** batch 2 (`autocad_use_autocad` D-49, change count + erase question
+D-50, HERONSTOP D-51); **#30** batch 3 (check lists D-52, project notes D-53, activity + undo last
+D-54); **batch 4** (saved commands D-55, installer keep / rollback / update check + release
+workflow D-56, and the bundle version now read from `Directory.Build.props`). Server **1.7.0**,
+plug-in **1.5.0**, 135 tools. Every gate passes offline; **every live row M1-M8, N1-N8, O1-O7,
+P1-P5 is NOT RUN**. The release workflow runs only on a `v` tag, and the tag still waits for
+groups A, D, E and F (see the entry below). The Claude review check on #28 failed after 2 s
+before reviewing anything (its log hides why; most likely the review login): not a code failure.
+**Next:** merge #28 -> #29 -> #30 -> batch 4 in order, build + install with AutoCAD closed, then
+the live rows. Left for later ([ROADMAP](ROADMAP.md)): a docked activity palette, and a
+saved-command palette in AutoCAD.
+
+## Earlier - 2026-11-09 (fixes found on the Luxury Suite 2 interior set)
 
 Branch `claude/fix-session-bugs-1109`: four fixes found live while building a 3D suite and its
 interior drawing set in AutoCAD 2027 - run_lisp length cap and timeout note, status survives a

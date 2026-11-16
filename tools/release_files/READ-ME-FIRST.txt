@@ -23,6 +23,12 @@ What it changes (your Windows user only)
     (the old Claude Desktop settings are saved as claude_desktop_config.json.heron-backup)
   No registry, no services, no firewall rules, no network ports.
 
+Update, go back, look for a newer one
+  - A newer zip: close AutoCAD, run its Install.bat. The version it replaces is kept.
+  - Trouble with the new one? Close AutoCAD and double-click Rollback.bat: it puts the
+    earlier version back, after asking.
+  - CheckForUpdate.bat says whether a newer version is out. It never installs anything.
+
 Remove it
   Close AutoCAD, then double-click Uninstall.bat. It shows what it removes and asks
   before removing anything. Keep this folder so Uninstall.bat is at hand.

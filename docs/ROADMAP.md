@@ -7,6 +7,8 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 ## Plug-in
 
 - [ ] A Companion page like Heron's in Revit (drawing, view, selection, activity list).
+- [ ] A docked **activity palette** in AutoCAD (today: `autocad_activity` in the chat, D-54) with Zoom per job.
+- [ ] A **saved-command palette** in AutoCAD (today: `autocad_saved_command` run from the chat, D-55).
 - [x] Emergency stop: **Stop Heron now** in the Heron menu, or `HERONSTOP` ([D-51](DECISIONS.md)).
 - [ ] Sign the add-in DLLs, so AutoCAD's SECURELOAD never asks.
 - [ ] An installer `.exe` / `.msi` for modellers (today: two Python scripts).

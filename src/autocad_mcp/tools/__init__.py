@@ -36,6 +36,7 @@ def register_all() -> None:
         publish,
         query,
         resources,
+        saved_commands,
         sequence,
         settings,
         shapes,

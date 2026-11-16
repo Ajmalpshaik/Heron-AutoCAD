@@ -1,0 +1,82 @@
+name: release
+
+# A tag such as v1.5.0 builds the release zip on GitHub's own Windows machine,
+# from exactly the tagged code, writes its SHA-256 beside it, and publishes both
+# as a pre-release (Heron is not finished: see READ-ME-FIRST.txt). Run by hand
+# (workflow_dispatch), it builds and checks only, and keeps the zip as a
+# workflow artifact for 30 days.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the release zip
+    runs-on: windows-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write # publishing a release writes to the repository
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Install Heron and PyInstaller
+        run: python -m pip install . pyinstaller
+      - name: The tag is the plug-in's version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version=$(python -c "import sys; sys.path.insert(0, 'tools'); import build_plugin; print(build_plugin.VERSION)")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::The tag is ${GITHUB_REF_NAME} but autocad/Directory.Build.props says ${version}. Tag v${version}, or change the version first."
+            exit 1
+          fi
+      - name: Build
+        run: python tools/make_release.py
+      - name: Say what was built
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Release zip"
+            echo
+            if [ -f dist/checksums.txt ]; then
+              echo '```'
+              cat dist/checksums.txt
+              echo '```'
+            else
+              echo "**No checksums.txt, so nothing is publishable.** The log above says which step failed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: heron-autocad-release
+          path: |
+            dist/HeronAutoCAD-*-win64.zip
+            dist/checksums.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish the pre-release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/HeronAutoCAD-*-win64.zip dist/checksums.txt \
+            --title "Heron AI for AutoCAD ${GITHUB_REF_NAME}" \
+            --prerelease \
+            --notes "Not finished: for testing only. Unzip, close AutoCAD, double-click Install.bat. Check the download against checksums.txt (SHA-256). What changed: CHANGELOG.md."

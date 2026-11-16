@@ -32,6 +32,7 @@ The group headings below give the level.
 | `autocad_open_drawing` | Open a .dwg or .dxf |
 | `autocad_save_drawing` | Save, or Save As to a new path |
 | `autocad_switch_drawing` | Make another open drawing active |
+| `autocad_saved_command` | **Change.** Keep a job that worked as a named command with `{{inputs}}`, and run it again exactly: the same steps through the same gate as `autocad_sequence`, nothing planned again ([D-55](DECISIONS.md)) |
 | `autocad_activity` | **Read.** What Heron did in this chat, newest first: tool, drawing, outcome, created handles, what the plug-in counted; and whether its last change can still be undone ([D-54](DECISIONS.md)) |
 | `autocad_undo_last` | **Change.** Undo Heron's own last change, only when the plug-in saw no change since (the modeller's work is never taken with it), in the same drawing, one level ([D-54](DECISIONS.md)) |
 | `autocad_project_notes` | **Read.** Keep the modeller's answers (scale, standard, text heights) for the project (the drawing's folder); `autocad_status` hands them to every chat ([D-53](DECISIONS.md)) |
