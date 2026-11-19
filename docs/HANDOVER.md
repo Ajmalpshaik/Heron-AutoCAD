@@ -8,7 +8,20 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-15 (15 ideas adopted from Heron AI for Revit, four stacked PRs)
+## Latest - 2026-11-19 (the four PRs are merged; nothing built since)
+
+PRs #28, #29, #30 and #31 were merged into `main` on 2026-11-16, in order; `main` = e776c38,
+`ci` and `weekly` green there. No open pull requests. Server **1.7.0**, plug-in **1.5.0**, 135
+tools. **Not done on this PC:** the main checkout `D:\06_Development\09_Autocad MCP\Autocad MCP`
+was 10 commits behind (still the 1.6.0 server other sessions use), and the installed plug-in is
+the old one. Checked before updating it: none of the 277 raw command / AutoLISP steps of the Luxury
+Suite 3 player is refused by D-47, and none erases, so D-50 asks nothing during that recording.
+**Next:** with AutoCAD closed, pull the main checkout, `tools/build_plugin.py` +
+`tools/install_plugin.py`, restart Claude, then the live rows M1-M8, N1-N8, O1-O7, P1-P5. The
+Claude review check fails on every PR before reviewing (log hidden; most likely the
+`CLAUDE_CODE_OAUTH_TOKEN` login): renew that secret if the review is wanted.
+
+## Earlier - 2026-11-15 (15 ideas adopted from Heron AI for Revit, four stacked PRs)
 
 Studied Heron AI for Revit and built what fits AutoCAD, in four stacked branches / PRs:
 **#28** batch 1 (`autocad_show`, save guard D-47, progress notes, `autocad://diagnose` D-48, secret
