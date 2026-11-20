@@ -152,8 +152,38 @@ def lisp_wrapper(expression: str) -> str:
 # calls under 2,000 worked all day. Refused here, with a plain message, rather
 # than failing silently in AutoCAD.
 LISP_MAX_CHARS = 2000
+# The wait for the result: at most LISP_POLL_ATTEMPTS reads and
+# LISP_POLL_ATTEMPTS x LISP_POLL_DELAY seconds. A read AutoCAD refuses while it
+# redraws does not end the wait: one refused read after a layer-off or a view
+# restore reported "timed out" in half a second for an expression that had run
+# (Luxury Suite 3, 2026-11-18).
 LISP_POLL_ATTEMPTS = 100
 LISP_POLL_DELAY = 0.1
+# Tries to put USERS1, USERS2 and OSMODE back while AutoCAD is busy for a moment.
+LISP_RESTORE_TRIES = 5
+
+
+def _set_patiently(doc: Any, name: str, value: Any) -> bool:
+    """Set a system variable, asking again a few times while AutoCAD is busy. False if it never took."""
+    for attempt in range(LISP_RESTORE_TRIES):
+        try:
+            doc.SetVariable(name, value)
+            return True
+        except BaseException:  # noqa: BLE001 - busy for a moment: ask again
+            if attempt + 1 < LISP_RESTORE_TRIES:
+                time.sleep(LISP_POLL_DELAY)
+    return False
+
+
+def _get_patiently(doc: Any, name: str) -> str | None:
+    """Read a system variable as text, asking again a few times while AutoCAD is busy. None if it never answered."""
+    for attempt in range(LISP_RESTORE_TRIES):
+        try:
+            return str(doc.GetVariable(name))
+        except BaseException:  # noqa: BLE001 - busy for a moment: ask again
+            if attempt + 1 < LISP_RESTORE_TRIES:
+                time.sleep(LISP_POLL_DELAY)
+    return None
 
 
 @mcp.tool(
@@ -412,6 +442,7 @@ async def autocad_run_lisp(
         # Running object snaps catch the points an expression types into
         # (command ...) ("Too many objects selected for INTERSECT", 2026-11-05).
         # Off for the call, and put back through COM even if the LISP fails.
+        not_put_back: list[str] = []
         osmode = None
         try:
             osmode = doc.GetVariable("OSMODE")
@@ -427,42 +458,45 @@ async def autocad_run_lisp(
                 "LISP syntax."
             ) from exc
         finally:
-            if osmode is not None:
-                try:
-                    doc.SetVariable("OSMODE", osmode)
-                except BaseException:  # noqa: BLE001
-                    pass
+            if osmode is not None and not _set_patiently(doc, "OSMODE", osmode):
+                not_put_back.append(f"OSMODE (it was {osmode})")
 
         # SendCommand usually blocks until the expression finishes, but polling
-        # covers the versions where it does not.
+        # covers the versions where it does not. A refused read is AutoCAD busy
+        # redrawing, not an answer: the wait goes on to its bound.
         value = LISP_SENTINEL
+        answered = False
+        deadline = time.monotonic() + LISP_POLL_ATTEMPTS * LISP_POLL_DELAY
         for _ in range(LISP_POLL_ATTEMPTS):
             try:
                 value = str(doc.GetVariable(LISP_RESULT_VAR))
-            except BaseException:  # noqa: BLE001
-                break
-            if value != LISP_SENTINEL:
+                answered = True
+            except BaseException:  # noqa: BLE001 - busy for a moment: keep waiting
+                pass
+            if value != LISP_SENTINEL or time.monotonic() >= deadline:
                 break
             time.sleep(LISP_POLL_DELAY)
 
         timed_out = value == LISP_SENTINEL
-        cancelled = ""
-        try:
-            cancelled = str(doc.GetVariable(LISP_CANCELLED_VAR))
-        except BaseException:  # noqa: BLE001
-            pass
+        cancelled = _get_patiently(doc, LISP_CANCELLED_VAR) or ""
         for var, old in previous.items():
-            try:
-                doc.SetVariable(var, old)
-            except BaseException:  # noqa: BLE001
-                pass
+            if not _set_patiently(doc, var, old):
+                not_put_back.append(var)
+        restore_note = (
+            f" AutoCAD stayed too busy to put back {', '.join(not_put_back)}: "
+            "check them with autocad_get_variable." if not_put_back else ""
+        )
 
         if timed_out:
-            return {
-                "expression": text,
-                "result": None,
-                "timed_out": True,
-                "note": (
+            if not answered:
+                note = (
+                    "AutoCAD stayed busy (redrawing, or a dialog open) for the "
+                    "whole wait and never let Heron read the answer. The "
+                    "expression was sent and has probably run: look at the "
+                    "drawing before sending it again, or it may be done twice."
+                )
+            else:
+                note = (
                     "AutoCAD never wrote a result within the wait. The "
                     "expression probably raised a LISP error, referenced an "
                     "undefined symbol, or is waiting for input. But a long "
@@ -470,7 +504,12 @@ async def autocad_run_lisp(
                     "count what landed before sending it again, or it is drawn "
                     "twice. Check AutoCAD's command line, and press Esc there if "
                     "a prompt is showing."
-                ),
+                )
+            return {
+                "expression": text,
+                "result": None,
+                "timed_out": True,
+                "note": note + restore_note,
             }
         answer: dict[str, Any] = {"expression": text, "result": value, "timed_out": False}
         if cancelled:
@@ -481,6 +520,8 @@ async def autocad_run_lisp(
                 "every prompt of a (command ...) call, including the last one, "
                 "in the same expression."
             )
+        if restore_note:
+            answer["note"] = (answer.get("note", "") + restore_note).strip()
         return answer
 
     return dumps(await run(work))

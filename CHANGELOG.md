@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A moment of busy AutoCAD no longer stops a run (2026-11-20).** Two stops in the Luxury Suite 3
+  rehearsal of 2026-11-18, both with AutoCAD having done nothing wrong. First,
+  `autocad_create_layer` failed with "Call was rejected by callee" while drawing tabs were switched.
+  The COM worker thread now has a message filter ([D-57](docs/DECISIONS.md)): a call AutoCAD turns
+  away is asked again for up to 3 s, safe because a refused call never ran. The tool-level busy
+  retry also stops at 10 s, `ensure_layer` / `ensure_linetype` no longer take a refusal for a missing
+  name, and a refusal that still gets through says "AutoCAD was busy". Second, `autocad_run_lisp`
+  said "timed out" in half a second during a redraw. It now waits through refused reads, and puts
+  USERS1, USERS2 and OSMODE back patiently ([D-58](docs/DECISIONS.md)). Live rows Q1-Q5 NOT RUN.
+
 - **Ideas from Heron AI for Revit, batch 4: saved commands, a safer installer, releases from
   GitHub (2026-11-15).** `autocad_saved_command` ([D-55](docs/DECISIONS.md)) keeps a proven job with
   named `{{inputs}}` and replays it through the same gate as a sequence. The release installer

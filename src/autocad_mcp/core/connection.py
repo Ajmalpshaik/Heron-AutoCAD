@@ -9,7 +9,9 @@ COM server. Two consequences shape this module:
 
 2. AutoCAD rejects calls while it is busy — a modal dialog is up, the user is
    mid-command, a regen is running. That is transient and must be retried, not
-   reported as a failure.
+   reported as a failure. It is retried at two levels: one refused COM call is
+   asked again by the worker thread's message filter (message_filter.py), and
+   a whole tool is re-run by ``_with_retry`` while nothing has been written.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from typing import Any, TypeVar
 import pythoncom
 import win32com.client
 
+from . import message_filter
 from .errors import (
     AutocadError,
     OutcomeUnknown,
@@ -39,6 +42,9 @@ PROG_ID = "AutoCAD.Application"
 
 RETRY_ATTEMPTS = 40
 RETRY_DELAY = 0.25
+# The retry also stops at this many seconds: with the message filter one
+# refused attempt can itself take a few seconds, and 40 of them would not.
+RETRY_WINDOW = 10.0
 
 # Space selector accepted by tools.
 MODEL_SPACE = "model"
@@ -69,6 +75,9 @@ class _ComWorker:
 
     def _loop(self) -> None:
         pythoncom.CoInitialize()
+        # A call AutoCAD turns away while busy is asked again, not failed
+        # (2026-11-18). Refused by Windows? Then everything works as before.
+        message_filter.install()
         try:
             while True:
                 fn, reply = self._jobs.get()
@@ -117,9 +126,11 @@ def _with_retry(fn: Callable[[], T]) -> T:
     """Call ``fn``, retrying for as long as AutoCAD reports it is busy.
 
     Only while nothing has been written: once a write began, a busy signal
-    becomes OutcomeUnknown instead of a second run.
+    becomes OutcomeUnknown instead of a second run. At most RETRY_ATTEMPTS
+    tries and RETRY_WINDOW seconds, whichever comes first.
     """
     last: BaseException | None = None
+    started = time.monotonic()
     for _ in range(RETRY_ATTEMPTS):
         _attempt.writing = False
         try:
@@ -136,9 +147,11 @@ def _with_retry(fn: Callable[[], T]) -> T:
                 # a fresh dispatch rather than retrying against the same
                 # broken one. A plain busy signal needs no such reset.
                 invalidate()
+            if time.monotonic() - started >= RETRY_WINDOW:
+                break
             time.sleep(RETRY_DELAY)
 
-    window = RETRY_ATTEMPTS * RETRY_DELAY
+    window = max(time.monotonic() - started, RETRY_DELAY)
     if last is not None and is_dispatch_failure(last):
         raise AutocadError(
             f"Lost the COM connection to AutoCAD and could not re-establish it "
