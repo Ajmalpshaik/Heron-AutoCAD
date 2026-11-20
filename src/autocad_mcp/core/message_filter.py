@@ -10,8 +10,12 @@ rejected by callee.").
 A refused call was never carried out, so asking for that one call again cannot
 draw anything twice. That is the difference from connection._with_retry, which
 re-runs a whole tool and so must stop once a write has begun. The filter asks
-again for a few seconds (BUDGET_MS), with a short wait between tries, then lets
-the refusal through to the caller as before.
+again with a short wait between tries, then lets the refusal through to the
+caller as before. The waiting is budgeted per job, not per call (BUDGET_MS in
+all for one piece of work on the worker): many places in the tools swallow a
+refused call and go on to the next, and 3 s for each of them would hold the
+only COM thread for minutes. Once a job has spent its budget, every refusal
+fails fast, as it did before this file existed.
 
 pywin32 has no CoRegisterMessageFilter, so the filter is a small, stateless COM
 object made with ctypes: one vtable, one instance, both kept for the life of
@@ -23,6 +27,7 @@ did before this file existed.
 from __future__ import annotations
 
 import ctypes
+import threading
 
 # What the server's own filter said about the call (dwRejectType).
 SERVERCALL_ISHANDLED = 0
@@ -33,9 +38,9 @@ PENDINGMSG_WAITDEFPROCESS = 2
 # RetryRejectedCall: -1 as a DWORD. COM returns the refusal to the caller.
 CANCEL = 0xFFFFFFFF
 
-# How long one refused call is asked again before the refusal is let through.
-# Short on purpose: connection._with_retry adds its own window on top before a
-# write, and a tool can make many calls.
+# The most one job (one piece of work on the COM worker) waits on refusals, in
+# all. Short on purpose: connection._with_retry adds its own window on top
+# before a write.
 BUDGET_MS = 3000
 # Wait between tries: COM retries at once below 100 ms, which would only spin.
 FIRST_DELAY_MS = 100
@@ -47,17 +52,30 @@ E_NOINTERFACE = -2147467262  # 0x80004002
 E_POINTER = -2147467261  # 0x80004003
 
 
-def retry_delay(elapsed_ms: int, reject_type: int) -> int:
+def retry_delay(elapsed_ms: int, reject_type: int, spent_ms: int = 0) -> int:
     """What RetryRejectedCall answers: milliseconds to wait, or CANCEL.
 
-    Only a refusal (REJECTED) or a "later" (RETRYLATER) is asked again, and
-    only until BUDGET_MS has passed since the call was first made.
+    Only a refusal (REJECTED) or a "later" (RETRYLATER) is asked again: while
+    the call itself is younger than BUDGET_MS, and while the job has waited
+    less than BUDGET_MS in all (spent_ms) including this wait.
     """
     if reject_type not in (SERVERCALL_REJECTED, SERVERCALL_RETRYLATER):
         return CANCEL
     if elapsed_ms >= BUDGET_MS:
         return CANCEL
-    return FIRST_DELAY_MS if elapsed_ms < FIRST_PHASE_MS else LATER_DELAY_MS
+    delay = FIRST_DELAY_MS if elapsed_ms < FIRST_PHASE_MS else LATER_DELAY_MS
+    if spent_ms + delay > BUDGET_MS:
+        return CANCEL
+    return delay
+
+
+# What the current job has waited so far, per thread (the filter is per thread).
+_job = threading.local()
+
+
+def new_job() -> None:
+    """Give the calling thread's next job a full budget (the worker calls it per job)."""
+    _job.spent_ms = 0
 
 
 class GUID(ctypes.Structure):
@@ -140,7 +158,11 @@ def _handle_incoming_call(this, call_type, caller, tick_count, interface_info):
 
 def _retry_rejected_call(this, callee, tick_count, reject_type):
     try:
-        return retry_delay(int(tick_count), int(reject_type))
+        spent = getattr(_job, "spent_ms", 0)
+        delay = retry_delay(int(tick_count), int(reject_type), spent)
+        if delay != CANCEL:
+            _job.spent_ms = spent + delay
+        return delay
     except BaseException:  # noqa: BLE001
         return CANCEL
 

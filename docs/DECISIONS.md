@@ -137,7 +137,8 @@ After a layer-off or a `-VIEW _R` of a camera view in a heavy realistic drawing,
 said "timed out" in 0.2-0.5 s for an expression that had run: the first read of USERS1 that AutoCAD
 refused while redrawing ended the wait. Now a refused read is not an answer: the wait goes on to its
 bound, `LISP_POLL_ATTEMPTS` reads and `LISP_POLL_ATTEMPTS x LISP_POLL_DELAY` (10 s), whichever comes
-first, so slow refusals cannot stretch it. If AutoCAD never let one read through, the note says it
+first; with the D-57 filter's 3 s for the whole call and the restores, a still-busy AutoCAD gets an
+answer in about 15 s at most. If AutoCAD never let one read through, the note says it
 stayed busy and the expression probably ran, not "a LISP error". USERS1, USERS2 and OSMODE are put
 back with up to `LISP_RESTORE_TRIES` (5) tries each; one still not put back is named in the note,
 so his object snaps are never left off without a word. Pinned by `tests/test_busy_autocad_1118.py`.
@@ -155,10 +156,14 @@ mean AutoCAD turned the call away without carrying it out, so asking for that on
 never draw anything twice. `core/message_filter.py` registers a COM message filter on the worker
 thread. pywin32 has no `CoRegisterMessageFilter`, so it is a small static ctypes object.
 - **The filter's rule:** its `RetryRejectedCall` asks again after 100 ms (250 ms after the first
-  second), for at most `BUDGET_MS` (3 s) per call, and for those two refusals only. Anything else
-  goes straight back. If Windows refuses the filter, Heron works as before.
-- **The tool-level window:** `_with_retry` now also stops at `RETRY_WINDOW` (10 s), so 40 attempts
-  of up to 3 s each can never become two minutes.
+  second), for those two refusals only. Anything else goes straight back. If Windows refuses the
+  filter, Heron works as before.
+- **The budget is per job, not per call:** `BUDGET_MS` (3 s) is the most one piece of work on the
+  worker waits, in all. The worker resets it as it picks up each job. Many places swallow a
+  refused call and go on to the next, so 3 s for each call would have held the only COM thread
+  for minutes. Once a job has spent its 3 s, every refusal fails fast, as before.
+- **The tool-level window:** `_with_retry` now also stops at `RETRY_WINDOW` (10 s), so its 40
+  attempts can never be stretched past that by the filter's waits.
 - **The wording:** `com_message` words those two refusals as "AutoCAD was busy and kept turning
   the call away", so the dozens of messages built from it say busy, not broken.
 - **The swallowed refusals:** `ensure_layer` and `ensure_linetype` let a busy refusal go up as it

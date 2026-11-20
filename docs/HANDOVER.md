@@ -13,7 +13,8 @@
 Branch `claude/busy-autocad-fixes`, from `main` ef0af45. Nothing is pushed until Ajmal types yes.
 There are two fixes, both found live on 2026-11-18, and no plug-in change.
 - **D-57:** a COM message filter on the worker thread (`core/message_filter.py`, ctypes) asks again
-  a call AutoCAD turned away, for up to 3 s. The `_with_retry` window is capped at 10 s.
+  a call AutoCAD turned away, waiting up to 3 s in all per job (reset by the worker for each
+  job). The `_with_retry` window is capped at 10 s.
   `ensure_layer` and `ensure_linetype` let a busy refusal up, and `com_message` says "AutoCAD was
   busy".
 - **D-58:** `autocad_run_lisp` waits through refused reads, and puts USERS1, USERS2 and OSMODE back
@@ -24,7 +25,7 @@ this refusal. The rehearsal's own log (`rehearsal-2d-run.txt`, s037) shows the e
 `ensure_layer`.
 
 The optional `dim_style` for `autocad_dimension_run` was left for the [ROADMAP](ROADMAP.md),
-with the traps found. Gates passed offline: ruff, 2,604 offline tests, 202 bridge tests on net48
+with the traps found. Gates passed offline: ruff, 2,606 offline tests, 202 bridge tests on net48
 and on net10, and the structure check. **Live rows Q1-Q5 NOT RUN.**
 
 **Trap for the next session:** in a worktree, run pytest with `PYTHONPATH=src`. The shared venv

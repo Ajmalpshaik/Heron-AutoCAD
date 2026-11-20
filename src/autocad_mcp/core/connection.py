@@ -81,6 +81,7 @@ class _ComWorker:
         try:
             while True:
                 fn, reply = self._jobs.get()
+                message_filter.new_job()  # each job gets the filter's whole wait
                 try:
                     reply.put((True, fn()))
                 except BaseException as exc:  # noqa: BLE001 - relayed to the caller

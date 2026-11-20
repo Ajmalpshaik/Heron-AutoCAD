@@ -358,6 +358,30 @@ class TestFilterPlumbing:
         assert mine == 0 and got == message_filter.filter_address()
         assert refused == message_filter.E_NOINTERFACE and not cleared
 
+    def test_the_wait_is_budgeted_per_job_not_per_call(self):
+        # A tool that swallows refusals call after call must not wait 3 s for each of them.
+        def job():
+            message_filter.install()
+            address = _registered_filter()
+            vtable = message_filter.vtable_at(address)
+            ask = lambda: vtable.RetryRejectedCall(address, None, 0, message_filter.SERVERCALL_REJECTED)  # noqa: E731
+            waits = []
+            for _ in range(100):
+                delay = ask()
+                if delay == message_filter.CANCEL:
+                    break
+                waits.append(delay)
+            after_budget = ask()
+            message_filter.new_job()
+            next_job = ask()
+            return waits, after_budget, next_job
+
+        waits, after_budget, next_job = _on_sta_thread(job)
+        assert sum(waits) <= message_filter.BUDGET_MS
+        assert sum(waits) > message_filter.BUDGET_MS - message_filter.LATER_DELAY_MS
+        assert after_budget == message_filter.CANCEL
+        assert next_job == message_filter.FIRST_DELAY_MS
+
     def test_a_thread_without_com_is_refused_quietly(self):
         box: dict = {}
         thread = threading.Thread(target=lambda: box.setdefault("installed", message_filter.install()))
@@ -372,3 +396,13 @@ def test_the_com_worker_installs_the_filter_on_its_own_thread(monkeypatch):
     worker = connection._ComWorker()
     assert worker.submit(lambda: "done") == "done"
     assert seen == ["autocad-com"]
+
+
+def test_every_job_on_the_worker_starts_with_a_fresh_budget(monkeypatch):
+    started: list[str] = []
+    monkeypatch.setattr(message_filter, "install", lambda: True)
+    monkeypatch.setattr(message_filter, "new_job", lambda: started.append(threading.current_thread().name))
+    worker = connection._ComWorker()
+    worker.submit(lambda: 1)
+    worker.submit(lambda: 2)
+    assert started == ["autocad-com", "autocad-com"]

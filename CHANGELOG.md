@@ -8,7 +8,7 @@ Newest first. Dates are when the change was made.
   rehearsal of 2026-11-18, both with AutoCAD having done nothing wrong. First,
   `autocad_create_layer` failed with "Call was rejected by callee" while drawing tabs were switched.
   The COM worker thread now has a message filter ([D-57](docs/DECISIONS.md)): a call AutoCAD turns
-  away is asked again for up to 3 s, safe because a refused call never ran. The tool-level busy
+  away is asked again, up to 3 s in all per job, safe because a refused call never ran. The tool-level busy
   retry also stops at 10 s, `ensure_layer` / `ensure_linetype` no longer take a refusal for a missing
   name, and a refusal that still gets through says "AutoCAD was busy". Second, `autocad_run_lisp`
   said "timed out" in half a second during a redraw. It now waits through refused reads, and puts
