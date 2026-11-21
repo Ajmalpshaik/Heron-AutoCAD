@@ -113,6 +113,28 @@ More: [SECURITY.md](SECURITY.md).
 
 ## Install (for testing only, see the banner above)
 
+Read the [disclaimer](https://github.com/Ajmalpshaik/Heron-AutoCAD/blob/main/DISCLAIMER.md) before you install.
+
+### What has really been checked
+
+Taken only from the PASS rows in [NEEDS-CHECKING](docs/NEEDS-CHECKING.md). A build is not a check:
+a piece is "checked live" only where a row ran in that AutoCAD and passed.
+
+| Piece | State | Where that comes from |
+|---|---|---|
+| Python server, run from this folder (`.venv`) | **Checked live, AutoCAD 2027 only** | Group A: the PASS rows from A2 to A30 (2026-10-26 / 27) |
+| Plug-in for AutoCAD 2027 (.NET 10) | **Checked live** for the rows marked PASS; many later rows not yet | Groups A, J, L: PASS rows 2026-10-26 to 2026-11-08. Groups D to Q are mostly NOT RUN |
+| Plug-in for AutoCAD 2025 / 2026 (.NET 8) | **Built, never run**: no PC with that AutoCAD | Group B: NO MACHINE |
+| Plug-in for AutoCAD 2021 to 2024 (.NET Framework 4.8) | **Built, never run**: no PC with that AutoCAD | Group C: NO MACHINE |
+| Server as one `autocad-mcp.exe` (the release zip) | **Built, not checked live** | No PASS row |
+| Installer (`Install.bat`, `Rollback.bat`, `CheckForUpdate.bat`) | **Not checked live**: tried only in a test user folder | Group P: P2-P5 NOT RUN |
+| Claude Code connection through this folder's `.mcp.json` | **Checked live, AutoCAD 2027** | A2: Claude asked AutoCAD and got the answer |
+| Claude Code and Claude Desktop entries written by the installer | **Never run live** | Group P: P2 NOT RUN |
+| Plug-in DLLs and `autocad-mcp.exe` | **Unsigned** (no code signature) | [Issue #72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72). Windows SmartScreen or antivirus may warn |
+| Install size on disk | **Not measured** | The release zip is built on Windows only; none is published yet |
+
+### Steps
+
 Needs Windows, **full AutoCAD 2021 to 2027** (not LT), Python 3.10+, and the .NET SDK to build.
 
 ```bash
