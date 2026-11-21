@@ -69,6 +69,30 @@ namespace Heron.AutoCAD.Bridge
 
         public const string NoDrawing = "No drawing is open.";
 
+        // ----- Drawing events in the Activity list (#48) -----
+
+        /// <summary>Beside a job whose drawing is not the one in front.</summary>
+        public const string NotInFront = "not in front";
+
+        /// <summary>The line above the list: which drawing is in front now.</summary>
+        public static string InFront(string active) =>
+            string.IsNullOrEmpty(active) ? "No drawing is in front." : "In front: " + DrawingNames.Short(active);
+
+        /// <summary>One drawing event, in plain words.</summary>
+        public static string DrawingRow(DrawingEvent e)
+        {
+            var name = DrawingNames.Short(e.Drawing);
+            switch (e.Kind)
+            {
+                case DrawingEvents.Opened: return name + " opened";
+                case DrawingEvents.Activated: return name + " came to the front";
+                case DrawingEvents.Saved:
+                    return e.Was.Length > 0 ? DrawingNames.Short(e.Was) + " saved as " + name : name + " saved";
+                case DrawingEvents.Closed: return name + " closed";
+                default: return name + " " + e.Kind;
+            }
+        }
+
         // ----- Saved commands -----
 
         public const string NoCommands =

@@ -24,18 +24,23 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/layer_states.py` | layer states (by the plug-in), isolate and un-isolate, merge layers |
 | `tools/advanced.py` | send command, run LISP, purge, regen, audit |
 | `tools/explain.py` | `autocad_why` (why one job cannot run) and `autocad_gaps` (what failed and was slow, from the audit log): both need no AutoCAD (D-67) |
-| `tools/standards.py` | standards check, attribute extraction |
+| `tools/standards.py` | standards check (rules, or a reference `.dws` / `.dwg` / `.dxf`, D-92), attribute extraction |
+| `tools/files.py` | `autocad_read_file`: a DXF / DWG on disk with AutoCAD closed, read only; needs no AutoCAD (D-92). The reading is `acad/dxf_file.py`, the reference compare `acad/standard_compare.py` |
+| `tools/checklist_share.py` | `autocad_share_checklist` (Publish): the office list into the office folder, a project's changes into its folder, never over a teammate's file silently (D-93) |
 | `tools/coordinates.py` | the UCS: read it, set it, convert points through it |
 | `tools/sheets.py` | layouts, page setup, title blocks, viewports |
 | `tools/views.py` | saved views: one named location, plotted and viewported, or the 3D view on screen |
 | `tools/settings.py` | drawing settings, text and dimension styles |
 | `tools/convert.py` | an import into a shop drawing: remap layers, tidy overrides |
 | `tools/sequence.py` | `autocad_sequence`: several tools in one call |
-| `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions |
+| `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions, and two 3D ones (duct run, pipe spool) |
+| `acad/shapes3d.py` | The 3D shapes as pieces in their own frames with the matrix that places each: pure, tested offline (D-94) |
+| `tools/_solid_pieces.py` | Makes those pieces as solids over COM and checks each landed where it should |
 | `tools/dimensions.py` | dimension runs (chain, baseline, ordinate, a named style), centre marks |
 | `tools/dimensions_edit.py` | dimensions already drawn: even spacing (DIMSPACE), breaks (DIMBREAK) |
 | `tools/annotation_scales.py` | annotative objects and their annotation scales, done by the plug-in |
 | `tools/drafting.py` | splines, multilines (MLINE), wipeouts |
+| `tools/draw_extra.py` | construction lines and rays, regions, donuts, divide / measure with points or a block (D-108) |
 | `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths; attach an image or a PDF / DWF / DGN underlay; clip an xref, image or underlay (D-84) |
 | `tools/cleanup.py` | Overkill (the geometry is `acad/overkill.py`), the boundary trace done by the plug-in, eTransmit (the file list and packing are `acad/transmittal.py`) (D-84, D-85) |
 | `tools/patterns.py` | write custom hatch pattern (.pat) and linetype (.lin) files; the text is `acad/patterns.py` |
@@ -45,7 +50,9 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/between_drawings.py` | `autocad_copy_from_drawing`: objects from another open drawing into this one |
 | `tools/solids.py` | 3D solids, extrude and revolve, booleans, mass properties, 3D views |
 | `tools/solid_edits.py` | loft, fillet and chamfer solid edges, shell, press-pull, thicken, and the face and edge list: done by the plug-in (`run`, D-40) |
-| `tools/superhatch.py` | super hatch with a block, done by the plug-in |
+| `tools/superhatch.py` | super hatch with a block, an image, an xref or a wipeout, done by the plug-in |
+| `tools/sections.py` | flat views of solids (FLATSHOT) and a section plane with its 2D section: done by the plug-in (D-95) |
+| `tools/surfaces.py` | planar and network surfaces, meshes: done by the plug-in (D-95) |
 | `tools/materials.py` | list, make (done by the plug-in) and apply materials; render |
 | `tools/lighting.py` | photometric lights, done by the plug-in |
 | `tools/publish.py` | several sheets in one PDF, done by the plug-in's publisher |

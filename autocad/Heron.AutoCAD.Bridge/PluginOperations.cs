@@ -43,6 +43,13 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // A model cut and looked at in 2D, surfaces and meshes (D-95).
+            ["flat_views"] = Risk.Change,
+            ["section_plane"] = Risk.Change,
+            ["loft_surface"] = Risk.Change,
+            ["planar_surface"] = Risk.Change,
+            ["network_surface"] = Risk.Change,
+            ["add_mesh"] = Risk.Change,
             // References and clean-up (D-84).
             ["attach_underlay"] = Risk.Change,
             ["clip_reference"] = Risk.Change,
