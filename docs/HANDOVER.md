@@ -8,7 +8,38 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-19 (the four PRs are merged; nothing built since)
+## Latest - 2026-11-21 (busy-AutoCAD fixes from the Luxury Suite 3 rehearsal, PR #33)
+
+PR #33 (branch `claude/busy-autocad-fixes`, from `main` ef0af45) was merged on Ajmal's word on
+2026-11-21. CI `python` and `plugin` passed; the Claude `review` check failed before reviewing,
+as on every PR since #28 (its login, not the code). There are two fixes, both found live on
+2026-11-18, and no plug-in change.
+- **D-57:** a COM message filter on the worker thread (`core/message_filter.py`, ctypes) asks again
+  a call AutoCAD turned away, waiting up to 3 s in all per job (reset by the worker for each
+  job). The `_with_retry` window is capped at 10 s.
+  `ensure_layer` and `ensure_linetype` let a busy refusal up, and `com_message` says "AutoCAD was
+  busy".
+- **D-58:** `autocad_run_lisp` waits through refused reads, and puts USERS1, USERS2 and OSMODE back
+  patiently.
+
+The brief asked for a busy retry in `connection.run`. It was already there (D-02), but it never saw
+this refusal. The rehearsal's own log (`rehearsal-2d-run.txt`, s037) shows the exact text from
+`ensure_layer`.
+
+The optional `dim_style` for `autocad_dimension_run` was left for the [ROADMAP](ROADMAP.md),
+with the traps found. Gates passed offline: ruff, 2,606 offline tests, 202 bridge tests on net48
+and on net10, and the structure check. **Live rows Q1-Q5 NOT RUN.**
+
+**Trap for the next session:** in a worktree, run pytest with `PYTHONPATH=src`. The shared venv
+imports `autocad_mcp` from the main checkout otherwise, so the tests test the wrong code.
+
+**Next:** this change alone needs no plug-in build, but the main checkout on this PC is still at
+PR #26. Pulling it also brings PRs #28-#31, which need plug-in 1.5.0. So, with AutoCAD closed:
+pull the main checkout, `tools/build_plugin.py` + `tools/install_plugin.py`, restart Claude.
+Then run rows Q1-Q5 (and M, N, O, P), and take `view_only` off the player's view steps once Q2
+passes. Follow-ups are GitHub issues, opened on 2026-11-21.
+
+## Earlier - 2026-11-19 (the four PRs are merged; nothing built since)
 
 PRs #28, #29, #30 and #31 were merged into `main` on 2026-11-16, in order; `main` = e776c38,
 `ci` and `weekly` green there. No open pull requests. Server **1.7.0**, plug-in **1.5.0**, 135

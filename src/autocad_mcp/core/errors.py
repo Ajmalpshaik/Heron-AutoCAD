@@ -32,6 +32,14 @@ RETRYABLE_HRESULTS = {
     -2146777998,  # 0x800AC472 VBA_E_IGNORE - AutoCAD is in a modal dialog
 }
 
+# The two that mean AutoCAD turned this one call away, unexecuted. The worker's
+# message filter asks such a call again (message_filter.py); one that still
+# arrives here was refused for the whole of that wait.
+BUSY_REFUSAL_HRESULTS = {
+    -2147418111,  # 0x80010001 RPC_E_CALL_REJECTED
+    -2147417846,  # 0x8001010A RPC_E_SERVERCALL_RETRYLATER
+}
+
 
 # HRESULTs meaning the pointer itself is dead: AutoCAD dropped the proxy (seen
 # while a drawing opens). The cure is a fresh dispatch, same as StaleDispatchError.
@@ -127,7 +135,14 @@ def is_retryable(exc: BaseException) -> bool:
 
 
 def com_message(exc: BaseException) -> str:
-    """The most human-useful text available from a COM error."""
+    """The most human-useful text available from a COM error.
+
+    A busy refusal says so in words, so every message built from this one
+    (there are dozens) tells the reader AutoCAD was busy, not broken.
+    """
+    if hresult_of(exc) in BUSY_REFUSAL_HRESULTS:
+        said = str(exc.args[1]).strip() if len(exc.args) >= 2 and exc.args[1] else "call refused"
+        return f"AutoCAD was busy and kept turning the call away ({said})"
     if isinstance(exc, pythoncom.com_error):
         if len(exc.args) >= 3 and exc.args[2]:
             source, desc = exc.args[2][1], exc.args[2][2]

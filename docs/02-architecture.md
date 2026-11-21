@@ -43,6 +43,7 @@ tool, so the AutoCAD logic can be tested and reused without MCP.
 | File | Job |
 |---|---|
 | `core/connection.py` | The worker thread, the retry on "busy", app and document access |
+| `core/message_filter.py` | The worker thread's COM message filter: a call AutoCAD turned away is asked again, up to 3 s in all per job (D-57) |
 | `core/variants.py` | SAFEARRAY / VARIANT marshalling of points and arrays |
 | `core/errors.py` | Turning COM errors into messages that say what to do |
 | `core/registry.py` | The shared FastMCP instance, undo grouping, the error wrapper that calls the gate |

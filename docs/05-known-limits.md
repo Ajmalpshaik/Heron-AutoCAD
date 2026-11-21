@@ -212,3 +212,17 @@ result means the expression has to be written again, complete.
   to MVIEW typed with the two corners. Both NOT RUN live (NEEDS-CHECKING S8, S9).
 - `create_material(replace=true)` with only `diffuse_rgb` kept the old texture image, which covers
   the colour; from plug-in **1.4.2** the image is cleared (K16, NOT RUN).
+
+## 24. A busy AutoCAD turns calls away
+
+AutoCAD turns a COM call away while it switches drawing tabs, starts a redraw or shows a dialog.
+Since [D-57](DECISIONS.md) the server's worker thread asks such a call again before the refusal
+reaches a tool, waiting up to 3 s in all for one piece of work. A tool that has written nothing
+yet is also re-run for up to 10 s. What is left:
+- **Busy for longer than that part-way through a change.** The answer is "Outcome unknown". Read the
+  drawing back before trying again ([D-15](DECISIONS.md)).
+- **A dialog left open.** The answer is "AutoCAD stayed busy". Close it, press Esc, and try again.
+- **Run LISP.** `autocad_run_lisp` waits through refused reads for its full 10 s ([D-58](DECISIONS.md)).
+  A "timed out" that says AutoCAD stayed busy means the expression was sent and probably ran.
+
+All three are NOT RUN live (NEEDS-CHECKING group Q).

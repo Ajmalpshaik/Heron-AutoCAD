@@ -130,6 +130,48 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
+
+**Decided:** 2026-11-20, from the Luxury Suite 3 rehearsal of 2026-11-18. **Status:** in force.
+After a layer-off or a `-VIEW _R` of a camera view in a heavy realistic drawing, `autocad_run_lisp`
+said "timed out" in 0.2-0.5 s for an expression that had run: the first read of USERS1 that AutoCAD
+refused while redrawing ended the wait. Now a refused read is not an answer: the wait goes on to its
+bound, `LISP_POLL_ATTEMPTS` reads and `LISP_POLL_ATTEMPTS x LISP_POLL_DELAY` (10 s), whichever comes
+first; with the D-57 filter's 3 s for the whole call and the restores, a still-busy AutoCAD gets an
+answer in about 15 s at most. If AutoCAD never let one read through, the note says it
+stayed busy and the expression probably ran, not "a LISP error". USERS1, USERS2 and OSMODE are put
+back with up to `LISP_RESTORE_TRIES` (5) tries each; one still not put back is named in the note,
+so his object snaps are never left off without a word. Pinned by `tests/test_busy_autocad_1118.py`.
+
+## D-57 - A call AutoCAD turns away is asked again by a message filter, not by re-running the tool
+
+**Decided:** 2026-11-20, from the same rehearsal. **Status:** in force. Adds to D-02 and keeps D-15.
+`autocad_create_layer` stopped with "Could not create layer 'A-ANNO-TTLE': Call was rejected by
+callee." while drawing tabs were switched. The tool-level retry of D-02 already existed; it never
+saw the refusal. `ensure_layer` read the refused `Layers.Item` as "no such layer" and wrapped the
+refused `Layers.Add` in a plain error; and since `undo_mark` had begun, D-15 would have refused a
+re-run anyway. A second retry loop in `connection.run` would have changed nothing.
+The fix works one COM call at a time. `RPC_E_CALL_REJECTED` and `RPC_E_SERVERCALL_RETRYLATER`
+mean AutoCAD turned the call away without carrying it out, so asking for that one call again can
+never draw anything twice. `core/message_filter.py` registers a COM message filter on the worker
+thread. pywin32 has no `CoRegisterMessageFilter`, so it is a small static ctypes object.
+- **The filter's rule:** its `RetryRejectedCall` asks again after 100 ms (250 ms after the first
+  second), for those two refusals only. Anything else goes straight back. If Windows refuses the
+  filter, Heron works as before.
+- **The budget is per job, not per call:** `BUDGET_MS` (3 s) is the most one piece of work on the
+  worker waits, in all. The worker resets it as it picks up each job. Many places swallow a
+  refused call and go on to the next, so 3 s for each call would have held the only COM thread
+  for minutes. Once a job has spent its 3 s, every refusal fails fast, as before.
+- **The tool-level window:** `_with_retry` now also stops at `RETRY_WINDOW` (10 s), so its 40
+  attempts can never be stretched past that by the filter's waits.
+- **The wording:** `com_message` words those two refusals as "AutoCAD was busy and kept turning
+  the call away", so the dozens of messages built from it say busy, not broken.
+- **The swallowed refusals:** `ensure_layer` and `ensure_linetype` let a busy refusal go up as it
+  is, instead of taking it for a missing name.
+- **Left out:** the optional `dim_style` input for `autocad_dimension_run`. It cannot be proved
+  without AutoCAD, and done wrong it gives wrongly sized dimensions
+  ([ROADMAP](ROADMAP.md)). Live rows Q1-Q5 NOT RUN.
+
 ## D-56 - The installer keeps the version it replaces; releases are built from a tag
 
 **Decided:** 2026-11-15, from Heron AI for Revit's installer (install-backup, the update check

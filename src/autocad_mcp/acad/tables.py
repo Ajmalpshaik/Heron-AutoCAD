@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, is_retryable
 
 # Characters AutoCAD rejects in symbol-table names.
 INVALID_NAME_CHARS = set('<>/\\":;?*|,=`')
@@ -39,13 +39,19 @@ def ensure_layer(doc: Any, name: str) -> tuple[Any, bool]:
         (layer object, True when it was just created)
     """
     clean = validate_name(name, "layer")
+    # A busy AutoCAD is not a missing layer: that refusal goes up to the retry
+    # as it is ("Could not create layer 'A-ANNO-TTLE': Call was rejected by
+    # callee.", Luxury Suite 3, 2026-11-18).
     try:
         return doc.Layers.Item(clean), False
-    except BaseException:  # noqa: BLE001 - not present, create below
-        pass
+    except BaseException as exc:  # noqa: BLE001 - not present, create below
+        if is_retryable(exc):
+            raise
     try:
         return doc.Layers.Add(clean), True
     except BaseException as exc:  # noqa: BLE001
+        if is_retryable(exc):
+            raise
         raise AutocadError(
             f"Could not create layer '{clean}': {com_message(exc)}"
         ) from exc
@@ -57,8 +63,10 @@ def ensure_linetype(doc: Any, name: str) -> None:
     try:
         doc.Linetypes.Item(clean)
         return
-    except BaseException:  # noqa: BLE001 - needs loading
-        pass
+    except BaseException as exc:  # noqa: BLE001 - needs loading
+        if is_retryable(exc):
+            raise  # AutoCAD busy, not a linetype to load
+
     for source in ("acadiso.lin", "acad.lin"):
         try:
             doc.Linetypes.Load(clean, source)

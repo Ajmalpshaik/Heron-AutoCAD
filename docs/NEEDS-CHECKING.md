@@ -386,6 +386,21 @@ run only). **Every row below is NOT RUN.**
 | P4 | CheckForUpdate.bat with and without a newer release on GitHub | Says "newest version" or names the newer one with its page; installs nothing | NOT RUN |
 | P5 | Push tag `v1.5.0` | The release workflow publishes a pre-release with the zip and checksums.txt; the zip's SHA-256 matches | NOT RUN |
 
+## Group Q - A busy AutoCAD, from the Luxury Suite 3 rehearsal (AutoCAD 2027, this PC)
+
+Added on 2026-11-20 ([D-57](DECISIONS.md), [D-58](DECISIONS.md)). Built and tested offline
+(`tests/test_busy_autocad_1118.py`, which also registers the message filter on a real
+Windows thread). Server only: restart the server after pulling; no plug-in build is needed.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| Q1 | Two drawings open. `autocad_create_layer` 20 times in a row (a short script or the player), switching drawing tabs by hand while it runs | Every layer is made; none says "Call was rejected by callee"; a call that waited takes a few seconds longer at most | NOT RUN |
+| Q2 | In a heavy realistic 3D drawing: `autocad_run_lisp` that turns a layer off, then one that restores a camera view with `-VIEW _R`, then `(+ 1 2)` | Each comes back with its result and `timed_out: false`, not "timed out" in half a second | NOT RUN |
+| Q3 | Open AutoCAD's Options dialog and leave it open; call `autocad_list_layers` | Within about 15 s: "AutoCAD stayed busy ... press Esc"; the chat does not hang; after closing the dialog the next call works | NOT RUN |
+| Q4 | After Q2, `autocad_get_variable` OSMODE, USERS1 and USERS2 | The values from before the call (snaps on as he had them; USERS1 not the pending marker) | NOT RUN |
+| Q5 | Luxury Suite 3 player: the 2D rehearsal from `--from s037`, and the 3D steps marked `view_only` with that mark taken off | No stop at the layer steps or the view steps | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
