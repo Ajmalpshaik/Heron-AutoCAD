@@ -9,7 +9,7 @@ import os
 import pytest
 import pythoncom
 
-from autocad_mcp.core import audit, connection, gate
+from autocad_mcp.core import answers, audit, connection, gate
 from autocad_mcp.core.bridge import NOT_CONNECTED, NOTHING_SENT, BridgeRefused
 from autocad_mcp.core.errors import AutocadError, OutcomeUnknown
 from autocad_mcp.core.registry import tool_errors
@@ -116,6 +116,13 @@ def call(tool) -> str:
     return asyncio.run(tool())
 
 
+def answered(result: str, word: str) -> str:
+    """A change job's answer starts with its plain line (D-62): check the word, give the rest."""
+    first, rest = answers.split(result)
+    assert first is not None and first.startswith(word + " - "), result
+    return rest
+
+
 def audit_lines() -> list[dict]:
     lines = []
     for path in audit.audit_dir().glob("audit-*.jsonl"):
@@ -133,7 +140,7 @@ def ends() -> list[tuple]:
 def test_refused_tool_never_runs_work(env):
     FakeBridge.refuse = "Changes is off. " + NOTHING_SENT
     tool, calls = make_tool("autocad_draw_line")
-    result = call(tool)
+    result = answered(call(tool), "REFUSED")
     assert calls == []
     assert result.startswith("Error: Changes is off.")
     assert result.endswith(NOTHING_SENT)
@@ -178,7 +185,7 @@ def test_no_autocad_with_bridge_on_refuses(env, monkeypatch):
 
     monkeypatch.setattr(gate, "_probe", no_autocad)
     tool, calls = make_tool("autocad_draw_line")
-    assert call(tool).startswith("Error: No running AutoCAD")
+    assert answered(call(tool), "REFUSED").startswith("Error: No running AutoCAD")
     assert calls == []
 
 
@@ -295,7 +302,7 @@ def test_discard_goes_back_to_the_mark(env):
     FakeBridge.ask_to_keep = True
     FakeBridge.answer = "discard"
     tool, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
-    result = call(tool)
+    result = answered(call(tool), "NOTHING CHANGED")
     assert env["marks"] == 1
     assert ("ask_keep", "job1", ("2A",)) in FakeBridge.calls
     assert env["discards"] == 1
@@ -308,7 +315,7 @@ def test_discard_that_did_not_take_is_reported(env):
     FakeBridge.answer = "discard"
     env["left"] = ["2A"]
     tool, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
-    result = call(tool)
+    result = answered(call(tool), "OUTCOME UNKNOWN")
     assert result.startswith("Error: Discard did not take")
     assert "2A" in result
 
@@ -332,7 +339,7 @@ def test_discard_error_is_reported_and_end_still_sent(env, monkeypatch):
 
     monkeypatch.setattr(gate, "_discard", broken)
     tool, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
-    result = call(tool)
+    result = answered(call(tool), "OUTCOME UNKNOWN")
     assert result.startswith("Error: Discard failed")
     assert ends()[-1][1] == "job1"
 
@@ -340,7 +347,7 @@ def test_discard_error_is_reported_and_end_still_sent(env, monkeypatch):
 def test_keep_returns_result_unchanged(env):
     FakeBridge.ask_to_keep = True
     tool, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
-    assert call(tool) == '{"created": true, "handle": "2A"}'
+    assert answered(call(tool), "DONE") == '{"created": true, "handle": "2A"}'
     assert env["discards"] == 0
 
 
@@ -349,7 +356,7 @@ def test_unknown_answer_keeps_and_says_so(env):
     FakeBridge.ask_to_keep = True
     FakeBridge.answer = "unknown"
     tool, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
-    result = json.loads(call(tool))
+    result = json.loads(answered(call(tool), "DONE"))
     assert env["discards"] == 0
     assert result["handle"] == "2A"
     assert "could not ask" in result["heron_note"]
@@ -456,7 +463,7 @@ def test_not_connected_is_said_before_the_units_rule(env):
     gate.reset()
     FakeBridge.refuse = NOT_CONNECTED
     draw, calls = make_tool("autocad_draw_line")
-    assert call(draw) == "Error: " + NOT_CONNECTED
+    assert answered(call(draw), "REFUSED") == "Error: " + NOT_CONNECTED
     assert calls == []
 
 
@@ -517,7 +524,7 @@ def test_a_plugin_operation_runs_in_its_job_and_keep_or_discard_covers_it(env, m
     assert runs == [("job1", "super_hatch", "PAVER")]
     assert env["marks"] == 1
     assert ("ask_keep", "job1", ("5D",)) in FakeBridge.calls
-    assert env["discards"] == 1 and result == "Discarded: nothing was kept."
+    assert env["discards"] == 1 and answered(result, "NOTHING CHANGED") == "Discarded: nothing was kept."
 
 
 # ---------------------------------------------------------------------------
@@ -528,7 +535,7 @@ def test_a_plugin_operation_runs_in_its_job_and_keep_or_discard_covers_it(env, m
 def test_the_plug_ins_count_is_added_to_the_result(env):
     FakeBridge.counted = {"added": 3, "modified": 1, "erased": 0, "erased_handles": []}
     draw, _ = make_tool("autocad_draw_line")
-    result = json.loads(call(draw))
+    result = json.loads(answered(call(draw), "DONE"))
     assert result["heron_changes"] == {"added": 3, "modified": 1, "erased": 0}
     assert not any(c[0] == "ask_erase" for c in FakeBridge.calls)
 
@@ -537,7 +544,7 @@ def test_an_erase_is_asked_even_with_ask_to_keep_off(env):
     FakeBridge.counted = {"added": 0, "modified": 0, "erased": 4, "erased_handles": ["A", "B", "C", "D"]}
     FakeBridge.erase_answer = {"answer": "restored", "restored": 4}
     send, _ = make_tool("autocad_send_command", '{"sent": "_ERASE"}')
-    result = json.loads(call(send))
+    result = json.loads(answered(call(send), "DONE"))
     assert [c[1] for c in FakeBridge.calls if c[0] == "ask_erase"] == ["job1"]
     assert "brought back (4 restored)" in result["heron_note"]
 
@@ -546,7 +553,7 @@ def test_keeping_them_erased_is_said(env):
     FakeBridge.counted = {"added": 0, "modified": 0, "erased": 2, "erased_handles": ["A", "B"]}
     FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0}
     erase, _ = make_tool("autocad_delete_entities", '{"deleted": 2}')
-    result = json.loads(call(erase))
+    result = json.loads(answered(call(erase), "DONE"))
     assert "keep the 2 erased object(s) erased" in result["heron_note"]
 
 
@@ -563,7 +570,7 @@ def test_an_erase_that_could_not_be_asked_is_said_plainly(env):
     FakeBridge.counted = {"added": 0, "modified": 0, "erased": 1, "erased_handles": ["A"]}
     FakeBridge.erase_answer = {"answer": "unknown", "restored": 0}
     send, _ = make_tool("autocad_run_lisp", '{"result": "nil"}')
-    result = json.loads(call(send))
+    result = json.loads(answered(call(send), "DONE"))
     assert "could not ask the modeller" in result["heron_note"]
 
 
@@ -577,7 +584,7 @@ def test_reads_are_not_counted(env):
 def test_an_older_plug_in_that_cannot_count_changes_nothing(env):
     FakeBridge.counted = None
     draw, _ = make_tool("autocad_draw_line")
-    assert json.loads(call(draw)) == {"created": True, "handle": "2A"}
+    assert json.loads(answered(call(draw), "DONE")) == {"created": True, "handle": "2A"}
 
 
 # ---------------------------------------------------------------------------
@@ -588,7 +595,7 @@ def test_an_older_plug_in_that_cannot_count_changes_nothing(env):
 def test_a_box_the_plug_in_closed_is_named_in_the_result(env):
     FakeBridge.boxes = [{"title": "Select File", "pressed": "Cancel", "closed": True}]
     send, _ = make_tool("autocad_send_command", '{"sent": "_OPEN"}')
-    result = json.loads(call(send))
+    result = json.loads(answered(call(send), "DONE"))
     assert result["sent"] == "_OPEN"
     assert result["heron_dialogs"] == [
         "AutoCAD showed 'Select File'; Heron closed it with Cancel, nothing was kept from that step."
@@ -605,7 +612,7 @@ def test_every_job_asks_even_a_read(env):
 def test_a_box_named_on_an_error_keeps_the_error_first(env):
     FakeBridge.boxes = [{"title": "AutoCAD Message", "pressed": "Esc", "closed": True}]
     tool, _ = make_tool("autocad_draw_line", "Error: AutoCAD stayed busy.")
-    result = call(tool)
+    result = answered(call(tool), "OUTCOME UNKNOWN")  # it began to write, and nothing was counted
     assert result.startswith("Error: AutoCAD stayed busy.")
     assert "heron_dialog: AutoCAD showed 'AutoCAD Message'; Heron closed it with Esc" in result
 

@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from live_results import Outcome, apply_results, summarise  # noqa: E402
 
+from autocad_mcp.core.answers import body  # noqa: E402
 from autocad_mcp.core.connection import get_app, run  # noqa: E402
 from autocad_mcp.tools import (  # noqa: E402
     annotate,
@@ -73,9 +74,13 @@ class Refused(Exception):
 
 
 def parse(raw: str) -> dict[str, Any]:
-    """A tool result as data. An 'Error: ...' reply becomes the right exception."""
+    """A tool result as data. An 'Error: ...' reply becomes the right exception.
+
+    A change job's answer starts with one plain line (DONE, REFUSED, ...: D-62): it is dropped here.
+    """
     if not isinstance(raw, str):
         return raw
+    raw = body(raw)
     if raw.startswith("Error:"):
         low = raw.lower()
         if any(word in low for word in ("padlock", "press heron", "not connected", "admin", "publish")):
@@ -98,6 +103,7 @@ def near(got: float | None, want: float, tol: float = TOLERANCE) -> bool:
 
 def refusal(raw: str) -> str:
     """The message from a reply that must be a refusal; raises if it was allowed."""
+    raw = body(raw)
     expect(isinstance(raw, str) and raw.startswith("Error:"), f"expected a refusal, got: {str(raw)[:120]}")
     return raw[7:].strip()
 

@@ -194,6 +194,74 @@ stalls every later call until the modeller presses Esc. Heron for Revit answers 
 - **Not done:** a box the modeller opens *themselves* while a job runs cannot be told apart and is
   closed too ([05 §25](05-known-limits.md#25-the-dialog-watch-closes-every-new-box-in-a-job)).
 
+## D-63 - Any change tool can run as a dry run, inside Heron's UNDO mark
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-155). **Status:** in force.
+`dry_run=true` on any Change tool runs the job for real inside an UNDO mark (D-18), takes the
+plug-in's count, then goes `UNDO _Back` to the mark and checks every object it made is gone, the way
+Discard does. The answer is the tool's own answer with `NOTHING CHANGED - a dry run: it would have
+made ...` first (D-62); the handles in it no longer exist, and it says so. No Keep or Discard and no
+erase question are asked, since nothing is kept; the banner says "Dry run: ...". The gate gives it,
+so no tool was edited: `tool_errors` adds the argument to every Change, Publish and Admin tool that
+has no `dry_run` of its own, and passes it to the gate, never to the tool. Tools that already had
+one keep their meaning: a preview that writes nothing (annotate, convert, dimensions, patterns,
+settings, shapes, text tools, sequence, saved commands). Refused before anything is sent: every
+Publish and Admin tool (a file written, a command or AutoLISP run cannot be taken back by an UNDO
+mark; the argument is there so a dry run is refused, never ignored and run for real), and
+`autocad_undo_last`. A dry run needs UNDO on (UNDOCTL), or it is refused and nothing runs. If going
+back fails, or a new object is still there, the answer is OUTCOME UNKNOWN, naming them. A dry run
+leaves nothing for `autocad_undo_last`, since the undo history moved. A step inside a sequence
+cannot be a dry run on its own. Not proven live: that `UNDO _Back` takes back every kind of change
+(layers, variables, plug-in operations) as it does objects (rows T4-T5).
+
+## D-62 - Every change answers with one plain line first
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-168, and its failure answers).
+**Status:** in force. A Change, Admin or Publish job's answer starts with one line: `DONE`,
+`NOTHING CHANGED`, `REFUSED` or `OUTCOME UNKNOWN`, a dash, one plain sentence; then a blank line and
+the tool's own answer, unchanged. It is added in one place, the gate (`core/answers.py`, called from
+`core/gate.py`), so no tool can forget it, and saved-command runs and sequences get it the same way.
+The word comes from facts, not from what the tool says it did: the plug-in's count of objects added,
+modified and erased (D-50), whether a write began at all, Keep or Discard, and whether Heron's UNDO
+mark (D-18) was down. Rules: a padlock or guard refusal is REFUSED (nothing was sent); a tool error
+with nothing counted is REFUSED; a tool error after objects changed, or "Outcome unknown", is OUTCOME
+UNKNOWN and says whether the UNDO mark is there; a Discard is NOTHING CHANGED; a Change job that
+began no write is NOTHING CHANGED. The count is of drawing objects only, so a job that wrote and
+counted nothing (a new layer, a variable) is DONE, said carefully, and Admin and Publish jobs are
+never NOTHING CHANGED (a save, a command or a variable is not counted). Only with the plug-in on:
+with `--no-bridge` there is no count, so there is no line. Reads and views have none. Scripts and
+tests that parse answers drop the line with `answers.body()`; steps inside a sequence still see the
+tool's own answer, so "Error:" still starts a failed step there.
+**Before and after** (from Revit's D-156): `autocad_modify_entity`, `autocad_set_attributes`,
+`autocad_find_replace_text`, `autocad_set_dynamic_properties`, `autocad_create_layer`,
+`autocad_set_layer_state`, `autocad_set_current_layer`, `autocad_delete_layer`,
+`autocad_set_variable` and `autocad_drawing_setup` add `before_after`: one row per value changed,
+naming the object (`handle`, or `layer` / `variable`), the `property`, `from` and `to`; the first 50,
+then `before_after_more` counts the rest. They read each value first and write only what differs, so
+asking for what is already there writes nothing and leaves no undo step; an empty `before_after`
+then lets the line say NOTHING CHANGED even for a layer or a variable, which the count cannot see.
+**No empty undo step** (issue #80, Revit's D-160): only that part is done. A kept job that changed
+nothing is not taken back afterwards, because whether AutoCAD keeps an entry for an empty undo group
+or a lone mark is not known; one more `UNDO` would then undo the modeller's own last change. Written
+up in [05 §26](05-known-limits.md#26-a-job-that-changed-nothing-may-still-leave-an-undo-step), live
+row T7.
+
+## D-61 - A chat reopened after a restart keeps its hold
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-188). **Status:** in force.
+The plug-in lets one chat at a time into an AutoCAD (the hold). Each server process made a new chat
+id, so when the Claude app restarted and reopened the same chat, the new server was a stranger and
+its own hold refused it for three minutes. The server now takes its id from, in order:
+`HERON_CONVERSATION_ID` (a script or a developer fixes it); then the host's own chat id,
+`CLAUDE_CODE_SESSION_ID`, as `sha256("heron-conversation:" + id)`, first 32 hex characters (the
+host's id is never sent as it is); then a new random id. The same chat gives the same id; two chats
+give two. Only the server itself follows the host (`follow_host_chat()` in `server.main`): a
+command-line script such as `tools/live_check.py`, run from a chat's terminal, imports the same
+modules but stays its own chat, so it never takes or keeps that chat's hold by accident, and
+`tools/protocol_check.py` starts its server without the host's variable. Not proven live: whether
+Claude Code passes that variable to MCP servers, and keeps it on a resumed chat (row T1). Without
+it, nothing changes: a new id, as before.
+
 ## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
 
 **Decided:** 2026-11-20, from the Luxury Suite 3 rehearsal of 2026-11-18. **Status:** in force.

@@ -30,9 +30,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from .. import __version__
-from . import audit, connection, diagnose, progress, project_notes
+from . import answers, audit, connection, diagnose, progress, project_notes
+from . import bridge as bridge_module
 from .bridge import (
-    CONVERSATION,
     NOT_CONNECTED,
     NOTHING_SENT,
     Bridge,
@@ -64,6 +64,16 @@ ERASE_WAITING = "Waiting for the answer in AutoCAD: the job erased {count} objec
 # Jobs whose real effect the plug-in counts (D-50).
 WATCHED = (Risk.CHANGE, Risk.ADMIN, Risk.PUBLISH)
 KEEP_WAITING = "Waiting for the answer in AutoCAD: keep or discard '{what}'? ({seconds} s so far)."
+# A dry run runs the job for real inside Heron's UNDO mark, then goes back to it (D-63).
+NO_DRY_RUN = (
+    "A dry run is not possible for {what}: it {why}, which going back to an UNDO mark cannot take "
+    "back. Call it without dry_run when the modeller is sure. Nothing was sent to AutoCAD."
+)
+DRY_RUN_NEEDS_UNDO = (
+    "A dry run needs UNDO on in this drawing (UNDOCTL), so Heron can go back afterwards. Nothing was "
+    "run. Turn UNDO on (UNDO > All) or call it without dry_run."
+)
+DRY_RUN_HANDLES = "A dry run: the handles above were taken back with it and no longer exist."
 COULD_NOT_ASK = (
     "Heron could not ask whether to keep this change, so it was kept. "
     "One Ctrl+Z in AutoCAD reverses it."
@@ -288,8 +298,13 @@ def _with_note(result: str, note: str) -> str:
     return f"{result}\n\n{note}"
 
 
-async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
-    """Run one tool call through the gate. Returns the tool's result."""
+async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool = False) -> Any:
+    """Run one tool call through the gate. Returns the tool's result.
+
+    dry_run: run the job inside Heron's UNDO mark, report, then go back to the
+    mark (D-63). Only a Change tool can; the rest are refused before anything
+    is sent.
+    """
     global _last_drawing, _current
     async with _lock:
         risk = risk_of(tool)
@@ -297,6 +312,19 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         drawing = ""
         refusal: str | None = None
         probed = False
+
+        if dry_run and (risk is not Risk.CHANGE or tool in UNDOES):
+            why = (
+                "undoes Heron's last change, which is itself an undo"
+                if tool in UNDOES
+                else "writes a file, or runs a command or AutoLISP"
+            )
+            refused = "Error: " + NO_DRY_RUN.format(what=_title(tool), why=why)
+            _record(tool, risk, drawing, False, "refused", started)
+            if risk in WATCHED and bridge_enabled():
+                facts = answers.Facts(refused, ok=False, outcome="refused", refused_by_heron=True)
+                return answers.with_line(refused, answers.line(facts))
+            return refused
 
         if tool in SESSION_TOOLS or tool in NO_AUTOCAD_TOOLS:
             # Picking which AutoCAD to work in touches no drawing, and must
@@ -344,7 +372,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         job: Job | None = None
         if refusal is None and probed and bridge_enabled():
             bridge = Bridge(pid)
-            title = _title(tool)
+            title = ("Dry run: " if dry_run else "") + _title(tool)
             try:
                 job_id, ask = await asyncio.to_thread(bridge.begin, tool, risk.value, title, drawing)
                 job = Job(tool, risk, title, drawing, bridge, job_id, ask, started)
@@ -359,13 +387,28 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 return _status_heron(
                     _versions({"connected": False, "message": refusal, "diagnose": DIAGNOSE_HINT}, None)
                 )
-            return f"Error: {refusal}"
+            refused = f"Error: {refusal}"
+            if risk in WATCHED and bridge_enabled():
+                facts = answers.Facts(refused, ok=False, outcome="refused", refused_by_heron=True)
+                return answers.with_line(refused, answers.line(facts))
+            return refused
 
         ok, outcome, result = False, "failed", None
         counted: dict[str, Any] | None = None
         wrote = marked = False
         try:
-            if job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES:
+            if dry_run:
+                try:
+                    marked = await _mark()
+                except AutocadError:
+                    marked = False
+                if not marked:
+                    outcome, result = "refused", "Error: " + DRY_RUN_NEEDS_UNDO
+                    if job:
+                        facts = answers.Facts(result, ok=False, outcome=outcome, refused_by_heron=True)
+                        result = answers.with_line(result, answers.line(facts))
+                    return result
+            elif job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES:
                 marked = await _mark()
 
             writes_before = connection.write_count()
@@ -403,14 +446,30 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                     result = _with_dialogs(result, boxes)
 
             asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES
-            if tool in UNDOES:
+            said: tuple[str, str] | None = None
+            if dry_run:
+                # No question: whatever it did is taken back now (D-63).
+                result, outcome, said = await _roll_back(result, text, ok, counted)
+                ok = ok and outcome == "dry_run"
+            elif tool in UNDOES:
                 pass  # the modeller asked for exactly this undo: no question about it
             elif asked_keep:
-                result, outcome = await _keep_or_discard(job, result if isinstance(result, str) else text, marked)
+                result, outcome, said = await _keep_or_discard(
+                    job, result if isinstance(result, str) else text, marked
+                )
                 ok = outcome != "failed"
             elif counted and counted["erased"] > 0:
                 # Anything erased gets a human yes, whatever Ask to Keep says (D-50).
                 result = await _ask_erase(job, result, counted["erased"])
+
+            if job and risk in WATCHED:
+                # One plain line first: DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN (D-62).
+                facts = answers.Facts(
+                    text, ok=ok, outcome=outcome, counted=counted, wrote=wrote, marked=marked,
+                    can_count=risk is Risk.CHANGE,
+                    word=said[0] if said else None, note=said[1] if said else None,
+                )  # fmt: skip
+                result = answers.with_line(result, answers.line(facts))
 
             if ok and tool in _CHECKS_DRAWING:
                 if risk is Risk.VIEW:
@@ -423,40 +482,91 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         finally:
             if job and job.bridge:
                 await asyncio.to_thread(job.bridge.end, job.id, ok, outcome, job.title, _ms(started))
-            _record(tool, risk, drawing, ok, outcome, started, "" if ok or not isinstance(result, str) else result)
-            _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked)
+            # The audit keeps the tool's own words, without the plain line (D-62).
+            message = "" if ok or not isinstance(result, str) else answers.body(result)
+            _record(tool, risk, drawing, ok, outcome, started, message)
+            _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked, dry_run)
 
 
-async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str]:
-    """Ask the plug-in; act only on a clear answer. Returns (result, outcome)."""
+async def _roll_back(
+    result: Any, text: str, ok: bool, counted: dict[str, Any] | None
+) -> tuple[Any, str, tuple[str, str]]:
+    """The end of a dry run: back to Heron's UNDO mark, then check the new objects are gone (D-63).
+
+    Returns (result, outcome, the plain line's word and reason).
+    """
+    try:
+        await _discard()
+        left = await _still_there(_created(text))
+    except AutocadError:
+        return result, "failed", (
+            answers.OUTCOME_UNKNOWN,
+            "the dry run could not go back to Heron's UNDO mark, so the job may still be in the "
+            "drawing: look at it before anything else.",
+        )
+    if left:
+        return result, "failed", (
+            answers.OUTCOME_UNKNOWN,
+            "the dry run went back to Heron's UNDO mark, but these new objects are still in the "
+            f"drawing, so the mark did not hold: {', '.join(left)}. Remove them by hand.",
+        )
+    back = "Heron went back to its UNDO mark, so the drawing is as it was."
+    if not ok:
+        return result, "dry_run", (answers.REFUSED, f"the job failed in the dry run; {back}")
+    would = f"it would have made {answers.counts(counted)}; " if counted else ""
+    shown = result
+    if isinstance(result, str) and _handles(text):
+        shown = _with_note(result, DRY_RUN_HANDLES)
+    return shown, "dry_run", (answers.NOTHING_CHANGED, f"a dry run: {would}{back}")
+
+
+async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str, tuple[str, str] | None]:
+    """Ask the plug-in; act only on a clear answer.
+
+    Returns (result, outcome, and the plain line's word and reason when the
+    gate knows better than the tool's answer: a Discard that could not run).
+    """
     beat = progress.start(lambda seconds: KEEP_WAITING.format(what=job.title, seconds=int(seconds)))
     try:
         answer = await asyncio.to_thread(job.bridge.ask_keep, job.id, job.title, _handles(text))
     finally:
         progress.stop(beat)
     if answer in ("keep", "keep_rest"):
-        return text, "done"
+        return text, "done", None
     if answer != "discard":
-        return _with_note(text, COULD_NOT_ASK), "done"
+        return _with_note(text, COULD_NOT_ASK), "done", None
     if not marked:
         return (
             "Error: Discard not possible: UNDO is off in this drawing (UNDOCTL), so the change "
             "is still there. Remove it by hand, or turn UNDO on (UNDO > All).",
             "failed",
+            (answers.DONE, "the change is still in the drawing: Discard was not possible, because UNDO is off."),
         )
     try:
         await _discard()
         left = await _still_there(_created(text))
     except AutocadError as exc:
-        return f"Error: Discard failed, the change may still be in the drawing: {exc}", "failed"
+        return (
+            f"Error: Discard failed, the change may still be in the drawing: {exc}",
+            "failed",
+            (
+                answers.OUTCOME_UNKNOWN,
+                "Discard failed, so the change may still be in the drawing: look at it before anything else.",
+            ),
+        )
     if left:
         return (
             "Error: Discard did not take: these new objects are still in the drawing: "
             + ", ".join(left)
             + ". Check the drawing and remove them by hand if needed.",
             "failed",
+            (
+                answers.OUTCOME_UNKNOWN,
+                "Discard went back to Heron's UNDO mark, but some new objects are still in the drawing, "
+                "so the mark did not hold: remove them by hand.",
+            ),
         )
-    return DISCARDED, "discarded"
+    return DISCARDED, "discarded", None
 
 
 def _with_changes(result: Any, counted: dict[str, Any]) -> Any:
@@ -529,7 +639,7 @@ async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
 
 def _remember(
     tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float, job: Job | None,
-    result: Any, counted: dict[str, Any] | None, wrote: bool, marked: bool,
+    result: Any, counted: dict[str, Any] | None, wrote: bool, marked: bool, dry_run: bool = False,
 ) -> None:
     """The activity list, and what "undo Heron's last change" may undo (D-54)."""
     global _last_change
@@ -550,6 +660,10 @@ def _remember(
         entry["changes"] = {key: counted[key] for key in ("added", "modified", "erased")}
     if risk is not Risk.READ:
         _activity.append(entry)
+    if dry_run:
+        # The undo history moved (a mark, then back to it): undo nothing older on a guess.
+        _last_change = None
+        return
     if tool in UNDOES:
         if ok:
             _last_change = None
@@ -593,7 +707,7 @@ def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started
     if not ok and outcome != "cancelled":
         fields["reason"] = audit.reason_of(message) or "other"
     audit.record(
-        conversation=CONVERSATION,
+        conversation=bridge_module.CONVERSATION,
         tool=tool,
         risk=risk.value,
         drawing=drawing,

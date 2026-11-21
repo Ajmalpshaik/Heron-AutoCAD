@@ -185,6 +185,76 @@ def test_conversation_id_can_be_fixed(monkeypatch):
         importlib.reload(bridge)
 
 
+# --- a resumed chat keeps its hold (D-61) ---------------------------------------
+
+
+def test_a_resumed_chat_is_the_same_chat():
+    # Claude Code gives the reopened chat the same session id: same hold.
+    first = bridge.conversation_id({"CLAUDE_CODE_SESSION_ID": "chat-1"}, follow_host_chat=True)
+    again = bridge.conversation_id({"CLAUDE_CODE_SESSION_ID": "chat-1"}, follow_host_chat=True)
+    assert first == again
+    assert len(first) == 32 and int(first, 16) >= 0
+    assert "chat-1" not in first  # the host's id is not sent as it is
+
+
+def test_two_chats_never_share_an_id():
+    one = bridge.conversation_id({"CLAUDE_CODE_SESSION_ID": "chat-1"}, follow_host_chat=True)
+    two = bridge.conversation_id({"CLAUDE_CODE_SESSION_ID": "chat-2"}, follow_host_chat=True)
+    assert one != two
+
+
+def test_a_fixed_id_still_wins_over_the_host_chat():
+    env = {"HERON_CONVERSATION_ID": "live-checks", "CLAUDE_CODE_SESSION_ID": "chat-1"}
+    assert bridge.conversation_id(env, follow_host_chat=True) == "live-checks"
+
+
+def test_without_a_host_chat_every_server_is_a_new_chat():
+    assert bridge.conversation_id({}, follow_host_chat=True) != bridge.conversation_id({}, follow_host_chat=True)
+    assert bridge.conversation_id({"CLAUDE_CODE_SESSION_ID": "  "}, follow_host_chat=True) != ""
+
+
+def test_a_script_run_inside_a_chat_does_not_take_that_chats_hold():
+    # A command-line script (tools/live_check.py) imports the modules but is
+    # not the chat's server: it must not speak for the chat it was run from.
+    chat = bridge.conversation_id({"CLAUDE_CODE_SESSION_ID": "chat-1"}, follow_host_chat=True)
+    script = bridge.conversation_id({"CLAUDE_CODE_SESSION_ID": "chat-1"})
+    assert script != chat
+
+
+def test_the_server_follows_the_host_chat_at_start(monkeypatch):
+    import inspect
+
+    from autocad_mcp import server
+
+    before = bridge.CONVERSATION
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "chat-9")
+    monkeypatch.delenv("HERON_CONVERSATION_ID", raising=False)
+    try:
+        assert bridge.follow_host_chat() == bridge.conversation_id(
+            {"CLAUDE_CODE_SESSION_ID": "chat-9"}, follow_host_chat=True
+        )
+        assert bridge.CONVERSATION == bridge.follow_host_chat()
+    finally:
+        bridge.CONVERSATION = before
+    assert "follow_host_chat()" in inspect.getsource(server.main)
+
+
+def test_the_gate_audits_the_chat_id_in_use_now(monkeypatch):
+    import inspect
+
+    from autocad_mcp.core import gate
+
+    # Read at call time, so the id the server switched to is the one recorded.
+    assert "bridge_module.CONVERSATION" in inspect.getsource(gate._record)
+
+
+def test_the_protocol_check_never_speaks_for_the_chat_it_runs_in():
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parent.parent / "tools" / "protocol_check.py").read_text(encoding="utf-8")
+    assert '!= "CLAUDE_CODE_SESSION_ID"' in text
+
+
 def test_send_quiet_sends_the_lines_for_the_job(home):
     with FakePlugin({"ok": True}) as plugin:
         write_address(home, os.getpid(), plugin.name)

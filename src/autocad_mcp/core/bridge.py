@@ -15,6 +15,7 @@ raised before any COM work starts.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import socket
@@ -39,8 +40,43 @@ NOT_CONNECTED = (
     "in AutoCAD (or type HERON). " + NOTHING_SENT
 )
 
-# One server process serves one chat, so one id per process is one per chat.
-CONVERSATION = os.environ.get("HERON_CONVERSATION_ID") or uuid.uuid4().hex
+# The host's own id for the chat. Claude Code gives every MCP server it starts
+# for a chat this variable, and the same value again when that chat is
+# reopened after a restart (D-61).
+HOST_CHAT_VARIABLE = "CLAUDE_CODE_SESSION_ID"
+
+
+def conversation_id(environ: Any = None, *, follow_host_chat: bool = False) -> str:
+    """Which chat this process speaks for, to the plug-in's one-chat hold (D-61).
+
+    1. HERON_CONVERSATION_ID, when set: a script or a developer fixes it.
+    2. Only for the MCP server itself (follow_host_chat): the host's chat id,
+       hashed, so a chat reopened after a restart is the same chat and keeps
+       its hold. Two chats have two ids, so they still never share one.
+    3. Otherwise a new id, so a command-line script run from inside a chat
+       never takes that chat's hold by accident.
+    """
+    env = os.environ if environ is None else environ
+    fixed = str(env.get("HERON_CONVERSATION_ID") or "").strip()
+    if fixed:
+        return fixed
+    if follow_host_chat:
+        session = str(env.get(HOST_CHAT_VARIABLE) or "").strip()
+        if session:
+            return hashlib.sha256(("heron-conversation:" + session).encode("utf-8")).hexdigest()[:32]
+    return uuid.uuid4().hex
+
+
+# A script that imports these modules is its own chat. The server switches to
+# the host's chat id at start (follow_host_chat, called from server.main).
+CONVERSATION = conversation_id()
+
+
+def follow_host_chat() -> str:
+    """The MCP server, at start: speak for the host's chat when the host names one (D-61)."""
+    global CONVERSATION
+    CONVERSATION = conversation_id(follow_host_chat=True)
+    return CONVERSATION
 CLIENT = os.environ.get("HERON_CLIENT_ID") or socket.gethostname()
 
 CALL_TIMEOUT = 5.0

@@ -112,6 +112,10 @@ def main() -> int:
             print(f"  {tool.name:<32} {summary[0] if summary else ''}")
         return 0
 
+    # Only the server speaks for the host's chat; scripts stay their own (D-61).
+    from .core.bridge import follow_host_chat
+
+    follow_host_chat()
     if args.transport == "http":
         # Log to stderr: stdout carries protocol traffic on stdio transport,
         # and keeping the habit avoids corrupting it if the flag is dropped.

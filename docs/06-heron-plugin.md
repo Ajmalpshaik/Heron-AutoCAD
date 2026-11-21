@@ -195,3 +195,27 @@ in a Heron box, **whether Ask to Keep is on or off**: *Bring them back* (Enter, 
 or no answer in 9 minutes) or *Keep them erased*. When Ask to Keep is on, its Keep or Discard
 question already covers the erase, so it is not asked twice. A chat can set `confirm=true` by
 itself; it cannot answer this box.
+
+## The plain line a change job answers with ([D-62](DECISIONS.md))
+
+Every Change, Admin or Publish answer starts with one line, before anything else:
+
+| Line | Means |
+|---|---|
+| `DONE - 2 added, 1 changed, 0 erased.` | The job ran and was kept. The numbers are the plug-in's own count above. |
+| `NOTHING CHANGED - ...` | The job ran and changed nothing, was a dry run, or the modeller chose Discard. The drawing is as it was. |
+| `REFUSED - ...` | Nothing was done: Heron or the plug-in said no before anything was sent, or the tool turned the job down. |
+| `OUTCOME UNKNOWN - ...` | It went wrong after a write began, so part of it may be in the drawing. The line says whether Heron's UNDO mark is there to go back to. |
+
+The count is of drawing objects only. A job that made a layer or set a variable wrote something the
+count cannot see, so it says `DONE - no drawing object was added, changed or erased (...)`, never
+NOTHING CHANGED. With `--no-bridge` there is no count and no line.
+
+## A dry run of any change ([D-63](DECISIONS.md))
+
+`dry_run=true` on any change tool runs the job for real inside Heron's UNDO mark, reports what it
+did, then goes back to the mark and checks the new objects are gone. Nothing is asked and nothing is
+kept: the answer starts `NOTHING CHANGED - a dry run: it would have made ...`. Tools that had a dry
+run of their own keep it (a preview that writes nothing). A save, an export, a publish, a command or
+AutoLISP refuses a dry run, because an UNDO mark cannot take back a file or a command. UNDO must be
+on in the drawing.

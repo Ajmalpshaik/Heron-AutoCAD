@@ -7,18 +7,21 @@ the server keeps one registry while the tools stay grouped by subject.
 from __future__ import annotations
 
 import functools
+import inspect
 import json
 from collections.abc import Callable
 from enum import Enum
-from typing import Any
+from typing import Annotated, Any
 
 import pythoncom
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from . import progress
 from .connection import mark_writing
 from .errors import AutocadError, com_message
+from .risk import RISK, Risk
 
 mcp = MCPServer(
     "autocad_mcp",
@@ -55,6 +58,11 @@ mcp = MCPServer(
         "one dimension at a time, autocad_sequence to run a settled list of "
         "steps together (AutoLISP's progn). One call is one undo step for the "
         "user, which matters more than it looks.\n\n"
+        "EVERY CHANGE ANSWERS WITH ONE LINE FIRST: DONE, NOTHING CHANGED, REFUSED "
+        "or OUTCOME UNKNOWN, from what the plug-in counted. Pass it on as it is. "
+        "To try a change first, pass dry_run=true to any change tool: it runs, "
+        "reports, and Heron goes back to its UNDO mark, so the drawing is left "
+        "as it was. Saving, exporting, commands and AutoLISP refuse a dry run.\n\n"
         "If a tool reports AutoCAD is busy or mid-command, the user needs to "
         "press Esc in AutoCAD — no retry will clear it.\n\n"
         "This is Heron AI for AutoCAD. Nothing reaches AutoCAD until the user "
@@ -227,12 +235,51 @@ def dumps(payload: Any) -> str:
     return json.dumps(payload, indent=2, default=str)
 
 
+# The dry run the gate gives a tool that has none of its own (D-63).
+DRY_RUN_FIELD = Field(
+    description=(
+        "True: run it for real inside Heron's UNDO mark, report what it did, then go back to the "
+        "mark, so the drawing is left exactly as it was. Only a Changes tool can; a save, an export, "
+        "a command or AutoLISP is refused, since a file written or a command run cannot be taken back."
+    )
+)
+GATE_DRY_RUN = "gate"  # the wrapper's heron_dry_run when the gate gives the dry run
+
+
+def _gate_dry_run(func: Callable) -> inspect.Signature | None:
+    """The tool's signature with dry_run added, when the gate should give it one; else None.
+
+    A tool that already takes dry_run keeps its own meaning (a preview that
+    writes nothing). Reads and views change nothing, so they get none. Every
+    Change, Publish and Admin tool without one gets it; on Publish and Admin it
+    is refused, rather than silently ignored and the job run for real.
+    """
+    level = RISK.get(func.__name__)
+    if level not in (Risk.CHANGE, Risk.PUBLISH, Risk.ADMIN):
+        return None
+    try:
+        signature = inspect.signature(func, eval_str=True)
+    except (NameError, TypeError):  # pragma: no cover - check_structure.py and the tests catch it
+        return None
+    if "dry_run" in signature.parameters or any(
+        p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in signature.parameters.values()
+    ):
+        return None
+    extra = inspect.Parameter(
+        "dry_run", inspect.Parameter.KEYWORD_ONLY, default=False, annotation=Annotated[bool, DRY_RUN_FIELD]
+    )
+    return signature.replace(parameters=[*signature.parameters.values(), extra])
+
+
 def tool_errors(func: Callable) -> Callable:
     """Turn COM and connection failures into actionable text.
 
     Every tool wears this, so a busy AutoCAD, a closed drawing or a stale
     handle reads as an instruction to the agent rather than a traceback.
+    It also gives a change tool without a dry run of its own the gate's one
+    (D-63): the extra argument goes to the gate, never to the tool.
     """
+    given = _gate_dry_run(func)
 
     @functools.wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> str:
@@ -240,7 +287,13 @@ def tool_errors(func: Callable) -> Callable:
         # wrong-drawing guard, Keep or Discard, audit (core/gate.py).
         from .gate import guarded
 
-        return await guarded(func.__name__, lambda: _run(*args, **kwargs))
+        rehearse = bool(kwargs.pop("dry_run", False)) if given is not None else False
+        return await guarded(func.__name__, lambda: _run(*args, **kwargs), dry_run=rehearse)
+
+    if given is not None:
+        wrapper.__signature__ = given  # type: ignore[attr-defined]
+        wrapper.__annotations__ = {**getattr(func, "__annotations__", {}), "dry_run": given.parameters["dry_run"].annotation}
+        wrapper.heron_dry_run = GATE_DRY_RUN  # type: ignore[attr-defined]
 
     async def _run(*args: Any, **kwargs: Any) -> str:
         try:
