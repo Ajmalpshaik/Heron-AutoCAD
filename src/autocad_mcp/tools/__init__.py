@@ -29,6 +29,7 @@ def register_all() -> None:
         document,
         drafting,
         draw,
+        draw_extra,
         drawing_report,
         drawing_tools,
         edit2d,

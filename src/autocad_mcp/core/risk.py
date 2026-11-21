@@ -186,6 +186,11 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "space_dimensions",
         "break_dimensions",
         "annotation_scales",
+        # The smaller draw gaps from the ribbon audit (D-108): COM, and Heron's own maths.
+        "add_construction_line",
+        "add_region",
+        "add_donut",
+        "divide_curve",
     ),
     Risk.PUBLISH: (
         "export_attribute_sheet",

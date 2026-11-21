@@ -669,6 +669,29 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 | AC17 | After AC3, make a SKID block holding one VALVE TAG insert, insert SKID twice. Change VALVE TAG's definition again; `autocad_sync_attributes(block='VALVE TAG', nested=true, dry_run=true)`, then without (#156) | The dry run lists the insert inside SKID with `"inside": "SKID"`; after the sync both SKID copies show the nested tag with its new attributes and its typed value kept; without `nested` it is not listed | NOT RUN |
 
+## Group AP - The smaller draw gaps: construction line and ray, region, donut, divide / measure (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-108](DECISIONS.md); issues #173, #174, #177, #181, part 1 of #119). Built and
+tested offline only (`tests/test_draw_extra.py`). Server only, no plug-in change: restart the server
+after pulling. Scratch drawing, `autocad_status` first. After each row press **Ctrl+Z once** and
+check the drawing is back as it was (one undo step). The COM calls and the DIVIDE / MEASURE rules
+were not checked against Autodesk's reference (D-108); each row compares with AutoCAD's own command.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AP1 | `autocad_add_construction_line(base=[1000,1000], angle=90)`; then `kind='ray'`, `base=[0,0]`, `through=[300,400]`; then the same in paper space with a sheet tab active (`space='paper'`) | A vertical XLINE through 1000,1000 (LIST says Xline, base point 1000,1000, unit direction 0,1); a RAY from 0,0 towards 300,400 only; the paper one on the sheet. `verified: true` each | NOT RUN |
+| AP2 | A closed polyline 1000 x 500: `autocad_add_region(handles=[it])` | One region (LIST says Region), area 500000, perimeter 3000, centroid 500,250 (MASSPROP agrees); **the polyline is still there** (record it: does COM's AddRegion keep the outline, whatever DELOBJ says?) | NOT RUN |
+| AP3 | Four lines meeting end to end in a square, plus a circle elsewhere: `autocad_add_region(handles=[all five], erase_outlines=true)` | Two regions; the four lines and the circle erased after the modeller's yes (D-50); one Ctrl+Z brings them back and takes the regions away | NOT RUN |
+| AP4 | An open polyline; then a text: `autocad_add_region` on each | The polyline: refused with "no region" and AutoCAD's own words, nothing made; the text: refused before AutoCAD is asked | NOT RUN |
+| AP5 | `autocad_add_donut(centers=[[0,0],[500,0]], outside_diameter=150, inside_diameter=100)`; then `outside_diameter=30` (a dot) at 1000,0. Beside them, AutoCAD's own DONUT with the same sizes | Rings and a dot that look the same as DONUT's (LIST of each: closed polyline, 2 vertices, constant width 25 and 15); with FILLMODE 0 the answer has the note and they show as outlines | NOT RUN |
+| AP6 | A line 0,0 to 1000,0: `autocad_divide_curve(segments=4)`; then AutoCAD's own DIVIDE 4 on a copy | Points at 250, 500, 750 (none on the ends), the same as DIVIDE's; with PDMODE 0 the answer has the point-style note | NOT RUN |
+| AP7 | A circle r=100 at 0,0 and a closed rectangle: `autocad_divide_curve(segments=4)` on each; compare DIVIDE 4 on copies | The circle: 4 points at 0, 90, 180, 270 degrees (100,0 first); the rectangle: 4 points, the first on its first vertex. **Record whether DIVIDE on a closed object also puts N points with one on the start**, and where DIVIDE starts on a circle | NOT RUN |
+| AP8 | A line 0,0 to 1000,0: `autocad_divide_curve(interval=300)`, then `interval=250`, then `interval=300, from_end=true`; compare MEASURE 300 and 250 picked near the start, and 300 near the end | 300, 600, 900 (left_at_end 100); 250, 500, 750 (left_at_end 0, no point on the end); 700, 400, 100. **Record whether MEASURE puts a point exactly on the end at 250** | NOT RUN |
+| AP9 | An L-shaped polyline at elevation 2700 (0,0 -> 600,0 -> 600,600), a block SUPPORT with an arrow along +X: `autocad_divide_curve(interval=500, block_name='SUPPORT', layer='M-SUPPORT')`; then MEASURE Block SUPPORT aligned on a copy | Two supports at 500,0 and 600,400, z 2700, turned 0 and 90 degrees, on M-SUPPORT, matching MEASURE's. With `from_end=true`: record whether MEASURE turns blocks the other way when counted from the far end | NOT RUN |
+| AP10 | A line drawn in a UCS tilted out of plan, and a line sloping in Z: `autocad_divide_curve(segments=2)` on each; a polyline in paper space on a sheet | The first two refused plainly, nothing placed; the paper-space one gets its points on that sheet | NOT RUN |
+| AP11 | AutoCAD 2025 / 2026 and 2021-2024 builds: AP1, AP2, AP5, AP6 | As in AutoCAD 2027 | NO MACHINE |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

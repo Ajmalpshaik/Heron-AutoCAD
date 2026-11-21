@@ -130,6 +130,41 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-108 - Construction lines, regions, donuts, divide and measure: COM where it has a call, Heron's maths where not
+
+**Decided:** 2026-11-21, part 1 of issue #119 (the smaller ribbon gaps), split into #173, #174,
+#177 and #181. **Status:** in force. Four Change tools in a new file, `tools/draw_extra.py`, so the
+`autocad_draw_*` tools and the batch are left alone. Not named `autocad_draw_*` for the same reason.
+- **Construction line and ray** (`autocad_add_construction_line`, `kind` xline or ray): COM
+  `AddXline` / `AddRay`, base point plus a second point. Given an angle, the second point is one
+  unit along it. XLINE's own Offset and Bisect options are not built: offset an xline with
+  `autocad_offset_entities`, and a bisector is two points the AI can work out.
+- **Region** (`autocad_add_region`): COM `AddRegion` on the outlines' own space, one region per
+  closed loop. Only lines, arcs, circles, ellipses, splines and polylines are sent; text, blocks and
+  the rest are refused before AutoCAD is asked. The outlines **stay** unless `erase_outlines`
+  (REGION's DELOBJ is not read: a tool's result should not change with a setting the modeller cannot
+  see). Holes are cut afterwards with `autocad_solid_boolean` subtract, which already takes regions.
+- **Donut** (`autocad_add_donut`): no COM call makes one, so Heron draws the object DONUT makes: a
+  closed lightweight polyline of two half-circle arcs (bulge 1 each), constant width
+  (outside - inside) / 2, run at radius (outside + inside) / 4. Inside 0 is a filled dot. Many
+  centres in one call, as DONUT keeps asking for centres; one undo step. FILLMODE 0 is said, not
+  changed.
+- **Divide / Measure** (`autocad_divide_curve`): no COM call either. The distances are Heron's maths
+  over the run's segments (`acad/geometry.py`, the same reading `autocad_place_along` uses), then
+  `AddPoint` or `InsertBlock` at each, in the run's own space. Heron's rules: DIVIDE on an open run
+  leaves both ends free (N parts, N - 1 marks); on a closed run the first mark is on its start, so N
+  marks. MEASURE starts at the start (or the end, `from_end`), puts no mark exactly on the far end,
+  and gives `left_at_end`. A block is turned to the run's own direction (`align`, on by default as
+  DIVIDE's "Align block with object? Yes"), not reversed by `from_end`. Lines, polylines, arcs and
+  circles only (what `read_path` reads); a sloping line or a run not flat in world plan is refused.
+  At most 2,000 marks a call. Splines and ellipses are not built: no tested reading of them as a
+  path yet. `autocad_place_along` stays the tool for equal ends.
+- **Not checked against Autodesk's reference (D-33).** The help site is blocked from the session
+  that built this, and there is no AutoCAD here, so the COM calls (`AddXline`, `AddRay`,
+  `AddRegion` and its return, `ConstantWidth`) and the DIVIDE / MEASURE rules above are from
+  knowledge. Live rows AP1-AP11 in [NEEDS-CHECKING](NEEDS-CHECKING.md) compare each with AutoCAD's
+  own command; all NOT RUN.
+
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never

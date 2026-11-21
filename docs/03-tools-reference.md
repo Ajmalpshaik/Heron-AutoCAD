@@ -64,13 +64,17 @@ object is made annotative at the drawing's current annotation scale, by the plug
 ([D-81](DECISIONS.md)). Sizes stay in drawing units at that scale (125 for 2.5 mm at 1:50); the
 reply gives the paper height. An annotative dimension is not given the drawing's DIMSCALE.
 
-## Splines, multilines, wipeouts and xrefs (Change)
+## Splines, multilines, wipeouts, construction lines, regions, donuts, divide and xrefs (Change)
 
 | Tool | Purpose |
 |---|---|
 | `autocad_draw_spline` | A smooth curve through fit points (flexible duct, a curved edge). The ends follow the first and last segments unless tangents are given; `closed` closes it smoothly; `coords="ucs"` |
 | `autocad_draw_multiline` | MLINE: a wall or double-line duct in one object. `scale` is the thickness with the STANDARD style; `justification` zero / top / bottom; `style` from the drawing (put back afterwards). `closed` repeats the first point, so that corner is not mitred |
 | `autocad_add_wipeout` | Mask an area, from corners or a closed straight-sided polyline (`erase_boundary`); `frames` sets WIPEOUTFRAME. No Automation call exists: it types WIPEOUT with world, unsnapped points (`_non *x,y`), in the current space ([D-38](DECISIONS.md)) |
+| `autocad_add_construction_line` | XLINE (endless both ways) or RAY (endless one way, `kind="ray"`) through `base`, towards `through` or at `angle` degrees. COM `AddXline` / `AddRay` ([D-108](DECISIONS.md)) |
+| `autocad_add_region` | REGION: closed outlines (closed polylines, circles, ellipses, splines, or lines and arcs meeting end to end) to regions, in the outlines' own space; gives each one's area, perimeter and centre. Outlines stay unless `erase_outlines`. COM `AddRegion` ([D-108](DECISIONS.md)) |
+| `autocad_add_donut` | DONUT at one or many `centers`: a closed polyline of two half circles, width = (outside - inside) / 2, run midway; `inside_diameter=0` is a filled dot. Says when FILLMODE is 0 ([D-108](DECISIONS.md)) |
+| `autocad_divide_curve` | DIVIDE (`segments`, equal parts; an open run's ends stay free) or MEASURE (`interval` from the start, or `from_end`; the rest at the end), with points or a `block_name` turned to the run (`align`). Lines, polylines, arcs, circles, flat in world plan; in the run's own space. Heron's own maths ([D-108](DECISIONS.md)) |
 | `autocad_attach_xref` | XATTACH a .dwg: name from the file, insertion, scale, rotation, `overlay`. A name already in the drawing is refused. `autocad_list_blocks` lists xrefs with their paths |
 | `autocad_manage_xref` | `reload`, `unload`, `detach`, `bind` (names kept apart, NAME$0$...) or `insert` (names merged). Detach and both binds need `confirm=true` |
 | `autocad_xref_tree` | **Read.** Every xref with the xrefs inside it (8 levels), its saved path, the file found on this PC and `loaded` / `unloaded` / `not found`; `broken` lists the ones that lead nowhere ([11](11-adn-repos-study.md)) |

@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
+  part 1 of #119).** Four new tools in `tools/draw_extra.py`: `autocad_add_construction_line`
+  (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter
+  and centre), `autocad_add_donut` (DONUT's closed polyline with width, Heron's maths, many centres
+  in one undo step) and `autocad_divide_curve` (DIVIDE or MEASURE with points or a block, Heron's
+  maths) ([D-108](docs/DECISIONS.md)). Live rows AP1-AP11 NOT RUN.
+
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
