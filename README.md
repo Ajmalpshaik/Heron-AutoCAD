@@ -86,10 +86,10 @@ the level decides which padlock it needs:
 
 | Level | Needs | What |
 |---|---|---|
-| Read | connected | status, list and find, measure, extents, selection, layers, blocks, styles, the UCS, saved locations, **solid volumes and centroids**, preview image, standards check, **check lists before issue**, attribute schedules |
-| View | connected | zoom, regen, switch / open / create drawing, **3D view direction and visual style** |
-| Change | Changes | draw, text, dimensions, hatch, blocks, batch drawing, move ... array, modify, delete, layers, the UCS, sheets / title blocks / viewports, drawing settings and styles, remap layers / tidy an import, several tools in one call, **24 named shapes**, **dimension runs and centre marks**, **multileaders, tables and revision clouds**, **3D solids, extrude / revolve, booleans** |
-| Publish | Changes + Publish | save, export / plot to PDF (whole sheet, a window, or a saved location), **a check list report as Excel and HTML** |
+| Read | connected | status, list and find, measure, extents, selection, layers, blocks, styles, the UCS, saved locations, **solid volumes and centroids**, preview image, standards check, **check lists before issue**, attribute schedules, lights, groups, annotation scales, **why a job cannot run** |
+| View | connected | zoom, regen, switch / open / create drawing, **3D view direction and visual style**, **a check list over a folder of drawings** (opened read only) |
+| Change | Changes | draw, text, dimensions, hatch, blocks, batch drawing, move ... array, modify, delete, layers, the UCS, sheets / title blocks / viewports, drawing settings and styles, remap layers / tidy an import, several tools in one call, **24 named shapes**, **dimension runs and centre marks**, **multileaders, tables and revision clouds**, **3D solids, extrude / revolve, booleans**, **trim, extend, fillet, chamfer, break, join, stretch, explode**, layer states and isolate, annotative scales, **Excel tables**, ATTSYNC, the render set-up (camera, sun, lights, exposure; never the render itself) |
+| Publish | Changes + Publish | save, export / plot to PDF (whole sheet, a window, or a saved location), **a check list report as Excel and HTML**, attributes to an Excel sheet |
 | Admin | Changes + Admin | any command, AutoLISP, system variables, purge, audit |
 
 Every tool with its options: [docs/03-tools-reference.md](docs/03-tools-reference.md).
