@@ -739,7 +739,8 @@ async def autocad_create_styles(
           table_styles=[{"name": "SCHEDULE-50", "text_height": 2.5,
           "scale": "1:50"}], then autocad_add_table with style='SCHEDULE-50'.
         - Use when: autocad_add_multileader or autocad_add_table says the
-          drawing has no such style.
+          drawing has no such style, or the next step would be MLEADERSTYLE
+          or TABLESTYLE by hand (an mleader style, a schedule's table style).
         - Don't use when: your office standards drawing already has them —
           autocad_import_from_drawing copies them across as they are.
         - Don't use when: you want a plot style table (.ctb / .stb); AutoCAD's

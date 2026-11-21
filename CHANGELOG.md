@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Multileader and table styles (2026-11-21, #68).** `autocad_create_styles` takes
+  `multileader_styles` and `table_styles`, made by Heron's plug-in because COM has no call for
+  either. A multileader style is Ajmal's TLD label unless asked otherwise (text style, height,
+  arrow, dogleg, landing gap; the leader ends under the text; sizes as they plot with the style's
+  scale). A table style sets title, header and data text heights and margins for the sheet scale,
+  with text in the vertical middle of every cell. The rules are in the Bridge with their own tests
+  ([D-104](docs/DECISIONS.md)). A plot style table cannot be made: AutoCAD's .NET API cannot write
+  the file ([D-105](docs/DECISIONS.md), 05 §33). Two new plug-in operations, no new tool. Live rows
+  AN1-AN12 NOT RUN.
+
 - **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
   (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,
   elbows, flanges with bolt holes, and each pipe's cut length) as solids, each piece checked against

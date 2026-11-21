@@ -164,9 +164,9 @@ done looks like here.
   (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
 - [ ] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines: not in
   D-95's first build (limit 32). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
-- [ ] Multileader, table and dimension **style** creation from `autocad_create_styles`: no
-  Automation API for the first two, and a dimension style already works, so this is really
-  "bring the office styles in" - `autocad_import_from_drawing` does it today. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
+- [x] Multileader, table and dimension **style** creation from `autocad_create_styles`: the
+  multileader and table styles by the plug-in since 2026-11-21 (D-104, live group AN NOT RUN).
+  ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [x] Draw an attribute schedule as an AutoCAD table: `autocad_add_table` ([10](10-geometry-annotation-3d.md)).
 - [x] Standards check against a reference DWG / DWS, not only a rules file: `autocad_check_standards(reference=...)`. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69), D-92; live rows AG5-AG8 NOT RUN)
 - [ ] A layer-standard rule file shipped for Ajmal's own office standard, beside the `ifc` preset
@@ -177,8 +177,9 @@ done looks like here.
 - [ ] `coords="ucs"` on the single-entity `autocad_draw_*` and `autocad_modify_*` tools. Today only
   `autocad_batch_draw` has it; the rest need each tool's rotation and planar vertex list converted
   too, and no live check behind it yet (D-27). ([#50](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/50))
-- [ ] Multileader, table and plot-style-table creation: no Automation API, so today they come in
-  with `autocad_import_from_drawing`. Worth moving into the plug-in. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
+- [x] Multileader and table style creation in the plug-in (D-104). A plot style table cannot be
+  made: AutoCAD's .NET API has no way to write the file (D-105, a known limit, 05 §33).
+  ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [ ] `autocad_add_viewport`: clip a viewport to a polyline, and annotative viewport scales. ([#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65))
 - [ ] A sheet-set tool: one call per drawing list (sheet number, title, scale, view) across a whole
   package, on top of `autocad_sequence`. ([#66](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/66))
