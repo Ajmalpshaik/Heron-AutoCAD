@@ -8,6 +8,21 @@ Newest first. Dates are when the change was made.
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
 
+- **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
+  all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
+  `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,
+  `autocad_explode`, `autocad_draw_order`, `autocad_match_properties`, `autocad_list_groups` and
+  `autocad_group`; `autocad_modify_entity` also sets lineweight and transparency. The geometry is
+  worked out in Python (`acad/edit2d.py`, tested offline) and written by setting each object's own
+  points over COM, so no command waits for a pick. One undo step each; locked layers refused before
+  anything is written ([D-78](docs/DECISIONS.md), [D-79](docs/DECISIONS.md)). Live rows AA1-AA20 NOT RUN.
+
+- **`autocad_render` removed (2026-11-21, #158).** Heron never runs the render: `-render` waits on
+  prompts and can stall AutoCAD, and a scripted render has been reported to drop objects. Heron
+  sets the render up (`autocad_add_camera_view`, `autocad_set_sun`, `autocad_switch_lights`,
+  `autocad_set_render_exposure`) and the modeller presses Render. One tool fewer (158). Live row
+  F22 is marked removed; F23 now names `autocad_run_lisp` ([D-87](docs/DECISIONS.md)).
+
 - **Layers and annotation (2026-11-21, #37, #107, #108, #116).** Seven new tools (**159** in all, with the block, table and render tools):
   `autocad_layer_states` saves, restores and deletes named layer states (listed by
   `autocad_list_layers`); `autocad_isolate_layers` isolates the layers of picked objects and puts
@@ -29,7 +44,7 @@ Newest first. Dates are when the change was made.
   (`autocad_set_render_exposure`). `autocad_set_3d_view` now reads back the visual style the
   viewport has (`visual_style_found`). Five new plug-in operations. **None of these tools
   renders**: the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md));
-  whether `autocad_render` stays is issue #158. Live rows AE1-AE15 NOT RUN.
+  `autocad_render` is removed (next entry). Live rows AE1-AE15 NOT RUN.
 
 - **Blocks, attributes and tables (2026-11-21, #115, #117, #106).** Five new tools, **147** in all.
   `autocad_make_block` takes attribute definitions (tag, prompt, default, position, height;
