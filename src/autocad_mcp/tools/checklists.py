@@ -37,6 +37,7 @@ from ..acad.selection import discard_selection_set, iter_selection, select_filte
 from ..acad.tables import describe_layer
 from ..core.connection import get_doc, run
 from ..core.errors import AutocadError
+from ..core.folders import heron_local
 from ..core.project_notes import project_of
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from .xrefs import _try, _walk, _xref_nodes
@@ -45,7 +46,7 @@ MAX_LISTS = 50
 
 
 def lists_dir() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", "")) / "Heron" / "autocad" / "checklists"
+    return heron_local() / "checklists"
 
 
 def _file(name: str) -> Path:

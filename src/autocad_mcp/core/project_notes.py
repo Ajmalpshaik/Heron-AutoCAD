@@ -25,13 +25,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .folders import heron_local
+
 MAX_NOTES = 40
 MAX_VALUE = 500
 NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 
 
 def notes_dir() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", "")) / "Heron" / "autocad" / "projects"
+    return heron_local() / "projects"
 
 
 def project_of(drawing: str) -> str | None:

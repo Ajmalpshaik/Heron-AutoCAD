@@ -25,6 +25,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from ..core.errors import AutocadError
+from ..core.folders import heron_local
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from . import sequence
 
@@ -34,7 +35,7 @@ WHOLE = re.compile(r"^\{\{\s*([a-z][a-z0-9_]*)\s*\}\}$")
 
 
 def commands_dir() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", "")) / "Heron" / "autocad" / "commands"
+    return heron_local() / "commands"
 
 
 def _file(name: str) -> Path:

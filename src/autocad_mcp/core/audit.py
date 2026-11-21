@@ -13,12 +13,13 @@ drawn or typed - so the summary cannot leak drawing contents either.
 from __future__ import annotations
 
 import json
-import os
 import threading
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any
+
+from .folders import heron_local
 
 _lock = threading.Lock()
 
@@ -29,11 +30,9 @@ def audit_dir() -> Path:
     Windows always sets %LOCALAPPDATA%. Where it is unset or not a full path
     (a cloud runner, CI), the folder is the one it normally points at under the
     user's home, never a folder relative to wherever the server was started
-    (issue #43).
+    (issue #43, core/folders.py).
     """
-    base = os.environ.get("LOCALAPPDATA", "").strip()
-    root = Path(base) if base and Path(base).is_absolute() else Path.home() / "AppData" / "Local"
-    return root / "Heron" / "autocad" / "audit"
+    return heron_local() / "audit"
 
 
 def record(**fields: Any) -> None:
@@ -70,6 +69,7 @@ _REASON_SIGNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("bad_input", ("Invalid input",)),
     ("autocad_rejected", ("AutoCAD rejected the operation",)),
     ("discard_failed", ("Discard not possible", "Discard failed", "Discard did not take")),
+    ("no_dry_run", ("A dry run is not possible",)),
 )
 
 # Each reason word in plain words, and what the modeller does about it.
@@ -92,6 +92,8 @@ REASONS: dict[str, tuple[str, str]] = {
     "autocad_rejected": ("AutoCAD refused the operation (a locked or frozen layer, a read-only drawing, a command waiting).",
                          "Check the layer is unlocked and thawed and no command is waiting, then try again."),
     "discard_failed": ("Discard could not take the change back.", "Check the drawing and remove what is left by hand."),
+    "no_dry_run": ("A dry run was asked of a tool that cannot have one (a save, an export, a command, AutoLISP).",
+                   "Call it without dry_run when the modeller is sure."),
     "other": ("It failed for another reason; the chat saw the full message at the time.",
               "If it keeps happening, ask the chat to call autocad_why for that job."),
 }  # fmt: skip

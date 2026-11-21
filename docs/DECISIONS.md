@@ -168,6 +168,13 @@ shows them and makes the AutoCAD calls.
   starts; that is how the palette finds one, so Run needs Heron to have run once on this PC.
 - **Not copied:** a separate Commands pane (one palette with two tabs instead), and asking a
   running chat's server to run it (a stdio server has no way in from the plug-in).
+- **Added after the merge (same day):** the palette's run never inherits a way round the gate or
+  another chat's id from the environment AutoCAD was started with: `HERON_AUTOCAD_BRIDGE` is forced
+  on, `HERON_CONVERSATION_ID` and `CLAUDE_CODE_SESSION_ID` are dropped (`PaletteServer.
+  PrepareEnvironment`), and the server refuses `--run-saved` with the checks off. A job whose end
+  never came stops counting as running after 20 minutes (`ActivityLog.MostJob`). While a palette Undo
+  waits for AutoCAD, the plug-in refuses a new job's begin with a plain "try again" (`BlockedBy`,
+  at most one minute), so the UNDO never lands inside a chat's job (#138).
 
 ## D-67 - Finding and explaining: why a job cannot run, what failed, a question gets a read tool
 
@@ -202,6 +209,12 @@ its question mode; the code is this project's own.
 - **The audit folder never becomes relative** (#43): with `%LOCALAPPDATA%` unset, empty or not a
   full path, it is `~/AppData/Local/Heron/autocad/audit`, where Windows normally points it.
   `bridges_dir()` has the same pattern and is left for its own change.
+
+- **Changed the same day by D-59** (the padlocks moved into AutoCAD's memory): `autocad_why`
+  can no longer read them, so it names the padlocks a job needs (`needs_changes`, ...) as
+  reasons that do not block, says it cannot see whether they are on, and never claims one is
+  off. The refusal itself still names the padlock, and `autocad_gaps` counts it. A `dry_run`
+  refusal (D-63) is logged with the reason word `no_dry_run`.
 
 Pinned by `tests/test_why_and_gaps.py` and `tests/test_find_tool.py`. Live rows: Group W.
 

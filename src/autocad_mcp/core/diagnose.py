@@ -14,7 +14,6 @@ health is the worst of them: HEALTHY, WARNING or FAILED.
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 import time
@@ -23,6 +22,7 @@ from typing import Any
 
 from .. import __version__
 from .bridge import PROTOCOL_VERSION, _alive, bridges_dir
+from .folders import roaming_app_data
 
 # When this server's code was loaded. A .py file newer than this means the
 # files were updated under a running server: the chat is on the old code.
@@ -53,7 +53,7 @@ def changed_since_start(package: Path = _PACKAGE, loaded_at: float | None = None
 
 
 def plugins_dir() -> Path:
-    return Path(os.environ.get("APPDATA", "")) / "Autodesk" / "ApplicationPlugins"
+    return roaming_app_data() / "Autodesk" / "ApplicationPlugins"
 
 
 def installed_plugin(folder: Path | None = None) -> str | None:

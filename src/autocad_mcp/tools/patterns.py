@@ -18,12 +18,13 @@ from pydantic import Field
 from ..acad import patterns as pat
 from ..core.connection import get_doc, run
 from ..core.errors import AutocadError, com_message
+from ..core.folders import heron_local
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 
 
 def support_folder() -> Path:
     """Heron's folder for the pattern and linetype files it writes."""
-    return Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Heron" / "autocad" / "support"
+    return heron_local() / "support"
 
 
 def _target(folder: str | None, name: str, ext: str) -> Path:

@@ -478,7 +478,7 @@ pulling; no plug-in build is needed. **Every row below is NOT RUN.**
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
 | W1 | AutoCAD closed: "why can't you save this as PDF?" (`autocad_why`) | Answers at once, no error: cannot run, first reason "No AutoCAD is connected", what to do says press Heron | NOT RUN |
-| W2 | AutoCAD open, Heron pressed, Changes ON, Publish OFF: `autocad_why("save this as PDF")` | Cannot run; one reason "needs the Publish padlock, and it is off" with HERONPUBLISH; Changes not named | NOT RUN |
+| W2 | AutoCAD open, Heron pressed, Changes ON, Publish OFF: `autocad_why("save this as PDF")`, then ask for the PDF | `autocad_why` names Changes and Publish as needed and says it cannot see whether they are on (with HERONPUBLISH); the PDF is then refused naming Publish, and `autocad_gaps(days=1)` shows "The Publish padlock was off" | NOT RUN |
 | W3 | Same, all padlocks ON: `autocad_why("draw a 200 flange with 8 bolt holes")` | `can_run: true`, tool `autocad_make_shape`, "should run" | NOT RUN |
 | W4 | `autocad_why("make me a cup of tea")` | "Heron has no tool for this job" with "do it by hand" | NOT RUN |
 | W5 | Turn Changes OFF, ask the chat to draw a line (refused), then `autocad_gaps(days=1)` | `autocad_draw_line` shows 1 refused; the failure reason is "The Changes padlock was off" with HERONCHANGES | NOT RUN |
@@ -512,6 +512,9 @@ Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETT
 | X18 | Disconnect Heron, press Run | "AutoCAD is not connected to Heron. Press the Heron button first" | NOT RUN |
 | X19 | Rename `%LOCALAPPDATA%\Heron\autocad\server.json`, press Run; put it back | "Heron's server has not run on this PC yet ..."; with it back, Run works. No console window flashes during a run | NOT RUN |
 | X20 | Two AutoCADs connected; Run from the second's palette | The command runs in the second AutoCAD, not the first | NOT RUN |
+| X22 | Start AutoCAD from a command prompt after `set HERON_AUTOCAD_BRIDGE=off`; Changes **off**; press Run | Refused with the Changes sentence, as in X14: the run still goes through the plug-in's checks | NOT RUN |
+| X24 | Start a long `autocad_sequence` from the chat and, in the second before it begins, press **Undo** on the newest row (or type `HERONPALETTE` Undo while the chat is about to call) | The chat's call is refused with "The modeller is undoing a Heron change from the Heron palette right now. Try again in a moment."; the Undo removes only the palette's job; the retried call works | NOT RUN |
+| X23 | On a layout, inside a floating viewport: have the chat draw a circle (Ask to Keep off), press **Zoom** on it, then **Undo** | Record what happens. If Undo says "The drawing changed after this job", the viewport's zoom counted as a change (a viewport is an object): note it in 06 section 10 as a known limit. Either way nothing of the modeller's is undone | NOT RUN |
 | X21 | AutoCAD 2025 / 2026 and 2021-2024 builds: X1, X2, X4, X13 | As in AutoCAD 2027 | NO MACHINE |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
