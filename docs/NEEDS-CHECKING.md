@@ -478,7 +478,7 @@ pulling; no plug-in build is needed. **Every row below is NOT RUN.**
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
 | W1 | AutoCAD closed: "why can't you save this as PDF?" (`autocad_why`) | Answers at once, no error: cannot run, first reason "No AutoCAD is connected", what to do says press Heron | NOT RUN |
-| W2 | AutoCAD open, Heron pressed, Changes ON, Publish OFF: `autocad_why("save this as PDF")` | Cannot run; one reason "needs the Publish padlock, and it is off" with HERONPUBLISH; Changes not named | NOT RUN |
+| W2 | AutoCAD open, Heron pressed, Changes ON, Publish OFF: `autocad_why("save this as PDF")`, then ask for the PDF | `autocad_why` names Changes and Publish as needed and says it cannot see whether they are on (with HERONPUBLISH); the PDF is then refused naming Publish, and `autocad_gaps(days=1)` shows "The Publish padlock was off" | NOT RUN |
 | W3 | Same, all padlocks ON: `autocad_why("draw a 200 flange with 8 bolt holes")` | `can_run: true`, tool `autocad_make_shape`, "should run" | NOT RUN |
 | W4 | `autocad_why("make me a cup of tea")` | "Heron has no tool for this job" with "do it by hand" | NOT RUN |
 | W5 | Turn Changes OFF, ask the chat to draw a line (refused), then `autocad_gaps(days=1)` | `autocad_draw_line` shows 1 refused; the failure reason is "The Changes padlock was off" with HERONCHANGES | NOT RUN |

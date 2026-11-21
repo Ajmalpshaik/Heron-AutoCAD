@@ -12,6 +12,16 @@ Newest first. Dates are when the change was made.
   While a palette Undo waits for AutoCAD, a chat's new job is refused with "try again in a moment",
   so the UNDO never lands inside it (#138). Live rows X22-X24 NOT RUN.
 
+- **`autocad_why` never guesses a padlock; Heron's folders never become relative (2026-11-21,
+  #134).** Since the padlocks moved into AutoCAD's memory (D-59), `autocad_why` could no longer
+  read them and said every padlock was off. It now names the padlocks a job needs and says it
+  cannot see whether they are on ([D-67](docs/DECISIONS.md)). A `dry_run` refusal shows in
+  `autocad_gaps` as its own reason. Every Heron folder (audit, bridges, project notes, check
+  lists, saved commands, support files, the palette's server file, the plug-in folder) now comes
+  from one helper, `core/folders.py`, which falls back under the home when `%LOCALAPPDATA%` or
+  `%APPDATA%` is unset, instead of a folder relative to the server (the rest of #43). Live row W2
+  updated; NOT RUN.
+
 - **Server 1.8.0 and plug-in 1.6.0 (2026-11-21).** One version for the whole batch of ideas from
   Heron AI for Revit merged today: padlocks in memory (#121), dialog watch (#100), the docked
   palette (#123) change the plug-in; server answers (#124), why / gaps (#120) and check lists
