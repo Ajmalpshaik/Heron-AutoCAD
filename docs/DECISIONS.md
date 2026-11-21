@@ -158,6 +158,51 @@ stalls every later call until the modeller presses Esc. Heron for Revit answers 
 - **Not done:** a box the modeller opens *themselves* while a job runs cannot be told apart and is
   closed too ([05 §25](05-known-limits.md#25-the-dialog-watch-closes-every-new-box-in-a-job)).
 
+## D-65 - A check list run is saved by its own Publish tool, as new files only
+
+**Decided:** 2026-11-21, from Heron AI for Revit's QA reports (its D-178); issue #86. **Status:** in
+force. `autocad_checklist_report` runs a list exactly as `autocad_checklist` does and saves the run
+next to the drawing as `<drawing> - checklist <list> - <date>.xlsx` and `.html`. It is a separate
+tool, at **Publish**, and not a `report` option on `autocad_checklist`: a tool's padlock is a
+property of the tool and is never worked out from what the caller passes (`core/risk.py`), so a
+"save" option on a Read tool would have written files with the Publish padlock off. Never
+overwrite: when either file of the pair is there, the next number is used (` (2)`, ` (3)`, at most
+999), and each file is opened in exclusive-create mode, so a file that appears in between is not
+replaced either; if the page cannot be written the workbook just made is removed. An unsaved
+drawing has no folder and gets no report. The workbook is written with the standard library (an
+`.xlsx` is a zip of XML parts): `openpyxl` was not a dependency, and adding a package means every
+PC reinstalls ([05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)) for one sheet of
+text. Known limit: one sheet, text and numbers only, no colours in Excel (the HTML page has them).
+
+## D-64 - Check lists: NO DATA, office lists with project changes, PASS is not "complies"
+
+**Decided:** 2026-11-21, from Heron AI for Revit's D-165, D-169 and D-179; issues #84, #85, #87.
+**Status:** in force. Extends [D-52](#d-52---check-lists-are-the-modellers-sentences-on-a-fixed-catalogue).
+
+- **Four results.** PASS (the checked value is met), FAIL, **NO DATA** (could not decide: what the
+  check needs is missing - no such title block, xrefs unreadable, no text to compare, or only part
+  of the objects read when nothing wrong was found in that part) and NOT RUN (switched off for this
+  project). NO DATA is never counted as a PASS: the verdict is FAIL if anything failed, else NO DATA
+  if anything could not be decided, else PASS. Before this, a missing title block was NOT RUN and a
+  run capped at `max_entities` could still say PASS.
+- **Coverage line on every run:** "2 of 4 decided, 1 no data, 1 not run" (decided = PASS + FAIL).
+- **Office and project.** The office list is the saved list,
+  `%LOCALAPPDATA%\Heron\autocad\checklists\<name>.json`, as in D-52 ('before issue' ships with
+  Heron); an office shares one by copying that file to each PC. A project's changes are kept per
+  project folder (the folder the drawing is saved in, as for the notes, D-53) in
+  `%LOCALAPPDATA%\Heron\autocad\checklists\projects\`, never in the drawing or its folder. A
+  change names an office check by its `id` and may set only **severity**, **target** (new values for
+  that check's own parameters) and **on**. Adding a check, or changing what one does (its check,
+  label, clause, advice, or a parameter it does not have), is refused naming the line: no hidden
+  logic in a project. If the office list changes so a project change no longer fits, the run stops
+  and says how to set or clear them. Each run names every check it used (`checks_used`) and where
+  it came from (office / project), and a changed line says what changed from what.
+- **PASS is not "complies".** PASS means the checked value is met, for what Heron read, against the
+  source named on the line (its clause, else the list). `autocad_checklist`,
+  `autocad_checklist_report` and `autocad_check_standards` carry the same `pass_means` sentence; no
+  answer says a drawing complies; [DISCLAIMER.md](../DISCLAIMER.md) says it in plain words. Heron
+  never signs a drawing off.
+
 ## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
 
 **Decided:** 2026-11-20, from the Luxury Suite 3 rehearsal of 2026-11-18. **Status:** in force.

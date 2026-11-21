@@ -156,6 +156,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "create_hatch_pattern",
         "create_linetype",
         "publish_pdf",
+        "checklist_report",  # writes an .xlsx and an .html next to the drawing (D-65)
     ),
     Risk.ADMIN: (
         "render",

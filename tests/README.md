@@ -8,6 +8,7 @@
 | `test_bridge.py` | No (fake plug-in pipe) | Address file, dead-AutoCAD clean-up, token, refusals, hung-pipe timeout |
 | `test_gate.py` | No (faked bridge and COM) | Gate order, audit line, wrong-drawing guard, Keep or Discard, no retry after a write began, read-back |
 | `test_standards.py` | No | Standards rules, attribute CSV, resources and prompts |
+| `test_checklists_qa.py` | No | Check lists: NO DATA, coverage, office and project lists, reports never overwriting, PASS wording (D-64, D-65) |
 | `test_plugin_bundle.py` | No | Bundle layout, PackageContents.xml, installer refusing while AutoCAD runs |
 | `test_structure.py` | No | `tools/check_structure.py` |
 | `test_live.py` | **Yes**, marked `live` | Real drawing round trips |

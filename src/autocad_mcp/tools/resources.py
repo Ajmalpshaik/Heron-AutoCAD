@@ -203,7 +203,9 @@ def check_standards(rules_path: str = "") -> str:
         "1. Call autocad_status and tell me the drawing name and units.\n"
         "2. Call autocad_check_standards with those rules.\n"
         "3. Summarise the findings by rule, worst first, with handles I can zoom to.\n"
-        "4. Do not change anything: only report."
+        "4. Do not change anything: only report.\n"
+        "5. Say which rules were met for what was read, against which rules. Never say the "
+        "drawing complies with a standard: Heron does not sign drawings off."
     )
 
 
