@@ -10,7 +10,8 @@ namespace Heron.AutoCAD.Bridge
     /// One request line in, one reply line out. No pipes and no AutoCAD here,
     /// so every rule the bridge enforces is tested offline.
     ///
-    /// Ops: ping, info, release, begin, end, ask_keep, send_quiet, run. Every
+    /// Ops: ping, info, release, begin, end, ask_keep, send_quiet, run, changes,
+    /// ask_erase, since_last, dialogs. Every
     /// op needs the session token. begin is where the hold and the padlocks are
     /// checked; send_quiet and run only work inside the job begin allowed.
     /// </summary>
@@ -132,6 +133,8 @@ namespace Heron.AutoCAD.Bridge
                             return AskErase(root, conversation);
                         case "since_last":
                             return SinceLast(root, conversation);
+                        case "dialogs":
+                            return Dialogs(root, conversation);
                         default:
                             return Refuse("BadRequest", Texts.UnknownOp(op));
                     }
@@ -375,6 +378,32 @@ namespace Heron.AutoCAD.Bridge
             {
                 w.WriteBoolean("known", before.HasValue);
                 w.WriteBoolean("changedSince", before ?? true);
+            });
+        }
+
+        /// <summary>
+        /// The boxes AutoCAD showed during this job that the dialog watch
+        /// closed (D-66), so the chat is told. Only this chat's running job.
+        /// </summary>
+        private string Dialogs(JsonElement root, string conversation)
+        {
+            var running = Running(root, conversation);
+            if (running == null) return Refuse("Job", Texts.NoRunJob);
+            var notes = _host.Dialogs(Str(root, "job")) ?? new List<DialogNote>();
+            return Ok(w =>
+            {
+                w.WriteStartArray("dialogs");
+                foreach (var note in notes)
+                {
+                    if (note == null) continue;
+                    w.WriteStartObject();
+                    w.WriteString("title", note.Title);
+                    w.WriteString("pressed", note.Pressed);
+                    if (note.Closed.HasValue) w.WriteBoolean("closed", note.Closed.Value);
+                    else w.WriteNull("closed");
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
             });
         }
 

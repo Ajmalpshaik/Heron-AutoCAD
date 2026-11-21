@@ -277,6 +277,34 @@ class Bridge:
             "erased_handles": [str(h) for h in reply.get("erasedHandles", [])],
         }
 
+    def dialogs(self, job: str) -> list[dict]:
+        """The boxes AutoCAD showed during this job that the plug-in closed (D-66).
+
+        Each is {"title", "pressed" ("Cancel" | "No" | "Esc" | "none"), "closed"
+        (True, False, or None when not known yet)}. Empty when there were none,
+        the plug-in is older, or it could not be asked. Never raises.
+        """
+        try:
+            reply = self.call("dialogs", job=job)
+        except AutocadError:
+            return []
+        boxes = reply.get("dialogs") if reply.get("ok") is True else None
+        if not isinstance(boxes, list):
+            return []
+        found = []
+        for box in boxes:
+            if not isinstance(box, dict):
+                continue
+            closed = box.get("closed")
+            found.append(
+                {
+                    "title": str(box.get("title") or "a box with no title"),
+                    "pressed": str(box.get("pressed") or "Esc"),
+                    "closed": closed if isinstance(closed, bool) else None,
+                }
+            )
+        return found
+
     def ask_erase(self, job: str, summary: str) -> dict:
         """Ask the modeller about what the job erased; the plug-in brings them back unless kept.
 

@@ -166,6 +166,34 @@ its question mode; the code is this project's own.
 
 Pinned by `tests/test_why_and_gaps.py` and `tests/test_find_tool.py`. Live rows: Group W.
 
+## D-66 - A box AutoCAD opens during a Heron job is closed with Cancel and named
+
+**Decided:** 2026-11-21, from the comparison with Heron AI for Revit (issue #83). **Status:** in
+force; NOT RUN live (NEEDS-CHECKING group V). Adds to D-57 and [05 §24](05-known-limits.md#24-a-busy-autocad-turns-calls-away).
+A box AutoCAD opens mid-job (a file dialog from a typed command, "Save changes?", an error message)
+stalls every later call until the modeller presses Esc. Heron for Revit answers such a popup with
+"no" and tells the chat; this is the same idea, written fresh for AutoCAD.
+- **How it looks:** a background timer in the add-in, every 250 ms, only while a job runs, reads
+  `GetLastActivePopup` of AutoCAD's main window. Chosen over `SetWinEventHook`: a hook needs a
+  message loop on its own thread and fires for every object in the process, while a short poll
+  during a job is all that is needed and starts and stops with the job. Nothing it calls sends a
+  message to AutoCAD's windows (`InternalGetWindowText`, `PostMessage`), so a hung AutoCAD cannot
+  hang it.
+- **Which window counts** (`Heron.AutoCAD.Bridge/DialogWatch.cs`, tested offline): only while a job
+  runs; only a modal box (AutoCAD's main window disabled) that can take input and has stood for
+  400 ms; never a window that was open when the job began (that is the modeller's); never a Heron
+  window ("Heron - ..." and the banner) and never while Heron's own Keep or Discard or erase
+  question is up.
+- **What it presses:** Cancel, else No, else Esc (a standard box gets its Cancel command, any
+  other its ✕, which WPF, WinForms and MFC all treat as Cancel). **Never OK, never Yes.** One press
+  per box; after 5 boxes in one job Heron stops pressing and says so.
+- **What the chat is told:** a new op `dialogs {job}`; the server asks it after every job's work
+  and adds `heron_dialogs` to the answer: "AutoCAD showed 'X'; Heron closed it with Cancel,
+  nothing was kept from that step." A box still open after 2 s is said too, with "close it, read
+  the drawing back". An older plug-in answers "unknown op", which means no boxes.
+- **Not done:** a box the modeller opens *themselves* while a job runs cannot be told apart and is
+  closed too ([05 §25](05-known-limits.md#25-the-dialog-watch-closes-every-new-box-in-a-job)).
+
 ## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
 
 **Decided:** 2026-11-20, from the Luxury Suite 3 rehearsal of 2026-11-18. **Status:** in force.

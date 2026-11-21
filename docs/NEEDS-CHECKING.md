@@ -401,6 +401,21 @@ Windows thread). Server only: restart the server after pulling; no plug-in build
 | Q4 | After Q2, `autocad_get_variable` OSMODE, USERS1 and USERS2 | The values from before the call (snaps on as he had them; USERS1 not the pending marker) | NOT RUN |
 | Q5 | Luxury Suite 3 player: the 2D rehearsal from `--from s037`, and the 3D steps marked `view_only` with that mark taken off | No stop at the layer steps or the view steps | NOT RUN |
 
+## Group V - The dialog watch (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-66](DECISIONS.md), issue #83). Built and tested offline
+(`DialogWatchTests.cs`, `tests/test_gate.py`). Needs the new plug-in build and a server restart.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| V1 | Admin ON: `autocad_send_command("_OPEN\n")` (FILEDIA 1, so the Select File dialog opens) | Within about 1 s the dialog closes by itself; the answer has `heron_dialogs`: "AutoCAD showed 'Select File'; Heron closed it with Cancel, nothing was kept from that step."; no drawing opens; the next call works without pressing Esc | NOT RUN |
+| V2 | Open AutoCAD's Options dialog yourself and leave it open; then `autocad_list_layers` | Options is **not** closed; the answer is the Q3 "AutoCAD stayed busy" one; no `heron_dialogs` | NOT RUN |
+| V3 | Ask to Keep ON: `autocad_draw_line`, then wait at Keep or Discard for 5 s | The Keep or Discard box stays up until you answer it; it is never closed by the watch | NOT RUN |
+| V4 | Admin ON: change something in a drawing, then `autocad_send_command("_CLOSE\n")` | The "Save changes?" box gets **Cancel**, never Yes or No; the drawing stays open with the change; the answer names the box | NOT RUN |
+| V5 | With no Heron job running, open the Select File dialog yourself (Ctrl+O) and wait 10 s | It stays open: the watch never acts outside a job | NOT RUN |
+| V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`) | One line "dialog watch: 'Select File' -> Cancel"; no error lines | NOT RUN |
+
 ## Group W - Finding and explaining: why, gaps, question mode (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-67](DECISIONS.md)). Built and tested offline
