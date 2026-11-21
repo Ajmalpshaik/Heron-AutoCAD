@@ -42,6 +42,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import live_check_blocks  # noqa: E402
+import live_check_cleanup  # noqa: E402
 import live_check_drawing  # noqa: E402
 import live_check_edits  # noqa: E402
 import live_check_heron  # noqa: E402
@@ -1309,7 +1310,8 @@ OWN_BY_EYE: dict[str, str] = {
 # last because its V4 row types CLOSE in the scratch drawing.
 MODULES = (
     live_check_edits, live_check_layers, live_check_blocks, live_check_render, live_check_drawing,
-    live_check_mep3d, live_check_styles, live_check_ribbon2, live_check_heron,
+    live_check_mep3d, live_check_styles, live_check_ribbon2, live_check_cleanup,
+    live_check_heron,
 )
 
 CHECKS: tuple[Check, ...] = OWN_CHECKS + tuple(c for m in MODULES for c in m.CHECKS)
@@ -1321,7 +1323,7 @@ BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, wh
 # S were written before the runner covered them.
 RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
-    "AG", "AH", "AJ", "AL", "AM", "AN", "AP", "AQ", "RV",
+    "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AP", "AQ", "RV",
 )
 
 CHANGES_OFF = (

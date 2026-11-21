@@ -4,6 +4,10 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The live-check runner covers group AD too (2026-11-21, D-118).** Overkill's list, a room traced
+  round a column, eTransmit's refusal and list: 3 rows measured, 9 with their reason (the confirm step
+  erases, the rest need files, the big plan or an eye). 197 rows measured in all, 183 with a reason.
+
 - **Cleaning up an import and working with references (2026-11-21, #112, #104, #118, #114).**
   `autocad_overkill` finds doubled and overlapping lines, arcs and circles, lists them by handle,
   and only with `confirm=true` erases and stretches them in one undo step, then Heron's erase
