@@ -23,6 +23,7 @@ def register_all() -> None:
         check_folder,
         checklist_share,
         checklists,
+        cleanup,
         companion,
         convert,
         coordinates,

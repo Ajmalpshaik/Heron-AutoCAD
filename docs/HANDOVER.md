@@ -10,19 +10,31 @@
 
 ## Latest - 2026-11-21 (PDF Import, #113, D-106)
 
-One new Change tool, `autocad_import_pdf` (**186** in all, with the other sessions' work): one page of a PDF as lines, text and
+One new Change tool, `autocad_import_pdf` (**191** in all, with the other sessions' work): one page of a PDF as lines, text and
 hatches, at a point, scale and rotation, on one layer, with a report of what came in. No API exists
 (COM or .NET), so it types `-PDFIMPORT` with every answer in one AutoLISP form, through the sender
 `autocad_run_lisp` uses (now `advanced.send_lisp_pieces`): snaps off, a command still asking is
 cancelled and named, one undo step. It checks the release (2021-2027), the file and the page count
 first, and puts back every variable it sets. Server only, no plug-in change. Offline tests:
-`tests/test_pdf_import.py`. Limits: [05 §35](05-known-limits.md#35-pdf-import-has-its-own-limits).
+`tests/test_pdf_import.py`. Limits: [05 §36](05-known-limits.md#36-pdf-import-has-its-own-limits).
 
 **Next (on this PC):** pull, restart Claude (server only), then live rows AO1-AO9. **AO1 first**:
 type `-PDFIMPORT` by hand on a two-page and a one-page PDF and write the prompts down. The six
 questions were read from Autodesk's help through a search only, and whether a one-page PDF still
 asks for the page is not known; if it differs, the fix is `command_form` in `acad/pdf_import.py`.
 AO9 says what scale 1 means, so the help can say it plainly.
+
+## Earlier - 2026-11-21 (overkill, boundary, eTransmit, underlays and clips: #112, #104, #118, #114)
+
+Five new tools, built and tested offline only: `autocad_overkill` (geometry in `acad/overkill.py`),
+`autocad_trace_boundary` (plug-in `trace_boundary`, `Editor.TraceBoundary`, never the typed
+command), `autocad_etransmit` (Publish; plug-in `list_dependencies`, packing in
+`acad/transmittal.py`), `autocad_attach_underlay` and `autocad_clip_reference` (plug-in
+`attach_underlay`, `clip_reference`; images over COM). The plug-in builds for net48, net8 and net10
+here, but nothing has run in AutoCAD: rows AD1-AD12, all NOT RUN. Versions not bumped (the parent
+does): the plug-in parts need the release after 1.7.0. D-84, D-85; known limits §35. The ribbon
+coverage page (docs/12) still lists Boundary and Overkill as gaps in its Home rows, left for the
+parent so as not to collide with the 2D-edit session's rows.
 
 ## Earlier - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
 
@@ -32,10 +44,10 @@ when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Ve
 
 ## Earlier - 2026-11-21 (the live-check runner covers the new groups, D-118)
 
-`tools/live_check.py` now measures 188 rows (122 new, in groups M-Z, AA-AP, RV) and names the
-reason for the other 166 of its groups. One file per area: `live_check_edits.py` (AA),
+`tools/live_check.py` now measures 194 rows (128 new, in groups M-Z, AA-AP, RV) and names the
+reason for the other 174 of its groups. One file per area: `live_check_edits.py` (AA),
 `live_check_layers.py` (AB), `live_check_blocks.py` (AC, Y), `live_check_render.py` (AE),
-`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
+`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_ribbon2.py` (AQ), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
 a bad recorded answer into each check. Nothing has run in AutoCAD: every row is still NOT RUN.
 
 **Next (on this PC):** pull, restart Claude, press Heron, turn Changes on in Settings (Ask to Keep

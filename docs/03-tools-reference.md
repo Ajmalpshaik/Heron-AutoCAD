@@ -80,7 +80,17 @@ reply gives the paper height. An annotative dimension is not given the drawing's
 | `autocad_attach_xref` | XATTACH a .dwg: name from the file, insertion, scale, rotation, `overlay`. A name already in the drawing is refused. `autocad_list_blocks` lists xrefs with their paths |
 | `autocad_manage_xref` | `reload`, `unload`, `detach`, `bind` (names kept apart, NAME$0$...) or `insert` (names merged). Detach and both binds need `confirm=true` |
 | `autocad_xref_tree` | **Read.** Every xref with the xrefs inside it (8 levels), its saved path, the file found on this PC and `loaded` / `unloaded` / `not found`; `broken` lists the ones that lead nowhere ([11](11-adn-repos-study.md)) |
+| `autocad_attach_underlay` | Attach a raster image (PNG, JPG, TIF...) over COM, or a PDF / DWF / DGN underlay by the plug-in: insertion, scale, rotation, `page` (PDF page, DWF sheet, DGN model), layer; `width` sizes an image in drawing units ([D-84](DECISIONS.md)) |
+| `autocad_clip_reference` | Clip an xref, a block, an image or an underlay to two corners or a closed polyline (arcs in short steps); `remove=true` takes the clip off. Image over COM, the rest by the plug-in |
 | `autocad_import_pdf` | PDF Import: one page of a PDF as lines, text and hatches (`what`), at a point, scale and rotation, everything on `layer` if given; reports what came in (`by_type`, `box`, `layers_added`). No API exists: it types `-PDFIMPORT` with every answer in one form, after checking the release (2021-2027), and cancels a command left asking. Pictures in the PDF are left out ([D-106](DECISIONS.md); live rows AO, NOT RUN) |
+
+## Cleaning up an import, and packing a drawing (Change; eTransmit is Publish)
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_overkill` | Change | OVERKILL: doubled and overlapping lines, arcs and circles, zero-length lines, copies of polylines, loose lines lying on a polyline. The first call lists by handle what would go and why, with a `plan_id`; `confirm=true` with that `plan_id` erases and stretches exactly that in one undo step (nothing, if the drawing changed), then Heron's erase question asks the modeller. Polylines are never broken: overlaps on them are listed under `left` ([D-84](DECISIONS.md)) |
+| `autocad_trace_boundary` | Change | BOUNDARY / BPOLY round a point, by the plug-in's `Editor.TraceBoundary`, never typed: zooms to a `window` first, counts what is in it (refused over `most_objects`), waits at most `timeout` s. A polyline per loop, or one region with the islands cut out; returns the handle and area |
+| `autocad_etransmit` | Publish | eTransmit: the saved drawing with its xrefs (nested too), images, underlays, font files and plot styles in one .zip or folder beside it, with `transmittal report.txt`; what was not found is listed under `missing`. An unsaved drawing is refused; `list_only=true` writes nothing ([D-85](DECISIONS.md)) |
 
 ## Custom hatch patterns and linetypes (Publish)
 

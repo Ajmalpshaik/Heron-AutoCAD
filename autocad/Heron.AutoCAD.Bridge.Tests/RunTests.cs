@@ -173,6 +173,8 @@ public class RunTests
     {
         Assert.True(PluginOperations.TryLevel("solid_topology", out var read));
         Assert.Equal(Risk.Read, read);
+        Assert.True(PluginOperations.TryLevel("list_dependencies", out var files));
+        Assert.Equal(Risk.Read, files);
         Assert.True(PluginOperations.TryLevel("show", out var show));
         Assert.Equal(Risk.View, show);
         foreach (var name in new[] { "current_view", "list_lights" })
@@ -180,7 +182,7 @@ public class RunTests
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Read, level);
         }
-        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material", "switch_lights", "set_sun", "add_camera_view", "sync_attributes", "excel_table", "update_table_links", "flat_views", "section_plane", "loft_surface", "planar_surface", "network_surface", "add_mesh", "multileader_style", "table_style" })
+        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material", "switch_lights", "set_sun", "add_camera_view", "sync_attributes", "excel_table", "update_table_links", "flat_views", "section_plane", "loft_surface", "planar_surface", "network_surface", "add_mesh", "multileader_style", "table_style", "attach_underlay", "clip_reference", "trace_boundary" })
         {
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Change, level);

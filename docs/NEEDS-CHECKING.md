@@ -9,7 +9,7 @@
 `tools/install_plugin.py`), start AutoCAD, open a scratch drawing, and connect Claude Code in this
 folder.
 
-**Many rows run themselves** (groups D, E, F, M to Z, AA to AP, RV; D-118). With AutoCAD open,
+**Many rows run themselves** (groups D, E, F, M to Z, AA to AQ, RV; D-118). With AutoCAD open,
 Heron pressed, **Changes on in Settings** and Ask to Keep off:
 
 ```bash
@@ -890,6 +890,29 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 | AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
 | AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
 | AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
+
+## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 for issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+[05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
+Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
+parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and
+the server restarted. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AD1 | Open an architect's DWG exported from Revit. `autocad_overkill` (no confirm), then `autocad_show` on three of the listed handles | A list by handle with reasons; the shown ones really lie on the kept line; the drawing is unchanged (nothing in Ctrl+Z, no erase question) | NOT RUN |
+| AD2 | Same options with `confirm=true`; answer the erase question "keep them erased"; then Ctrl+Z once | Erased and stretched as listed; one undo step; the question names the count; Ctrl+Z brings every line back as it was. Again answering "bring them back": the erased lines return, the stretched ones stay stretched | NOT RUN |
+| AD3 | `autocad_attach_underlay` a PNG with `width=42000`; a PDF with `page='2'`; a DWF without `page`; a DGN | The image is 42000 wide (LIST); page 2 of the PDF shows at the insertion point, scale and rotation asked; DWF and DGN show (write which sheet / model the DWF took); each on the layer asked; one undo step each | NOT RUN |
+| AD4 | `autocad_clip_reference` the image to two corners, then `remove=true` | Only the inside of the rectangle shows; the clip comes off and the whole image shows | NOT RUN |
+| AD5 | An xref attached at 5000,2000, scale 2, rotation 30. Draw a closed polyline with one arc over part of it; clip the xref to it. Then XCLIP > Generate polyline | The xref shows only inside the polyline; XCLIP's generated outline lies on the drawn one (arc in short steps) | NOT RUN |
+| AD6 | A PDF underlay rotated 45, scale 0.5: clip it to a rectangle, then `remove=true` | The clip lies on the rectangle in the world (not shifted, not turned); remove shows the whole sheet | NOT RUN |
+| AD7 | On the big plan that hung -BOUNDARY: `autocad_trace_boundary` inside one room with a `window` round it. Time it. Then the same with no window, zoomed to extents | With the window: the outline in a few seconds, area as LIST gives, the view back where it was, no BOUNDARY on the command line. Zoomed out with no window: refused over most_objects, nothing traced. Also write whether a room outside the window but on screen before the zoom changed the result | NOT RUN |
+| AD8 | A room with a column inside: trace with `islands=true`, then `make='region'` | Polyline: outline + one island, `net_area` = outline - column. Region: one region with the hole, its area = `net_area` | NOT RUN |
+| AD9 | On the big plan, trace with `timeout=1` and a window round the whole floor (raise `most_objects`) | Heron says it stopped waiting after 1 s; when AutoCAD finishes, at most one outline is made; a second call is not run twice | NOT RUN |
+| AD10 | A saved drawing with a nested xref, a JPG, a PDF underlay, an SHX text style and a .ctb: `autocad_etransmit`. Unzip it on another PC (or rename the project folder) and open the drawing | The zip holds the drawing, both xrefs, the image, the PDF, the .shx, PlotStyles/x.ctb and the report; on the other PC every xref, image, underlay and font is found from the drawing's folder | NOT RUN |
+| AD11 | `autocad_etransmit` on an unsaved drawing; on a saved one with Publish off; with `list_only=true` | Unsaved: refused, "save it first". Publish off: refused naming Publish, no file. list_only: the list, no file written | NOT RUN |
+| AD12 | With the 1.7.0 plug-in still installed: attach a PDF, clip an xref, trace a boundary, eTransmit | Each says the plug-in does not have the operation and to update it; nothing changes in the drawing | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

@@ -32,6 +32,8 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `AssociativeArrays.cs` | ARRAY's associative path, grid and ring array, checked against `Bridge/ArrayPlan.cs` before it is kept (D-110) |
 | `GeoLocation.cs` | The drawing's geographic location (GeoLocationData), proved with AutoCAD's own transform; the checks are `Bridge/GeoPlace.cs` (D-111) |
 | `RenderSetup.cs` | Photometric lights and materials made from their settings ([D-42](../docs/DECISIONS.md)) |
+| `References.cs` | PDF / DWF / DGN underlays attached; an xref, block or underlay clipped; the files a drawing needs for eTransmit, found with AutoCAD's own search ([D-84](../docs/DECISIONS.md), [D-85](../docs/DECISIONS.md)) |
+| `Boundary.cs` | BOUNDARY without typing it: `Editor.TraceBoundary`, zoomed to a window, objects counted first ([D-84](../docs/DECISIONS.md)) |
 | `IdleQueue.cs` | Gets pipe-thread work onto AutoCAD's main thread through `Application.Idle` |
 | `DrawingWatch.cs` | AutoCAD's document events (opened, came to the front, saved, closed) into the drawing events log, as they happen ([D-98](../docs/DECISIONS.md)) |
 | `UndoSwitch.cs` | Undo recording off while a read runs, back on after, with safety nets (rules: `Bridge/UndoPause.cs`, [D-34](../docs/DECISIONS.md)) |
