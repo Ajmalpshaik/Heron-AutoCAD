@@ -283,6 +283,44 @@ def _dim_scale(doc: Any) -> float:
         return 0.0
 
 
+def stored_name(names: Sequence[str], wanted: str) -> str | None:
+    """The name as the drawing stores it, matched without case, or None when it is not there."""
+    key = str(wanted).strip().casefold()
+    return next((str(n) for n in names if str(n).strip().casefold() == key), None)
+
+
+def scale_to_write(dim_style: str | None, annotative: bool, drawing_scale: float) -> float | None:
+    """The ScaleFactor each new dimension gets, or None to leave it alone (#37, D-80).
+
+    A dimension made over COM does not pick up the drawing's DIMSCALE, so
+    without a style it is given that. A named style carries its own DIMSCALE,
+    and writing the drawing's over it would hide it; an annotative dimension
+    is sized by its annotation scales, not by DIMSCALE. Both are left alone.
+    """
+    if dim_style or annotative or drawing_scale <= 0:
+        return None
+    return drawing_scale
+
+
+def find_dim_style(doc: Any, wanted: str) -> str:
+    """The drawing's own name for a dimension style, or a refusal naming what there is."""
+    names: list[str] = []
+    try:
+        for i in range(doc.DimStyles.Count):
+            names.append(str(doc.DimStyles.Item(i).Name))
+    except BaseException as exc:  # noqa: BLE001 - say so rather than draw with the wrong style
+        raise AutocadError(f"Could not read the drawing's dimension styles ({com_message(exc)}). Nothing was drawn.") from exc
+    found = stored_name(names, wanted)
+    if found is None:
+        listed = ", ".join(sorted(names, key=str.lower)[:20]) or "none"
+        raise AutocadError(
+            f"This drawing has no dimension style called '{wanted}' (it has: {listed}). "
+            "autocad_list_styles lists them, autocad_create_styles makes one, and "
+            "autocad_import_from_drawing brings one in. Nothing was drawn."
+        )
+    return found
+
+
 def ordinate_refusal(datum_world: Sequence[float], now: Any, coords: str) -> str | None:
     """Why an ordinate run cannot be drawn as asked, or None when it can.
 
@@ -408,6 +446,17 @@ async def autocad_dimension_run(
         Field(default=False, description="Report the run it would lay out — every dimension's points, text position and value — and draw nothing."),
     ] = False,
     coords: Annotated[str, COORDS_OPT] = "world",
+    dim_style: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description=(
+                "A dimension style already in the drawing, by name, e.g. 'DIM-1-5' for a 1:5 "
+                "detail on a 1:50 sheet. Every dimension in the run takes it, with the style's "
+                "own scale. Omit to use the current style and the drawing's DIMSCALE."
+            ),
+        ),
+    ] = None,
 ) -> str:
     """Dimension a whole run of features in one call: a chain, a baseline set, or ordinates.
 
@@ -420,7 +469,8 @@ async def autocad_dimension_run(
     reported — so a run that does not add up shows itself.
 
     One undo step. Each dimension takes the drawing's current dimension style
-    and its DIMSCALE.
+    and its DIMSCALE, or, with dim_style, that style and the style's own scale:
+    the drawing's current style and DIMSCALE are not touched either way.
 
     Args:
         points (list[list[float]]): the feature points.
@@ -436,6 +486,7 @@ async def autocad_dimension_run(
         space (str): 'model' or 'paper'.
         dry_run (bool): report the layout, draw nothing.
         coords (str): 'world' or 'ucs'.
+        dim_style (Optional[str]): a dimension style in the drawing, for this run.
 
     Returns:
         str: JSON: {
@@ -443,7 +494,9 @@ async def autocad_dimension_run(
           "dimensions": [{"kind", "point1", "point2", "text_position",
                           "expected", "measured", "handle", "row"}],
           "total": float,          # the run end to end
-          "failed": [{"index", "reason"}]
+          "failed": [{"index", "reason"}],
+          "dim_style": str,        # with dim_style: the style, as the drawing names it
+          "style_scale": float     # with dim_style: the scale the first dimension took from it
         }
 
     Examples:
@@ -453,10 +506,14 @@ async def autocad_dimension_run(
           mode='baseline'.
         - Use when: "ordinate dimensions from the setting-out point" —
           mode='ordinate', datum the corner.
+        - Use when: "dimension the 1:5 detail with the DIM-1-5 style" —
+          dim_style='DIM-1-5'; no need to change DIMSCALE part-way through.
         - Don't use when: it is one dimension (autocad_add_dimension), or a
           radius, diameter or angle (same tool).
 
     Error Handling:
+        - A dim_style the drawing does not have is refused before anything is
+          drawn, naming the styles it has.
         - Points that land on top of each other along the axis are skipped
           rather than making a zero dimension; if none are left, that is said.
         - A dimension AutoCAD rejects is reported in "failed" with its index;
@@ -480,6 +537,7 @@ async def autocad_dimension_run(
                     {**entry, "expected": round(entry["measurement"], 6)} for entry in plan
                 ],
                 "total": round(sum(e["measurement"] for e in plan if e["kind"] == "chain"), 6),
+                **({"dim_style": dim_style} if dim_style else {}),
                 "hint": "Nothing was drawn. Call again with dry_run=false.",
             }
         )
@@ -492,8 +550,13 @@ async def autocad_dimension_run(
             refusal = ordinate_refusal(world_coords(plan[0]["datum"], ucs), current_ucs(doc), coords)
             if refusal:
                 raise AutocadError(refusal)
+        # Checked before anything is drawn: an unknown style is a refusal, not
+        # a run of wrongly sized dimensions (#37).
+        style_name = find_dim_style(doc, dim_style) if dim_style else None
         target = get_space(doc, space)
-        scale = _dim_scale(doc)
+        drawing_scale = _dim_scale(doc)
+        scale = scale_to_write(style_name, False, drawing_scale)
+        style_scale: float | None = None
         rows: list[dict[str, Any]] = []
         failed: list[dict[str, Any]] = []
 
@@ -507,12 +570,31 @@ async def autocad_dimension_run(
                     failed.append({"index": entry["index"], "kind": entry["kind"],
                                    "reason": com_message(exc)})
                     continue
+                if style_name:
+                    # Per dimension, never by making the style current: putting the old
+                    # style back afterwards would wipe the DIMSCALE overrides that
+                    # autocad_drawing_setup left on it (#37).
+                    try:
+                        dim.StyleName = style_name
+                    except BaseException as exc:  # noqa: BLE001 - a wrongly styled dimension is not kept
+                        failed.append({"index": entry["index"], "kind": entry["kind"],
+                                       "reason": f"it would not take the style {style_name} ({com_message(exc)}), so it was not kept"})
+                        try:
+                            dim.Delete()
+                        except BaseException:  # noqa: BLE001 - reported above either way
+                            pass
+                        continue
+                    if style_scale is None:
+                        try:
+                            style_scale = round(float(dim.ScaleFactor), 6)
+                        except BaseException:  # noqa: BLE001 - only a report
+                            pass
                 if text_override:
                     try:
                         dim.TextOverride = text_override
                     except BaseException:  # noqa: BLE001 - the value still reads correctly
                         pass
-                if scale > 0:
+                if scale is not None:
                     try:
                         dim.ScaleFactor = scale
                     except BaseException:  # noqa: BLE001 - keep the style's own size
@@ -549,8 +631,11 @@ async def autocad_dimension_run(
             "dimensions": rows,
             "total": round(sum(r["expected"] for r in rows if r["kind"] == "chain"), 6),
             "failed": failed,
-            "dim_scale": scale or None,
+            "dim_scale": scale,
         }
+        if style_name:
+            result["dim_style"] = style_name
+            result["style_scale"] = style_scale
         off = [r for r in rows if r["measured"] is not None and abs(r["measured"] - r["expected"]) > 1e-6]
         if off:
             result["warning"] = (
