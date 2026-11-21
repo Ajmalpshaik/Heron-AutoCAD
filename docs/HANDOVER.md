@@ -8,7 +8,28 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (server answers #78-#82 merged, PR #124)
+## Latest - 2026-11-21 (why / gaps / question mode #88-#90 and #43 merged, PR #120)
+
+PR #120 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
+failed as on every PR, #34). Server only, no plug-in change; restart the server after pulling.
+- **D-67 (#88):** `autocad_why` (Read) finds the tool for a job and lists what is in the way,
+  worst first, with what to do. The plug-in version a tool needs is read from its own "plug-in
+  X or newer" docstring line. Logic in `acad/why.py`, tools in `tools/explain.py`.
+- **D-67 (#89):** `autocad_gaps` (Read) sums up the audit log (`core/audit.py` `summary`). The
+  gate now writes a `reason` word on a refused or failed call (`audit.reason_of`), never the
+  message.
+- **Both need no AutoCAD:** the gate runs them like `autocad_use_autocad`, audited but without
+  looking at AutoCAD (`gate.NO_AUTOCAD_TOOLS`).
+- **D-67 (#90):** `findtool.is_question` / `rank`: a question gets only Read tools as matches;
+  the rest go under `would_change_the_drawing`. "does" and "do" are left out on purpose.
+- **#43:** `audit_dir()` falls back to `~/AppData/Local/Heron/autocad/audit`. `bridges_dir()` in
+  `core/bridge.py` has the same pattern and is not fixed (the plug-in writes that folder).
+- PR #125 then set docs/12's tool count to 137; it is 138 on `main` since PR #122.
+
+**Next:** in AutoCAD 2027, run group W rows W1-W8 (all NOT RUN). Server version bump (suggested
+1.8.0) is still to do.
+
+## Earlier - 2026-11-21 (server answers #78-#82 merged, PR #124)
 
 PR #124 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
 failed as on every PR, #34). Server only, no plug-in change; restart the server after pulling.
@@ -188,7 +209,7 @@ their side. All gates green (2319 Python, 145 C#, 3 add-in builds). **Next:** cl
 | Sheets, UCS, shop drawings | **14 tools, server 1.2.0** (2026-10-26): the UCS, layouts, page setup, title blocks, viewports, saved locations, drawing settings and styles, remap layers, tidy an import, `autocad_sequence`. All the arithmetic and planning is tested offline; **everything COM touches is NOT RUN** | [09](09-sheets-and-coordinates.md), D-27 / D-28 / D-29, [NEEDS-CHECKING group D](NEEDS-CHECKING.md) |
 | Geometry, annotation, 3D | **12 tools, server 1.3.0** (2026-10-26): 24 named shapes, dimension runs, centre marks, multileaders, tables, revision clouds, solids, extrude / revolve, booleans, mass properties, 3D paths, 3D views. Plus polyline bulges and text justification in the batch. Geometry tested offline (402 tests); **everything COM touches is NOT RUN** | [10](10-geometry-annotation-3d.md), D-30 / D-31, [NEEDS-CHECKING group E](NEEDS-CHECKING.md) |
 | Proving it in AutoCAD | **`tools/live_check.py`** (2026-10-26): one command measures 65 of the 90 live rows in a scratch drawing it makes itself and writes the results here. The other 25 need an eye or depend on the machine and say so. **Not yet run on a real AutoCAD** | `tools/README.md`, [NEEDS-CHECKING](NEEDS-CHECKING.md) header |
-| Findability | **Measured, not assumed** (2026-10-26): every tool carries a `Use when` line, `autocad://tools` indexes them and `autocad://tools/find/{phrase}` searches them. 67 real phrases: 55 put the right tool first, all 67 in the top three | `tests/test_find_tool.py`, D-32 |
+| Findability | **Measured, not assumed** (2026-10-26): every tool carries a `Use when` line, `autocad://tools` indexes them and `autocad://tools/find/{phrase}` searches them. 97 real phrases (2026-11-21): 84 put the right tool first, all 97 in the top three; 13 question phrases each get a Read tool first (D-67) | `tests/test_find_tool.py`, D-32, D-67 |
 | The rest of 3D | **6 tools, server 1.6.0** (2026-10-26): oval primitives, sweep along a path, slice, clash detection, 3D move/rotate/mirror/array, materials, render. The plane arithmetic is tested offline; **everything COM touches is NOT RUN** | [NEEDS-CHECKING group F](NEEDS-CHECKING.md), D-33 |
 | Plug-in (C#) | Ribbon, padlocks, banner, Bridge Status, Keep or Discard, 6 commands. Builds for net48 / net8 / net10 with 0 warnings | `dotnet build`; bridge tests green incl. real Python <-> C# |
 | Plug-in live in AutoCAD | **2027: 18 rows PASS on 2026-10-26**, A21 fixed and PASS (D-21), 6 rows still NOT RUN. 2021-2026: no machine | [NEEDS-CHECKING](NEEDS-CHECKING.md) group A |

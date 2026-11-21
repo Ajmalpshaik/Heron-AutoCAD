@@ -4,6 +4,19 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Why a job cannot run, what failed and was slow, and questions get a read tool (2026-11-21,
+  PR #120).** `autocad_why` takes one job in plain words and says the real reason it cannot run,
+  worst first, with what to do: no tool, the plug-in not installed, nothing connected, two
+  AutoCADs and none picked, server and plug-in from different releases, a plug-in older than the
+  tool needs, a padlock off ([D-67](docs/DECISIONS.md), #88). `autocad_gaps` sums up the last
+  1-90 days of Heron's audit log: calls per tool, failures by plain reason, the slowest jobs;
+  drawings by file name only, no contents (#89). Both answer with AutoCAD closed. A refused or
+  failed call's audit line now carries a reason word from a fixed list, never the message.
+  `autocad://tools/find` gives a plain question ("how many...", "what...", "is there...") only
+  tools that read; change tools are listed apart (#90): 84 of 97 measured phrases first (was 80).
+  The audit folder no longer becomes relative when `%LOCALAPPDATA%` is unset (#43). Live rows
+  W1-W8 NOT RUN.
+
 - **How a change job answers and what it keeps (2026-11-21, PR #124).** A chat Claude reopens
   after a restart keeps its hold: the server takes Claude Code's own chat id, hashed; scripts stay
   their own chat ([D-61](docs/DECISIONS.md), #78). Every change answer now starts with one plain
