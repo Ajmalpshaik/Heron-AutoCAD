@@ -692,6 +692,29 @@ is back as it was (one undo step). **Every row below is NOT RUN.**
 | AO9 | Scale: import a 1:100 A1 PDF of a mm drawing at `scale=1`, measure one known dimension with `autocad_measure`, work out the scale that makes it true, import again with it | Write the scale that was right here (it says how AutoCAD sizes a page at 1), so the tool's help can say it plainly | NOT RUN |
 | AO10 | On AutoCAD 2025 or 2026, and on 2021-2024: AO1 and AO2 | Same prompts and result | NO MACHINE |
 
+## Group AP - The smaller draw gaps: construction line and ray, region, donut, divide / measure (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-108](DECISIONS.md); issues #173, #174, #177, #181, part 1 of #119). Built and
+tested offline only (`tests/test_draw_extra.py`). Server only, no plug-in change: restart the server
+after pulling. Scratch drawing, `autocad_status` first. After each row press **Ctrl+Z once** and
+check the drawing is back as it was (one undo step). The COM calls and the DIVIDE / MEASURE rules
+were not checked against Autodesk's reference (D-108); each row compares with AutoCAD's own command.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AP1 | `autocad_add_construction_line(base=[1000,1000], angle=90)`; then `kind='ray'`, `base=[0,0]`, `through=[300,400]`; then the same in paper space with a sheet tab active (`space='paper'`) | A vertical XLINE through 1000,1000 (LIST says Xline, base point 1000,1000, unit direction 0,1); a RAY from 0,0 towards 300,400 only; the paper one on the sheet. `verified: true` each | NOT RUN |
+| AP2 | A closed polyline 1000 x 500: `autocad_add_region(handles=[it])` | One region (LIST says Region), area 500000, perimeter 3000, centroid 500,250 (MASSPROP agrees); **the polyline is still there** (record it: does COM's AddRegion keep the outline, whatever DELOBJ says?) | NOT RUN |
+| AP3 | Four lines meeting end to end in a square, plus a circle elsewhere: `autocad_add_region(handles=[all five], erase_outlines=true)` | Two regions; the four lines and the circle erased after the modeller's yes (D-50); one Ctrl+Z brings them back and takes the regions away. Then add one loose open line to the handles: **record whether AddRegion ignores it** (Heron erases every outline given, so it goes too). An outline on a locked layer with erase_outlines: refused before any region is made | NOT RUN |
+| AP4 | An open polyline; then a text: `autocad_add_region` on each | The polyline: refused with "no region" and AutoCAD's own words, nothing made; the text: refused before AutoCAD is asked | NOT RUN |
+| AP5 | `autocad_add_donut(centers=[[0,0],[500,0]], outside_diameter=150, inside_diameter=100)`; then `outside_diameter=30` (a dot) at 1000,0. Beside them, AutoCAD's own DONUT with the same sizes | Rings and a dot that look the same as DONUT's (LIST of each: closed polyline, 2 vertices, constant width 25 and 15); with FILLMODE 0 the answer has the note and they show as outlines | NOT RUN |
+| AP6 | A line 0,0 to 1000,0: `autocad_divide_curve(segments=4)`; then AutoCAD's own DIVIDE 4 on a copy | Points at 250, 500, 750 (none on the ends), the same as DIVIDE's; with PDMODE 0 the answer has the point-style note | NOT RUN |
+| AP7 | A circle r=100 at 0,0 and a closed rectangle: `autocad_divide_curve(segments=4)` on each; compare DIVIDE 4 on copies | The circle: 4 points at 0, 90, 180, 270 degrees (100,0 first); the rectangle: 4 points, the first on its first vertex. **Record whether DIVIDE on a closed object also puts N points with one on the start**, and where DIVIDE starts on a circle | NOT RUN |
+| AP8 | A line 0,0 to 1000,0: `autocad_divide_curve(interval=300)`, then `interval=250`, then `interval=300, from_end=true`; compare MEASURE 300 and 250 picked near the start, and 300 near the end | 300, 600, 900 (left_at_end 100); 250, 500, 750 (left_at_end 0, no point on the end); 700, 400, 100. **Record whether MEASURE puts a point exactly on the end at 250** | NOT RUN |
+| AP9 | An L-shaped polyline at elevation 2700 (0,0 -> 600,0 -> 600,600), a block SUPPORT with an arrow along +X: `autocad_divide_curve(interval=500, block_name='SUPPORT', layer='M-SUPPORT')`; then MEASURE Block SUPPORT aligned on a copy | Two supports at 500,0 and 600,400, z 2700, turned 0 and 90 degrees, on M-SUPPORT, matching MEASURE's. With `from_end=true`: record whether MEASURE turns blocks the other way when counted from the far end | NOT RUN |
+| AP10 | A line drawn in a UCS tilted out of plan, and a line sloping in Z: `autocad_divide_curve(segments=2)` on each; a polyline in paper space on a sheet | The first two refused plainly, nothing placed; the paper-space one gets its points on that sheet | NOT RUN |
+| AP11 | AutoCAD 2025 / 2026 and 2021-2024 builds: AP1, AP2, AP5, AP6 | As in AutoCAD 2027 | NO MACHINE |
+
 ## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-102](DECISIONS.md), issue #41). Built and tested offline only
@@ -784,6 +807,14 @@ and the server restarted. **Every row below is NOT RUN.**
 | AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, on layer 0 (no `layer`: a new layer is made over COM, in whichever drawing is in front, [#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)); press Ctrl+Tab to b.dwg while it runs | The steps after the switch are refused: "The drawing in front changed while this job ran ... so Heron typed none of this input"; nothing from Heron lands in b.dwg; a.dwg has the steps before the switch | NOT RUN |
 | AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
 | AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
+
+## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| RV1 | Admin on. `autocad_send_command` with `expect_box` / `press` on a box that never comes; close the chat (stop the server) before the command ends; then, with no Heron job running, open a box yourself (e.g. OPTIONS) | Heron leaves your box alone; `addin-*.log` shows no "dialog watch" line for it | NOT RUN |
+| RV2 | `autocad_export_attribute_sheet`, then in Excel type `0051` and `1:100` over two values, save, `autocad_apply_attribute_sheet` | The attributes read `0051` and `1:100` exactly; nothing listed in `excel_converted` | NOT RUN |
+| RV3 | `autocad_sequence` with steps `[autocad_switch_drawing, autocad_draw_line]` | Refused naming step 1; nothing drawn in either drawing | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

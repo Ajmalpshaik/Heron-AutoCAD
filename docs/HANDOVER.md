@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (PDF Import, #113, D-106)
 
-One new Change tool, `autocad_import_pdf` (**176** in all, with the other sessions' work): one page of a PDF as lines, text and
+One new Change tool, `autocad_import_pdf` (**180** in all, with the other sessions' work): one page of a PDF as lines, text and
 hatches, at a point, scale and rotation, on one layer, with a report of what came in. No API exists
 (COM or .NET), so it types `-PDFIMPORT` with every answer in one AutoLISP form, through the sender
 `autocad_run_lisp` uses (now `advanced.send_lisp_pieces`): snaps off, a command still asking is
@@ -23,6 +23,29 @@ type `-PDFIMPORT` by hand on a two-page and a one-page PDF and write the prompts
 questions were read from Autodesk's help through a search only, and whether a one-page PDF still
 asks for the page is not known; if it differs, the fix is `command_form` in `acad/pdf_import.py`.
 AO9 says what scale 1 means, so the help can say it plainly.
+
+## Earlier - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
+
+A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
+SECURITY, PROJECT-MAP, 06), D-87 and D-67 notes, sequence steps that switch drawing or undo, the
+dialog watch's lost jobs, four Excel read / write faults, and three tests that passed for the wrong
+reason. Filed, in areas other sessions are changing: #189-#191 and #206-#212. Live rows: Group RV, NOT RUN.
+
+**Next:** the filed issues, highest first: #206 (palette Undo), #207 (batch text escape), #208
+(bring-them-back after join / explode), #211 (check list PASS on failed reads).
+
+## Earlier - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
+
+Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+(xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
+`autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
+(DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
+`tests/test_draw_extra.py`. Server only, no plug-in change. #119 stays open for its parts 2 and 3.
+
+**Next (on this PC):** pull, restart Claude, then live rows AP1-AP10. AP2 (does AddRegion keep the
+outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
+when counted from the end) are the answers the code could not get from Autodesk's reference. Not
+built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
 
 ## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
 

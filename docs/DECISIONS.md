@@ -166,6 +166,63 @@ banner on, because the banner is what shows the modeller that Heron is working.
 - **By hand**, if a row fails: Insert > Import > PDF Import, pick the file and the page, untick
   Specify insertion point on-screen or pick it, set the layers option, OK.
 
+## D-116 - What the review of the 2026-11-21 merges changed, and what it left to issues
+
+**Decided:** 2026-11-21, review of PRs #99 onward (PR #186). **Status:** in force; adds to D-29, D-66,
+D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158).
+- **A sequence step may not move the work** (D-29): `autocad_switch_drawing`, `open_drawing`,
+  `create_drawing`, `check_folder`, `use_autocad` and `undo_last` are refused as steps, before
+  anything runs. Inside a sequence the gate checked one drawing and put its UNDO mark there, so a
+  later step must land in that drawing; `undo_last` as a step would take back the sequence's own work.
+- **The dialog watch forgets a job whose end never came** (D-66, D-74): a new job's begin drops an
+  earlier one (one job runs at a time in an AutoCAD), and a job older than 20 minutes stops counting.
+  Before, a server stopped mid-job left the watch on outside any job and an Admin job's named
+  button armed for later jobs.
+- **Excel** (D-69, D-75): an error cell (`#N/A`) is never written; exported data cells are formatted
+  as Text, so Excel keeps what the modeller types ("0051", "1:100"); a row is named by its Excel row
+  number; a cell reference with no column letter is refused, as D-75 already said.
+- **Checks that could pass for the wrong reason:** the tool-finder floors are back at the margin
+  their comment states, a tool listed under two levels in `core/risk.py` fails the structure check,
+  and the folder-close test now reaches the code it tests.
+- **Left to issues, in areas other sessions are changing:** #189-#191 and #206-#212 (the palette
+  Undo's guessed mark and the batch text escape first). Live rows: Group RV (NOT RUN).
+
+## D-108 - Construction lines, regions, donuts, divide and measure: COM where it has a call, Heron's maths where not
+
+**Decided:** 2026-11-21, part 1 of issue #119 (the smaller ribbon gaps), split into #173, #174,
+#177 and #181. **Status:** in force. Four Change tools in a new file, `tools/draw_extra.py`, so the
+`autocad_draw_*` tools and the batch are left alone. Not named `autocad_draw_*` for the same reason.
+- **Construction line and ray** (`autocad_add_construction_line`, `kind` xline or ray): COM
+  `AddXline` / `AddRay`, base point plus a second point. Given an angle, the second point is one
+  unit along it. XLINE's own Offset and Bisect options are not built: offset an xline with
+  `autocad_offset_entities`, and a bisector is two points the AI can work out.
+- **Region** (`autocad_add_region`): COM `AddRegion` on the outlines' own space, one region per
+  closed loop. Only lines, arcs, circles, ellipses, splines and polylines are sent; text, blocks and
+  the rest are refused before AutoCAD is asked. The outlines **stay** unless `erase_outlines`
+  (REGION's DELOBJ is not read: a tool's result should not change with a setting the modeller cannot
+  see). With `erase_outlines`, every outline given is erased, and one on a locked layer is refused before anything is made. Holes are cut afterwards with `autocad_solid_boolean` subtract, which already takes regions.
+- **Donut** (`autocad_add_donut`): no COM call makes one, so Heron draws the object DONUT makes: a
+  closed lightweight polyline of two half-circle arcs (bulge 1 each), constant width
+  (outside - inside) / 2, run at radius (outside + inside) / 4. Inside 0 is a filled dot. Many
+  centres in one call, as DONUT keeps asking for centres; one undo step. FILLMODE 0 is said, not
+  changed.
+- **Divide / Measure** (`autocad_divide_curve`): no COM call either. The distances are Heron's maths
+  over the run's segments (`acad/geometry.py`, the same reading `autocad_place_along` uses), then
+  `AddPoint` or `InsertBlock` at each, in the run's own space. Heron's rules: DIVIDE on an open run
+  leaves both ends free (N parts, N - 1 marks); on a closed run the first mark is on its start, so N
+  marks. MEASURE starts at the start (or the end, `from_end`), puts no mark exactly on the far end,
+  and gives `left_at_end`. A block is turned to the run's own direction (`align`, on by default as
+  DIVIDE's "Align block with object? Yes"), not reversed by `from_end`. Lines, polylines, arcs and
+  circles only (what `read_path` reads); a sloping line or a run not flat in world plan is refused.
+  At most 2,000 marks a call, refused before any position is worked out; a layer name is checked
+  before anything is drawn. Splines and ellipses are not built: no tested reading of them as a
+  path yet. `autocad_place_along` stays the tool for equal ends.
+- **Not checked against Autodesk's reference (D-33).** The help site is blocked from the session
+  that built this, and there is no AutoCAD here, so the COM calls (`AddXline`, `AddRay`,
+  `AddRegion` and its return, `ConstantWidth`) and the DIVIDE / MEASURE rules above are from
+  knowledge. Live rows AP1-AP11 in [NEEDS-CHECKING](NEEDS-CHECKING.md) compare each with AutoCAD's
+  own command; all NOT RUN.
+
 ## D-102 - A full-sheet preview says what it covered, and can add close-ups
 
 **Decided:** 2026-11-21, for issue #41. **Status:** in force; extends D-04 (the plot route) and
@@ -408,8 +465,8 @@ own (it reads that argument as a wildcard filter); header extents at the origin 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
 change DEFAULTLIGHTING behind the modeller's back" stands: only `autocad_switch_lights` changes it,
 when asked in words. **None of these tools renders** (Ajmal's rule): they set lights, sun and
-exposure, and Ajmal presses Render. `autocad_render` (Admin, types `-render`) is still on main as
-the one exception; whether it stays is Ajmal's decision (#158).
+exposure, and Ajmal presses Render. `autocad_render` (Admin, types `-render`) was still on main as
+the one exception when this was written; it was removed the same day (#158, the last bullet below).
 - **List** (`autocad_list_lights`, plug-in `list_lights`, Read), like the Lights in Model palette:
   every light in model space, then in each block definition (not layouts, not xrefs), with handle,
   name, kind, on or off, intensity and its unit, Kelvin, layer, position, and for a light in a block
@@ -946,6 +1003,9 @@ its question mode; the code is this project's own.
   reasons that do not block, says it cannot see whether they are on, and never claims one is
   off. The refusal itself still names the padlock, and `autocad_gaps` counts it. A `dry_run`
   refusal (D-63) is logged with the reason word `no_dry_run`.
+- **Changed again the same day (#140):** the plug-in's `ping` now carries its padlocks, so
+  `autocad_why` asks the AutoCAD this chat works in and says which are on; only with no answer
+  does it fall back to naming them without guessing (D-59, "Added 2026-11-21, after the merge").
 
 Pinned by `tests/test_why_and_gaps.py` and `tests/test_find_tool.py`. Live rows: Group W.
 
