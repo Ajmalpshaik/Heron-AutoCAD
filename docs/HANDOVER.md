@@ -14,6 +14,19 @@ Follow-up to #48 on branch `claude/plugin-events-165`. Plug-in change: `begin` a
 `drawingSeq`. `autocad_sequence` checks between steps (`gate.front_changed_in_job`) and stops
 when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Versions not bumped.
 
+## Earlier - 2026-11-21 (the live-check runner covers the new groups, D-118)
+
+`tools/live_check.py` now measures 188 rows (122 new, in groups M-Z, AA-AP, RV) and names the
+reason for the other 166 of its groups. One file per area: `live_check_edits.py` (AA),
+`live_check_layers.py` (AB), `live_check_blocks.py` (AC, Y), `live_check_render.py` (AE),
+`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
+a bad recorded answer into each check. Nothing has run in AutoCAD: every row is still NOT RUN.
+
+**Next (on this PC):** pull, restart Claude, press Heron, turn Changes on in Settings (Ask to Keep
+off), close every chat using this AutoCAD, then `tools/live_check.py --group all --write`. Then once
+more with Admin and Publish on for the rows `--list` marks `[needs ...]`. Open: #213 (V1, V4, V7 need
+rewriting). A new group added to NEEDS-CHECKING makes `tests/test_live_check.py` name it until its
+rows are a check or a reason.
 ## Earlier - 2026-11-21 (the smaller ribbon gaps, part 2 of #119, D-110, D-111)
 
 Six new tools (**185** in all), split from #119 into #175, #176, #178, #179, #180:

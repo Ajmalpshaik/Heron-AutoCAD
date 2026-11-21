@@ -9,6 +9,13 @@ Newest first. Dates are when the change was made.
   so it stops, like HERONSTOP, so no later step lands in the other drawing ([D-98](docs/DECISIONS.md)).
   Live row AJ8 NOT RUN.
 
+- **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
+  measures 122 rows of groups M to Z, AA to AP and RV as well as D, E and F (188 in all), and gives
+  the other 140 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
+  or Ask to Keep on stops it, saying what to do; it never switches one. A row can need Admin or
+  Publish on or off; a NOT RUN reason never overwrites a result written by hand. Every new check is
+  tested offline against a good and a bad recorded answer (`tests/live_fakes.py`). Found: V1, V4 and
+  V7 cannot open their box as written (#213).
 - **Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (2026-11-21,
   #175, #176, #178, #179, #180; part 2 of #119).** Six new tools (**185** in all):
   `autocad_associative_array` (ARRAY's editable path, grid and ring array, by the plug-in, refused
