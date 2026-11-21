@@ -12,6 +12,7 @@
 | `test_standards.py` | No | Standards rules, attribute CSV, resources and prompts |
 | `test_checklists_qa.py` | No | Check lists: NO DATA, coverage, office and project lists, reports never overwriting, PASS wording (D-64, D-65) |
 | `test_plugin_bundle.py` | No | Bundle layout, PackageContents.xml, installer refusing while AutoCAD runs |
+| `test_folders.py` | No | Every Heron folder stays absolute with `%LOCALAPPDATA%` / `%APPDATA%` unset (#43, #134) |
 | `test_why_and_gaps.py` | No | `autocad_why`, `autocad_gaps`, the audit reason words, the audit folder fallback ([D-67](../docs/DECISIONS.md)) |
 | `test_structure.py` | No | `tools/check_structure.py` |
 | `test_live.py` | **Yes**, marked `live` | Real drawing round trips |

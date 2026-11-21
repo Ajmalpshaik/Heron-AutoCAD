@@ -8,7 +8,22 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the Revit batch is merged: server 1.8.0, plug-in 1.6.0; nothing live yet)
+## Latest - 2026-11-21 (autocad_why after D-59, and Heron's folders, #134)
+
+Follow-up to PR #120, server only, no version change.
+- **Bug fixed:** since D-59 (padlocks in AutoCAD's memory) `diagnose.report()` has no padlocks,
+  so `autocad_why` said every padlock was off. It now names the padlocks a job needs as
+  non-blocking reasons (`needs_changes`, `needs_publish`, `needs_admin`) and never claims one
+  is off (D-67, last bullet). Live row W2 rewritten to match.
+- A `dry_run` refusal (D-63) is audited with the reason word `no_dry_run`.
+- **#134:** `core/folders.py` (`local_app_data`, `roaming_app_data`, `heron_local`) is the one
+  place that reads `%LOCALAPPDATA%` / `%APPDATA%`; `tests/test_folders.py` fails if a module
+  builds a folder from the bare variable again. `tests/conftest.py` now also moves `%APPDATA%`
+  to a temp folder.
+
+**Next:** unchanged: build and install plug-in 1.6.0, then the live rows (W included).
+
+## Earlier - 2026-11-21 (the Revit batch is merged: server 1.8.0, plug-in 1.6.0; nothing live yet)
 
 Every PR from the seven cloud sessions is merged into `main`, on Ajmal's word: ribbon audit and
 install table (#99), dialog watch (#100), why / gaps / question mode (#120), padlocks in memory
