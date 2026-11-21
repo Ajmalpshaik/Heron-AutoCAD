@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Check lists for QA (2026-11-21, PR #122).** A check that cannot decide (no such title block,
+  xrefs unreadable, no text to compare, or only part of the drawing read) now says **NO DATA** and
+  never counts as a PASS; every run ends with a coverage line, "2 of 4 decided, 1 no data, 1 not
+  run" (#84). A project can lay changes over the office check list, but only severity, target and
+  on/off; each run names every check it used and whether it came from the office or the project
+  (#85). New tool `autocad_checklist_report` (Publish) saves a run as a new `.xlsx` and `.html`
+  next to the drawing, never overwriting an earlier one; no new package (#86). PASS means the
+  checked value is met against the named source, never "complies", in `autocad_checklist`,
+  `autocad_check_standards` and the new [DISCLAIMER.md](DISCLAIMER.md) (#87).
+  [D-64](docs/DECISIONS.md), [D-65](docs/DECISIONS.md). Live rows U1-U10 NOT RUN.
+
 - **A docked Heron palette: Activity and Saved commands (2026-11-21, PR #123).** `HERONPALETTE`,
   or Heron (arrow) -> **Heron palette**, opens one palette docked in AutoCAD, in Heron's window
   style ([D-68](docs/DECISIONS.md), #92, #93). **Activity** lists Heron's recent changes from every

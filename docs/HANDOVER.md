@@ -8,7 +8,25 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (docked Heron palette #92-#93 merged, PR #123)
+## Latest - 2026-11-21 (check lists for QA #84-#87 merged, PR #122)
+
+PR #122 was merged by Ajmal after CI `python` and `plugin` passed. Server only, no plug-in change;
+restart the server after pulling. 138 tools.
+- **D-64 (#84, #85, #87):** check list results are PASS, FAIL, **NO DATA** (could not decide; never a
+  PASS) and NOT RUN (switched off for this project), with a coverage line on every run. Office
+  lists stay in `%LOCALAPPDATA%\Heron\autocad\checklists`; a project's changes (severity, target,
+  on/off only) are kept per project folder in `checklists\projects`. PASS means the checked value
+  is met against the named source; no answer says "complies"; [DISCLAIMER.md](../DISCLAIMER.md).
+- **D-65 (#86):** `autocad_checklist_report` (Publish) saves a run as `.xlsx` + `.html` next to the
+  drawing, numbered ` (2)`, ` (3)`, never overwriting. The workbook is written without openpyxl.
+- **One test changed on purpose:** a missing title block is now NO DATA, not NOT RUN.
+
+**Next:** in AutoCAD 2027, run group U rows U1-U10 (all NOT RUN); U8 first (does Excel open the
+report without a repair message). Server version bump (suggested 1.8.0) is still to do.
+Possible later: share an office list from a network folder; keep project changes in the project
+folder so the team shares them.
+
+## Earlier - 2026-11-21 (docked Heron palette #92-#93 merged, PR #123)
 
 PR #123 was merged on Ajmal's word, after CI `python` and `plugin` passed (`review` was skipped,
 #34). Plug-in **and** server change: rebuild and reinstall the plug-in (AutoCAD closed), and
