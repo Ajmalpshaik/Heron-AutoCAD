@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive the NEEDS-CHECKING live rows against a real AutoCAD, and measure them.
 
-The register holds 67 rows that can only be proved inside AutoCAD. Most of them
+The register holds rows that can only be proved inside AutoCAD. Many of them
 are a measurement, not an opinion: a cone development's arcs must be exactly as
 long as the girths they roll onto; a 1:100 viewport must report a scale of 0.01;
 a box's base must sit on z=0. This runs those rows, **measures** them, and
@@ -9,25 +9,30 @@ writes the answer back into the register with its evidence.
 
     .venv\\Scripts\\python.exe tools/live_check.py --list
     .venv\\Scripts\\python.exe tools/live_check.py --group E
+    .venv\\Scripts\\python.exe tools/live_check.py --group AA,Z
     .venv\\Scripts\\python.exe tools/live_check.py --group all --write
 
 Everything happens in a **new drawing it creates for itself**, so the drawing
 you have open is never touched. It is closed without saving at the end.
 
-Press **Heron** in AutoCAD first and turn the **Changes** padlock on. A row the
-padlocks refuse is reported NOT RUN with that reason, not FAIL - a refusal is
-the gate working, not a bug.
+Press **Heron** in AutoCAD first, turn the **Changes** padlock on in Settings and
+leave Ask to Keep off: the runner reads the padlocks first and stops, saying so,
+if they are not so. It never switches one itself (D-59, D-118). A row that needs
+Admin or Publish on (or off) runs only when it already is; otherwise it is said,
+and its result in the register is left alone. A row the padlocks refuse is
+reported NOT RUN with that reason, not FAIL - a refusal is the gate working.
+
+Groups D, E and F are measured in this file; the later groups in one file per
+area (see live_common.py). Run it from a terminal, not while a chat is using
+this AutoCAD: never drive AutoCAD from two sessions at once.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import math
 import sys
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -36,9 +41,30 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from live_results import Outcome, apply_results, summarise  # noqa: E402
+import live_check_blocks  # noqa: E402
+import live_check_drawing  # noqa: E402
+import live_check_edits  # noqa: E402
+import live_check_heron  # noqa: E402
+import live_check_layers  # noqa: E402
+import live_check_mep3d  # noqa: E402
+import live_check_render  # noqa: E402
+import live_check_styles  # noqa: E402
+import live_common as lc  # noqa: E402
+from live_common import (  # noqa: E402
+    Check,
+    Context,
+    Failed,
+    Refused,
+    entity_count,
+    expect,
+    group_of,
+    near,
+    parse,
+    refusal,
+    variable,
+)
+from live_results import Outcome, apply_results, kept_by_hand, summarise  # noqa: E402
 
-from autocad_mcp.core.answers import body  # noqa: E402
 from autocad_mcp.core.connection import get_app, run  # noqa: E402
 from autocad_mcp.tools import (  # noqa: E402
     annotate,
@@ -62,77 +88,7 @@ from autocad_mcp.tools import (  # noqa: E402
 )
 
 REGISTER = ROOT / "docs" / "NEEDS-CHECKING.md"
-TOLERANCE = 1e-4
-
-
-class Failed(Exception):
-    """A row that did not measure up. The message is the evidence."""
-
-
-class Refused(Exception):
-    """A row the padlocks or the machine would not let run."""
-
-
-def parse(raw: str) -> dict[str, Any]:
-    """A tool result as data. An 'Error: ...' reply becomes the right exception.
-
-    A change job's answer starts with one plain line (DONE, REFUSED, ...: D-62): it is dropped here.
-    """
-    if not isinstance(raw, str):
-        return raw
-    raw = body(raw)
-    if raw.startswith("Error:"):
-        low = raw.lower()
-        if any(word in low for word in ("padlock", "press heron", "not connected", "admin", "publish")):
-            raise Refused(raw[7:].strip())
-        raise Failed(raw[7:].strip())
-    try:
-        return json.loads(raw)
-    except ValueError:
-        return {"text": raw}
-
-
-def expect(condition: Any, message: str) -> None:
-    if not condition:
-        raise Failed(message)
-
-
-def near(got: float | None, want: float, tol: float = TOLERANCE) -> bool:
-    return got is not None and abs(float(got) - float(want)) <= tol
-
-
-def refusal(raw: str) -> str:
-    """The message from a reply that must be a refusal; raises if it was allowed."""
-    raw = body(raw)
-    expect(isinstance(raw, str) and raw.startswith("Error:"), f"expected a refusal, got: {str(raw)[:120]}")
-    return raw[7:].strip()
-
-
-# ---------------------------------------------------------------------------
-# The scratch drawing
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class Context:
-    """What the checks share: the version, and a few things they pass along."""
-
-    version: str = "unknown"
-    store: dict[str, Any] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.store is None:
-            self.store = {}
-
-
-async def entity_count() -> int:
-    """Model-space entities, read from status so it costs no undo step."""
-    status = parse(await document.autocad_status())
-    return int((status.get("active_drawing") or {}).get("model_space_entities") or 0)
-
-
-async def variable(name: str) -> Any:
-    return parse(await document.autocad_get_variable(name=name)).get("value")
+TOLERANCE = lc.TOLERANCE
 
 
 # ---------------------------------------------------------------------------
@@ -1242,15 +1198,8 @@ async def f23_a_sequence_cannot_reach_an_admin_tool(ctx: Context) -> str:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class Check:
-    row: str
-    group: str
-    title: str
-    run: Callable[[Context], Awaitable[str]]
-
-
-CHECKS: tuple[Check, ...] = (
+# Groups D, E and F, measured here.
+OWN_CHECKS: tuple[Check, ...] = (
     Check("D1", "D", "status reports a rotated UCS", d1_status_reports_a_rotated_ucs),
     Check("D2", "D", "get_ucs matches UCSORG / UCSXDIR", d2_get_ucs_matches_the_system_variables),
     Check("D3", "D", "convert_points round trips", d3_convert_points_round_trips),
@@ -1325,7 +1274,7 @@ CHECKS: tuple[Check, ...] = (
 
 # Rows the register holds that only an eye can answer, said plainly rather than
 # left looking un-run for no reason.
-BY_EYE: dict[str, str] = {
+OWN_BY_EYE: dict[str, str] = {
     "D11": "which sheet sizes a plotter offers depends on the plotter installed",
     "D12": "needs your own title block .dwg, and the corner has to be looked at",
     "D15": "the twist direction has to be looked at, not measured",
@@ -1355,6 +1304,88 @@ BY_EYE: dict[str, str] = {
 }
 
 
+# The later groups, one file per area. Run in this order; the Heron file goes
+# last because its V4 row types CLOSE in the scratch drawing.
+MODULES = (
+    live_check_edits, live_check_layers, live_check_blocks, live_check_render, live_check_drawing,
+    live_check_mep3d, live_check_styles, live_check_heron,
+)
+
+CHECKS: tuple[Check, ...] = OWN_CHECKS + tuple(c for m in MODULES for c in m.CHECKS)
+BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, why in m.BY_EYE.items()}}
+
+# The groups the runner answers for: every row of each is measured here or has
+# its reason in BY_EYE (tests/test_live_check.py holds it to that). Group A is
+# the ribbon, which a person clicks; B and C need machines not here; G to L and
+# S were written before the runner covered them.
+RUNNER_GROUPS = (
+    "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
+    "AG", "AH", "AJ", "AL", "AM", "AN", "AP", "RV",
+)
+
+CHANGES_OFF = (
+    "Turn Changes on in Settings (Heron tab > Settings) and run this again. Changes is off, so every "
+    "row that draws would be refused. Nothing was run and nothing was written; the runner never "
+    "switches a padlock itself."
+)
+ASK_TO_KEEP_ON = (
+    "Turn Ask to Keep off in Settings and run this again. With it on, every change waits for your "
+    "Keep or Discard, and the runner cannot answer. Nothing was run and nothing was written."
+)
+ERASE_NOTE = (
+    "A few rows of D, E and F erase objects (a boolean, a slice). Heron then asks whether to keep them "
+    "erased: answer Keep them erased, so the row can measure what is left."
+)
+PADLOCKS_UNKNOWN = (
+    "Heron cannot read this AutoCAD's padlocks (a plug-in older than 1.6.0, or two AutoCADs "
+    "connected and none picked). Install the current plug-in, keep one AutoCAD connected, and run "
+    "this again. Nothing was run."
+)
+
+
+def padlock_line(locks: dict[str, Any]) -> str:
+    if locks.get("bridge") == "off":
+        return "Padlocks: none (the plug-in is switched off, HERON_AUTOCAD_BRIDGE=off)"
+    said = [f"{name} {'on' if locks.get(key) else 'off'}" for name, key in (
+        ("Changes", "changes"), ("Publish", "publish"), ("Admin", "admin"), ("Ask to Keep", "ask_to_keep"),
+    )]
+    held = locks.get("held") or []
+    return "Padlocks: " + ", ".join(said) + (f" (held off by a Windows policy: {', '.join(held)})" if held else "")
+
+
+def selected(args: argparse.Namespace) -> list[Check]:
+    wanted = list(CHECKS)
+    if args.row:
+        rows = {r.upper() for r in args.row}
+        return [c for c in wanted if c.row.upper() in rows]
+    if args.group.lower() != "all":
+        groups = {g.strip().upper() for g in args.group.split(",")}
+        return [c for c in wanted if c.group in groups]
+    return wanted
+
+
+def eye_rows(args: argparse.Namespace) -> dict[str, str]:
+    """The NOT RUN reasons that belong to this run's groups."""
+    if args.row:
+        return {}
+    if args.group.lower() == "all":
+        return dict(BY_EYE)
+    groups = {g.strip().upper() for g in args.group.split(",")}
+    return {row: why for row, why in BY_EYE.items() if group_of(row) in groups}
+
+
+def print_list() -> None:
+    print(f"{len(CHECKS)} measured rows, {len(BY_EYE)} that need an eye or a hand\n")
+    for check in CHECKS:
+        needs = f"  [needs {lc.describe_needs(check.needs)}]" if check.needs else ""
+        print(f"  {check.row:5} {check.title}{needs}")
+    print("\nNeed an eye or a hand (reported NOT RUN with the reason):")
+    for row, why in sorted(BY_EYE.items(), key=lambda item: (len(group_of(item[0])), item[0])):
+        print(f"  {row:5} {why}")
+    print("\nEvery row runs with Changes on and Ask to Keep off. A row marked [needs ...] runs only")
+    print("when that padlock is already so; otherwise it is said, and its result is left as it was.")
+
+
 async def scratch_drawing() -> tuple[str, str | None]:
     """A new drawing to work in. Returns (its name, the one that was active)."""
 
@@ -1367,13 +1398,16 @@ async def scratch_drawing() -> tuple[str, str | None]:
     return await run(make)
 
 
-async def close_scratch(name: str, restore: str | None) -> None:
+async def close_scratch(names: list[str], restore: str | None) -> None:
+    """Close the runner's own drawings without saving, and make the modeller's drawing active again."""
+
     def close() -> None:
         app = get_app()
-        for i in range(int(app.Documents.Count)):
-            if str(app.Documents.Item(i).Name) == name:
-                app.Documents.Item(i).Close(False)
-                break
+        for name in names:
+            for i in range(int(app.Documents.Count)):
+                if str(app.Documents.Item(i).Name) == name:
+                    app.Documents.Item(i).Close(False)
+                    break
         if restore:
             for i in range(int(app.Documents.Count)):
                 if str(app.Documents.Item(i).Name) == restore:
@@ -1383,81 +1417,130 @@ async def close_scratch(name: str, restore: str | None) -> None:
     await run(close)
 
 
+def remove_folder(folder: Path | None) -> None:
+    """The runner's own folder in %TEMP%, once its drawings are closed."""
+    if folder is None:
+        return
+    import shutil
+
+    shutil.rmtree(folder, ignore_errors=True)
+    if folder.exists():
+        print(f"  could not remove {folder}; delete it by hand")
+
+
+async def ready(ctx: Context) -> int | None:
+    """Connected, and the padlocks right for a run? None when it can go on, else the exit code."""
+    try:
+        status = parse(await document.autocad_status())
+    except (Failed, Refused) as exc:
+        print(f"Cannot reach AutoCAD: {exc}")
+        print("Start AutoCAD, open a drawing, and press Heron on the Heron tab.")
+        return 1
+    heron = status.get("heron") or {}
+    if heron.get("connected") is False and heron.get("bridge") != "off":
+        print(f"AutoCAD is not ready for Heron: {heron.get('message') or 'not connected'}")
+        print("Press Heron on the Heron tab (and make sure no chat is using this AutoCAD), then run this again.")
+        return 1
+    ctx.version = str(status.get("version", "unknown"))
+    print(f"AutoCAD {ctx.version} | {status.get('application', '')}")
+    locks = await lc.read_padlocks()
+    if locks is None:
+        print(PADLOCKS_UNKNOWN)
+        return 2
+    if not locks.get("changes"):
+        print(CHANGES_OFF)
+        return 2
+    if locks.get("ask_to_keep"):
+        print(ASK_TO_KEEP_ON)
+        return 2
+    ctx.padlocks = locks
+    print(padlock_line(locks))
+    return None
+
+
+async def run_checks(ctx: Context, wanted: list[Check]) -> list[Outcome]:
+    outcomes: list[Outcome] = []
+    for check in wanted:
+        why = lc.unmet(check.needs, ctx.padlocks)
+        if why:
+            outcomes.append(Outcome(check.row, False, "", skipped=True, reason=why))
+            print(f"  ....  {check.row:5} {check.title}\n          {why}")
+            continue
+        try:
+            detail = await check.run(ctx)
+            outcomes.append(Outcome(check.row, True, detail))
+            print(f"  PASS  {check.row:5} {check.title}\n          {detail}")
+        except Refused as exc:
+            outcomes.append(Outcome(check.row, False, "", skipped=True, reason=f"refused: {exc}"))
+            print(f"  ----  {check.row:5} {check.title}\n          refused: {exc}")
+        except Failed as exc:
+            outcomes.append(Outcome(check.row, False, str(exc)))
+            print(f"  FAIL  {check.row:5} {check.title}\n          {exc}")
+        except Exception as exc:  # noqa: BLE001 - one row, not the run
+            outcomes.append(Outcome(check.row, False, f"{type(exc).__name__}: {exc}"))
+            print(f"  FAIL  {check.row:5} {check.title}\n          {type(exc).__name__}: {exc}")
+        finally:
+            if ctx.scratch:
+                # A row may have left another drawing active: the next starts in the scratch drawing.
+                try:
+                    await lc.activate(ctx)
+                except Exception:  # noqa: BLE001 - the next row reports it
+                    pass
+    return outcomes
+
+
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--group", default="all", help="D, E, F or all (default all)")
-    parser.add_argument("--row", action="append", help="run only these rows, e.g. --row E4 --row D13")
+    parser.add_argument("--group", default="all", help="one group (D, E, AA ...), several (M,O,T), or all")
+    parser.add_argument("--row", action="append", help="run only these rows, e.g. --row E4 --row AA6")
     parser.add_argument("--list", action="store_true", help="list the rows and exit, without AutoCAD")
     parser.add_argument("--write", action="store_true", help="write the results into docs/NEEDS-CHECKING.md")
     parser.add_argument("--keep", action="store_true", help="leave the scratch drawing open to look at")
     args = parser.parse_args()
 
-    wanted = list(CHECKS)
-    if args.row:
-        rows = {r.upper() for r in args.row}
-        wanted = [c for c in wanted if c.row in rows]
-    elif args.group.lower() != "all":
-        group = args.group.upper()
-        wanted = [c for c in wanted if c.group == group]
-
     if args.list:
-        print(f"{len(CHECKS)} measured rows, {len(BY_EYE)} that need an eye\n")
-        for check in CHECKS:
-            print(f"  {check.row:5} {check.title}")
-        print("\nNeed an eye (reported NOT RUN with the reason):")
-        for row, why in sorted(BY_EYE.items()):
-            print(f"  {row:5} {why}")
+        print_list()
         return 0
 
-    if not wanted:
+    wanted = selected(args)
+    if not wanted and not eye_rows(args):
         print(f"No rows match {args.row or args.group}. Try --list.")
         return 1
 
     print(f"Heron live check: {len(wanted)} row(s)\n" + "=" * 72)
     ctx = Context()
-    try:
-        status = parse(await document.autocad_status())
-        ctx.version = str(status.get("version", "unknown"))
-        print(f"AutoCAD {ctx.version} | {status.get('application', '')}")
-    except (Failed, Refused) as exc:
-        print(f"Cannot reach AutoCAD: {exc}")
-        print("Start AutoCAD, open a drawing, and press Heron on the Heron tab.")
-        return 1
-
-    name, restore = await scratch_drawing()
-    print(f"Working in a scratch drawing: {name}\n")
-    # The gate wants units checked in the drawing it is about to change.
-    parse(await document.autocad_status())
+    stop = await ready(ctx)
+    if stop is not None:
+        return stop
 
     outcomes: list[Outcome] = []
-    try:
-        for check in wanted:
-            try:
-                detail = await check.run(ctx)
-                outcomes.append(Outcome(check.row, True, detail))
-                print(f"  PASS  {check.row:5} {check.title}\n          {detail}")
-            except Refused as exc:
-                outcomes.append(Outcome(check.row, False, "", skipped=True, reason=f"refused: {exc}"))
-                print(f"  ----  {check.row:5} {check.title}\n          refused: {exc}")
-            except Failed as exc:
-                outcomes.append(Outcome(check.row, False, str(exc)))
-                print(f"  FAIL  {check.row:5} {check.title}\n          {exc}")
-            except Exception as exc:  # noqa: BLE001 - one row, not the run
-                outcomes.append(Outcome(check.row, False, f"{type(exc).__name__}: {exc}"))
-                print(f"  FAIL  {check.row:5} {check.title}\n          {type(exc).__name__}: {exc}")
-    finally:
-        if args.keep:
-            print(f"\nThe scratch drawing {name} is still open; close it without saving.")
-        else:
-            await close_scratch(name, restore)
+    if wanted:
+        if any(c.group in ("D", "E", "F") for c in wanted):
+            print(ERASE_NOTE)
+        name, restore = await scratch_drawing()
+        ctx.scratch = name
+        print(f"Working in a scratch drawing: {name}\n")
+        # The gate wants units checked in the drawing it is about to change.
+        parse(await document.autocad_status())
+        try:
+            outcomes = await run_checks(ctx, wanted)
+        finally:
+            mine = [n for n in [ctx.scratch, *ctx.extra] if n]
+            if args.keep:
+                print(f"\nThe scratch drawing(s) {', '.join(mine)} are still open; close them without saving.")
+                if ctx.folder:
+                    print(f"Their folder {ctx.folder} is kept too; delete it when done.")
+            else:
+                await close_scratch(mine, restore)
+                remove_folder(ctx.folder)
 
-    for row, why in BY_EYE.items():
-        if args.group.lower() in ("all", row[0].lower()) and not args.row:
-            outcomes.append(Outcome(row, False, "", skipped=True, reason=why))
+    for row, why in eye_rows(args).items():
+        outcomes.append(Outcome(row, False, "", skipped=True, reason=why))
 
     counts = summarise(outcomes)
     print("=" * 72)
-    print(f"{counts['passed']}/{counts['checked']} measured rows passed, {counts['skipped']} need an eye")
+    print(f"{counts['passed']}/{counts['checked']} measured rows passed, {counts['skipped']} not run "
+          "(need an eye, a hand, or another padlock)")
     if counts["failed"]:
         print("\nFailed:")
         for outcome in outcomes:
@@ -1466,9 +1549,12 @@ async def main() -> int:
 
     if args.write:
         register = REGISTER.read_text(encoding="utf-8")
+        kept = kept_by_hand(register, outcomes)
         new, written, missing = apply_results(register, outcomes, date.today().isoformat(), ctx.version)
         REGISTER.write_text(new, encoding="utf-8")
         print(f"\nWrote {len(written)} row(s) into {REGISTER.relative_to(ROOT)}")
+        if kept:
+            print(f"  left as recorded by hand (not run this time): {', '.join(kept)}")
         if missing:
             print(f"  not in the register: {', '.join(missing)}")
     else:
