@@ -37,6 +37,7 @@ class TestRules:
 
 class Dim:
     count = 0
+    stuck = False
 
     def __init__(self, style_ok=True):
         Dim.count += 1
@@ -61,6 +62,8 @@ class Dim:
         return self.written.get("ScaleFactor", self._scale)
 
     def Delete(self):  # noqa: N802 - COM name
+        if Dim.stuck:
+            raise RuntimeError("cannot delete")
         self.deleted = True
 
 
@@ -164,3 +167,9 @@ class TestTheRun:
         made = drawing["doc"].ModelSpace.made
         assert all(d.deleted for d in made) and out["count"] == 0
         assert len(out["failed"]) == 2 and "DIM-1-5" in out["failed"][0]["reason"]
+
+    def test_one_that_could_not_be_deleted_either_is_said_to_be_still_there(self, drawing, monkeypatch):
+        drawing["doc"] = Doc(style_ok=False)
+        monkeypatch.setattr(Dim, "stuck", True)
+        out = json.loads(answer(dim_style="DIM-1-5"))
+        assert "still in the drawing" in out["failed"][0]["reason"] and "not kept" not in out["failed"][0]["reason"]

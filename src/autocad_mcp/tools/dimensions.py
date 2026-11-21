@@ -284,6 +284,13 @@ def _dim_scale(doc: Any) -> float:
         return 0.0
 
 
+def _handle_of(entity: Any) -> str:
+    try:
+        return str(entity.Handle)
+    except BaseException:  # noqa: BLE001 - only for a message
+        return "the dimension"
+
+
 def stored_name(names: Sequence[str], wanted: str) -> str | None:
     """The name as the drawing stores it, matched without case, or None when it is not there."""
     key = str(wanted).strip().casefold()
@@ -573,6 +580,7 @@ async def autocad_dimension_run(
         drawing_scale = _dim_scale(doc)
         scale = scale_to_write(style_name, annotative, drawing_scale)
         style_scale: float | None = None
+        made: dict[str, Any] = {}
         rows: list[dict[str, Any]] = []
         failed: list[dict[str, Any]] = []
 
@@ -593,12 +601,14 @@ async def autocad_dimension_run(
                     try:
                         dim.StyleName = style_name
                     except BaseException as exc:  # noqa: BLE001 - a wrongly styled dimension is not kept
-                        failed.append({"index": entry["index"], "kind": entry["kind"],
-                                       "reason": f"it would not take the style {style_name} ({com_message(exc)}), so it was not kept"})
+                        why = f"it would not take the style {style_name} ({com_message(exc)})"
                         try:
                             dim.Delete()
-                        except BaseException:  # noqa: BLE001 - reported above either way
-                            pass
+                            why += ", so it was not kept"
+                        except BaseException:  # noqa: BLE001 - say it is still there
+                            why += (f", and it could not be deleted: {_handle_of(dim)} is still in the drawing "
+                                    "in the current style; delete it by hand")
+                        failed.append({"index": entry["index"], "kind": entry["kind"], "reason": why})
                         continue
                     if style_scale is None:
                         try:
@@ -637,7 +647,19 @@ async def autocad_dimension_run(
                         "handle": str(dim.Handle),
                     }
                 )
+                made[str(dim.Handle)] = dim
             scaled = make_new_annotative([r["handle"] for r in rows]) if annotative and rows else {}
+            plain = {h.upper() for h in scaled.get("not_annotative", [])}
+            if plain and drawing_scale > 0 and not style_name:
+                # Not annotative after all: sized by DIMSCALE as any other, never left tiny.
+                # (With dim_style they keep the style's own scale, which already sizes them.)
+                for handle, dim in made.items():
+                    if handle.upper() in plain:
+                        try:
+                            dim.ScaleFactor = drawing_scale
+                        except BaseException:  # noqa: BLE001 - the warning already names it
+                            pass
+                scaled["warning"] += " Those were given the drawing's DIMSCALE instead."
 
         result: dict[str, Any] = {
             "mode": mode,

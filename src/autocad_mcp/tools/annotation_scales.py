@@ -159,7 +159,8 @@ def make_new_annotative(handles: Sequence[str]) -> dict[str, Any]:
     try:
         report = in_plugin("set_annotation_scales", {"handles": wanted, "annotative": True}, "Making it annotative")
     except AutocadError as exc:
-        return {"annotative": False, "warning": f"{', '.join(wanted)} drawn, but not made annotative: {exc}"}
+        return {"annotative": False, "warning": f"{', '.join(wanted)} drawn, but not made annotative: {exc}",
+                "not_annotative": wanted}
     objects = with_paper_heights(report.get("objects") or [], report.get("current"))
     yes = [o for o in objects if o.get("annotative") == "yes"]
     done = {str(o.get("handle", "")).upper() for o in yes}
@@ -171,6 +172,7 @@ def make_new_annotative(handles: Sequence[str]) -> dict[str, Any]:
         skipped = report.get("skipped") or []
         why = skipped[0].get("why") if skipped else "the plug-in did not make it annotative"
         out["warning"] = f"{', '.join(missing)} drawn, but not made annotative: {why}"
+        out["not_annotative"] = missing
     return out
 
 

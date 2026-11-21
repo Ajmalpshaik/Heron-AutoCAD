@@ -33,9 +33,11 @@ namespace Heron.AutoCAD.Addin
                     skipped.Add((handle, "it is " + RunDrawing.Kind(obj) + ", not a dimension"));
                     continue;
                 }
-                if (!dim.Normal.IsParallelTo(Vector3d.ZAxis))
+                // +Z only: on a -Z normal the dimension's own X axis is world -X, and Rotation
+                // would give the wrong direction.
+                if (!dim.Normal.IsCodirectionalTo(Vector3d.ZAxis))
                 {
-                    skipped.Add((handle, "it is not drawn flat in plan (its normal is not Z)"));
+                    skipped.Add((handle, "it is not drawn flat in plan, looking down (its normal is not +Z)"));
                     continue;
                 }
                 Vector3d direction;

@@ -340,8 +340,8 @@ async def autocad_break_dimensions(
           background mask, or autocad_add_wipeout behind it.
 
     Error Handling:
-        - Anything that is not a dimension, or a dimension in another space,
-          is refused before anything is typed.
+        - Anything that is not a dimension, a dimension in another space, or
+          one on a locked or frozen layer is refused before anything is typed.
         - If AutoCAD is still asking when DIMBREAK should be done, it is
           cancelled and the tool says so.
     """
@@ -365,6 +365,19 @@ async def autocad_break_dimensions(
                 raise AutocadError(
                     f"The dimension {handle} is not in {space} space, where DIMBREAK picks from now. "
                     "Switch to its space first. Nothing was typed."
+                )
+            # DIMBREAK drops a dimension it cannot pick; with none left it ends early and the
+            # typed Break / Remove would land at the Command prompt as a command of its own.
+            name = str(_try(lambda e=entity: e.Layer, ""))
+            layer = _try(lambda n=name: doc.Layers.Item(n))
+            locked = bool(_try(lambda la=layer: la.Lock, False)) if layer is not None else False
+            frozen = bool(_try(lambda la=layer: la.Freeze, False)) if layer is not None else False
+            if locked or frozen:
+                state = "locked" if locked else "frozen"
+                raise AutocadError(
+                    f"The dimension {handle} is on the {state} layer {name}, and DIMBREAK cannot pick it. "
+                    f"{'Unlock' if state == 'locked' else 'Thaw'} the layer first with autocad_set_layer_state. "
+                    "Nothing was typed."
                 )
         with undo_mark(doc):
             doc.SendCommand(typed)

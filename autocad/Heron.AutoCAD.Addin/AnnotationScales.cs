@@ -63,12 +63,45 @@ namespace Heron.AutoCAD.Addin
             var handles = args.Texts("handles");
             if (handles.Length == 0) throw new RunRefusal("Give the objects, by handle.");
             bool? annotative = args.Has("annotative") ? args.Flag("annotative", true) : (bool?)null;
-            var created = new List<string>();
-            var add = Resolve(db, args.Texts("add"), args.Numbers("add_paper"), args.Numbers("add_drawing"), args.Flag("create_missing", false), created);
+            // Every refusal comes before anything is written: the scales to remove and add are
+            // found first, each object is checked to keep a scale, and only then is a missing
+            // scale added to the drawing's list (an aborted transaction is not trusted to take
+            // a new scale back out of it).
             var remove = Resolve(db, args.Texts("remove"), args.Numbers("remove_paper"), args.Numbers("remove_drawing"), false, null);
+            var missing = new List<(string name, double paper, double drawing)>();
+            var add = Resolve(db, args.Texts("add"), args.Numbers("add_paper"), args.Numbers("add_drawing"), args.Flag("create_missing", false), missing);
             var scales = Scales(db);
             var current = db.Cannoscale;
             AnnotationScale? currentScale = current == null ? null : Find(scales, current.Name, current.PaperUnits, current.DrawingUnits);
+            foreach (var handle in handles)
+            {
+                var obj = tr.GetObject(RunDrawing.IdOf(db, handle), OpenMode.ForRead);
+                var state = State(obj);
+                if (state == "cannot" || annotative == false) continue;
+                if (state != "yes" && annotative != true && add.Count == 0 && missing.Count == 0) continue;
+                var keeps = new HashSet<string>(Held(obj, scales), StringComparer.OrdinalIgnoreCase);
+                foreach (var scale in add) keeps.Add(scale.Name);
+                foreach (var scale in missing) keeps.Add(scale.name);
+                if (keeps.Count == 0 && currentScale != null) keeps.Add(currentScale.Name);
+                foreach (var scale in remove) keeps.Remove(scale.Name);
+                if (keeps.Count == 0)
+                    throw new RunRefusal(handle + " would be left with no annotation scale; an annotative object keeps at least one. "
+                        + "Leave one on it, or make it not annotative with annotative=false.");
+            }
+            var created = new List<string>();
+            if (missing.Count > 0)
+            {
+                var collection = db.ObjectContextManager.GetContextCollection(Collection);
+                foreach (var (name, paper, drawing) in missing)
+                {
+                    collection.AddContext(new AnnotationScale { Name = name, PaperUnits = paper, DrawingUnits = drawing });
+                    var made = Find(Scales(db), name, paper, drawing);
+                    if (made == null) throw new RunRefusal("AutoCAD did not add the scale " + name + " to the drawing's list.");
+                    add.Add(made);
+                    created.Add(name);
+                }
+                scales = Scales(db);
+            }
 
             var objects = new List<Action<Utf8JsonWriter>>();
             var skipped = new List<(string handle, string why)>();
@@ -122,6 +155,7 @@ namespace Heron.AutoCAD.Addin
                                 Write();
                                 obj.RemoveContext(scale);
                             }
+                        // Checked before anything was written; kept as a last guard.
                         if (Held(obj, scales).Count == 0)
                             throw new RunRefusal(handle + " would be left with no annotation scale; an annotative object keeps at least one. "
                                 + "Leave one on it, or make it not annotative with annotative=false.");
@@ -177,7 +211,12 @@ namespace Heron.AutoCAD.Addin
             return null;
         }
 
-        private static List<AnnotationScale> Resolve(Database db, string[] names, double[] paper, double[] drawing, bool createMissing, List<string>? created)
+        /// <summary>
+        /// The scales by name or ratio. One the drawing has not got is a refusal, or, when it may be
+        /// created, goes into <paramref name="missing"/> to be added once every check has passed.
+        /// </summary>
+        private static List<AnnotationScale> Resolve(Database db, string[] names, double[] paper, double[] drawing, bool createMissing,
+            List<(string name, double paper, double drawing)>? missing)
         {
             var found = new List<AnnotationScale>();
             for (var i = 0; i < names.Length; i++)
@@ -185,12 +224,10 @@ namespace Heron.AutoCAD.Addin
                 var p = i < paper.Length ? paper[i] : 0.0;
                 var d = i < drawing.Length ? drawing[i] : 0.0;
                 var scale = Find(Scales(db), names[i], p, d);
-                if (scale == null && createMissing && p > 0 && d > 0)
+                if (scale == null && createMissing && p > 0 && d > 0 && missing != null)
                 {
-                    var collection = db.ObjectContextManager.GetContextCollection(Collection);
-                    collection.AddContext(new AnnotationScale { Name = names[i].Trim(), PaperUnits = p, DrawingUnits = d });
-                    created?.Add(names[i].Trim());
-                    scale = Find(Scales(db), names[i], p, d);
+                    missing.Add((names[i].Trim(), p, d));
+                    continue;
                 }
                 if (scale == null)
                     throw new RunRefusal("This drawing has no annotation scale '" + names[i] + "'. autocad_list_annotation_scales lists the drawing's scales; "

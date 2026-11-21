@@ -897,14 +897,23 @@ async def autocad_add_dimension(
             # text and arrows come out at plain style size (tiny in a 1:10 mm
             # detail, seen live 2026-10-26). Give it the drawing's DIMSCALE,
             # unless it is annotative: its scales size it then (D-81).
-            try:
-                scale = float(doc.GetVariable("DIMSCALE") or 0.0)
-                if scale > 0 and not annotative:
-                    entity.ScaleFactor = scale
-            except Exception:  # noqa: BLE001 - keep the dimension at its style size
-                pass
+            def give_dimscale() -> bool:
+                try:
+                    scale = float(doc.GetVariable("DIMSCALE") or 0.0)
+                    if scale > 0:
+                        entity.ScaleFactor = scale
+                        return True
+                except Exception:  # noqa: BLE001 - keep the dimension at its style size
+                    pass
+                return False
+
+            if not annotative:
+                give_dimscale()
             notes = apply_properties(doc, entity, layer, None, None)
             extra = make_new_annotative([str(entity.Handle)]) if annotative else {}
+            if extra.get("not_annotative") and give_dimscale():
+                # Not annotative after all: sized by DIMSCALE as any other, never left tiny.
+                extra["warning"] += " It was given the drawing's DIMSCALE instead."
 
         info = describe(entity)
         return created_payload(

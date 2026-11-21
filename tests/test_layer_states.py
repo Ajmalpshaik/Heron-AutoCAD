@@ -217,8 +217,19 @@ class Doc:
         self.Layers = Layers(layers)
         self.spaces = list(spaces)
         self.Blocks = Blocks(blocks)
-        self.ActiveLayer = self.Layers.items[0]
+        self._active = self.Layers.items[0]
         self.handles = {e.Handle: e for e in self.spaces}
+        self.selections = 0
+
+    @property
+    def ActiveLayer(self):  # noqa: N802 - COM name
+        return self._active
+
+    @ActiveLayer.setter
+    def ActiveLayer(self, layer):  # noqa: N802 - COM name
+        if layer.Freeze:  # as AutoCAD: a frozen layer cannot be made current
+            raise RuntimeError("Invalid layer")
+        self._active = layer
 
     def HandleToObject(self, handle):  # noqa: N802 - COM name
         return self.handles[handle]
@@ -271,6 +282,7 @@ def cad(monkeypatch):
         return fn()
 
     def select_filtered(doc, entity_type=None, layer=None, *rest, name=None, **kw):
+        doc.selections += 1
         if entity_type == "block":
             return [e for e in doc.spaces if e.HasAttributes]
         # The filter reads the escaped name literally, as AutoCAD does.
@@ -386,6 +398,33 @@ class TestIsolateTool:
         assert doc.ActiveLayer.Name == "0" and out["current_layer"] == "0"
         assert {"variable": "CLAYER", "property": "current layer", "from": "M-DUCT", "to": "0"} in out["before_after"]
 
+    def test_a_frozen_layer_can_be_isolated_it_is_thawed_before_it_is_made_current(self, cad):
+        cad.holder["doc"] = doc = self.doc()
+        doc.Layers.Item("M-PIPE").Freeze = True
+        out = call(layer_states.autocad_isolate_layers(layers=["M-PIPE"]))
+        assert doc.ActiveLayer.Name == "M-PIPE" and doc.Layers.Item("M-PIPE").Freeze is False
+        assert "failed" not in out
+        order = [(r.get("layer") or r.get("variable"), r["property"]) for r in out["before_after"]]
+        assert order.index(("M-PIPE", "frozen")) < order.index(("CLAYER", "current layer")) < order.index(("0", "on"))
+
+    def test_unisolate_without_the_plug_in_says_so_not_nothing_isolated(self, cad, monkeypatch):
+        cad.holder["doc"] = self.doc()
+        monkeypatch.setattr(_shared, "plugin_runner", lambda: None)
+        text = error(layer_states.autocad_isolate_layers(action="unisolate"))
+        assert "plug-in" in text and "Nothing is isolated" not in text
+
+    def test_a_refused_restore_puts_the_current_layer_back(self, cad):
+        cad.holder["doc"] = doc = self.doc()
+        call(layer_states.autocad_isolate_layers(handles=["2A"]))
+        assert doc.ActiveLayer.Name == "M-DUCT"
+
+        def refuse():
+            raise layer_states.AutocadError("AutoCAD refused it (eInvalidInput). Nothing was changed.")
+
+        cad.on_restore = refuse
+        assert "Nothing was changed" in error(layer_states.autocad_isolate_layers(action="unisolate"))
+        assert doc.ActiveLayer.Name == "M-DUCT"
+
     def test_unisolate_with_nothing_isolated_changes_nothing(self, cad):
         cad.holder["doc"] = self.doc()
         text = error(layer_states.autocad_isolate_layers(action="unisolate"))
@@ -447,7 +486,13 @@ class TestMergeTool:
     def test_layer_zero_is_refused_before_anything_is_read(self, cad):
         cad.holder["doc"] = doc = self.doc()
         assert "layer 0" in error(layer_states.autocad_merge_layers(layers=["0"], into="M-DUCT", confirm=True))
-        assert doc.handles["2A"].Layer == "DUCT"
+        assert doc.selections == 0 and doc.handles["2A"].Layer == "DUCT"
+
+    def test_merging_into_an_xref_layer_is_refused(self, cad):
+        cad.holder["doc"] = doc = self.doc()
+        doc.Layers.items.append(Layer("XR|M-DUCT", owner=doc.Layers))
+        text = error(layer_states.autocad_merge_layers(layers=["DUCT"], into="XR|M-DUCT", confirm=True))
+        assert "xref" in text and doc.selections == 0
 
 
 def test_levels():

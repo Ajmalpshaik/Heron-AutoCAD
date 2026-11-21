@@ -85,13 +85,16 @@ def current_from(description: str) -> str | None:
 def isolate_plan(
     layers: Sequence[dict[str, Any]], keep: Sequence[str], current: str, others: str = "off"
 ) -> dict[str, Any]:
-    """What isolating ``keep`` changes: ``{"changes": [{layer, property, from, to}], "make_current"}``.
+    """What isolating ``keep`` changes, in the order it must be done.
 
-    ``layers`` are ``{"name", "on", "frozen", "locked"}``. The kept layers are
-    turned on and thawed (and unlocked when the others are locked, so they are
-    the ones you can edit); every other layer is turned off, frozen or locked.
-    A current layer that would be hidden hands over to the first kept layer
-    first, since AutoCAD will not freeze the current layer.
+    Returns ``{"kept", "reveal", "hide", "changes", "make_current"}``: each
+    change is ``{layer, property, from, to}``. ``layers`` are ``{"name", "on",
+    "frozen", "locked"}``. The kept layers are turned on and thawed (and
+    unlocked when the others are locked, so they are the ones you can edit):
+    that is ``reveal``, done first, because AutoCAD will not make a frozen layer
+    current. Then a current layer that would be hidden hands over to the first
+    kept layer, since AutoCAD will not freeze the current layer. Then ``hide``:
+    every other layer off, frozen or locked. ``changes`` is the two together.
     """
     if others not in ("off", "freeze", "lock"):
         raise ValueError("others must be off, freeze or lock")
@@ -107,26 +110,28 @@ def isolate_plan(
         raise ValueError("give the objects or layers to isolate")
     kept_keys = {k.casefold() for k in kept}
 
-    changes: list[dict[str, Any]] = []
+    reveal: list[dict[str, Any]] = []
+    hide: list[dict[str, Any]] = []
 
-    def want(layer: dict[str, Any], prop: str, value: bool) -> None:
+    def want(into: list[dict[str, Any]], layer: dict[str, Any], prop: str, value: bool) -> None:
         if bool(layer[prop]) != value:
-            changes.append({"layer": str(layer["name"]), "property": prop, "from": bool(layer[prop]), "to": value})
+            into.append({"layer": str(layer["name"]), "property": prop, "from": bool(layer[prop]), "to": value})
 
     for layer in layers:
         if str(layer["name"]).casefold() in kept_keys:
-            want(layer, "on", True)
-            want(layer, "frozen", False)
+            want(reveal, layer, "on", True)
+            want(reveal, layer, "frozen", False)
             if others == "lock":
-                want(layer, "locked", False)
+                want(reveal, layer, "locked", False)
         elif others == "off":
-            want(layer, "on", False)
+            want(hide, layer, "on", False)
         elif others == "freeze":
-            want(layer, "frozen", True)
+            want(hide, layer, "frozen", True)
         else:
-            want(layer, "locked", True)
+            want(hide, layer, "locked", True)
     hides_current = others in ("off", "freeze") and str(current).casefold() not in kept_keys
-    return {"kept": kept, "changes": changes, "make_current": kept[0] if hides_current else None}
+    return {"kept": kept, "reveal": reveal, "hide": hide, "changes": reveal + hide,
+            "make_current": kept[0] if hides_current else None}
 
 
 def escape_wildcards(name: str) -> str:
@@ -140,6 +145,8 @@ def check_merge(sources: Sequence[str], into: str, existing: Sequence[str]) -> t
     target = by_key.get(str(into).strip().casefold())
     if target is None:
         raise ValueError(f"there is no layer called '{into}' to merge into; make it first with autocad_create_layer")
+    if "|" in target:
+        raise ValueError(f"'{target}' belongs to an xref; merge into one of this drawing's own layers")
     found: list[str] = []
     for raw in sources:
         name = by_key.get(str(raw).strip().casefold())
@@ -383,15 +390,20 @@ async def autocad_isolate_layers(
                  "description": isolate_description(current), "keep_existing": True},
                 "Remembering the layers before isolating",
             )
+            def apply(changes: list[dict[str, Any]]) -> None:
+                for change in changes:
+                    try:
+                        setattr(doc.Layers.Item(change["layer"]), COM_PROPERTY[change["property"]], change["to"])
+                        rows.append(change)
+                    except BaseException as exc:  # noqa: BLE001 - one layer, not the isolate
+                        failed.append({"layer": change["layer"], "reason": com_message(exc)})
+
+            # Kept layers on and thawed first: AutoCAD will not make a frozen layer current.
+            apply(plan["reveal"])
             if plan["make_current"]:
                 doc.ActiveLayer = doc.Layers.Item(plan["make_current"])
                 rows.append({"variable": "CLAYER", "property": "current layer", "from": current, "to": plan["make_current"]})
-            for change in plan["changes"]:
-                try:
-                    setattr(doc.Layers.Item(change["layer"]), COM_PROPERTY[change["property"]], change["to"])
-                    rows.append(change)
-                except BaseException as exc:  # noqa: BLE001 - one layer, not the isolate
-                    failed.append({"layer": change["layer"], "reason": com_message(exc)})
+            apply(plan["hide"])
         result: dict[str, Any] = {
             "action": "isolate",
             "kept": plan["kept"],
@@ -422,7 +434,10 @@ async def autocad_isolate_layers(
     def unisolate() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        listed = layer_state_list().get("layer_states") or []
+        found = layer_state_list()
+        if found.get("layer_states") is None:
+            raise AutocadError(f"{found.get('layer_states_note', 'Layer states could not be read.')} Nothing was changed.")
+        listed = found["layer_states"]
         state = next((s for s in listed if str(s.get("name", "")).casefold() == ISOLATE_STATE.casefold()), None)
         if state is None:
             raise AutocadError(
@@ -435,8 +450,12 @@ async def autocad_isolate_layers(
             # The old current layer first where it can be (the restore may freeze the one current
             # now), and again after the restore, which thaws it if it was frozen.
             back_to(doc, was)
-            report = in_plugin("layer_state", {"action": "restore", "name": ISOLATE_STATE, "delete_after": True},
-                               "Putting the layers back")
+            try:
+                report = in_plugin("layer_state", {"action": "restore", "name": ISOLATE_STATE, "delete_after": True},
+                                   "Putting the layers back")
+            except AutocadError:
+                back_to(doc, before)  # so "Nothing was changed" holds for the current layer too
+                raise
             back_to(doc, was)
         rows = list(report.get("changes") or [])
         now = str(doc.ActiveLayer.Name)

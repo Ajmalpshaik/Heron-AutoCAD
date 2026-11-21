@@ -251,6 +251,19 @@ class TestAnnotativeOption:
         call(draw.autocad_add_dimension(dimension_type="horizontal", point1=[0, 0], point2=[3000, 0], annotative=True))
         assert "ScaleFactor" not in cad.doc.ModelSpace.made[0].written
 
+    def test_a_dimension_that_fails_to_go_annotative_gets_dimscale_not_left_tiny(self, cad):
+        cad.refuse = "Heron in AutoCAD did not get to the request within 30 s."
+        out = call(draw.autocad_add_dimension(dimension_type="horizontal", point1=[0, 0], point2=[3000, 0], annotative=True))
+        assert cad.doc.ModelSpace.made[0].written["ScaleFactor"] == 50.0
+        assert out["annotative"] is False and "DIMSCALE instead" in out["warning"]
+
+    def test_a_run_whose_annotative_step_failed_gets_dimscale_on_those_only(self, cad):
+        cad.skip = {"2A1"}
+        out = call(dimensions.autocad_dimension_run(points=[[0, 0], [3000, 0], [7500, 0]], offset=500, annotative=True))
+        made = cad.doc.ModelSpace.made
+        assert "ScaleFactor" not in made[0].written and made[1].written["ScaleFactor"] == 50.0
+        assert "DIMSCALE instead" in out["warning"]
+
     def test_a_plain_dimension_still_gets_dimscale(self, cad):
         call(draw.autocad_add_dimension(dimension_type="horizontal", point1=[0, 0], point2=[3000, 0]))
         assert cad.doc.ModelSpace.made[0].written["ScaleFactor"] == 50.0
@@ -275,3 +288,18 @@ class TestAnnotativeOption:
 def test_levels():
     assert risk_of("autocad_list_annotation_scales") is Risk.READ
     assert risk_of("autocad_annotation_scales") is Risk.CHANGE
+
+
+def test_a_tools_own_warning_survives_a_failed_read_back():
+    """created_payload used to write its read-back warning over the one the tool gave."""
+
+    class Unreadable:
+        Handle, Layer, ObjectName = "2A", "0", "AcDbText"
+
+        @property
+        def Document(self):  # noqa: N802 - COM name
+            raise RuntimeError("busy")
+
+    out = _shared.created_payload(Unreadable(), {}, warning="2A drawn, but not made annotative: busy.")
+    assert out["verified"] is False
+    assert out["warning"].startswith("2A drawn, but not made annotative") and "could not be read back" in out["warning"]

@@ -129,8 +129,16 @@ class FakePlugin:
 
 
 class Entity:
-    def __init__(self, handle, name="AcDbRotatedDimension", owner=1):
-        self.Handle, self.ObjectName, self.OwnerID = handle, name, owner
+    def __init__(self, handle, name="AcDbRotatedDimension", owner=1, layer="M-DIMS"):
+        self.Handle, self.ObjectName, self.OwnerID, self.Layer = handle, name, owner, layer
+
+
+class LayerTable:
+    def __init__(self, locked=(), frozen=()):
+        self.locked, self.frozen = set(locked), set(frozen)
+
+    def Item(self, name):  # noqa: N802 - COM name
+        return type("Layer", (), {"Lock": name in self.locked, "Freeze": name in self.frozen})()
 
 
 class Space:
@@ -145,6 +153,7 @@ class Doc:
         self.ActiveSpace = 1
         self.ModelSpace = Space()
         self.PaperSpace = type("Paper", (), {"ObjectID": 2})()
+        self.Layers = LayerTable()
 
     def HandleToObject(self, handle):  # noqa: N802 - COM name
         return self.entities[handle.upper()]
@@ -259,6 +268,14 @@ class TestBreakTool:
         plugin.holder["doc"] = Doc([Entity("2A", owner=2)])
         text = error(dimensions_edit.autocad_break_dimensions(handles=["2A"]))
         assert "model space" in text and plugin.holder["doc"].typed == []
+
+    @pytest.mark.parametrize(("locked", "frozen", "word"), [({"M-DIMS"}, (), "locked"), ((), {"M-DIMS"}, "frozen")])
+    def test_a_dimension_dimbreak_cannot_pick_types_nothing(self, plugin, locked, frozen, word):
+        """DIMBREAK would drop it; with none left the typed _B would start BLOCK at the prompt."""
+        plugin.holder["doc"] = doc = Doc([Entity("2A")])
+        doc.Layers = LayerTable(locked, frozen)
+        text = error(dimensions_edit.autocad_break_dimensions(handles=["2A"]))
+        assert word in text and "M-DIMS" in text and doc.typed == []
 
     def test_a_command_left_asking_is_cancelled_and_said(self, plugin):
         plugin.holder["doc"] = Doc([Entity("2A")], stuck=True)
