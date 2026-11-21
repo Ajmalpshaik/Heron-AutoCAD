@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (files with AutoCAD closed, standards against a reference, shared check lists: #71, #69, #135; D-92, D-93)
 
-Two new tools (**161** with the layers and annotation work): `autocad_read_file` (Read, needs no
+Two new tools (**160** with `autocad_render` removed, #158): `autocad_read_file` (Read, needs no
 AutoCAD: a DXF with ezdxf, a DWG / DWS / DWT through the ODA File Converter only when it is
 installed) and `autocad_share_checklist` (Publish: the office list into the office folder, a
 project's changes into `Heron check list changes.json` in the drawing's folder).
@@ -24,6 +24,16 @@ are not. Versions not bumped (the parent does).
 Claude, then live rows **AG1-AG15**. AG3 needs the ODA File Converter installed by hand; AG9-AG13
 need a real share and a second PC. If Ajmal wants the office folder set in `.mcp.json` instead, or
 roles for who may change the office list, that is a new decision on top of D-93.
+
+## Earlier - 2026-11-21 (`autocad_render` removed, #158)
+
+Ajmal had the parent session decide #158, and it decided: remove `autocad_render`. His rule is that
+Heron never runs the render (`-render` waits on prompts and can stall AutoCAD). Tool, level, preset
+and size tables are gone: **158** tools. Docs: D-87 (an added note) and D-33's status, tools
+reference, known limits §22, ribbon coverage "Render" row; live row F22 marked removed, F23 now uses
+`autocad_run_lisp`; the finder phrase "render this view for the client" now finds
+`autocad_add_camera_view` ("Add A Camera View For A Render"). Server only: restart Claude after
+pulling.
 
 ## Earlier - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
 

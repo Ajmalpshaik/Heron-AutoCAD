@@ -231,6 +231,15 @@ the one exception; whether it stays is Ajmal's decision (#158).
   palette's own data class holds the current viewport's tone settings: that is the route to try if
   the variables turn out gone (ROADMAP), not built now, as which of the two the renderer reads is not
   proven.
+- **Added 2026-11-21, `autocad_render` removed (#158):** Ajmal asked the parent session to decide
+  ("What is the best thing you can decide that one"), and it decided to remove the tool. His rule is
+  that Heron never runs the render; `-render` waits on prompts and can stall AutoCAD, and a scripted
+  render has been reported to drop objects; an Admin-only exception would still let a chat hang
+  AutoCAD with the Admin padlock on. So the tool, its level and its preset and size tables are gone
+  (one tool fewer), and Heron has no tool that renders: it sets the camera, sun, lights and exposure,
+  and the modeller presses Render. `autocad_preview` stays for a picture to look at. Live row F22 is
+  marked removed; F23 proves the sequence ceiling with `autocad_run_lisp` instead. This supersedes
+  D-33's "`autocad_render` drives that".
 Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
 
 ## D-86 - A camera view is a saved view with perspective and a lens; the sun's date is set on the viewport's sun; the visual style is read back
@@ -1257,7 +1266,8 @@ whole session) and `UNDO _Control _None` (wipes the history). Live row A31.
 ## D-33 - What 3D can and cannot be automated, said out loud
 
 **Decided:** 2026-10-26, on Ajmal's instruction to cover "all kind of 3-D modelling inside
-AutoCAD... including material that for rendering". **Status:** in force.
+AutoCAD... including material that for rendering". **Status:** in force, except rendering:
+`autocad_render` is superseded by [D-87](#d-87---lights-are-listed-and-switched-by-the-plug-in-the-sun-default-lighting-and-exposure-are-variables) (removed 2026-11-21, #158).
 
 Researched before building, because guessing a COM signature wrong can destroy a model. What
 was confirmed and built: `AddEllipticalCone`, `AddEllipticalCylinder`,

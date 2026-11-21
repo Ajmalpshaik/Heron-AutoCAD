@@ -187,7 +187,6 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "share_checklist",  # writes the office folder or the project folder, where the team reads (D-93)
     ),
     Risk.ADMIN: (
-        "render",
         "send_command",
         "run_lisp",
         "set_variable",

@@ -5,7 +5,7 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **Files with AutoCAD closed, standards against a reference drawing, check lists shared with the
-  team (2026-11-21, #71, #69, #135).** Two new tools (**161** in all).
+  team (2026-11-21, #71, #69, #135).** Two new tools (**160** in all, with `autocad_render` gone).
   `autocad_read_file` reads a `.dxf` on disk with AutoCAD closed - layers with object counts,
   blocks with placed counts and attribute tags, text, attribute values (JSON or CSV), extents,
   styles - and a `.dwg` / `.dws` / `.dwt` when the free ODA File Converter is installed (Heron
@@ -18,6 +18,12 @@ Newest first. Dates are when the change was made.
   the office folder or a project's changes in the drawing's folder, never over a teammate's file
   silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
   closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
+
+- **`autocad_render` removed (2026-11-21, #158).** Heron never runs the render: `-render` waits on
+  prompts and can stall AutoCAD, and a scripted render has been reported to drop objects. Heron
+  sets the render up (`autocad_add_camera_view`, `autocad_set_sun`, `autocad_switch_lights`,
+  `autocad_set_render_exposure`) and the modeller presses Render. One tool fewer (158). Live row
+  F22 is marked removed; F23 now names `autocad_run_lisp` ([D-87](docs/DECISIONS.md)).
 
 - **Layers and annotation (2026-11-21, #37, #107, #108, #116).** Seven new tools (**159** in all, with the block, table and render tools):
   `autocad_layer_states` saves, restores and deletes named layer states (listed by
@@ -40,7 +46,7 @@ Newest first. Dates are when the change was made.
   (`autocad_set_render_exposure`). `autocad_set_3d_view` now reads back the visual style the
   viewport has (`visual_style_found`). Five new plug-in operations. **None of these tools
   renders**: the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md));
-  whether `autocad_render` stays is issue #158. Live rows AE1-AE15 NOT RUN.
+  `autocad_render` is removed (next entry). Live rows AE1-AE15 NOT RUN.
 
 - **Blocks, attributes and tables (2026-11-21, #115, #117, #106).** Five new tools, **147** in all.
   `autocad_make_block` takes attribute definitions (tag, prompt, default, position, height;
