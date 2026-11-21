@@ -45,7 +45,7 @@ The group headings below give the level.
 | `autocad_check_folder` | **View.** Runs a check list over every `.dwg` in a folder (`subfolders` too): each opened read only, checked with its own project's changes, closed unsaved; an open drawing is checked where it is; the modeller's drawing is active again at the end. Verdict and coverage per drawing, worst first; one that will not open is NOT RUN with the reason ([D-70](DECISIONS.md)) |
 | `autocad_companion` | **Read.** Opens the Heron Companion page: one HTML file per chat on this PC with the drawing, units, layout, view, selection and this chat's activity, rewritten after every Heron job. No server, no port, no script; it sends nothing to AutoCAD. `stop` ends the updates ([D-71](DECISIONS.md)) |
 | `autocad_use_autocad` | **Read.** List the AutoCADs connected to Heron, or pick the one to work in. One connected: used without asking. Two or more: nothing is sent until one is picked ([D-49](DECISIONS.md)) |
-| `autocad_export` | PDF, DXF, WMF, SAT, BMP, EPS, STL. PDF takes `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
+| `autocad_export` | PDF, DWF, DXF, WMF, SAT, BMP, EPS, STL. DWF plots like PDF, through `DWF6 ePlot.pc3` ([D-111](DECISIONS.md)). PDF and DWF take `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
 | `autocad_show` | **View, done by the plug-in.** Selects the objects given by handle and zooms to them, so "which ones?" is answered in the drawing; `isolate` hides the rest for now (ISOLATEOBJECTS, not saved), `end_isolation` brings it back. At most 500 at once |
 | `autocad_publish_pdf` | **Publish, done by the plug-in.** The drawing's sheets in ONE multi-page PDF through AutoCAD's publisher, in tab order, each with its own page setup; `layouts` to choose, `include_model`, `overwrite`. Made from the drawing as last saved: unsaved changes are refused ([D-41](DECISIONS.md)) |
@@ -152,6 +152,9 @@ arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autoli
 `autocad_move_entities`, `autocad_copy_entities`, `autocad_rotate_entities`,
 `autocad_scale_entities`, `autocad_mirror_entities`, `autocad_offset_entities`,
 `autocad_array_entities`, `autocad_modify_entity`, `autocad_delete_entities`
+
+`autocad_array_entities` makes loose copies. For ARRAY's one editable array, or copies along a
+path, use `autocad_associative_array` (below).
 
 `autocad_delete_entities` needs `confirm=true`. Without it the tool returns a preview and changes
 nothing.
@@ -416,6 +419,22 @@ camera and the sun's date, which COM has no call for. Not proven in AutoCAD yet:
 | `autocad_list_lights` | Read | Every light, in model space and in light blocks, with on / off, intensity and unit, Kelvin; plus the sun, DEFAULTLIGHTING, LIGHTINGUNITS and the exposure, and why a render may be dark |
 | `autocad_switch_lights` | Change | Lights on or off by name or handle, or all; the sun (SUNSTATUS) and default lighting (DEFAULTLIGHTING) on or off. One unknown name switches nothing |
 | `autocad_set_render_exposure` | Change | Exposure (EV, -6 to 21, lower is brighter) and White balance (K) as EXPVALUE / EXPWHITEBALANCE; an AutoCAD without them is told to use RENDEREXPOSURE |
+
+## Associative arrays, tiled viewports, hyperlinks, geographic location
+
+Part 2 of the smaller ribbon gaps ([#119](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/119);
+[D-110](DECISIONS.md), [D-111](DECISIONS.md)). The array and the location are done by the plug-in,
+which COM has no call for; the rest is COM. Not proven in AutoCAD yet:
+[NEEDS-CHECKING group AQ](NEEDS-CHECKING.md).
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_associative_array` | Change | ARRAY's one editable array: along a path (`count` end to end, or `spacing`; items follow the path), a grid, or a ring. Refused, with nothing changed, if AutoCAD puts the items anywhere but where asked |
+| `autocad_tiled_viewports` | View | The Model tab in 1, 2, 3 or 4 tiled viewports (VPORTS), or the tiles read back with what they look like; layouts are refused (`autocad_add_viewport` is for sheets) |
+| `autocad_hyperlinks` | Change | A link (a file, a data sheet, a web page, a named view) set on objects, replacing any they had, or removed; before and after per object |
+| `autocad_list_hyperlinks` | Read | The links on given objects, or every linked object in the drawing (found by the link's extended data, PE_URL) |
+| `autocad_geo_location` | Change | GEOGRAPHICLOCATION: a drawing point at a latitude and longitude, north in degrees clockwise from up; proved with AutoCAD's own transform; the sun's place (LATITUDE, LONGITUDE) follows the site. `action='remove'` takes it off |
+| `autocad_get_geo_location` | Read | The location, and whether the sun's place agrees with it |
 
 ## Seeing and checking (Read)
 

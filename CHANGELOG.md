@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (2026-11-21,
+  #175, #176, #178, #179, #180; part 2 of #119).** Six new tools (**185** in all):
+  `autocad_associative_array` (ARRAY's editable path, grid and ring array, by the plug-in, refused
+  if AutoCAD puts the items anywhere but where asked, [D-110](docs/DECISIONS.md)),
+  `autocad_tiled_viewports` (the Model tab in 1-4 viewports, COM, a View tool),
+  `autocad_hyperlinks` and `autocad_list_hyperlinks` (links on objects, COM),
+  `autocad_geo_location` and `autocad_get_geo_location` (GEOGRAPHICLOCATION by the plug-in, proved
+  with AutoCAD's own transform; the sun's place follows the site). `autocad_export` writes **DWF**
+  through the DWF6 ePlot plotter, the PDF way ([D-111](docs/DECISIONS.md)). Plug-in operations
+  `associative_array`, `geo_location`, `set_geo_location`. Live rows AQ1-AQ14 NOT RUN.
+
 - **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
   part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
   (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter

@@ -28,6 +28,8 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `LayerStates.cs` | Named layer states: save, restore (with every layer it changed), delete, list (D-81) |
 | `DimensionLines.cs` | Where a linear or aligned dimension's line is, and moving it, for even spacing (D-80) |
 | `AnnotationScales.cs` | Annotative objects: the drawing's scale list, an object's scales, adding and removing them (D-81) |
+| `AssociativeArrays.cs` | ARRAY's associative path, grid and ring array, checked against `Bridge/ArrayPlan.cs` before it is kept (D-110) |
+| `GeoLocation.cs` | The drawing's geographic location (GeoLocationData), proved with AutoCAD's own transform; the checks are `Bridge/GeoPlace.cs` (D-111) |
 | `RenderSetup.cs` | Photometric lights and materials made from their settings ([D-42](../docs/DECISIONS.md)) |
 | `IdleQueue.cs` | Gets pipe-thread work onto AutoCAD's main thread through `Application.Idle` |
 | `DrawingWatch.cs` | AutoCAD's document events (opened, came to the front, saved, closed) into the drawing events log, as they happen ([D-98](../docs/DECISIONS.md)) |
