@@ -132,6 +132,19 @@ def plugin_runner() -> Callable[[str, dict[str, Any]], dict[str, Any]] | None:
     return lambda operation, args: job.bridge.run(job.id, operation, args)
 
 
+def plugin_version() -> str | None:
+    """The version of the plug-in in this running job, from its address file; None if not known.
+
+    For a tool that has a faster way through a newer plug-in and keeps COM
+    for an older one (D-114).
+    """
+    job = _current
+    if job is None or job.bridge is None or job.id is None:
+        return None
+    version = (job.bridge.find() or {}).get("addinVersion")
+    return str(version) if version else None
+
+
 def dialog_expecter() -> Callable[[str, str], str | None] | None:
     """While a job runs with the plug-in: a way to name one button for one box it expects (#101).
 

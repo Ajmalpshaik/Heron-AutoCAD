@@ -14,9 +14,10 @@ from pydantic import Field
 
 from ..acad.coords import Ucs, as_vec3
 from ..acad.entities import describe
+from ..core.bridge import OLD_PLUGIN, READS_SINCE, BridgeRefused, older
 from ..core.connection import mark_writing
 from ..core.errors import AutocadError
-from ..core.gate import plugin_runner
+from ..core.gate import plugin_runner, plugin_version
 from ..core.variants import apoint
 
 LAYER_OPT = Field(
@@ -221,6 +222,31 @@ def plugin_read(operation: str, args: dict[str, Any] | None = None) -> tuple[dic
         return in_plugin(operation, args or {}, "Reading it", changes=False), None
     except Exception as exc:  # noqa: BLE001 - the read is extra; its failure is said, not raised
         return None, str(exc)
+
+
+def faster_read(operation: str, args: dict[str, Any]) -> dict[str, Any] | None:
+    """A read over many objects that the plug-in does in one go (D-114), or None: read it over COM.
+
+    On the worker thread, inside the tool's job. None, so the tool reads it
+    over COM and answers the same, when the plug-in is not in this job
+    (--no-bridge), is older than READS_SINCE, does not have the operation,
+    or could not read it. The modeller's stop, a padlock and "Outcome
+    unknown" are raised, never hidden behind a second, slower read.
+    """
+    runner = plugin_runner()
+    if runner is None or older(plugin_version(), READS_SINCE):
+        return None
+    try:
+        return runner(operation, args)
+    except BridgeRefused as exc:
+        text = str(exc)
+        if OLD_PLUGIN in text or "does not have the operation" in text:
+            return None
+        raise
+    except AutocadError as exc:
+        if str(exc).startswith("Outcome unknown"):
+            raise
+        return None  # the plug-in could not read it (its words end "Nothing was changed."); COM can
 
 
 def plugin_created(doc: Any, report: dict[str, Any]) -> dict[str, Any]:
