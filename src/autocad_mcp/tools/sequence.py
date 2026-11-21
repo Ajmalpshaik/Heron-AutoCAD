@@ -43,6 +43,17 @@ SELF = "autocad_sequence"
 # The levels a sequence may run. Publish and Admin are deliberately absent:
 # the sequence holds the Changes padlock, and that is all it may spend.
 ALLOWED = (Risk.READ, Risk.VIEW, Risk.CHANGE)
+# Steps that would move the work to another drawing or AutoCAD, or undo, under the gate's
+# feet: the gate checked one drawing's units, put its UNDO mark down there and goes back
+# to it on Discard, so a later step must land in that same drawing (D-19, D-29).
+NOT_A_STEP = {
+    "autocad_switch_drawing": "makes another drawing active",
+    "autocad_open_drawing": "makes another drawing active",
+    "autocad_create_drawing": "makes another drawing active",
+    "autocad_check_folder": "opens and closes other drawings",
+    "autocad_use_autocad": "moves the chat to another AutoCAD",
+    "autocad_undo_last": "undoes, and inside a sequence it would take back this sequence's own work",
+}
 # AutoCAD's UNDOCTL bit 8: a group is open. A step that nests its own undo mark
 # inside another can leave one open, which quietly breaks the user's next
 # Ctrl+Z, so any that are still open are closed at the end.
@@ -94,6 +105,12 @@ def plan_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
             raise AutocadError(
                 f"{where} is {SELF} itself. A sequence cannot contain a sequence; put its steps "
                 "in this list instead."
+            )
+        if name in NOT_A_STEP:
+            raise AutocadError(
+                f"{where}: '{name}' {NOT_A_STEP[name]}, so it cannot be a step: the rest of the sequence "
+                "would no longer land in the drawing Heron checked. Call it on its own, then the "
+                "sequence. Nothing was run."
             )
         tool = _tool(name)
         if tool is None:

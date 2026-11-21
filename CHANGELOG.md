@@ -68,6 +68,13 @@ Newest first. Dates are when the change was made.
   silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
   closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
 
+- **Review of the 2026-11-21 merges (2026-11-21, PR #186, D-116).** Docs that still said the
+  padlocks are read from a file, or that AutoCAD can connect at start, now match D-59 and D-73. A
+  sequence step can no longer switch drawing or undo. The dialog watch forgets a job whose end never
+  came, so a named button cannot outlive its job. Excel: error cells are never written, exported
+  cells keep what is typed, rows are named by their Excel number. Three tests that could pass for
+  the wrong reason now check what they say. Issues filed for the rest. Live rows RV1-RV3 NOT RUN.
+
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
@@ -364,7 +371,7 @@ Newest first. Dates are when the change was made.
   glossiness, reflectivity, transparency and refraction, glow in cd/m² and Kelvin, bump image,
   metal shading; done by the plug-in, and `autocad_apply_material` takes it straight away).
   `autocad_save_view(from_screen=true)` saves the view on screen, 3D angle included. Known limits
-  [05 §22](docs/05-known-limits.md#22-lights-materials-and-the-saved-3d-view-have-their-own-limits).
+  [05 §22](docs/05-known-limits.md#22-lights-materials-the-saved-3d-view-and-the-render-set-up-have-their-own-limits).
 - **The DONE card always closes.** The activity banner counted begins and ends, so one job whose
   end never came (AutoCAD left mid-command and the COM link dropped, 2026-11-05) kept every later
   "Heron AI has finished" card on screen. `BannerJobs` (Bridge, tested offline in
