@@ -8,7 +8,21 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+## Latest - 2026-11-21 (drawing events from the plug-in, fewer batch pieces: #48, #45; D-98)
+
+Branch `claude/plugin-events`. No new tool. **Plug-in change**: `DrawingEvents` (bridge) and
+`DrawingWatch` (add-in) record each drawing opened, brought to the front, saved / saved as, closed;
+new op `drawings`; `send_quiet` refuses after a switch mid-job and lines over `quietLimit` (1,500,
+said in ping). Server: the guard reads the events (`core/drawing_events.py`); the batch goes in
+longer pieces through the plug-in (`acad/lisp.py` `quiet_pieces`). The palette's Activity shows
+the drawing events live. Built for all three targets and tested offline; none of it has run in
+AutoCAD. Versions not bumped (the parent does).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude; live
+rows **AJ1-AJ10**. AJ6 first (count the `Command:` prompts for the 41-object batch), then AJ7
+(every 1,500-character piece arrives); if one is lost, lower `QUIET_CHUNK_LIMIT`.
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
 Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /

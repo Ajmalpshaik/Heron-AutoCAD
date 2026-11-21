@@ -25,6 +25,11 @@ while calls under 2,000 worked all day, so `autocad_run_lisp` refused anything o
 ~2,400-character call ran but its result came after the 10 s wait and it reported a timeout: the
 timeout note says to count what landed before sending it again.
 
+**A batch through the plug-in ([D-98](DECISIONS.md), #45)** goes in pieces up to 1,500 characters,
+because the plug-in's ping says it types that much (`quietLimit`); over COM, and from an older
+plug-in, the pieces stay under 600. 1,500 is not measured through the plug-in yet (NEEDS-CHECKING
+AJ6, AJ7): a piece that never arrived shows as `missing` in the answer, with a hint.
+
 **Since [D-76](DECISIONS.md) (2026-11-21)** the server cuts long code itself, between its top-level
 forms, into pieces under 700 characters, run in order as one undo step. What is left:
 - **One form over 2,000 characters is still refused**, never cut: make helpers with `defun` as
@@ -409,3 +414,20 @@ From [D-78](DECISIONS.md) and [D-79](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
 - **Draw order** works in one space at a time; the screen may need a regen to show it.
 - **Groups:** an unnamed group (*A1) is listed but not made. No Lengthen tool yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AA](NEEDS-CHECKING.md)).
+
+## 30. Drawing events and the wrong-drawing guard
+
+From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
+- **The guard asks at the next change, not before.** The plug-in records a switch, a save or a
+  close the moment AutoCAD reports it, but a chat's server only asks when its next change comes
+  (it has no way in from the plug-in). The palette's Activity list is the live view.
+- **A drawing closed and opened again needs `autocad_status` again**, even with the same name in
+  front: it is a new copy in memory. So does a restarted AutoCAD. A Save As does not: the same
+  drawing is followed under its new name.
+- **Only the plug-in's quiet input stops at a switch mid-job.** A long job (a sequence) whose next
+  step works over COM (a layer a batch makes, a COM draw) still goes to whichever drawing is in
+  front. Do not switch drawings while the banner shows a job ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)).
+- **50 events are kept.** A chat that comes back after more than 50 opens, switches, saves and
+  closes cannot tell what happened, and the guard compares names only, as before #48.
+- **A plug-in built before this change** does not record events: the guard compares names only
+  (a Save As then needs a new `autocad_status`), and a batch goes in 600-character pieces.

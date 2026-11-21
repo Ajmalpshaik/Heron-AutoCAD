@@ -40,6 +40,9 @@ namespace Heron.AutoCAD.Addin
         /// <summary>Heron's recent change jobs, for the palette's Activity tab (D-68).</summary>
         public static ActivityLog Activity { get; } = new ActivityLog();
 
+        /// <summary>What happened to the drawings, as AutoCAD said it (DrawingWatch feeds it, #48).</summary>
+        public static DrawingEvents Drawings { get; } = new DrawingEvents();
+
         public void Begin(JobInfo job)
         {
             HeronLog.Write("begin " + job.Tool + " (" + job.Risk + ") on " + job.Drawing);
@@ -93,7 +96,7 @@ namespace Heron.AutoCAD.Addin
             return asked ? answer : "discard";
         }
 
-        public void SendQuiet(string[] lines)
+        public void SendQuiet(string[] lines, string drawing)
         {
             HeronLog.Write("quiet input: " + lines.Length + " line(s)");
             // On the main thread, in order. Typed input, not a loaded file, so
@@ -103,6 +106,15 @@ namespace Heron.AutoCAD.Addin
             {
                 var doc = AcApp.DocumentManager.MdiActiveDocument;
                 if (doc == null) return;
+                // Checked again when AutoCAD gets to it: a switch since the
+                // request must not put the job's input in another drawing (#48).
+                if (!DrawingNames.Same(doc.Name, drawing))
+                {
+                    HeronLog.Write("quiet input not typed: " + doc.Name + " is in front, the job began in " + drawing);
+                    doc.Editor.WriteMessage("\nHeron: input for " + DrawingNames.Short(drawing) + " was not typed, because " +
+                        DrawingNames.Short(doc.Name) + " is in front now.\n");
+                    return;
+                }
                 foreach (var line in lines) doc.SendStringToExecute(line + "\n", true, false, false);
             });
         }

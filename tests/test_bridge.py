@@ -280,6 +280,15 @@ def test_send_quiet_refused_or_unreachable_is_false_not_an_error(home):
 
 
 @needs_pipes
+def test_send_quiet_sent_but_unanswered_is_never_typed_again_over_com(home):
+    # The plug-in may have typed it: sending it over COM as well would draw the batch twice (#45).
+    with FakePlugin({"ok": True}, answer=False) as plugin:
+        write_address(home, os.getpid(), plugin.name)
+        assert Bridge(os.getpid()).send_quiet("j1", ["(progn 1)"]) is True
+    assert plugin.requests[0]["op"] == "send_quiet"
+
+
+@needs_pipes
 def test_a_stopped_plug_in_ends_a_batch_instead_of_letting_com_type_it(home):
     words = "The modeller stopped Heron in AutoCAD (HERONSTOP). Nothing more is done until they type HERONSTOP again."
     with FakePlugin({"ok": False, "refusedBy": "Stopped", "message": words}) as plugin:
