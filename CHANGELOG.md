@@ -4,6 +4,21 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Files with AutoCAD closed, standards against a reference drawing, check lists shared with the
+  team (2026-11-21, #71, #69, #135).** Two new tools (**171** in all, with the 2D edits).
+  `autocad_read_file` reads a `.dxf` on disk with AutoCAD closed - layers with object counts,
+  blocks with placed counts and attribute tags, text, attribute values (JSON or CSV), extents,
+  styles - and a `.dwg` / `.dws` / `.dwt` when the free ODA File Converter is installed (Heron
+  finds it, never downloads it; without it, it says so plainly). It never changes the file.
+  `autocad_check_standards` takes `reference=`: the office `.dws`, a template or any drawing; it
+  lists the layers, text styles, dimension styles and linetypes that are missing, differ or are
+  not in the standard ([D-92](docs/DECISIONS.md)). Check lists: `autocad_checklist(action=
+  'office_folder')` points a PC at a shared folder for the office lists, with this PC's copy used
+  (and said) when the folder cannot be reached; `autocad_share_checklist` (Publish) puts a list in
+  the office folder or a project's changes in the drawing's folder, never over a teammate's file
+  silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
+  closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
+
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.

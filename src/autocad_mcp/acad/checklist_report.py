@@ -69,7 +69,7 @@ def _cells(row: dict[str, Any]) -> list[Any]:
 
 
 def _heading(report: dict[str, Any], drawing: str, when: str) -> list[tuple[str, str]]:
-    return [
+    rows = [
         ("Check list", str(report["checklist"])),
         ("Drawing", drawing),
         ("Run at", when),
@@ -77,6 +77,16 @@ def _heading(report: dict[str, Any], drawing: str, when: str) -> list[tuple[str,
         ("Coverage", str(report["coverage"])),
         ("What PASS means", PASS_MEANS),
     ]
+    # Which files the checks came from (D-93): the office list, and the project's changes.
+    lists = report.get("lists") or {}
+    if lists.get("office"):
+        where = f" ({lists['office_from']})" if lists.get("office_from") else ""
+        rows.append(("Office list", f"{lists['office']}{where}"))
+    if lists.get("project_file"):
+        rows.append(("Project changes", str(lists["project_file"])))
+    if report.get("warning"):
+        rows.append(("Warning", str(report["warning"])))
+    return rows
 
 
 # ---------------------------------------------------------------------------
