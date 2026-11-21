@@ -130,6 +130,42 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-67 - Finding and explaining: why a job cannot run, what failed, a question gets a read tool
+
+**Decided:** 2026-11-21, from the comparison with Heron AI for Revit (issues #88, #89, #90, #43).
+**Status:** in force. Adds to D-48 and D-49. The ideas are Revit's `heron_why`, `heron_gaps` and
+its question mode; the code is this project's own.
+
+- **`autocad_why`** (Read) takes a job in plain words, finds its tool with the same search as
+  `autocad://tools/find`, then lists what is in the way, worst first, each with what to do: no
+  tool, a read-only server, the plug-in not installed, nothing connected, two AutoCADs and none
+  picked, server and plug-in from different releases, a plug-in older than the tool needs (read
+  from the tool's own "plug-in X or newer" line, so it cannot drift), a padlock off, an update the
+  chat has not loaded. It says what it cannot see from files: an open command, a locked layer,
+  another chat holding AutoCAD.
+- **`autocad_gaps`** (Read) sums up the last N days (1-90) of the audit log: calls per tool,
+  failures grouped by a plain reason with what to do, the slowest jobs. Drawings by file name
+  only; reading the log (`autocad_gaps`, `autocad_why`) is not counted.
+- **The audit line gets a `reason` word** when a call is refused or fails, from a fixed list in
+  `core/audit.py` (`changes_off`, `not_connected`, `autocad_busy`, ...), worked out from the
+  message. Only the word is kept, never the message, because a message can name layers, handles or
+  folders. Lines written before this read as `other`.
+- **Both tools need no AutoCAD.** The gate runs them like `autocad_use_autocad` (D-49): through
+  `guarded`, audited, but without looking at AutoCAD first (`gate.NO_AUTOCAD_TOOLS`). They read
+  only Heron's own files. Not a way round the gate: they are Read, touch no drawing, and the set
+  is named in one place.
+- **A plain question never gets a change tool first.** `autocad://tools/find/{phrase}` treats
+  "how many...", "what ...", "which...", "is there..." as a question: the matches are only tools
+  that read, and anything else that matched is listed apart under `would_change_the_drawing`.
+  "does" and "do" are left out on purpose: "does the ductwork clash" is answered by
+  `autocad_check_interference`, which makes solids. Measured on `tests/test_find_tool.py`: 84 of
+  97 phrases first (80 before) and 97 of 97 in the top three (96), plus 13 new question phrases.
+- **The audit folder never becomes relative** (#43): with `%LOCALAPPDATA%` unset, empty or not a
+  full path, it is `~/AppData/Local/Heron/autocad/audit`, where Windows normally points it.
+  `bridges_dir()` has the same pattern and is left for its own change.
+
+Pinned by `tests/test_why_and_gaps.py` and `tests/test_find_tool.py`. Live rows: Group W.
+
 ## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
 
 **Decided:** 2026-11-20, from the Luxury Suite 3 rehearsal of 2026-11-18. **Status:** in force.

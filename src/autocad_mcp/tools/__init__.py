@@ -25,6 +25,7 @@ def register_all() -> None:
         draw,
         drawing_report,
         drawing_tools,
+        explain,
         geometry_tools,
         labels,
         layers,

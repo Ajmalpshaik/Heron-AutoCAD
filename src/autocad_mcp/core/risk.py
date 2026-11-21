@@ -54,6 +54,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "list_materials",
         "xref_tree",
         "drawing_report",
+        "why",
+        "gaps",
     ),
     Risk.VIEW: (
         "zoom",
