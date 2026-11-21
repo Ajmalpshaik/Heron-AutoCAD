@@ -187,3 +187,28 @@ class TestSummarise:
 
     def test_nothing_run_counts_as_nothing(self):
         assert lr.summarise([]) == {"checked": 0, "passed": 0, "failed": 0, "skipped": 0}
+
+
+class TestAHandResultIsNeverWiped:
+    REGISTER = (
+        "| Row | Do | Pass | Result |\n|---|---|---|---|\n"
+        "| D12 | a | b | **PASS** 2026-10-28, AutoCAD 2027: by hand |\n"
+        "| X21 | a | b | NO MACHINE |\n"
+        "| AA3 | a | b | NOT RUN |\n"
+        "| AC5b | a | b | NOT RUN — an older reason |\n"
+    )
+
+    def test_a_not_run_reason_leaves_a_pass_alone(self):
+        outcomes = [Outcome(r, False, "", skipped=True, reason="needs an eye") for r in ("D12", "X21", "AA3", "AC5b")]
+        new, written, missing = lr.apply_results(self.REGISTER, outcomes, WHEN, VERSION)
+        assert "**PASS** 2026-10-28" in new and "NO MACHINE" in new
+        assert sorted(written) == ["AA3", "AC5b"] and missing == []
+        assert lr.kept_by_hand(self.REGISTER, outcomes) == ["D12", "X21"]
+
+    def test_a_measurement_still_replaces_what_was_there(self):
+        new, written, _ = lr.apply_results(self.REGISTER, [Outcome("D12", False, "the corner is off")], WHEN, VERSION)
+        assert written == ["D12"] and "**FAIL**" in new
+
+    def test_two_letter_rows_are_rows(self):
+        assert lr.row_id("| AA12 | x | y | NOT RUN |") == "AA12"
+        assert lr.row_id("| AC5b | x | y | NOT RUN |") == "AC5b"

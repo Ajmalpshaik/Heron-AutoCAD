@@ -18,6 +18,22 @@ Newest first. Dates are when the change was made.
   falls back to the active layout's block. Three new plug-in operations
   ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). `align_to_ucs` now twists the view the other way (337 for a UCS turned 23; reasoned, AF6). Live rows AF1-AF18 NOT RUN.
 
+
+- **The live-check runner covers group AQ too (2026-11-21, D-118).** Arrays, tiled viewports,
+  hyperlinks and geographic location: 6 rows measured, 8 with their reason (making an array erases
+  its sources, so Heron asks). 194 rows measured in all, 174 with a reason.
+- **A sequence stops when another drawing comes to the front (2026-11-21, #165).** Between its
+  steps `autocad_sequence` asks the plug-in whether a drawing switch happened during the job; if
+  so it stops, like HERONSTOP, so no later step lands in the other drawing ([D-98](docs/DECISIONS.md)).
+  Live row AJ8 NOT RUN.
+
+- **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
+  measures 122 rows of groups M to Z, AA to AP and RV as well as D, E and F (188 in all), and gives
+  the other 140 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
+  or Ask to Keep on stops it, saying what to do; it never switches one. A row can need Admin or
+  Publish on or off; a NOT RUN reason never overwrites a result written by hand. Every new check is
+  tested offline against a good and a bad recorded answer (`tests/live_fakes.py`). Found: V1, V4 and
+  V7 cannot open their box as written (#213).
 - **Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (2026-11-21,
   #175, #176, #178, #179, #180; part 2 of #119).** Six new tools (**185** in all):
   `autocad_associative_array` (ARRAY's editable path, grid and ring array, by the plug-in, refused

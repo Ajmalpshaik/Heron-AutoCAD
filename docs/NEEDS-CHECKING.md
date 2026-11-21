@@ -9,17 +9,22 @@
 `tools/install_plugin.py`), start AutoCAD, open a scratch drawing, and connect Claude Code in this
 folder.
 
-**Groups D, E and F run themselves.** With AutoCAD open and the Changes padlock on:
+**Many rows run themselves** (groups D, E, F, M to Z, AA to AQ, RV; D-118). With AutoCAD open,
+Heron pressed, **Changes on in Settings** and Ask to Keep off:
 
 ```bash
 .venv\Scripts\python.exe tools/live_check.py --group all --write
 ```
 
-It works in a scratch drawing it makes itself, *measures* each row (a cone development's arcs
-against the girths they roll onto, a 1:100 viewport's CustomScale, a solid's base against z=0)
-and writes the answer and its evidence into the last column here. Most of the 90 rows are
-measurable that way. The rest need an eye and are written **NOT RUN** with the reason;
-`--list` names them. A row the padlocks refuse is **NOT RUN** too, never PASS.
+It reads the padlocks first and stops, saying what to do, if Changes is off or Ask to Keep is on; it
+never switches one. It works in scratch drawings it makes itself, *measures* each row (a cone
+development's arcs against the girths they roll onto, a 1:100 viewport's CustomScale, a trimmed
+line's ends, the first line of a change answer) and writes the answer and its evidence into the last
+column here. Rows that need an eye, a click in a Heron window, a restart, the registry or a second
+AutoCAD are written **NOT RUN** with the reason; `--list` names them. A row marked
+`[needs Admin on]` (or Publish on or off) runs only when that padlock already is so; run again
+with the padlocks set that way for those rows. A row the padlocks refuse is **NOT RUN** too, never PASS, and a
+NOT RUN reason never overwrites a result already written here.
 
 ## Group A - AutoCAD 2027 (this PC)
 
@@ -840,7 +845,7 @@ and the server restarted. **Every row below is NOT RUN.**
 | AJ5b | `autocad_status` on a.dwg; Save As a-rev2.dwg; open a.dwg from disk again and keep it in front; ask Heron to draw a line | REFUSED: "a.dwg was opened at hh:mm:ss, after Heron checked a drawing"; after `autocad_status` it draws | NOT RUN |
 | AJ6 | `autocad_batch_draw` of the A22 batch (41 objects) with the plug-in connected, then F2 | About 9 `Command:` prompts (it was about 27), all 41 made, no `missing` in the answer, no LISP text in the history. **Write the count down** | NOT RUN |
 | AJ7 | `autocad_batch_draw` of 2,000 lines, then of one 800-vertex polyline and 50 texts | `created` = `requested`, no `missing`, `completed` true: every piece up to 1,500 characters arrived. If any is missing, or AutoCAD sits at a `(_>` prompt (a piece cut short), write the batch size and lower `QUIET_CHUNK_LIMIT` | NOT RUN |
-| AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, on layer 0 (no `layer`: a new layer is made over COM, in whichever drawing is in front, [#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)); press Ctrl+Tab to b.dwg while it runs | The steps after the switch are refused: "The drawing in front changed while this job ran ... so Heron typed none of this input"; nothing from Heron lands in b.dwg; a.dwg has the steps before the switch | NOT RUN |
+| AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, each on a new layer; press Ctrl+Tab to b.dwg while it runs | The sequence stops before its next step: hint "The drawing in front changed after step N ... nothing landed in the other drawing" (or, for a switch inside a step, that step's input is refused: "so Heron typed none of this input"); no Heron object and no new layer in b.dwg; a.dwg has the steps before the switch ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)) | NOT RUN |
 | AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
 | AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
 

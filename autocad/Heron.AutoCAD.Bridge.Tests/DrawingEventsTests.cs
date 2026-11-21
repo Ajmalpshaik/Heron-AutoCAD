@@ -420,6 +420,28 @@ public class QuietDrawingTests
     }
 
     [Fact]
+    public void Begin_says_where_the_drawing_log_stood()
+    {
+        _log.DrawingActivated(@"C:\b.dwg");
+        var reply = Send(new
+        {
+            op = "begin", token = Token, conversation = "chat-a", job = "j2", tool = "autocad_sequence", risk = "change", summary = "Sequence", drawing = @"C:\b.dwg",
+        });
+        Assert.Equal(_log.Seq, reply.GetProperty("drawingSeq").GetInt64());
+    }
+
+    [Fact]
+    public void Without_a_log_begin_leaves_the_number_out()
+    {
+        var bare = new BridgeProtocol(_host, () => _config, Token, new HeronHold(), () => DateTime.UtcNow);
+        var reply = JsonDocument.Parse(bare.Handle(JsonSerializer.Serialize(new
+        {
+            op = "begin", token = Token, conversation = "chat-a", job = "j3", tool = "autocad_sequence", risk = "change", summary = "Sequence", drawing = "a.dwg",
+        }))).RootElement;
+        Assert.False(reply.TryGetProperty("drawingSeq", out _));
+    }
+
+    [Fact]
     public void Ping_says_how_long_a_quiet_line_may_be()
     {
         var reply = Send(new { op = "ping", token = Token, conversation = "c" });

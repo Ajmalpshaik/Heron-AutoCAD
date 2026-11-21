@@ -130,6 +130,40 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-118 - The live-check runner measures the later groups, never moves a padlock, never answers a box
+
+**Decided:** 2026-11-21. **Status:** in force. Adds to the runner's own design (`tools/live_check.py`,
+groups D, E and F).
+`tools/live_check.py` now also measures the rows of groups M to Z, AA to AP and RV that a script can
+judge: a count, a size, a refusal's words, a value read back with another tool. One file per area
+(`live_check_edits.py` AA, `live_check_layers.py` AB, `live_check_blocks.py` AC and Y,
+`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL, `live_check_ribbon2.py` AQ,
+`live_check_heron.py` M to Z, AG, AJ and RV), sharing `live_common.py`.
+- **The padlocks come first, and are only read.** Since D-59 every AutoCAD starts with them off. The
+  runner reads them from the plug-in before anything else: Changes off stops it with "Turn Changes on
+  in Settings", Ask to Keep on stops it too (every change would wait for a click the runner cannot
+  give). Nothing is run and nothing is written. It never types HERONCHANGES or anything like it.
+- **A row may need Admin or Publish on, or off** (`needs` on the row). When the padlock is not so, the
+  row is said as "not run this time: it needs ..." and its result in the register is left alone.
+- **A NOT RUN reason never wipes a result written by hand.** It is written only over a row that says
+  NOT RUN already; a PASS, a FAIL or NO MACHINE stays (`live_results.kept_by_hand`). Before this, the
+  by-eye reasons of D12 and D20 would have overwritten their hand-recorded results.
+- **A row that erases is not scripted.** Erasing an object (or a layer: the plug-in counts symbol table
+  records) brings up Heron's "keep them erased?" box (D-50), which the runner cannot answer. Such rows,
+  and rows needing an eye, a click in a Heron window, a restart, the registry, a second AutoCAD or
+  HERONSTOP, are NOT RUN with the reason `--list` prints. A few older D-F rows erase too (a boolean, a
+  slice): the run then waits for that box, and the runner says so before it starts.
+- **Its own drawings only.** Rows that need a saved drawing save the scratch drawing, or another new
+  one, into the runner's own folder in %TEMP%; everything it opened is closed without saving and the
+  folder removed at the end. A check list, saved command or project note a row makes has an `lc-`
+  name and is deleted by the same row. "By hand" steps (a line the modeller draws, a true colour set
+  in Properties) are done straight over COM, outside Heron, and named as such.
+- **Offline, every check is judged both ways.** `tests/live_fakes.py` plays recorded answers into each
+  check, binding every call's arguments against the real tool, and failing on any call not recorded;
+  each new row has a good recording that must PASS and a bad one that must FAIL. That proves the
+  judging and the arguments, not AutoCAD.
+- **Found on the way:** V1, V4 and V7 send OPEN, CLOSE and PURGE through `autocad_send_command`, which
+  refuses all three before sending, so their box can never open ([#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213)).
 ## D-116 - What the review of the 2026-11-21 merges changed, and what it left to issues
 
 **Decided:** 2026-11-21, review of PRs #99 onward (PR #186). **Status:** in force; adds to D-29, D-66,
@@ -426,6 +460,11 @@ rows AJ1-AJ10 NOT RUN).
   .NET object, and says a Save As made while closing before the close.
 - **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
   update live without a server of its own; the docked palette is the live list.
+- **Added after the merge (#165, same day).** `begin` answers `drawingSeq`, where the drawing log
+  stood. Between its steps `autocad_sequence` asks the events since (`gate.front_changed_in_job`)
+  and stops when another drawing came to the front or the job's drawing closed (a Save As of it is
+  the same drawing), like HERONSTOP: the steps before stay, the rest are not run. An older
+  plug-in says no number, and the sequence runs on as before.
 
 ## D-95 - Sections, flat views, surfaces, meshes and the new super hatch tiles are plug-in operations
 
