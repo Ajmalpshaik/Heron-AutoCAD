@@ -8,7 +8,7 @@
 | `check_secrets.py` | No | No credential in any tracked file (key shapes, private keys, passwords in config lines) or file named like one (.env, *.pem). Runs in CI; exit 2 = could not look, never a pass |
 | `check_structure.py` | No | Repository rules (AutoCAD API only in the add-in, every tool has a level, doc links). Runs in CI |
 | `smoke_test.py` | Yes, with a drawing open | Live checks against a scratch drawing, then cleans up |
-| `live_check.py` | Yes, with Changes on | Measures 65 of the 90 live rows in `docs/NEEDS-CHECKING.md` in its own scratch drawing and, with `--write`, records the results there |
+| `live_check.py` | Yes, with Changes on and Ask to Keep off | Measures 144 live rows of `docs/NEEDS-CHECKING.md` (groups D-F, M-Z, AA-AE) in its own scratch drawings and, with `--write`, records the results there; the other 129 rows of those groups get their NOT RUN reason |
 | `protocol_check.py` | Yes | Starts the server as Claude does and does the MCP handshake over stdio |
 | `memory_check.py` | Yes, Heron connected | Reads acad.exe's Private Bytes over 100 rounds of Heron reads; PASS when the last reading is within 10 % of the first (NEEDS-CHECKING I7) |
 
@@ -41,9 +41,21 @@ C:\hbuild\v\Scripts\python.exe tools/make_release.py
 ```
 
 `live_check.py` turns the hand-kept register into one command. `--list` shows the rows and
-needs nothing running; `--group D`, `--group E` or `--group F` runs one group; `--row E4 --row D13` runs
-named rows; `--write` puts the results, with their evidence, into `docs/NEEDS-CHECKING.md`.
-A row the padlocks refuse is recorded NOT RUN with that reason, never PASS.
+needs nothing running; `--group AA` runs one group, `--group M,O,T` several; `--row E4 --row AA6`
+runs named rows; `--write` puts the results, with their evidence, into `docs/NEEDS-CHECKING.md`.
+
+- **The padlocks first.** It reads them from the plug-in before anything else. Changes off: it says
+  "Turn Changes on in Settings" and stops; Ask to Keep on: it says "Turn Ask to Keep off" and stops.
+  It never switches a padlock itself (D-59, D-118).
+- **Admin and Publish.** A row marked `[needs Admin on]` (or Publish on, or off) in `--list` runs
+  only when that padlock already is so; otherwise it is said, and the register is left as it was.
+  `--list` says what each row needs; run again with the padlocks set that way for those rows.
+- **Its own drawings.** It works in new drawings it makes, saved (when a row needs a file) into its
+  own folder in `%TEMP%`, and closes them unsaved at the end. Check lists, saved commands and notes a
+  row makes are named `lc-...` and deleted by that row.
+- **Never PASS by default.** A row the padlocks refuse is NOT RUN with that reason; a NOT RUN reason
+  never overwrites a PASS, FAIL or NO MACHINE already in the register.
+- **One session.** Run it when no chat is using this AutoCAD.
 
 ```bash
 .venv\Scripts\python.exe tools/live_check.py --group all --write

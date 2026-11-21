@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive the NEEDS-CHECKING live rows against a real AutoCAD, and measure them.
 
-The register holds 67 rows that can only be proved inside AutoCAD. Most of them
+The register holds rows that can only be proved inside AutoCAD. Many of them
 are a measurement, not an opinion: a cone development's arcs must be exactly as
 long as the girths they roll onto; a 1:100 viewport must report a scale of 0.01;
 a box's base must sit on z=0. This runs those rows, **measures** them, and
@@ -9,14 +9,22 @@ writes the answer back into the register with its evidence.
 
     .venv\\Scripts\\python.exe tools/live_check.py --list
     .venv\\Scripts\\python.exe tools/live_check.py --group E
+    .venv\\Scripts\\python.exe tools/live_check.py --group AA,Z
     .venv\\Scripts\\python.exe tools/live_check.py --group all --write
 
 Everything happens in a **new drawing it creates for itself**, so the drawing
 you have open is never touched. It is closed without saving at the end.
 
-Press **Heron** in AutoCAD first and turn the **Changes** padlock on. A row the
-padlocks refuse is reported NOT RUN with that reason, not FAIL - a refusal is
-the gate working, not a bug.
+Press **Heron** in AutoCAD first, turn the **Changes** padlock on in Settings and
+leave Ask to Keep off: the runner reads the padlocks first and stops, saying so,
+if they are not so. It never switches one itself (D-59, D-118). A row that needs
+Admin or Publish on (or off) runs only when it already is; otherwise it is said,
+and its result in the register is left alone. A row the padlocks refuse is
+reported NOT RUN with that reason, not FAIL - a refusal is the gate working.
+
+Groups D, E and F are measured in this file; the later groups in one file per
+area (see live_common.py). Run it from a terminal, not while a chat is using
+this AutoCAD: never drive AutoCAD from two sessions at once.
 """
 
 from __future__ import annotations
@@ -1317,6 +1325,10 @@ ASK_TO_KEEP_ON = (
     "Turn Ask to Keep off in Settings and run this again. With it on, every change waits for your "
     "Keep or Discard, and the runner cannot answer. Nothing was run and nothing was written."
 )
+ERASE_NOTE = (
+    "A few rows of D, E and F erase objects (a boolean, a slice). Heron then asks whether to keep them "
+    "erased: answer Keep them erased, so the row can measure what is left."
+)
 PADLOCKS_UNKNOWN = (
     "Heron cannot read this AutoCAD's padlocks (a plug-in older than 1.6.0, or two AutoCADs "
     "connected and none picked). Install the current plug-in, keep one AutoCAD connected, and run "
@@ -1496,6 +1508,8 @@ async def main() -> int:
 
     outcomes: list[Outcome] = []
     if wanted:
+        if any(c.group in ("D", "E", "F") for c in wanted):
+            print(ERASE_NOTE)
         name, restore = await scratch_drawing()
         ctx.scratch = name
         print(f"Working in a scratch drawing: {name}\n")

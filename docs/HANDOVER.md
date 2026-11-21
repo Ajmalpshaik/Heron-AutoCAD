@@ -8,7 +8,21 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+## Latest - 2026-11-21 (the live-check runner covers the new groups, D-118)
+
+`tools/live_check.py` now measures 144 rows (78 new, in groups M-Z, AA, AB, AC, AE) and names the
+reason for the other 129 of its groups. One file per area: `live_check_edits.py` (AA),
+`live_check_layers.py` (AB), `live_check_blocks.py` (AC, Y), `live_check_render.py` (AE),
+`live_check_heron.py` (M-Z), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
+a bad recorded answer into each check. Nothing has run in AutoCAD: every row is still NOT RUN.
+
+**Next (on this PC):** pull, restart Claude, press Heron, turn Changes on in Settings (Ask to Keep
+off), close every chat using this AutoCAD, then `tools/live_check.py --group all --write`. Then once
+more with Admin and Publish on for the rows `--list` marks `[needs ...]`. Open: #213 (V1, V4, V7 need
+rewriting). A new group added to NEEDS-CHECKING makes `tests/test_live_check.py` name it until its
+rows are a check or a reason.
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
 Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /

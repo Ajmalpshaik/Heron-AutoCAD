@@ -9,17 +9,22 @@
 `tools/install_plugin.py`), start AutoCAD, open a scratch drawing, and connect Claude Code in this
 folder.
 
-**Groups D, E and F run themselves.** With AutoCAD open and the Changes padlock on:
+**Many rows run themselves** (groups D, E, F, M to Z, AA, AB, AC, AE; D-118). With AutoCAD open,
+Heron pressed, **Changes on in Settings** and Ask to Keep off:
 
 ```bash
 .venv\Scripts\python.exe tools/live_check.py --group all --write
 ```
 
-It works in a scratch drawing it makes itself, *measures* each row (a cone development's arcs
-against the girths they roll onto, a 1:100 viewport's CustomScale, a solid's base against z=0)
-and writes the answer and its evidence into the last column here. Most of the 90 rows are
-measurable that way. The rest need an eye and are written **NOT RUN** with the reason;
-`--list` names them. A row the padlocks refuse is **NOT RUN** too, never PASS.
+It reads the padlocks first and stops, saying what to do, if Changes is off or Ask to Keep is on; it
+never switches one. It works in scratch drawings it makes itself, *measures* each row (a cone
+development's arcs against the girths they roll onto, a 1:100 viewport's CustomScale, a trimmed
+line's ends, the first line of a change answer) and writes the answer and its evidence into the last
+column here. Rows that need an eye, a click in a Heron window, a restart, the registry or a second
+AutoCAD are written **NOT RUN** with the reason; `--list` names them. A row marked
+`[needs Admin on]` (or Publish on or off) runs only when that padlock already is so; run again
+with the padlocks set that way for those rows. A row the padlocks refuse is **NOT RUN** too, never PASS, and a
+NOT RUN reason never overwrites a result already written here.
 
 ## Group A - AutoCAD 2027 (this PC)
 
