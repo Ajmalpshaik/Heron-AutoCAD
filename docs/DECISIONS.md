@@ -148,8 +148,8 @@ D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158)
 - **Checks that could pass for the wrong reason:** the tool-finder floors are back at the margin
   their comment states, a tool listed under two levels in `core/risk.py` fails the structure check,
   and the folder-close test now reaches the code it tests.
-- **Left to issues, in areas other sessions are changing:** #189-#191 and the issues filed from
-  PR #186's summary comment. Live rows: Group RV (NOT RUN).
+- **Left to issues, in areas other sessions are changing:** #189-#191 and #206-#212 (the palette
+  Undo's guessed mark and the batch text escape first). Live rows: Group RV (NOT RUN).
 
 ## D-102 - A full-sheet preview says what it covered, and can add close-ups
 
