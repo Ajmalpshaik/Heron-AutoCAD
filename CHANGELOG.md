@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A preview of a full sheet (2026-11-21, #41).** `autocad_preview` now says the area it plotted
+  (`plotted`, extents refreshed first), its `pixels` and the smallest text that reads
+  (`smallest_clear_text`), with a `tip` when the drawing's text is smaller. `detail=2` or `3` adds 4
+  or 9 overlapping close-ups of the same area, plotted as windows. A whole A1 in one picture is about
+  0.5 mm a pixel, so its 2.5 mm text could not show ([D-102](docs/DECISIONS.md)). Live rows AM1-AM6
+  NOT RUN; #41 stays open until AM1 names the cause.
+
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.

@@ -406,7 +406,7 @@ camera and the sun's date, which COM has no call for. Not proven in AutoCAD yet:
 
 | Tool | Purpose |
 |---|---|
-| `autocad_preview` | Plot the extents, the current view or a window to PNG and return the **picture** to the AI. Use after drawing, before saying it is done. Page setup put back |
+| `autocad_preview` | Plot the extents, the current view or a window to PNG and return the **picture** to the AI. Use after drawing, before saying it is done. Says the area plotted and the smallest text that reads; `detail=2` or `3` adds close-ups of the same area, for a full sheet whose small text one picture cannot show (D-102). Page setup put back |
 | `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file. `passed` means the rules given were met against the named `source`, never that the drawing complies; `null` when only part of the objects was read ([D-64](DECISIONS.md)) |
 | `autocad_extract_attributes` | Every block reference with attributes as rows (block, handle, layer, insertion, tags), JSON or CSV - for schedules |
 

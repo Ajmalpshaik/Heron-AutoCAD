@@ -76,6 +76,9 @@ done looks like here.
 - [ ] `autocad_preview` with `area='extents'` on an A1 schematic drawn at 1:1 showed only the two
   frame rectangles; `area='window'` over the same parts showed everything. Find out why before
   trusting an extents preview of a full sheet. ([#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41))
+  2026-11-21: most likely too few pixels for an A1 (about 0.5 mm a pixel), or extents stretched by
+  something far off. The answer now says the area plotted and the smallest text that reads, and
+  `detail=2` / `3` adds window close-ups ([D-102](DECISIONS.md)). Live row AM1 says which cause it was.
 - [x] A chat's server keeps the code it started with: `autocad_drawing_setup(scale='1:1')` failed
   with the fault already fixed in a2acf6a, because that server was older than the merge. Done:
   `autocad_status` reports `server_version` and `plugin_version`, and `autocad://diagnose` warns

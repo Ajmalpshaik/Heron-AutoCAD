@@ -669,6 +669,22 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 | AC17 | After AC3, make a SKID block holding one VALVE TAG insert, insert SKID twice. Change VALVE TAG's definition again; `autocad_sync_attributes(block='VALVE TAG', nested=true, dry_run=true)`, then without (#156) | The dry run lists the insert inside SKID with `"inside": "SKID"`; after the sync both SKID copies show the nested tag with its new attributes and its typed value kept; without `nested` it is not listed | NOT RUN |
 
+## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-102](DECISIONS.md), issue #41). Built and tested offline only
+(`tests/test_preview_extents.py`); server change only, no plug-in change. Restart the server first.
+Use the A1 automation room SLD from 2026-10-28 (or any A1 sheet at 1:1 with 2.5 mm text). AM1 is
+the row that says which cause #41 was. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AM1 | On the A1 SLD in Model: `autocad_preview()` (extents). Read `plotted`, `pixels`, `smallest_clear_text`, `tip` | Record all four and whether the picture shows the contents. **Tells the causes apart:** `plotted` about 841 x 594 and `smallest_clear_text` above 2.5 = too few pixels (go to AM2); `plotted` much bigger than the frame = something far off (find it with `autocad_get_extents`, ZOOM E; erase it and repeat); `plotted` right, picture shows the sheet full size and yet nothing but the frames = a third cause in AutoCAD's Extents plot itself (record it, the close-ups in AM2 still work round it) | NOT RUN |
+| AM2 | `autocad_preview(detail=2)`, then `detail=3` | 5 then 10 pictures: the overview, then the parts top left first, each with its `part` and corners; the 2.5 mm text reads in the detail=3 parts; parts overlap a little at the seams; `detail_smallest_clear_text` smaller than in AM1 | NOT RUN |
+| AM3 | After AM2: PAGESETUP on Model, and BACKGROUNDPLOT | Page setup as before (plotter, paper, area, scale, rotation); BACKGROUNDPLOT as before; one U in AutoCAD undoes nothing of the previews | NOT RUN |
+| AM4 | Draw a line at 100000,100000, then `autocad_preview()`; erase it, `autocad_preview()` again | First: `plotted` reaches 100000 and the sheet is small in the picture. Second: record whether `plotted` shrank back to the sheet (the regen refreshed the extents) or still reaches 100000 (stale until ZOOM E; then the code should do more) | NOT RUN |
+| AM5 | `autocad_preview(width_px=4000)` and `width_px=640` | Record the `size` and `pixels` AutoCAD chose each time: they are the PNG plotter's biggest and smallest sizes, not yet known here | NOT RUN |
+| AM6 | `autocad_set_3d_view(direction='sw_iso')`, `autocad_preview(detail=2)`; then `autocad_preview(area='view', detail=2)` | First: one picture and `detail_skipped` naming the plan view. Second: refused, naming area='extents' or 'window'; nothing plotted | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

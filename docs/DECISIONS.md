@@ -130,6 +130,34 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-102 - A full-sheet preview says what it covered, and can add close-ups
+
+**Decided:** 2026-11-21, for issue #41. **Status:** in force; extends D-04 (the plot route) and
+leaves the default preview one picture, as before.
+On 2026-10-28 `autocad_preview(area='extents')` of an A1 schematic at 1:1 showed only the two frame
+rectangles, while windows over its parts showed everything. The cause could not be seen from here
+(no AutoCAD). The two found in the code and in Autodesk's behaviour:
+- **Too few pixels for the sheet (most likely).** AutoCAD's PNG plotter has fixed sizes; the
+  preview takes the one nearest `width_px` (1600 by default), and the chat app may shrink the
+  picture again. Which sizes AutoCAD 2027 offers is not yet known here (row AM5). A whole A1
+  (841 mm) fitted into 1600 pixels is about 0.5 mm a pixel: 2.5 mm text and thin lines turn to
+  specks while the heavy frame still shows. A window over one part gets the same pixels for less
+  paper, which is why windows showed everything.
+- **Extents bigger than the sheet.** EXTMIN/EXTMAX grow as things are drawn and shrink only on a
+  ZOOM All / Extents, and they count objects on layers that are off, not plotted or on Defpoints.
+  A stray or erased object far off makes the sheet small in the picture.
+
+What the code does now: an extents preview regenerates first (as `autocad_get_extents` does) and
+the answer says the area plotted (`plotted`), the picture's `pixels` and the smallest text height
+that reads (`smallest_clear_text`, 8 pixels a letter), with a `tip` when the drawing's TEXTSIZE is
+smaller. **`detail=2` (or 3)** adds 4 (or 9) overlapping close-ups of the same area, plotted as
+windows, because windows are the route that showed everything live; each is named (top left ...)
+with its corners. Not done: a bigger PNG (the pc3's pixel sizes cannot be changed over COM; a
+custom size is a pc3 edit by hand), and plotting the overview as a window (the extents read back
+could be staler than AutoCAD's own Extents plot). Close-ups are refused for `area='view'` (no
+corners) and skipped, with the reason, in a 3D view or a rotated UCS, where the plan box does not
+match the picture. Live rows AM1-AM6 NOT RUN; issue #41 stays open until AM1 says which cause it was.
+
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
