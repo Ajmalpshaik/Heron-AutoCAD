@@ -9,7 +9,7 @@
 `tools/install_plugin.py`), start AutoCAD, open a scratch drawing, and connect Claude Code in this
 folder.
 
-**Many rows run themselves** (groups D, E, F, M to Z, AA, AB, AC, AE; D-118). With AutoCAD open,
+**Many rows run themselves** (groups D, E, F, M to Z, AA to AP, RV; D-118). With AutoCAD open,
 Heron pressed, **Changes on in Settings** and Ask to Keep off:
 
 ```bash

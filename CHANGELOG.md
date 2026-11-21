@@ -5,8 +5,8 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
-  measures 78 rows of groups M to Z, AA, AB, AC and AE as well as D, E and F (144 in all), and gives
-  the other 103 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
+  measures 113 rows of groups M to Z, AA to AP and RV as well as D, E and F (179 in all), and gives
+  the other 130 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
   or Ask to Keep on stops it, saying what to do; it never switches one. A row can need Admin or
   Publish on or off; a NOT RUN reason never overwrites a result written by hand. Every new check is
   tested offline against a good and a bad recorded answer (`tests/live_fakes.py`). Found: V1, V4 and

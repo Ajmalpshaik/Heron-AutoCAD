@@ -10,10 +10,10 @@
 
 ## Latest - 2026-11-21 (the live-check runner covers the new groups, D-118)
 
-`tools/live_check.py` now measures 144 rows (78 new, in groups M-Z, AA, AB, AC, AE) and names the
-reason for the other 129 of its groups. One file per area: `live_check_edits.py` (AA),
+`tools/live_check.py` now measures 179 rows (113 new, in groups M-Z, AA-AP, RV) and names the
+reason for the other 156 of its groups. One file per area: `live_check_edits.py` (AA),
 `live_check_layers.py` (AB), `live_check_blocks.py` (AC, Y), `live_check_render.py` (AE),
-`live_check_heron.py` (M-Z), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
+`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
 a bad recorded answer into each check. Nothing has run in AutoCAD: every row is still NOT RUN.
 
 **Next (on this PC):** pull, restart Claude, press Heron, turn Changes on in Settings (Ask to Keep
