@@ -33,6 +33,7 @@
 | 11 | [ADN-DevTech repositories study](11-adn-repos-study.md) | Autodesk's AutoCAD sample repositories: licences, what was built from them, what was left out |
 | 09 | [Sheets, coordinates and shop drawings](09-sheets-and-coordinates.md) | The UCS, saved locations, layouts, title blocks, viewports, drawing settings, an import into a shop drawing, `autocad_sequence` |
 | 12 | [AutoCAD ribbon coverage](12-autocad-ribbon-coverage.md) | Every default ribbon panel: what Heron covers, what is missing, whether COM or .NET can do it, a priority; the top 10 gaps |
+| 13 | [Attribute sheets, folder checks, the Companion page](13-sheets-folders-companion.md) | Attributes out to Excel and back (only the changed cells), a check list over a folder of drawings read only, and the Companion page beside AutoCAD |
 
 ## Registers and working pages
 

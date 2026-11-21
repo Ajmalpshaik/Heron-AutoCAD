@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .. import __version__
-from . import answers, audit, connection, diagnose, progress, project_notes
+from . import answers, audit, companion, connection, diagnose, progress, project_notes
 from . import bridge as bridge_module
 from .bridge import (
     NOT_CONNECTED,
@@ -486,6 +486,8 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
             message = "" if ok or not isinstance(result, str) else answers.body(result)
             _record(tool, risk, drawing, ok, outcome, started, message)
             _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked, dry_run)
+            if companion.enabled():
+                companion.write(companion_state())  # the Companion page, once the chat asked for it (D-71)
 
 
 async def _roll_back(
@@ -677,6 +679,17 @@ def _remember(
         )  # fmt: skip
     elif risk in (Risk.ADMIN, Risk.PUBLISH) and wrote:
         _last_change = None  # a raw command or a save in between: no safe undo of what came before
+
+
+def companion_state() -> dict[str, Any]:
+    """What the Companion page shows, from what the gate already holds: no COM (D-71)."""
+    return {
+        "version": __version__,
+        "conversation": bridge_module.CONVERSATION,
+        "drawing": _last_drawing,
+        "activity": activity(companion.MOST_ROWS),
+        "last_change": last_change(),
+    }
 
 
 def activity(limit: int = 20) -> list[dict[str, Any]]:

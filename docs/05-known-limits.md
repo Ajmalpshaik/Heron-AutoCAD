@@ -266,3 +266,22 @@ Heron for Revit takes back a kept job that changed nothing, so its undo list get
   kept no entry, that `UNDO` undoes the modeller's own last change instead. And the plug-in counts
   drawing objects only, so "counted nothing" is not proof: a layer or a variable may have changed.
   Until T7 says what AutoCAD does, Heron does not guess.
+
+## 27. Attribute sheets, folder checks and the Companion page have their own limits
+
+From [docs/13](13-sheets-folders-companion.md); all NOT RUN live (NEEDS-CHECKING group Y).
+- **A number the modeller types in Excel comes back as Excel shows it.** Typed `1.50` reads `1.5`.
+  Cells Heron wrote stay text; only a cell typed over is a number. Type a leading `'` in Excel to
+  keep `1.50`.
+- **A blank cell never empties an attribute.** That is on purpose (Revit's rule): use
+  `autocad_set_attributes` to set one to nothing.
+- **A CSV has no "As exported" copy**, so a value changed in the drawing since the export is
+  overwritten by an older one in the CSV if they differ. Use the `.xlsx`.
+- **An attribute tag used twice in one block** is written to both.
+- **The folder check opens each drawing in AutoCAD,** so the office start-up (acaddoc.lsp, a
+  missing-font box) runs for each; the dialog watch (D-66) closes a box it shows, and that drawing
+  may then be NOT RUN. Xrefs load as usual. It is slower than one drawing: about the time AutoCAD
+  takes to open each.
+- **The Companion page's view and selection are as of the last `autocad_companion` call**, not
+  live: the page says when they were read. The activity list is updated after every job.
+

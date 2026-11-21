@@ -130,6 +130,46 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-71 - The Companion page is a file per chat, not a server
+
+**Decided:** 2026-11-21, from Heron AI for Revit's companion page (its docs/40, D-108; issue #91).
+**Status:** in force. `autocad_companion` (Read) writes one HTML file per chat in
+`%LOCALAPPDATA%\Heron\autocad\companion`; after that the gate rewrites it after every job in
+that chat (`core/companion.py`, `gate.companion_state()`), and it reloads itself every 5 s. No
+port, no listener, no script (a Content-Security-Policy of `default-src 'none'`), every value
+escaped, so there is nothing on the PC to reach. The page shows only what the gate already holds
+(activity, the drawing last checked, what `autocad_undo_last` could take back) and what
+`autocad_companion` read in its own Read job (drawing, units, layout, view, selection, with the
+time): no COM outside a job. Writing it never fails a job. Pages older than 7 days are removed.
+Revit's editable tables and dashboard need the page to send things back, so a local server with
+a token: left for a decision of its own. Design: [13 §3](13-sheets-folders-companion.md).
+
+## D-70 - A folder of drawings is checked read only, one at a time, as a View tool
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-181, accepted there, not built; issue
+#97). **Status:** in force. `autocad_check_folder` opens each `.dwg` read only, runs the check
+list with that drawing's own project changes (`run_list(..., doc_of=...)`, the same code as
+`autocad_checklist`), and closes it unsaved; a drawing already open is checked where it is and
+left open; the modeller's drawing is made active again at the end. It changes which drawing is
+open, never what is in one, so it is a **View** tool (like `autocad_open_drawing`) and needs no
+Changes padlock. A drawing that will not open is NOT RUN with AutoCAD's reason; HERONSTOP leaves
+the rest out. Not ObjectDBX: a database opened that way has no selection sets or system
+variables, which the checks read. Design: [13 §2](13-sheets-folders-companion.md).
+
+## D-69 - Attributes go to Excel and back; only the cells the modeller changed are written
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-182, D-183; issue #96). **Status:** in
+force. Two tools, because a tool's padlock is a property of the tool (D-65):
+`autocad_export_attribute_sheet` (Publish: it writes a new `.xlsx` next to the drawing, never over
+one) and `autocad_apply_attribute_sheet` (Change). The workbook has an **Attributes** sheet to edit
+and an **As exported** copy, so the compare (`acad/attribute_sheet.py`, offline) tells the
+modeller's edit (written) from a change made in the drawing since (kept) and from both (a
+conflict, listed, not written). A blank cell never empties an attribute. Only changed cells are
+written, in one undo step, listed old -> new (`before_after`, D-62); nothing to write opens no undo
+step. A `.csv` with a Handle column is accepted and compared with the drawing alone. The `.xlsx`
+is written and read with the standard library (`acad/xlsx.py`): no new package. Design:
+[13 §1](13-sheets-folders-companion.md).
+
 ## D-68 - One docked Heron palette: Activity with Undo by D-54's rule, saved commands run by a copy of the server
 
 **Decided:** 2026-11-21, from Heron AI for Revit's Activity and Commands panes (issues #92, #93).
