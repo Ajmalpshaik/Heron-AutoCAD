@@ -41,7 +41,7 @@ restart the server after pulling. 138 tools.
 - **One test changed on purpose:** a missing title block is now NO DATA, not NOT RUN.
 
 **Next:** in AutoCAD 2027, run group U rows U1-U10 (all NOT RUN); U8 first (does Excel open the
-report without a repair message). Server version bump (suggested 1.8.0) is still to do.
+report without a repair message). The server is now **1.8.0**, which includes these tools.
 Possible later: share an office list from a network folder; keep project changes in the project
 folder so the team shares them.
 
@@ -65,8 +65,9 @@ restart the server after pulling.
   `follow_host_chat()`, so it never takes the chat's id (D-61).
 
 **Next:** install the plug-in and, in AutoCAD 2027, run group X rows X1-X20 (all NOT RUN); **X4
-first** (whether the palette's Zoom leaves an undo step that would block Undo). Version bump
-still to do: suggested plug-in **1.6.0** (new command, protocol unchanged).
+first** (whether the palette's Zoom leaves an undo step that would block Undo). The plug-in is
+now **1.6.0**, which includes the palette (new command, protocol unchanged).
+
 ## Earlier - 2026-11-21 (why / gaps / question mode #88-#90 and #43 merged, PR #120)
 
 PR #120 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
@@ -85,8 +86,8 @@ failed as on every PR, #34). Server only, no plug-in change; restart the server 
   `core/bridge.py` has the same pattern and is not fixed (the plug-in writes that folder).
 - PR #125 then set docs/12's tool count to 137; it is 138 on `main` since PR #122.
 
-**Next:** in AutoCAD 2027, run group W rows W1-W8 (all NOT RUN). Server version bump (suggested
-1.8.0) is still to do.
+**Next:** in AutoCAD 2027, run group W rows W1-W8 (all NOT RUN). The server is now **1.8.0**,
+which includes these tools.
 
 ## Earlier - 2026-11-21 (server answers #78-#82 merged, PR #124)
 
