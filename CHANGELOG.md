@@ -11,6 +11,17 @@ Newest first. Dates are when the change was made.
   Publish on or off; a NOT RUN reason never overwrites a result written by hand. Every new check is
   tested offline against a good and a bad recorded answer (`tests/live_fakes.py`). Found: V1, V4 and
   V7 cannot open their box as written (#213).
+- **Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (2026-11-21,
+  #175, #176, #178, #179, #180; part 2 of #119).** Six new tools (**185** in all):
+  `autocad_associative_array` (ARRAY's editable path, grid and ring array, by the plug-in, refused
+  if AutoCAD puts the items anywhere but where asked, [D-110](docs/DECISIONS.md)),
+  `autocad_tiled_viewports` (the Model tab in 1-4 viewports, COM, a View tool),
+  `autocad_hyperlinks` and `autocad_list_hyperlinks` (links on objects, COM),
+  `autocad_geo_location` and `autocad_get_geo_location` (GEOGRAPHICLOCATION by the plug-in, proved
+  with AutoCAD's own transform; the sun's place follows the site). `autocad_export` writes **DWF**
+  through the DWF6 ePlot plotter, the PDF way ([D-111](docs/DECISIONS.md)). Plug-in operations
+  `associative_array`, `geo_location`, `set_geo_location`. Live rows AQ1-AQ14 NOT RUN.
+
 - **Multileader and table styles (2026-11-21, #68).** `autocad_create_styles` takes
   `multileader_styles` and `table_styles`, made by Heron's plug-in because COM has no call for
   either. A multileader style is Ajmal's TLD label unless asked otherwise (text style, height,

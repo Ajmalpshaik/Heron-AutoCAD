@@ -208,6 +208,20 @@ public class RunTests
     }
 
     [Fact]
+    public void An_associative_array_and_the_geographic_location_read_as_reads_and_change_as_changes()
+    {
+        // D-110, D-111: reading the drawing's location needs no padlock; making an
+        // array, or setting or removing the location, needs the Changes padlock.
+        Assert.True(PluginOperations.TryLevel("geo_location", out var read));
+        Assert.Equal(Risk.Read, read);
+        foreach (var name in new[] { "associative_array", "set_geo_location" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Change, level);
+        }
+    }
+
+    [Fact]
     public void Publishing_needs_the_Publish_padlock_even_inside_a_publish_job()
     {
         _config.PublishEnabled = true;

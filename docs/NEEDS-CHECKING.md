@@ -697,6 +697,35 @@ were not checked against Autodesk's reference (D-108); each row compares with Au
 | AP10 | A line drawn in a UCS tilted out of plan, and a line sloping in Z: `autocad_divide_curve(segments=2)` on each; a polyline in paper space on a sheet | The first two refused plainly, nothing placed; the paper-space one gets its points on that sheet | NOT RUN |
 | AP11 | AutoCAD 2025 / 2026 and 2021-2024 builds: AP1, AP2, AP5, AP6 | As in AutoCAD 2027 | NO MACHINE |
 
+## Group AQ - Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-110](DECISIONS.md), [D-111](DECISIONS.md); issues #175, #176, #178, #179,
+#180, part 2 of #119). Built and tested offline only (`tests/test_ribbon_gaps_part2.py`,
+`tests/test_export.py`, `Bridge.Tests/ArrayPlanTests.cs`, `GeoPlaceTests.cs`). **New plug-in
+operations** (`associative_array`, `geo_location`, `set_geo_location`): build and install the
+plug-in, restart the server. Scratch drawing in millimetres, `autocad_status` first. After each
+change row press **Ctrl+Z once** and check the drawing is back as it was. The .NET names were read
+from Autodesk's reference DLLs and the COM numbers from Autodesk's interop DLL; what they *mean*
+(an array's base point and angles, a geo location's reference point) was not, so each row compares
+with AutoCAD's own command. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AQ1 | A line 0,0 to 9000,0 and a block HANGER at 0,0: `autocad_associative_array(handles=[HANGER], pattern='path', path=the line, spacing=1500)` | One array object (LIST says an associative array / ARRAY); 7 hangers at 0, 1500 ... 9000, each turned along the line; `associative: true`, `items: 7`. Click it: the ARRAY contextual tab opens; stretch the line to 12000: the hangers follow (Measure keeps 1500). One Ctrl+Z: back to the line and one loose hanger | NOT RUN |
+| AQ2 | An arc and a polyline with a bend: `pattern='path', count=5` on each, then `align_items=false` | 5 items spread end to end (first and last on the ends), turned with the path; without align, all square. **Record if any answer was refused "somewhere other than asked"**, and what ARRAYPATH puts at the same counts | NOT RUN |
+| AQ3 | A 600 x 600 diffuser block: `pattern='rectangular', rows=3, columns=4, row_spacing=1200, column_spacing=1200` | 12 diffusers, the original where it was, the grid growing up and to the right; ARRAYEDIT changes the count and the grid follows. Negative spacings build down and left | NOT RUN |
+| AQ4 | A circle r=20 at 100,0: `pattern='polar', count=8, center=[0,0]`; then `fill_angle=90, count=3`; then `rotate_items=false` | 8 circles evenly round 0,0 at radius 100, the first where the original is; then 3 over a quarter (0, 45, 90 degrees). **Record whether AutoCAD read the angles as degrees** (a refusal "somewhere other than asked" means it did not) and whether the centre came out at 0,0 | NOT RUN |
+| AQ5 | A line in model space and one on a layout as the objects; a path that is one of the objects; 9 items at 1500 on a 10 m line | Refused plainly before anything is made: "different spaces", "cannot also be one of the objects", "at most 7 fit" | NOT RUN |
+| AQ6 | `autocad_tiled_viewports(layout='two_vertical')`, then `'four'`, `'three_right'`, then `'one'`; then no layout | Two side by side, four in a 2 x 2, three with the big one on the right, then one; each starts from the view that was on screen; `arrangement` matches each time, no warning. **Record AutoCAD's own words** for acViewport2Vertical (side by side?) and acViewport3Right. VPORTS > Named shows "Heron" | NOT RUN |
+| AQ7 | On a layout tab: `autocad_tiled_viewports(layout='two_vertical')` | Refused, "switch to the Model tab", pointing at autocad_add_viewport; nothing changed. The Changes padlock off makes no difference on the Model tab (a View tool) | NOT RUN |
+| AQ8 | A block on the drawing: `autocad_hyperlinks(handles=[it], url='C:\\Temp\\test.pdf', description='Data sheet')`; hover, then Ctrl+click | The hover shows "Data sheet"; Ctrl+click opens the PDF; HYPERLINK on the object shows the same address. Then `url='https://www.autodesk.com'`: the old link is replaced, one link only. One Ctrl+Z takes it back | NOT RUN |
+| AQ9 | `autocad_list_hyperlinks()` with three linked objects and many without; then `action='remove'` on one; then list again | Exactly the three, with their links (the PE_URL selection works); after remove, two. An object on a locked layer: in `failed`, the rest done | NOT RUN |
+| AQ10 | A sheet with a title block: `autocad_export(path='C:\\Temp\\sheet.dwf', area='layout', scale='1:1')`, Publish padlock on; then with it off | A .dwf that opens in Autodesk Viewer / Design Review and looks like the PDF of the same sheet; the layout's page setup unchanged afterwards (PAGESETUP). Padlock off: refused | NOT RUN |
+| AQ11 | Drawing units mm. `autocad_geo_location(latitude=25.29, longitude=51.53, point=[0,0], north_angle=12)` | `located: true`, `reference_form` given (**record which: grid or lon_lat**); GEOGRAPHICLOCATION shows the marker at Doha, north 12 degrees to the right of up; `autocad_get_geo_location` reads 25.29, 51.53 and `agrees: true`; LATITUDE / LONGITUDE read 25.29 / 51.53. GEOMAP AERIAL (signed in): the map sits under the drawing at the right size (a 10 m line is 10 m on the map) | NOT RUN |
+| AQ12 | A new drawing never placed: `autocad_geo_location()` with no place; then `autocad_set_sun(latitude=9.93, longitude=76.27)` and `autocad_geo_location(point=[1000,2000])` | First refused, San Francisco named; then the location is Kochi at 1000,2000 and the sun's place did not move (`moved: false`) | NOT RUN |
+| AQ13 | INSUNITS 0: `autocad_geo_location(latitude=25.29, longitude=51.53)`; then units mm and `coordinate_system='UTM84-39N'`; then `'NOT-A-SYSTEM'`; then `action='remove'` | No units: refused; UTM84-39N: located at the same place; the unknown code: refused, nothing changed; remove: GEOGRAPHICLOCATION shows no location; one Ctrl+Z brings it back | NOT RUN |
+| AQ14 | AutoCAD 2025 / 2026 and 2021-2024 builds: AQ1, AQ4, AQ6, AQ8, AQ11 | As in AutoCAD 2027 | NO MACHINE |
+
 ## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-102](DECISIONS.md), issue #41). Built and tested offline only
