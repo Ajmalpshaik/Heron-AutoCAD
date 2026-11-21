@@ -53,6 +53,14 @@ ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
     # --- the shared helpers and the core ---
     ("acad/selection.py", "discard_selection_set"): (
         1, "empties the scratch selection set in a finally after a read; a refusal there must not hide the read's own answer"),
+    ("acad/dxf_file.py", "effective_name"): (
+        1, "reads a DXF file with ezdxf, with AutoCAD closed; no AutoCAD call"),
+    ("acad/dxf_file.py", "block_rows"): (
+        1, "reads a DXF file with ezdxf, with AutoCAD closed; no AutoCAD call"),
+    ("tools/_solid_pieces.py", "_try_delete"): (
+        1, "takes scaffolding or a half-made shape out again, on the way to the real answer; a refusal there must not replace it"),
+    ("tools/checklist_share.py", "who"): (
+        1, "asks Windows for the user name; no AutoCAD call"),
     ("tools/_shared.py", "created_payload"): (
         1, "reads the new object back once it is made; a failed read-back is already said with 'verified: false', and an error would make the chat draw it again"),
     ("tools/_shared.py", "plugin_read"): (

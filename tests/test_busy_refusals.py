@@ -348,6 +348,7 @@ NAMED_READERS = [
     ("autocad_mcp.tools.sheets", "_read"),
     ("autocad_mcp.tools.views", "_read"),
     ("autocad_mcp.tools.convert", "_read"),
+    ("autocad_mcp.tools.standards", "_get"),
 ]
 
 
@@ -390,3 +391,14 @@ def test_between_drawings_reader_lets_a_refusal_up():
 
     with pytest.raises(pythoncom.com_error):
         _read(Refuses(), "Name")
+
+
+def test_a_refused_table_read_in_a_standards_check_is_not_an_empty_table():
+    # An empty list would turn "could not read" into "nothing required", a silent pass (D-64).
+    from autocad_mcp.tools.standards import _items
+
+    with pytest.raises(pythoncom.com_error):
+        _items(Refuses())
+    with pytest.raises(pythoncom.com_error):
+        _items(Refuses(), "layers")
+    assert _items(Obj(Count=1, Item=missing)) == []

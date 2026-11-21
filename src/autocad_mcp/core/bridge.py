@@ -106,6 +106,20 @@ RUN_UNKNOWN = (
 )
 
 
+# send_quiet refusals that must end the job's input, never fall back to COM:
+# the modeller's stop (D-51), another drawing in front since begin (#48), and
+# input AutoCAD did not get to in time (abandoned, never typed later).
+QUIET_STOPS = {"Stopped", "Drawing", "NotStarted"}
+# The plug-in waits up to 10 s for AutoCAD to get to quiet input; this waits longer.
+QUIET_TIMEOUT = 20.0
+# Asking for the events after this number returns none: just the epoch and the newest number.
+LATEST = 2**53
+
+
+def _int(value: Any) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
 class BridgeRefused(AutocadError):
     """The plug-in said no, or could not be asked. Nothing reached AutoCAD."""
 
@@ -234,19 +248,93 @@ class Bridge:
     def send_quiet(self, job: str, lines: list[str]) -> bool:
         """Have the plug-in type these lines into AutoCAD with echo off.
 
-        True when the plug-in took them. False when it refused (no running
-        change job, or an older plug-in without this op) or could not be
-        reached: the caller then sends them itself. Raises BridgeRefused only
-        for the modeller's emergency stop (D-51), so a stopped batch is never
-        typed over COM instead.
+        True when the plug-in took them, and also when the request went out
+        and no answer came: the plug-in may have typed them, so they must
+        never be typed again over COM (that would draw the batch twice). False
+        when it refused (no running change job, a line longer than it types,
+        an older plug-in without this op) or the pipe would not open, so
+        nothing was typed: the caller then sends them itself. Raises
+        BridgeRefused for the modeller's emergency stop (D-51), for another
+        drawing having come to the front during the job (#48), and for input
+        AutoCAD did not get to in time: input meant for one drawing is never
+        typed into another over COM instead. The plug-in answers once AutoCAD
+        got to the lines, so its answer is the truth.
         """
         try:
-            reply = self.call("send_quiet", job=job, lines=lines)
+            pipe, request = self._request("send_quiet", {"job": job, "lines": lines})
         except AutocadError:
             return False
-        if reply.get("refusedBy") == "Stopped":
-            raise BridgeRefused(_ensure_sentence(str(reply.get("message", ""))))
+        try:
+            reply = _exchange(pipe, request, QUIET_TIMEOUT)
+        except PipeUnavailable:
+            return False
+        except (TimeoutError, pywintypes.error, OSError, ValueError):
+            return True  # sent, unanswered: maybe typed, so never typed a second time
+        stop = reply.get("refusedBy")
+        if stop in QUIET_STOPS:
+            message = str(reply.get("message", ""))
+            # The stop refuses before anything; the other two come mid-job, after work that stays.
+            raise BridgeRefused(_ensure_sentence(message) if stop == "Stopped" else message or "Heron typed none of this input.")
         return reply.get("ok") is True
+
+    def quiet_limit(self) -> int | None:
+        """The longest line the plug-in types through send_quiet, from its ping (#45).
+
+        None when it does not say (a plug-in older than this, or one that
+        cannot be asked): the batch then keeps the pieces COM was measured with.
+        """
+        try:
+            reply = self.call("ping")
+        except AutocadError:
+            return None
+        limit = reply.get("quietLimit")
+        if reply.get("ok") is not True or isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            return None
+        return limit
+
+    def drawing_events(self, since: int = 0) -> dict[str, Any] | None:
+        """What happened to the drawings in this AutoCAD after event ``since`` (#48).
+
+        {"epoch", "seq", "active" (None when the plug-in cannot tell), "lost",
+        "events": [{"seq", "kind", "drawing", "was", "at"}]}, events oldest
+        first; kind is opened, activated, saved or closed, and "was" is the
+        old name of a drawing saved under a new one. None when the plug-in
+        cannot tell (an older one, or it could not be asked). Never raises.
+        """
+        try:
+            reply = self.call("drawings", since=max(0, int(since)))
+        except AutocadError:
+            return None
+        if reply.get("ok") is not True or reply.get("known") is not True:
+            return None
+        events = []
+        for item in reply.get("events") or []:
+            if not isinstance(item, dict):
+                continue
+            events.append(
+                {
+                    "seq": _int(item.get("seq")),
+                    "kind": str(item.get("kind") or ""),
+                    "drawing": str(item.get("drawing") or ""),
+                    "was": str(item.get("was") or ""),
+                    "at": str(item.get("at") or ""),
+                }
+            )
+        active = reply.get("active")
+        return {
+            "epoch": str(reply.get("epoch") or ""),
+            "seq": _int(reply.get("seq")),
+            "active": str(active) if isinstance(active, str) else None,
+            "lost": reply.get("lost") is True,
+            "events": events,
+        }
+
+    def drawing_mark(self) -> tuple[str, int] | None:
+        """(epoch, number of the newest drawing event) now, or None when the plug-in cannot tell (#48)."""
+        history = self.drawing_events(since=LATEST)
+        if history is None or not history["epoch"]:
+            return None
+        return history["epoch"], history["seq"]
 
     def since_last(self, job: str) -> bool | None:
         """Did anything change in the drawing between Heron's previous change job and this one (D-54)?
