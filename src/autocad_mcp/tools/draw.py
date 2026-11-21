@@ -22,13 +22,49 @@ from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mar
 from ..core.variants import apoint, double_array, object_array
 from ._shared import (
     COLOR_OPT,
+    COORDS_OPT,
     LAYER_OPT,
     LINETYPE_OPT,
     SPACE_OPT,
     created_payload,
+    not_flipped,
     point,
+    ucs_for,
+    ucs_used,
+    world_angle,
+    world_coords,
 )
 from .annotation_scales import ANNOTATIVE_OPT, make_new_annotative, require_plugin
+
+# ---------------------------------------------------------------------------
+# The UCS, for the vertex lists and angles (D-96)
+# ---------------------------------------------------------------------------
+
+
+def plan_vertices(points: Any, ucs: Any) -> tuple[list[float], float]:
+    """A lightweight polyline's vertices as the flat world [x, y, ...] AddLightWeightPolyline takes, and its elevation.
+
+    A lightweight polyline is flat: every vertex shares one height, its
+    Elevation. In world coordinates that height is not set (a Z given is
+    ignored, as it always has been). Read in a UCS moved up or down, the
+    vertices land at the UCS's height, so that becomes the Elevation.
+    """
+    world = [world_coords(v, ucs) for v in points]
+    flat = [c for v in world for c in (float(v[0]), float(v[1]))]
+    elevation = float(world[0][2]) if ucs is not None and world else 0.0
+    return flat, (elevation if abs(elevation) > 1e-9 else 0.0)
+
+
+def ellipse_axis(major_radius: float, rotation: float, ucs: Any) -> tuple[float, float, float]:
+    """The major-axis vector AddEllipse takes, from the half-length and its angle in degrees.
+
+    An angle in a UCS is turned (and on a flipped one, mirrored) into the
+    world angle of the same direction first, so the ellipse lies the way it
+    was asked for on the modeller's own grid.
+    """
+    angle = math.radians(world_angle(rotation, ucs) or 0.0)
+    return (major_radius * math.cos(angle), major_radius * math.sin(angle), 0.0)
+
 
 # ---------------------------------------------------------------------------
 # Linework
@@ -53,6 +89,7 @@ async def autocad_draw_line(
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     linetype: Annotated[str | None, LINETYPE_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Draw a single straight line between two points.
 
@@ -66,14 +103,21 @@ async def autocad_draw_line(
         color (Optional[str | int]): Colour name or ACI number 0-256.
         linetype (Optional[str]): Linetype name.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs" to read the points in the drawing's
+            current UCS.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "line",
              "layer": str, "length": float, "angle_degrees": float}
+             With coords="ucs" on a UCS that is not the world one: also
+             "converted_from_ucs" (the UCS the points were read in). The
+             angle reported is the world one.
 
     Examples:
         - Use when: "draw a 5 m line along X from the origin" ->
           start=[0,0], end=[5000,0] in a millimetre drawing.
+        - Use when: "a line along the grid" on a turned UCS -> the points as
+          read off the screen, coords="ucs".
         - Don't use when: you need several connected segments — use
           autocad_draw_polyline so they stay one object.
     """
@@ -82,18 +126,19 @@ async def autocad_draw_line(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
         with undo_mark(doc):
             entity = get_space(doc, space).AddLine(
-                point(start, "start"), point(end, "end")
+                point(start, "start", ucs), point(end, "end", ucs)
             )
             notes = apply_properties(doc, entity, layer, aci, linetype)
         info = describe(entity)
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             length=info.get("length"),
             angle_degrees=info.get("angle_degrees"),
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -136,6 +181,7 @@ async def autocad_draw_polyline(
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     linetype: Annotated[str | None, LINETYPE_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Draw a connected multi-segment polyline, optionally closed.
 
@@ -151,46 +197,53 @@ async def autocad_draw_polyline(
         color (Optional[str | int]): Colour name or ACI number.
         linetype (Optional[str]): Linetype name.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs" to read the vertices in the drawing's
+            current UCS.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "polyline",
              "layer": str, "vertex_count": int, "closed": bool,
              "length": float, "area": float}
-        "area" appears only when closed is true.
+        "area" appears only when closed is true. With coords="ucs" on a UCS
+        that is not the world one: also "converted_from_ucs".
 
     Examples:
         - Use when: "outline a 10 x 5 m room" -> the four corners, closed=true.
+        - Use when: the room is square to a turned grid UCS -> its corners as
+          read on screen, coords="ucs".
         - Don't use when: the shape is a plain rectangle —
           autocad_draw_rectangle takes just two corners.
     """
     aci = to_aci(color)
-    flat: list[float] = []
     for i, vertex in enumerate(points):
         if len(vertex) < 2:
             raise AutocadError(
                 f"Vertex {i} is {vertex!r}; every vertex needs at least [x, y]."
             )
-        flat.extend([float(vertex[0]), float(vertex[1])])
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        flat, elevation = plan_vertices(points, ucs)
         with undo_mark(doc):
             entity = get_space(doc, space).AddLightWeightPolyline(double_array(flat))
             if closed:
                 entity.Closed = True
             if width is not None:
                 entity.ConstantWidth = float(width)
+            if elevation:
+                entity.Elevation = elevation
             notes = apply_properties(doc, entity, layer, aci, linetype)
         info = describe(entity)
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             vertex_count=info.get("vertex_count"),
             closed=info.get("closed"),
             length=info.get("length"),
             area=info.get("area"),
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -210,6 +263,7 @@ async def autocad_draw_rectangle(
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     linetype: Annotated[str | None, LINETYPE_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Draw an axis-aligned rectangle as a single closed polyline.
 
@@ -220,15 +274,22 @@ async def autocad_draw_rectangle(
         color (Optional[str | int]): Colour name or ACI number.
         linetype (Optional[str]): Linetype name.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs": the corners are read in the drawing's
+            current UCS and the rectangle comes out square to it, turned as
+            the UCS is.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "polyline",
              "layer": str, "width": float, "height": float, "area": float,
              "perimeter": float}
+             With coords="ucs" on a UCS that is not the world one: also
+             "converted_from_ucs".
 
     Examples:
         - Use when: "draw a 2400 x 1200 panel at the origin" ->
           corner1=[0,0], corner2=[2400,1200].
+        - Use when: the panel sits square to a turned grid UCS ->
+          coords="ucs", and it comes out turned with the grid.
     """
     aci = to_aci(color)
     if len(corner1) < 2 or len(corner2) < 2:
@@ -241,24 +302,31 @@ async def autocad_draw_rectangle(
             "gives a rectangle with no area. Use autocad_draw_line for a single "
             "straight segment."
         )
-    flat = [x1, y1, x2, y1, x2, y2, x1, y2]
+    z = float(corner1[2]) if len(corner1) > 2 else 0.0
+    corners = [[x1, y1, z], [x2, y1, z], [x2, y2, z], [x1, y2, z]]
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        # Square to a turned UCS is not square to the world: all four corners
+        # go through the transform, not just the two given.
+        flat, elevation = plan_vertices(corners, ucs)
         with undo_mark(doc):
             entity = get_space(doc, space).AddLightWeightPolyline(double_array(flat))
             entity.Closed = True
+            if elevation:
+                entity.Elevation = elevation
             notes = apply_properties(doc, entity, layer, aci, linetype)
         info = describe(entity)
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             width=round(abs(x2 - x1), 6),
             height=round(abs(y2 - y1), 6),
             area=info.get("area"),
             perimeter=info.get("length"),
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -286,6 +354,7 @@ async def autocad_draw_circle(
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     linetype: Annotated[str | None, LINETYPE_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Draw a circle from a centre point and a radius or diameter.
 
@@ -300,6 +369,7 @@ async def autocad_draw_circle(
         color (Optional[str | int]): Colour name or ACI number.
         linetype (Optional[str]): Linetype name.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs" to read the centre in the current UCS.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "circle",
@@ -328,17 +398,18 @@ async def autocad_draw_circle(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
         with undo_mark(doc):
-            entity = get_space(doc, space).AddCircle(point(center, "center"), resolved)
+            entity = get_space(doc, space).AddCircle(point(center, "center", ucs), resolved)
             notes = apply_properties(doc, entity, layer, aci, linetype)
         info = describe(entity)
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             radius=resolved,
             diameter=round(resolved * 2, 6),
             area=info.get("area"),
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -373,6 +444,7 @@ async def autocad_draw_arc(
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     linetype: Annotated[str | None, LINETYPE_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Draw an arc from a centre, radius and angle range.
 
@@ -388,6 +460,8 @@ async def autocad_draw_arc(
         color (Optional[str | int]): Colour name or ACI number.
         linetype (Optional[str]): Linetype name.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs": the centre and both angles are read
+            in the current UCS (angles from its X axis).
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "arc",
@@ -408,23 +482,26 @@ async def autocad_draw_arc(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        # On a flipped UCS the world arc runs the other way, so its ends swap.
+        first, last = ucs.arc_to_world(start_angle, end_angle) if ucs else (start_angle, end_angle)
         with undo_mark(doc):
             entity = get_space(doc, space).AddArc(
-                point(center, "center"),
+                point(center, "center", ucs),
                 float(radius),
-                rad(start_angle),
-                rad(end_angle),
+                rad(first),
+                rad(last),
             )
             notes = apply_properties(doc, entity, layer, aci, linetype)
         info = describe(entity)
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             radius=info.get("radius"),
             start_angle_degrees=info.get("start_angle_degrees"),
             end_angle_degrees=info.get("end_angle_degrees"),
             arc_length=info.get("arc_length"),
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -454,6 +531,7 @@ async def autocad_draw_ellipse(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Draw an ellipse from its centre and its two half-axis lengths.
 
@@ -465,6 +543,8 @@ async def autocad_draw_ellipse(
         layer (Optional[str]): Target layer, created if missing.
         color (Optional[str | int]): Colour name or ACI number.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs": the centre and the rotation are read
+            in the current UCS.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "ellipse",
@@ -485,31 +565,27 @@ async def autocad_draw_ellipse(
             f"({major_radius}). Swap them, or add 90 to 'rotation' instead."
         )
     aci = to_aci(color)
-    angle = math.radians(rotation)
-    # AddEllipse takes the major-axis endpoint as a vector from the centre.
-    major_vector = (
-        major_radius * math.cos(angle),
-        major_radius * math.sin(angle),
-        0.0,
-    )
     ratio = minor_radius / major_radius
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        # AddEllipse takes the major-axis endpoint as a vector from the centre.
+        major_vector = ellipse_axis(major_radius, rotation, ucs)
         with undo_mark(doc):
             entity = get_space(doc, space).AddEllipse(
-                point(center, "center"), apoint(*major_vector), ratio
+                point(center, "center", ucs), apoint(*major_vector), ratio
             )
             notes = apply_properties(doc, entity, layer, aci, None)
         info = describe(entity)
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             major_radius=info.get("major_radius"),
             minor_radius=info.get("minor_radius"),
             area=info.get("area"),
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -526,6 +602,7 @@ async def autocad_draw_point(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Place a single point object, useful as a survey or setting-out marker.
 
@@ -538,6 +615,8 @@ async def autocad_draw_point(
         layer (Optional[str]): Target layer, created if missing.
         color (Optional[str | int]): Colour name or ACI number.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs" to read the position in the current
+            UCS.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "point",
@@ -553,12 +632,13 @@ async def autocad_draw_point(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
         with undo_mark(doc):
-            entity = get_space(doc, space).AddPoint(point(position, "position"))
+            entity = get_space(doc, space).AddPoint(point(position, "position", ucs))
             notes = apply_properties(doc, entity, layer, aci, None)
-        return created_payload(
+        return ucs_used(created_payload(
             entity, notes, position=describe(entity).get("position")
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -598,6 +678,7 @@ async def autocad_add_text(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
     annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """Place a single line of text.
@@ -613,6 +694,9 @@ async def autocad_add_text(
         layer (Optional[str]): Target layer, created if missing.
         color (Optional[str | int]): Colour name or ACI number.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs": the position and rotation are read in
+            the current UCS, so rotation 0 runs along its X axis. Refused on a
+            flipped UCS.
         annotative (bool): make it annotative at the current annotation scale.
 
     Returns:
@@ -634,15 +718,17 @@ async def autocad_add_text(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = not_flipped(ucs_for(doc, coords), "text")
+        turn = world_angle(rotation, ucs) or 0.0
         with undo_mark(doc):
             entity = get_space(doc, space).AddText(
-                text, point(position, "position"), float(height)
+                text, point(position, "position", ucs), float(height)
             )
-            if rotation:
-                entity.Rotation = rad(rotation)
+            if turn:
+                entity.Rotation = rad(turn)
             notes = apply_properties(doc, entity, layer, aci, None)
             extra = make_new_annotative([str(entity.Handle)]) if annotative else {}
-        return created_payload(entity, notes, text=text, height=float(height), **extra)
+        return ucs_used(created_payload(entity, notes, text=text, height=float(height), **extra), ucs)
 
     return dumps(await run(work))
 
@@ -680,6 +766,7 @@ async def autocad_add_mtext(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
     annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """Place a wrapping block of multiline text.
@@ -696,6 +783,8 @@ async def autocad_add_mtext(
         layer (Optional[str]): Target layer, created if missing.
         color (Optional[str | int]): Colour name or ACI number.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs": the position and rotation are read in
+            the current UCS. Refused on a flipped UCS.
         annotative (bool): make it annotative at the current annotation scale.
 
     Returns:
@@ -716,16 +805,18 @@ async def autocad_add_mtext(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = not_flipped(ucs_for(doc, coords), "text")
+        turn = world_angle(rotation, ucs) or 0.0
         with undo_mark(doc):
             entity = get_space(doc, space).AddMText(
-                point(position, "position"), float(width), text
+                point(position, "position", ucs), float(width), text
             )
             entity.Height = float(height)
-            if rotation:
-                entity.Rotation = rad(rotation)
+            if turn:
+                entity.Rotation = rad(turn)
             notes = apply_properties(doc, entity, layer, aci, None)
             extra = make_new_annotative([str(entity.Handle)]) if annotative else {}
-        return created_payload(entity, notes, height=float(height), width=float(width), **extra)
+        return ucs_used(created_payload(entity, notes, height=float(height), width=float(width), **extra), ucs)
 
     return dumps(await run(work))
 
@@ -799,6 +890,7 @@ async def autocad_add_dimension(
     ] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
     annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """Add a dimension annotating a distance, radius, diameter or angle.
@@ -816,6 +908,9 @@ async def autocad_add_dimension(
         text_override (Optional[str]): Custom text; "<>" embeds the value.
         layer (Optional[str]): Target layer, created if missing.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs": every point is read in the current
+            UCS, and horizontal / vertical measure along its X / Y. Refused on a
+            flipped UCS.
         annotative (bool): make it annotative at the current annotation scale;
             its size then comes from the scale, not from DIMSCALE.
 
@@ -843,6 +938,7 @@ async def autocad_add_dimension(
         doc = get_doc()
         require_idle(doc)
         target = get_space(doc, space)
+        ucs = not_flipped(ucs_for(doc, coords), "a dimension")
 
         def need(value: Any, label: str) -> Any:
             if value is None:
@@ -855,25 +951,27 @@ async def autocad_add_dimension(
             if dimension_type in {"aligned", "horizontal", "vertical"}:
                 need(point1, "point1")
                 need(point2, "point2")
-                p1 = point(point1, "point1")
-                p2 = point(point2, "point2")
+                p1 = point(point1, "point1", ucs)
+                p2 = point(point2, "point2", ucs)
+                # The midpoint is taken where the points were given, then converted with them.
                 midpoint = [
                     (point1[0] + point2[0]) / 2.0,
                     (point1[1] + point2[1]) / 2.0,
                 ]
-                text_pt = point(text_position or midpoint, "text_position")
+                text_pt = point(text_position or midpoint, "text_position", ucs)
                 if dimension_type == "aligned":
                     entity = target.AddDimAligned(p1, p2, text_pt)
                 else:
-                    # A rotated dimension at 0 deg measures X, at 90 deg measures Y.
+                    # A rotated dimension at 0 deg measures X, at 90 deg measures Y;
+                    # in a UCS, the UCS's own X and Y.
                     axis = 0.0 if dimension_type == "horizontal" else 90.0
-                    entity = target.AddDimRotated(p1, p2, text_pt, rad(axis))
+                    entity = target.AddDimRotated(p1, p2, text_pt, rad(world_angle(axis, ucs)))
 
             elif dimension_type in {"radial", "diametric"}:
                 need(point1, "point1")
                 need(point2, "point2")
-                p1 = point(point1, "point1")
-                p2 = point(point2, "point2")
+                p1 = point(point1, "point1", ucs)
+                p2 = point(point2, "point2", ucs)
                 leader_length = 0.0
                 if dimension_type == "radial":
                     entity = target.AddDimRadial(p1, p2, leader_length)
@@ -885,10 +983,10 @@ async def autocad_add_dimension(
                 need(point2, "point2")
                 need(point3, "point3")
                 entity = target.AddDimAngular(
-                    point(point1, "point1"),
-                    point(point2, "point2"),
-                    point(point3, "point3"),
-                    point(text_position or point2, "text_position"),
+                    point(point1, "point1", ucs),
+                    point(point2, "point2", ucs),
+                    point(point3, "point3", ucs),
+                    point(text_position or point2, "text_position", ucs),
                 )
 
             if text_override:
@@ -916,13 +1014,13 @@ async def autocad_add_dimension(
                 extra["warning"] += " It was given the drawing's DIMSCALE instead."
 
         info = describe(entity)
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             measurement=info.get("measurement"),
             dimension_type=dimension_type,
             **extra,
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
@@ -984,6 +1082,7 @@ async def autocad_insert_block(
     ] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Insert a block reference, optionally filling in its attributes.
 
@@ -995,6 +1094,8 @@ async def autocad_insert_block(
         attributes (Optional[dict[str, str]]): Attribute values by tag.
         layer (Optional[str]): Target layer, created if missing.
         space (str): "model" or "paper".
+        coords (str): "world", or "ucs": the position and rotation are read in
+            the current UCS. Refused on a flipped UCS.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "block",
@@ -1017,6 +1118,7 @@ async def autocad_insert_block(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = not_flipped(ucs_for(doc, coords), "a block")
 
         name = block_name.strip().strip('"')
         if name.lower().endswith(".dwg"):
@@ -1040,12 +1142,12 @@ async def autocad_insert_block(
 
         with undo_mark(doc):
             entity = get_space(doc, space).InsertBlock(
-                point(position, "position"),
+                point(position, "position", ucs),
                 name,
                 float(scale),
                 float(scale),
                 float(scale),
-                rad(rotation),
+                rad(world_angle(rotation, ucs) or 0.0),
             )
             notes = apply_properties(doc, entity, layer, None, None)
 
@@ -1063,13 +1165,13 @@ async def autocad_insert_block(
                             found.add(tag)
                 missing = sorted(set(wanted) - found)
 
-        return created_payload(
+        return ucs_used(created_payload(
             entity,
             notes,
             block_name=str(entity.Name),
             attributes_set=applied,
             attributes_not_found=missing,
-        )
+        ), ucs)
 
     return dumps(await run(work))
 
