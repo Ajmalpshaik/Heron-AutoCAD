@@ -4,8 +4,8 @@
 
 1. The AutoCAD .NET API (Autodesk.AutoCAD / Autodesk.Windows) appears only in
    autocad/Heron.AutoCAD.Addin. The bridge stays testable without AutoCAD.
-2. Every registered tool has a risk level (src/autocad_mcp/core/risk.py), so
-   no tool can slip past the padlocks.
+2. Every registered tool has exactly one risk level (src/autocad_mcp/core/risk.py),
+   so no tool can slip past the padlocks.
 3. Every relative link in the Markdown docs points at a file that exists.
 4. The tool count docs/SETUP.md tells the reader to expect is the real one.
 
@@ -62,12 +62,22 @@ def tools_without_level() -> list[str]:
     import asyncio
 
     from autocad_mcp.core.registry import mcp
-    from autocad_mcp.core.risk import RISK
+    from autocad_mcp.core.risk import _LEVELS, RISK
     from autocad_mcp.tools import register_all
 
     register_all()
     names = {tool.name for tool in asyncio.run(mcp.list_tools())}
-    return [f"tool {name} has no risk level in core/risk.py" for name in sorted(names - set(RISK))] + [
+    # A name under two levels would silently take the later one: two merged PRs can do that.
+    levels: dict[str, list[str]] = {}
+    for level, listed in _LEVELS.items():
+        for name in listed:
+            levels.setdefault(name, []).append(level.value)
+    twice = [
+        f"core/risk.py lists autocad_{name} under {' and '.join(found)}: give it one level"
+        for name, found in sorted(levels.items())
+        if len(found) > 1
+    ]
+    return twice + [f"tool {name} has no risk level in core/risk.py" for name in sorted(names - set(RISK))] + [
         f"core/risk.py lists {name}, which is not a registered tool" for name in sorted(set(RISK) - names)
     ]
 

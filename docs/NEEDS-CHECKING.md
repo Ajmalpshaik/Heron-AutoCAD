@@ -812,6 +812,14 @@ plan UCS first for AI1-AI3: `autocad_set_ucs(mode='origin', origin=[1000,500], a
 | AI13 | `autocad_edit_spline` on the AI10 control-point spline, and with `{"move": 9, ...}` on the G1 spline | Both refused before anything changes: no fit points; point 9 off the end | NOT RUN |
 | AI14 | `autocad_make_shape(shape='section_mark', settings={"length":3000,"filled":true})` and `north_arrow`, `scale_bar`, `level_mark` with `filled: true` | Solid arrowheads, a half-filled north point, every other scale-bar division filled, a solid level triangle; each fill exactly inside its outline | NOT RUN |
 
+## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| RV1 | Admin on. `autocad_send_command` with `expect_box` / `press` on a box that never comes; close the chat (stop the server) before the command ends; then, with no Heron job running, open a box yourself (e.g. OPTIONS) | Heron leaves your box alone; `addin-*.log` shows no "dialog watch" line for it | NOT RUN |
+| RV2 | `autocad_export_attribute_sheet`, then in Excel type `0051` and `1:100` over two values, save, `autocad_apply_attribute_sheet` | The attributes read `0051` and `1:100` exactly; nothing listed in `excel_converted` | NOT RUN |
+| RV3 | `autocad_sequence` with steps `[autocad_switch_drawing, autocad_draw_line]` | Refused naming step 1; nothing drawn in either drawing | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

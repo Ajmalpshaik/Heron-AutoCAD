@@ -41,3 +41,13 @@ def test_session_worktrees_under_dot_claude_are_not_checked(tmp_path):
 
 def test_this_repository_passes():
     assert cs.run_all(ROOT) == []
+
+
+def test_a_tool_under_two_levels_is_caught(monkeypatch):
+    # RISK keeps the last level a name is listed under, so a tool two PRs list
+    # twice would quietly take one of them: the check names it instead.
+    from autocad_mcp.core import risk
+
+    monkeypatch.setitem(risk._LEVELS, risk.Risk.READ, (*risk._LEVELS[risk.Risk.READ], "draw_line"))
+    problems = cs.tools_without_level()
+    assert problems == ["core/risk.py lists autocad_draw_line under read and change: give it one level"]

@@ -23,6 +23,16 @@ live rows **AI1-AI14**. AI4 decides whether an entmade solid hatch lands (if it 
 become the default on the symbol shapes); AI11 says how AutoCAD shows a closed control-point
 spline; AI12 says whether `insert` at the count adds after the last fit point.
 
+## Earlier - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
+
+A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
+SECURITY, PROJECT-MAP, 06), D-87 and D-67 notes, sequence steps that switch drawing or undo, the
+dialog watch's lost jobs, four Excel read / write faults, and three tests that passed for the wrong
+reason. Filed, in areas other sessions are changing: #189-#191 and #206-#212. Live rows: Group RV, NOT RUN.
+
+**Next:** the filed issues, highest first: #206 (palette Undo), #207 (batch text escape), #208
+(bring-them-back after join / explode), #211 (check list PASS on failed reads).
+
 ## Earlier - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
 
 Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`

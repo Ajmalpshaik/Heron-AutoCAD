@@ -86,10 +86,10 @@ the level decides which padlock it needs:
 
 | Level | Needs | What |
 |---|---|---|
-| Read | connected | status, list and find, measure, extents, selection, layers, blocks, styles, the UCS, saved locations, **solid volumes and centroids**, preview image, standards check, **check lists before issue**, attribute schedules |
-| View | connected | zoom, regen, switch / open / create drawing, **3D view direction and visual style** |
-| Change | Changes | draw, text, dimensions, hatch, blocks, batch drawing, move ... array, modify, delete, layers, the UCS, sheets / title blocks / viewports, drawing settings and styles, remap layers / tidy an import, several tools in one call, **24 named shapes**, **dimension runs and centre marks**, **multileaders, tables and revision clouds**, **3D solids, extrude / revolve, booleans** |
-| Publish | Changes + Publish | save, export / plot to PDF (whole sheet, a window, or a saved location), **a check list report as Excel and HTML** |
+| Read | connected | status, list and find, measure, extents, selection, layers, blocks, styles, the UCS, saved locations, **solid volumes and centroids**, preview image, standards check, **check lists before issue**, attribute schedules, lights, groups, annotation scales, **why a job cannot run** |
+| View | connected | zoom, regen, switch / open / create drawing, **3D view direction and visual style**, **a check list over a folder of drawings** (opened read only) |
+| Change | Changes | draw, text, dimensions, hatch, blocks, batch drawing, move ... array, modify, delete, layers, the UCS, sheets / title blocks / viewports, drawing settings and styles, remap layers / tidy an import, several tools in one call, **24 named shapes**, **dimension runs and centre marks**, **multileaders, tables and revision clouds**, **3D solids, extrude / revolve, booleans**, **trim, extend, fillet, chamfer, break, join, stretch, explode**, layer states and isolate, annotative scales, **Excel tables**, ATTSYNC, the render set-up (camera, sun, lights, exposure; never the render itself) |
+| Publish | Changes + Publish | save, export / plot to PDF (whole sheet, a window, or a saved location), **a check list report as Excel and HTML**, attributes to an Excel sheet |
 | Admin | Changes + Admin | any command, AutoLISP, system variables, purge, audit |
 
 Every tool with its options: [docs/03-tools-reference.md](docs/03-tools-reference.md).
@@ -102,7 +102,9 @@ Named shapes, dimension runs, annotation and 3D:
 
 - **Invisible until connected.** AutoCAD starts disconnected every time. The pipe answers only your
   Windows user, and each connect makes a new session password.
-- **Padlocks, off by default,** read fresh on every call. A broken settings file means all off.
+- **Padlocks off at every AutoCAD start,** kept only in that AutoCAD's memory: no file can turn
+  one on, only your click ([D-59](docs/DECISIONS.md)). An office can hold one off with a Windows
+  policy ([D-60](docs/DECISIONS.md)).
 - **One undo step per call.** Optional **Keep or Discard** after each change.
 - **Wrong-drawing guard.** If you switch drawings mid-job, a change is refused until Heron looks again.
 - **No double drawing.** If AutoCAD goes busy half-way through a change, Heron does not retry; it
@@ -125,7 +127,7 @@ a piece is "checked live" only where a row ran in that AutoCAD and passed.
 | Piece | State | Where that comes from |
 |---|---|---|
 | Python server, run from this folder (`.venv`) | **Checked live, AutoCAD 2027 only** | Group A: the PASS rows from A2 to A30 (2026-10-26 / 27) |
-| Plug-in for AutoCAD 2027 (.NET 10) | **Checked live** for the rows marked PASS; many later rows not yet | Groups A, J, L: PASS rows 2026-10-26 to 2026-11-08. Groups D to Q are mostly NOT RUN |
+| Plug-in for AutoCAD 2027 (.NET 10) | **Checked live** for the rows marked PASS; many later rows not yet | Groups A, J, L: PASS rows 2026-10-26 to 2026-11-08. Groups D to Q are mostly NOT RUN; R to AE (2026-11-21) are all NOT RUN |
 | Plug-in for AutoCAD 2025 / 2026 (.NET 8) | **Built, never run**: no PC with that AutoCAD | Group B: NO MACHINE |
 | Plug-in for AutoCAD 2021 to 2024 (.NET Framework 4.8) | **Built, never run**: no PC with that AutoCAD | Group C: NO MACHINE |
 | Server as one `autocad-mcp.exe` (the release zip) | **Built, not checked live** | No PASS row |
