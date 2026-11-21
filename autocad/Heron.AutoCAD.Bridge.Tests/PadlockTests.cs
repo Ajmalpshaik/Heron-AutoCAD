@@ -30,15 +30,15 @@ public class PadlockTests
     private HeronConfig Now() => _padlocks.Snapshot(new HeronConfig());
 
     [Fact]
-    public void Every_padlock_is_off_when_AutoCAD_starts_and_Ask_to_Keep_asks()
+    public void Every_padlock_is_off_when_AutoCAD_starts_and_Ask_to_Keep_is_off()
     {
         var config = Now();
         Assert.False(config.WriteEnabled);
         Assert.False(config.PublishEnabled);
         Assert.False(config.AdminEnabled);
-        Assert.True(config.AskBeforeKeeping);
+        Assert.False(config.AskBeforeKeeping);
         Assert.False(_padlocks.IsOn(Padlock.Changes));
-        Assert.True(_padlocks.IsOn(Padlock.AskToKeep));
+        Assert.False(_padlocks.IsOn(Padlock.AskToKeep));
     }
 
     [Fact]
@@ -63,14 +63,14 @@ public class PadlockTests
         // Only the file's own settings pass through a snapshot.
         var fromFile = new HeronConfig
         {
-            WriteEnabled = true, PublishEnabled = true, AdminEnabled = true, AskBeforeKeeping = false,
+            WriteEnabled = true, PublishEnabled = true, AdminEnabled = true, AskBeforeKeeping = true,
             AutoConnect = true, ActivityBanner = false,
         };
         var config = _padlocks.Snapshot(fromFile);
         Assert.False(config.WriteEnabled);
         Assert.False(config.PublishEnabled);
         Assert.False(config.AdminEnabled);
-        Assert.True(config.AskBeforeKeeping);
+        Assert.False(config.AskBeforeKeeping);
         Assert.True(config.AutoConnect);
         Assert.False(config.ActivityBanner);
     }

@@ -5,8 +5,8 @@ namespace Heron.AutoCAD.Bridge
     /// <summary>
     /// The padlocks and Ask to Keep, in this AutoCAD's memory only (D-59).
     ///
-    /// Every AutoCAD starts with Changes, Publish and Admin off and Ask to Keep
-    /// asking - each switch on its safe side. No file is read for them, so no
+    /// Every AutoCAD starts with Changes, Publish and Admin off, and Ask to Keep
+    /// off as before (the owner's choice, 2026-11-21). No file is read for them, so no
     /// program that can write a file (an AI chat included) can turn one on. Each
     /// open AutoCAD has its own. Only the plug-in's own windows call TurnOn and
     /// TurnOff, after the modeller's click; the pipe has no request that
@@ -22,7 +22,7 @@ namespace Heron.AutoCAD.Bridge
         private bool _changes;
         private bool _publish;
         private bool _admin;
-        private bool _askToKeep = true;
+        private bool _askToKeep;
 
         public HeronPadlocks(IHeronPolicy policy)
         {

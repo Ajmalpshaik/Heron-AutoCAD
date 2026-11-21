@@ -64,7 +64,7 @@ public class ConfigTests : IDisposable
         // What an older plug-in wrote, or what any program could write (D-59).
         var path = PathOf("heron-autocad.config");
         File.WriteAllText(path, "{\"write.enabled\": true, \"publish.enabled\": true, \"admin.enabled\": true, "
-            + "\"write.askBeforeKeeping\": false, \"bridge.autoConnect\": true, \"ui.activityBanner\": false}");
+            + "\"write.askBeforeKeeping\": true, \"bridge.autoConnect\": true, \"ui.activityBanner\": false}");
 
         var file = HeronConfig.Load(path);
         Assert.False(file.WriteEnabled);
@@ -75,7 +75,7 @@ public class ConfigTests : IDisposable
         Assert.False(config.WriteEnabled);
         Assert.False(config.PublishEnabled);
         Assert.False(config.AdminEnabled);
-        Assert.True(config.AskBeforeKeeping);
+        Assert.False(config.AskBeforeKeeping);
         Assert.NotNull(Permissions.Refusal(Risk.Change, config));
 
         // The file keeps its own two settings.

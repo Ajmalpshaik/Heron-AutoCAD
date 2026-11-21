@@ -32,7 +32,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 - Reading and viewing (status, lists, measure, preview, zoom, switch drawing) need no padlock, only
   the connection.
 - **The padlocks live only in this AutoCAD's memory** ([D-59](DECISIONS.md)). Every time AutoCAD
-  starts, Changes, Admin and Publish are **off** and Ask to Keep is **on** (asking). Only your click
+  starts, Changes, Admin, Publish and Ask to Keep are **off**. Only your click
   turns one on: in Settings, or in the same question `HERONCHANGES` / `HERONADMIN` /
   `HERONPUBLISH` open. No file can turn one on, so a chat that can write files cannot unlock itself.
 - **Each open AutoCAD has its own padlocks.** Turning Changes on in one does not turn it on in another.

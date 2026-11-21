@@ -376,9 +376,9 @@ so any program that can write a file, an AI chat included, could turn one on wit
 modeller's click, skipping "turning a padlock on asks first".
 - **In memory only** (`Bridge/HeronPadlocks.cs`). Every AutoCAD starts with Changes, Publish and
   Admin **off**. Nothing is read from or written to a file for them.
-- **Ask to Keep starts on (asking)**, its safe side, and lives in memory too: a file could have
-  switched the question off without the "Stop asking?" question. Before, its default was off; a
-  modeller who does not want it answers "Stop asking" once per AutoCAD start.
+- **Ask to Keep starts off, as before** (Ajmal's choice, 2026-11-21), and lives in memory too: no
+  file can switch it on or off. A modeller who wants it turns it on in Settings after each AutoCAD
+  start.
 - **Only the modeller's click moves a switch:** in Settings, or in the same question
   `HERONCHANGES` / `HERONPUBLISH` / `HERONADMIN` open (kept for command-line users; they ask exactly
   as Settings does, and a typed command sent by a program still needs that click). Turning off

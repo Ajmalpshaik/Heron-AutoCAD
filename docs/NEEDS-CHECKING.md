@@ -411,7 +411,7 @@ tested offline (bridge `PadlockTests`, `ConfigTests`; `tests/test_padlock_guard.
 
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
-| R1 | Turn Changes, Admin and Publish on in Settings, and Ask to Keep off. Close AutoCAD, start it again, press Settings | Changes, Admin, Publish all **OFF**; Ask to Keep **ON** (asking) | NOT RUN |
+| R1 | Turn Changes, Admin, Publish and Ask to Keep on in Settings. Close AutoCAD, start it again, press Settings | Changes, Admin, Publish and Ask to Keep all **OFF** | NOT RUN |
 | R2 | AutoCAD closed: edit `%APPDATA%\Heron\autocad\heron-autocad.config` to `{"write.enabled": true, "admin.enabled": true, "publish.enabled": true, "write.askBeforeKeeping": false}`. Start AutoCAD, press Heron, ask the chat to draw a line | Settings shows all three OFF, Ask to Keep ON; the chat is refused "Changes is off" | NOT RUN |
 | R3 | With AutoCAD open and Changes off, write `"write.enabled": true` into the same file, then ask the chat to draw a line | Still refused "Changes is off"; Settings still OFF | NOT RUN |
 | R4 | Two AutoCADs open. Turn Changes on in the first only | The second's Settings still shows Changes OFF, and a chat on it is refused | NOT RUN |
