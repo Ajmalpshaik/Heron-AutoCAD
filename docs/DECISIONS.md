@@ -199,7 +199,10 @@ D-25 rule 2 and D-40, which stand.
   changes no tag).
 - **Which inserts:** every insert of the block by its real name in model space and on every sheet
   (a dynamic block's `*U` copies included), or the handles given. An insert on a locked layer is
-  left out and listed. Inserts inside other blocks' definitions are not reached yet ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)).
+  left out and listed. Inserts inside other blocks' definitions are reached with `nested=true`
+  ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156), added the same day): every ordinary block definition is read for them (layouts are
+  already covered, xrefs are another drawing's, `*U` copies are AutoCAD's own); off by default
+  because it reads every definition and changes every copy of the block that holds them.
 - `add_attributes` adds new definitions to an existing block first (positions from its base point,
   as the block is drawn; one with no position is stacked under the lowest attribute the block
   already has, so it never lands on one), then syncs, in the same transaction. The inserts are

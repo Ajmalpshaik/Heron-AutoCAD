@@ -4,6 +4,10 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
+  syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
+  listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
+
 - **Blocks, attributes and tables (2026-11-21, #115, #117, #106).** Five new tools, **147** in all.
   `autocad_make_block` takes attribute definitions (tag, prompt, default, position, height;
   invisible, constant, preset). `autocad_sync_attributes` is ATTSYNC, done by the plug-in: every

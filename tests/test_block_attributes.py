@@ -297,9 +297,17 @@ class Block:
 class Blocks:
     def __init__(self, *existing):
         self.items = {b.Name: b for b in existing}
+        self.read = 0
 
-    def Item(self, name):
-        return self.items[name]
+    @property
+    def Count(self):
+        return len(self.items)
+
+    def Item(self, key):
+        if isinstance(key, int):
+            self.read += 1
+            return list(self.items.values())[key]
+        return self.items[key]
 
     def Add(self, base, name):
         self.items[name] = Block(name)
@@ -307,6 +315,8 @@ class Blocks:
 
 
 class Ref:
+    ObjectName = "AcDbBlockReference"
+
     def __init__(self, handle, name, layer, values):
         self.Handle, self.Name, self.EffectiveName, self.Layer = handle, name, name, layer
         self.values = values
@@ -524,6 +534,38 @@ class TestSyncTool:
         monkeypatch.setattr(blocks, "in_plugin", lambda *a, **k: sent.append(a))
         result = call(blocks.autocad_sync_attributes(block="VALVE TAG"))
         assert sent == [] and result["synced"] is None and "Nothing was changed" in result["note"]
+
+
+class TestNestedInserts:
+    """Issue #156: a tag block inside another block's definition."""
+
+    def skid(self):
+        skid = Block("SKID", [Line(), Ref("5A", "VALVE TAG", "0", [("TAG", "V-9")])])
+        layout = Block("*Paper_Space", [Ref("5B", "VALVE TAG", "0", [])])
+        layout.IsLayout = True
+        xref = Block("SITE", [Ref("5C", "VALVE TAG", "0", [])])
+        xref.IsXRef = True
+        anonymous = Block("*U7", [Ref("5D", "VALVE TAG", "0", [])])
+        return [skid, layout, xref, anonymous]
+
+    def test_they_are_left_alone_unless_asked(self, drawing, monkeypatch):
+        doc = drawing(VALVE, *self.skid(), refs=[Ref("1A", "VALVE TAG", "0", [("TAG", "V-1")])])
+        monkeypatch.setattr(blocks, "in_plugin", lambda *a, **k: pytest.fail("a dry run sends nothing"))
+        result = call(blocks.autocad_sync_attributes(block="VALVE TAG", dry_run=True))
+        assert [i["handle"] for i in result["inserts"]] == ["1A"] and doc.Blocks.read == 0
+
+    def test_nested_ones_are_found_inside_ordinary_blocks_only(self, drawing, monkeypatch):
+        drawing(VALVE, *self.skid(), refs=[Ref("1A", "VALVE TAG", "0", [("TAG", "V-1")])])
+        sent = []
+        monkeypatch.setattr(blocks, "in_plugin", lambda op, args, what, **k: sent.append(args) or {})
+        result = call(blocks.autocad_sync_attributes(block="VALVE TAG", nested=True))
+        assert sent[0]["handles"] == ["1A", "5A"]
+        nested = result["inserts"][1]
+        assert nested == {"handle": "5A", "inside": "SKID", "keep": {"TAG": "V-9"}, "add": {"SIZE": "DN50"}, "drop": []}
+
+    def test_the_plan_says_which_block_holds_it(self):
+        plan = plan_sync("VALVE TAG", DEFINITION, [{**insert("5A", TAG="V-9"), "inside": "SKID"}])
+        assert plan["inserts"][0]["inside"] == "SKID"
 
 
 def test_levels():

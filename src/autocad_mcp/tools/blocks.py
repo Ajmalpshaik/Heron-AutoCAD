@@ -46,6 +46,8 @@ ATTRIBUTES_FIELD = Field(
 # AutoCAD wildcard characters: a block name is matched as text, not as a pattern.
 _WILDCARDS = set("#@.*?~[]-`,")
 MOST_LISTED = 50
+# Objects read inside block definitions when looking for nested inserts (#156).
+MOST_NESTED_SCAN = 20000
 
 
 def escape_wildcards(name: str) -> str:
@@ -200,6 +202,16 @@ def _block_definition(doc: Any, name: str) -> tuple[Any, list[dict[str, Any]]]:
     return block, definitions
 
 
+def _describe(ref: Any, effective: str, inside: str | None = None) -> dict[str, Any]:
+    values: list[tuple[str, str]] = []
+    if ref.HasAttributes:
+        values = [(str(a.TagString), str(a.TextString)) for a in ref.GetAttributes()]
+    found = {"handle": str(ref.Handle), "block": effective, "layer": str(ref.Layer), "attributes": values}
+    if inside:
+        found["inside"] = inside
+    return found
+
+
 def _inserts(doc: Any, name: str) -> list[dict[str, Any]]:
     """Every insert of the block in model and paper space, a dynamic block's changed copies included.
 
@@ -217,12 +229,7 @@ def _inserts(doc: Any, name: str) -> list[dict[str, Any]]:
                 effective = str(getattr(ref, "EffectiveName", None) or ref.Name)
                 if effective.strip().lower() != wanted:
                     continue
-                values: list[tuple[str, str]] = []
-                if ref.HasAttributes:
-                    values = [(str(a.TagString), str(a.TextString)) for a in ref.GetAttributes()]
-                found.append(
-                    {"handle": str(ref.Handle), "block": effective, "layer": str(ref.Layer), "attributes": values}
-                )
+                found.append(_describe(ref, effective))
             except AutocadError:
                 raise
             except Exception:  # noqa: BLE001 - not a block reference after all
@@ -230,6 +237,45 @@ def _inserts(doc: Any, name: str) -> list[dict[str, Any]]:
     finally:
         discard_selection_set(doc)
     return found
+
+
+def _nested_inserts(doc: Any, name: str) -> tuple[list[dict[str, Any]], bool]:
+    """Inserts of the block inside other blocks' definitions (#156); (found, cut short).
+
+    A selection sees only model and paper space, so every ordinary block
+    definition is read for inserts of this one. Layouts are already covered by
+    the selection, xrefs are another drawing's, and unnamed (*U) copies are
+    AutoCAD's own, made again from their dynamic block.
+    """
+    found: list[dict[str, Any]] = []
+    wanted = name.strip().lower()
+    scanned = 0
+    for i in range(int(doc.Blocks.Count)):
+        holder = doc.Blocks.Item(i)
+        holder_name = str(holder.Name)
+        if holder_name.startswith("*") or holder_name.strip().lower() == wanted:
+            continue
+        try:
+            if holder.IsLayout or holder.IsXRef:
+                continue
+        except Exception:  # noqa: BLE001 - an older AutoCAD without the property
+            pass
+        for j in range(int(holder.Count)):
+            scanned += 1
+            if scanned > MOST_NESTED_SCAN:
+                return found, True
+            item = holder.Item(j)
+            try:
+                if str(item.ObjectName) != "AcDbBlockReference":
+                    continue
+                effective = str(getattr(item, "EffectiveName", None) or item.Name)
+                if effective.strip().lower() == wanted:
+                    found.append(_describe(item, effective, inside=holder_name))
+            except AutocadError:
+                raise
+            except Exception:  # noqa: BLE001 - not an insert after all
+                continue
+    return found, False
 
 
 def _locked(doc: Any, layers: set[str]) -> list[str]:
@@ -264,6 +310,16 @@ async def autocad_sync_attributes(
             ),
         ),
     ] = None,
+    nested: Annotated[
+        bool,
+        Field(
+            default=False,
+            description=(
+                "True: also the inserts inside other blocks' definitions (a valve tag inside a skid block), "
+                "which changes every copy of those blocks. Slower: every block definition is read."
+            ),
+        ),
+    ] = False,
     dry_run: Annotated[
         bool,
         Field(default=False, description="True: say which inserts would change and what each keeps, gains and loses; change nothing."),
@@ -278,7 +334,8 @@ async def autocad_sync_attributes(
     made constant, goes. Each attribute goes back to where the definition puts
     it (position, height, style). An attribute holding a field, and a
     multi-line one, keeps its own text and place. Inserts on a locked layer are
-    left out and listed. Done by the Heron plug-in in one transaction: all of
+    left out and listed. With ``nested`` the inserts inside other blocks'
+    definitions are synced too. Done by the Heron plug-in in one transaction: all of
     it or none; one undo step.
 
     Returns:
@@ -292,6 +349,7 @@ async def autocad_sync_attributes(
         - Use when: "add an invisible MAKE attribute to the PUMP block and put
           it on every pump" -> add_attributes=[{"tag": "MAKE", "invisible": true}].
         - Use when: "ATTSYNC the title block" after it was redefined.
+        - Use when: "the valve tags inside the skid blocks too" -> nested=true.
         - Don't use when: only the values change - autocad_set_attributes,
           or autocad_apply_attribute_sheet from Excel.
 
@@ -331,10 +389,20 @@ async def autocad_sync_attributes(
             except AttributeSpecError as exc:
                 raise AutocadError(f"{exc} Nothing was changed.") from None
         inserts = _inserts(doc, block)
+        cut_short = False
+        if nested:
+            inside, cut_short = _nested_inserts(doc, block)
+            inserts += inside
         locked = _locked(doc, {i["layer"] for i in inserts if i["block"].strip().lower() == block.strip().lower()})
         plan = plan_sync(block.strip(), definitions + added, inserts, only=handles, locked_layers=locked)
         listed = [
-            {"handle": item["handle"], "keep": item["keep"], "add": item["add"], "drop": item["drop"]}
+            {
+                "handle": item["handle"],
+                **({"inside": item["inside"]} if item.get("inside") else {}),
+                "keep": item["keep"],
+                "add": item["add"],
+                "drop": item["drop"],
+            }
             for item in plan["inserts"][:MOST_LISTED]
         ]
         result: dict[str, Any] = {
@@ -344,6 +412,11 @@ async def autocad_sync_attributes(
         }
         if len(plan["inserts"]) > MOST_LISTED:
             result["inserts_more"] = len(plan["inserts"]) - MOST_LISTED
+        if cut_short:
+            result["nested_cut_short"] = (
+                f"More than {MOST_NESTED_SCAN} objects inside the block definitions: some nested inserts may not "
+                "have been found. Give their handles instead."
+            )
         if dry_run:
             return {**result, "dry_run": True}
         if not plan["inserts"] and not added:
