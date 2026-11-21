@@ -57,6 +57,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "drawing_report",
         "why",
         "gaps",
+        "list_groups",
     ),
     Risk.VIEW: (
         "check_folder",
@@ -154,6 +155,17 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "set_layer_state",
         "set_current_layer",
         "delete_layer",
+        # The everyday 2D edits (D-78, D-79): geometry worked out in Python, written over COM.
+        "trim_extend",
+        "fillet_chamfer",
+        "break_curve",
+        "join_curves",
+        "edit_vertex",
+        "stretch",
+        "explode",
+        "draw_order",
+        "match_properties",
+        "group",
     ),
     Risk.PUBLISH: (
         "export_attribute_sheet",
