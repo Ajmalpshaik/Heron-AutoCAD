@@ -31,7 +31,9 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/settings.py` | drawing settings, text and dimension styles |
 | `tools/convert.py` | an import into a shop drawing: remap layers, tidy overrides |
 | `tools/sequence.py` | `autocad_sequence`: several tools in one call |
-| `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions |
+| `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions, and two 3D ones (duct run, pipe spool) |
+| `acad/shapes3d.py` | The 3D shapes as pieces in their own frames with the matrix that places each: pure, tested offline (D-94) |
+| `tools/_solid_pieces.py` | Makes those pieces as solids over COM and checks each landed where it should |
 | `tools/dimensions.py` | dimension runs (chain, baseline, ordinate, a named style), centre marks |
 | `tools/dimensions_edit.py` | dimensions already drawn: even spacing (DIMSPACE), breaks (DIMBREAK) |
 | `tools/annotation_scales.py` | annotative objects and their annotation scales, done by the plug-in |
@@ -44,7 +46,9 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/between_drawings.py` | `autocad_copy_from_drawing`: objects from another open drawing into this one |
 | `tools/solids.py` | 3D solids, extrude and revolve, booleans, mass properties, 3D views |
 | `tools/solid_edits.py` | loft, fillet and chamfer solid edges, shell, press-pull, thicken, and the face and edge list: done by the plug-in (`run`, D-40) |
-| `tools/superhatch.py` | super hatch with a block, done by the plug-in |
+| `tools/superhatch.py` | super hatch with a block, an image, an xref or a wipeout, done by the plug-in |
+| `tools/sections.py` | flat views of solids (FLATSHOT) and a section plane with its 2D section: done by the plug-in (D-95) |
+| `tools/surfaces.py` | planar and network surfaces, meshes: done by the plug-in (D-95) |
 | `tools/materials.py` | list, make (done by the plug-in) and apply materials; render |
 | `tools/lighting.py` | photometric lights, done by the plug-in |
 | `tools/publish.py` | several sheets in one PDF, done by the plug-in's publisher |

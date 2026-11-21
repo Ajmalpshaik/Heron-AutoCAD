@@ -8,7 +8,25 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+## Latest - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
+
+Five issues built offline in one PR. `autocad_make_shape` has a 3D group: `duct_run` and
+`pipe_spool`, solids along a route, a bend at every corner, flanges with bolt holes, each pipe's cut
+length (pure geometry in `acad/shapes3d.py`, made over COM by `tools/_solid_pieces.py`). Four new
+tools done by the plug-in (**173** in all): `autocad_flatten_views` (FLATSHOT / SOLPROF),
+`autocad_section_plane` (SECTIONPLANE + 2D section block), `autocad_add_surface` (planar, network),
+`autocad_add_mesh`; `autocad_loft(surface=true)`; `autocad_super_hatch` takes an image, an xref or
+a wipeout as the tile. Plug-in: `Sections.cs`, `Surfaces.cs`, `SuperHatch.cs`, pure maths in
+`Bridge/SectionMath.cs`; every .NET signature was checked against the AutoCAD 2027 reference
+assemblies, and the add-in compiles for all three builds. Limits: [05 §30](05-known-limits.md#30-3d-for-mep-duct-runs-spools-flat-views-sections-surfaces-meshes-have-their-own-limits).
+
+**Next (on this PC):** pull, build and install the plug-in, restart Claude, then live rows AH1-AH15
+([NEEDS-CHECKING group AH](NEEDS-CHECKING.md)). The answers the reference could not give: which way
+AutoCAD revolves a bend (AH3), where GenerateSectionGeometry puts a 2D section's lines
+(`laid_flat_from`, AH4 and AH6), which side a section looks at (AH6), and whether XCLIP hides
+images inside a block (AH12).
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
 Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /

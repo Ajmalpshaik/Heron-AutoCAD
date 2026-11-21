@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
+  (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,
+  elbows, flanges with bolt holes, and each pipe's cut length) as solids, each piece checked against
+  the box it should fill ([D-94](docs/DECISIONS.md)). Four new tools done by the plug-in (**173** in
+  all): `autocad_flatten_views` (plan, front and side views as 2D lines, hidden lines removed, set
+  out third or first angle - FLATSHOT / SOLPROF), `autocad_section_plane` (a section plane through
+  two or three points and its 2D section as a block), `autocad_add_surface` (planar or network) and
+  `autocad_add_mesh` (MESH primitives, or a mesh made from a solid). `autocad_loft(surface=true)`
+  lofts open outlines into a surface; `autocad_super_hatch` takes an image, an xref or a wipeout as
+  the tile ([D-95](docs/DECISIONS.md)). Live rows AH1-AH16 NOT RUN.
+
 - **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
   all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
   `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,

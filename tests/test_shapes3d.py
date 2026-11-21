@@ -466,6 +466,12 @@ class TestDrawing:
         assert result["verified"] is True
         revolves = acad.ModelSpace.revolves
         assert revolves.count((0.0, 1.0, 0.0)) == 2 and revolves.count((0.0, -1.0, 0.0)) == 2
+        bends = [p for p in result["pieces"] if p["part"] == "bend"]
+        assert all(b["revolved_the_other_way"] for b in bends)
+
+    def test_a_bend_that_swept_forward_says_nothing_about_it(self, acad):
+        result = _make(shape="duct_run", settings={"points": DUCT, "width": 600, "height": 400})
+        assert not any("revolved_the_other_way" in p for p in result["pieces"])
 
     def test_a_piece_that_did_not_move_is_said_not_to_have_landed(self, acad):
         FakeSpace.ignore_moves = True

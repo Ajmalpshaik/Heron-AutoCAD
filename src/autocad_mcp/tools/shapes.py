@@ -127,7 +127,7 @@ async def autocad_make_shape(
     ] = False,
     coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
-    """Draw a shape from its name and its dimensions: flange, slot, stair, elbow, flat pattern.
+    """Draw a shape from its name and its dimensions: flange, slot, stair, flat pattern, a 3D duct run or pipe spool.
 
     This is the "simple words to complex geometry" path. Give the shape's name
     and the few numbers that define it, and the whole thing is generated and
@@ -159,9 +159,9 @@ async def autocad_make_shape(
           — shape="cone_development".
         - Use when: "a 1200 wide stair, 14 risers at 175, 280 going, in section".
         - Use when: "a 120 x 40 slot at 30 degrees" — one object, round ends.
-        - Use when: "model the 600 x 400 supply duct along these points, up
-          through the slab and across" — shape="duct_run", points=[...],
-          width=600, height=400. Each straight and bend is its own solid.
+        - Use when: "model the 600 x 400 supply duct in 3D along these points,
+          up through the slab and across" — shape="duct_run", points=[...],
+          width=600, height=400. Each straight and bend is its own 3D solid.
         - Use when: "a 4 inch spool, flange to flange, with two elbows" —
           shape="pipe_spool"; the answer gives every pipe's cut length.
         - Don't use when: the thing is a one-off outline you can give as points

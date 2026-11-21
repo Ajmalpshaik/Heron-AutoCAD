@@ -92,6 +92,8 @@ def _revolve(space: Any, profile: dict[str, Any], piece: dict[str, Any]) -> Any:
             if low_z < expected_low[2] - 0.25 * (expected_high[2] - expected_low[2]) - 1e-6:
                 _try_delete(solid)
                 solid = space.AddRevolvedSolid(regions[0], apoint(radius, 0.0, 0.0), apoint(0.0, -1.0, 0.0), angle)
+                # Said in the answer: live row AH3 records which way AutoCAD turns.
+                piece["_turned_back"] = True
         finally:
             for region in regions:
                 _try_delete(region)
@@ -161,6 +163,8 @@ def draw_pieces(plan: dict[str, Any]) -> dict[str, Any]:
             for key in ("length", "angle", "radius"):
                 if key in piece:
                     row[key] = piece[key]
+            if piece.pop("_turned_back", False):
+                row["revolved_the_other_way"] = True
             try:
                 low, high = solid.GetBoundingBox()
                 actual = (point_to_list(low), point_to_list(high))

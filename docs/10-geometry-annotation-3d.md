@@ -3,7 +3,8 @@
 Three things that turn a drawing tool into a drafting tool: **a shape from a
 few numbers**, **annotation that a drawing office would accept**, and **a 3D
 model you can build and then look at**. Decisions: [D-30](DECISIONS.md),
-[D-31](DECISIONS.md). Live checks: [NEEDS-CHECKING group E](NEEDS-CHECKING.md).
+[D-31](DECISIONS.md), [D-94](DECISIONS.md), [D-95](DECISIONS.md). Live checks:
+[NEEDS-CHECKING group E](NEEDS-CHECKING.md), and group AH for the 3D shapes, flat views and sections.
 
 ---
 
@@ -28,6 +29,7 @@ autocad_make_shape(shape="flange",
 | **MEP** | elbow (with its centreline), duct_transition, grating |
 | **Building** | stair (section or plan), ladder, truss |
 | **Furniture** | detail_bubble, section_mark, north_arrow, scale_bar, level_mark, revision_tag |
+| **3D, as solids** | duct_run (rectangular or round, a bend at each corner), pipe_spool (pipe, elbows, flanges) |
 
 **How it works, and why it is built this way.** Every shape is a pure function
 in [`acad/shapes.py`](../src/autocad_mcp/acad/shapes.py) that returns a list of
@@ -42,6 +44,34 @@ batch is what made that possible.
 
 **`dry_run=true`** hands back the operations instead of drawing them, so you can
 look first, or change something and send them yourself.
+
+### Duct runs and pipe spools, in 3D
+
+> "The 600 x 400 supply duct from the shaft, along the corridor, up through the
+> slab." "A 4 inch spool, flange to flange, two elbows, and the cut lengths."
+
+```
+autocad_make_shape(shape="pipe_spool",
+                   settings={"points": [[0,0,0],[2000,0,0],[2000,0,1500]],
+                             "outside_diameter": 114.3, "wall": 6.02,
+                             "flange_diameter": 229, "flange_thickness": 24,
+                             "bolt_count": 8, "pitch_diameter": 190.5, "hole_diameter": 19},
+                   layer="P-SPOOL", centreline_layer="P-SPOOL-CNTR")
+```
+
+The points are the **centreline through the corners**, as a services drawing
+gives it. Each corner gets a bend of `bend_radius` on its centreline, so a
+straight is its leg less the bends' tangent lengths (radius x tan(angle / 2)
+each end) and a flange's thickness: that is the pipe's **cut length**, and the
+answer lists each one. Every straight, bend and flange is its own solid, as it
+is fabricated; `join=true` makes one. A rectangular duct keeps its width level
+on the first leg and is carried round every bend without twisting.
+
+Each piece is worked out in its own frame and placed by one matrix, all in
+Python, so the run is tested without AutoCAD: every piece ends where the next
+begins, every bend leaves the way the next straight runs. In AutoCAD each piece
+is then checked against the box it should fill, and a piece that landed
+anywhere else is reported, not hidden ([D-94](DECISIONS.md)).
 
 **Your office block beats all of this.** The furniture shapes exist for the
 drawing with no block library to hand; when you have one,
@@ -177,6 +207,31 @@ autocad_preview()                        # now the picture is worth having
 ```
 
 ---
+
+### From the model back to the drawing
+
+| Tool | Level | What it does |
+|---|---|---|
+| `autocad_flatten_views` | Change | FLATSHOT / SOLPROF: front, top, side views of solids as 2D lines, hidden lines removed, one block per view, set out **third angle** (plan above, right view on the right) or first, lined up |
+| `autocad_section_plane` | Change | SECTIONPLANE and Generate Section: a plane through two points (a vertical cut) or three (any plane), kept in the model, and the 2D section - cut outlines, hatch, what is beyond - as a block on the sheet |
+| `autocad_add_surface` | Change | PLANESURF (from closed outlines or two corners) or SURFNETWORK (through two sets of crossing curves) |
+| `autocad_add_mesh` | Change | MESH primitives placed by the centre of the base, smoothness 0-4, or a mesh made from a solid |
+| `autocad_loft(surface=true)` | Change | A loft through open outlines: a surface, not a solid |
+
+**A flat view is a section that cuts nothing.** AutoCAD's section object can
+give back the 2D view of what lies beyond its plane, hidden lines removed. Put
+the plane outside the model, on the viewer's side, and that view is exactly
+FLATSHOT's. So one mechanism serves both a section and an elevation, and which
+way each looks is Heron's arithmetic, tested offline ([D-95](DECISIONS.md)).
+Two points cut vertically and **look to the left of the line** from the first
+point to the second (walk along it, look left); three points at one level make
+a plan cut that looks down, north up. `look_towards` names the other side.
+
+```
+autocad_flatten_views(handles=["<the spool's pieces>"], insert_at=[4000, 0],
+                      layer="M-SHOP")                 # front, plan above, side
+autocad_section_plane(points=[[2500,-1000],[2500,5000]], insert_at=[8000, 0])
+```
 
 ## 5. A worked example: a bracket, dimensioned and issued
 
