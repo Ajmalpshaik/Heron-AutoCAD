@@ -16,9 +16,12 @@ from typing import Annotated, Any
 from pydantic import Field, StrictInt
 
 from ..acad import shapes as shape_library
+from ..acad import shapes3d
+from ..core.connection import get_doc, run
 from ..core.errors import AutocadError
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
-from ._shared import COORDS_OPT
+from ._shared import COORDS_OPT, current_ucs
+from ._solid_pieces import draw_pieces
 from .batch import draw_operations
 
 # The catalogue, short enough to sit in the tool's own description so an agent
@@ -52,7 +55,14 @@ CATALOGUE = (
     "north_arrow (size) - points up before rotation\n"
     "scale_bar (scale, length) - length is on the PAPER, labels are the real distances\n"
     "level_mark (level) - spot level triangle; below=true for a soffit or invert\n"
-    "revision_tag (number) - the numbered triangle"
+    "revision_tag (number) - the numbered triangle\n"
+    "\n3D, as solids along a route (points = the centreline's corners, [x, y, z]; a bend at "
+    "every corner):\n"
+    "duct_run (points, width + height, or profile='round' + diameter) - straights and bends; "
+    "bend_radius (centreline; default R/W = 1, or 1.5 x D round), wall for a hollow duct, up, join\n"
+    "pipe_spool (points, outside_diameter, flange_diameter, flange_thickness) - pipe lengths, "
+    "elbows and flanges, with each pipe's cut length; wall, bend_radius (default 1.5 x OD), "
+    "flanges='both'|'start'|'end'|'none', bolt_count + pitch_diameter + hole_diameter, join"
 )
 
 
@@ -149,9 +159,16 @@ async def autocad_make_shape(
           — shape="cone_development".
         - Use when: "a 1200 wide stair, 14 risers at 175, 280 going, in section".
         - Use when: "a 120 x 40 slot at 30 degrees" — one object, round ends.
+        - Use when: "model the 600 x 400 supply duct along these points, up
+          through the slab and across" — shape="duct_run", points=[...],
+          width=600, height=400. Each straight and bend is its own solid.
+        - Use when: "a 4 inch spool, flange to flange, with two elbows" —
+          shape="pipe_spool"; the answer gives every pipe's cut length.
         - Don't use when: the thing is a one-off outline you can give as points
           (autocad_batch_draw), or it is already a block in the drawing
           (autocad_insert_block).
+        - Don't use when: one profile runs along a curve you already drew —
+          autocad_extrude_profile with path_handle sweeps it.
 
     Error Handling:
         - An unknown shape name lists every shape there is.
@@ -161,6 +178,9 @@ async def autocad_make_shape(
           the limit — a fillet bigger than half the side, a slot no longer than
           it is wide, a cone that opens past a full circle.
     """
+    if shapes3d.is_3d(shape):
+        return dumps(await _solid_shape(shape, dict(settings or {}), layer, color,
+                                        centreline_layer, dry_run, coords))
     given = dict(settings or {})
     for key, value in (("layer", layer), ("color", color), ("centreline_layer", centreline_layer)):
         if value is not None and key not in given:
@@ -196,3 +216,32 @@ async def autocad_make_shape(
     result = await draw_operations(operations, return_handles=True, coords=coords)
     result["shape"] = name
     return dumps(result)
+
+
+async def _solid_shape(shape: str, given: dict[str, Any], layer: str | None, color: Any,
+                       centreline_layer: str | None, dry_run: bool, coords: str) -> dict[str, Any]:
+    """A 3D shape: its pieces worked out here, then made as solids over COM (D-94)."""
+    for key, value in (("layer", layer), ("color", color), ("centreline_layer", centreline_layer)):
+        if value is not None and key not in given:
+            given[key] = value
+    if str(coords).strip().lower() == "ucs":
+        # A route is full 3D, so a tilted UCS is fine: every point and the up
+        # direction go through it.
+        ucs = await run(lambda: current_ucs(get_doc()))
+        if not ucs.is_world:
+            if isinstance(given.get("points"), (list, tuple)):
+                given["points"] = [list(ucs.to_world(p)) for p in given["points"]]
+            if given.get("up") is not None:
+                given["up"] = list(ucs.direction_to_world(given["up"]))
+    try:
+        plan = shapes3d.build_3d(shape, given)
+    except ValueError as exc:
+        raise AutocadError(str(exc)) from exc
+    if dry_run:
+        return {
+            **{k: v for k, v in plan.items() if k != "style"},
+            "dry_run": True,
+            "hint": "Nothing was made. Each piece is in its own frame with the matrix that places it; "
+                    "call again with dry_run=false to make them as solids.",
+        }
+    return await run(lambda: draw_pieces(plan))
