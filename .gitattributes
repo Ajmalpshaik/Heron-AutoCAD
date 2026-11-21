@@ -4,3 +4,5 @@
 *.png binary
 # Release scripts run in cmd and PowerShell: CRLF on every checkout, not only on Windows.
 tools/release_files/* text eol=crlf
+# The setup's script and the page it shows: plain ASCII with CRLF, as Inno Setup and Notepad expect.
+tools/installer/* text eol=crlf

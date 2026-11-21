@@ -130,9 +130,10 @@ a piece is "checked live" only where a row ran in that AutoCAD and passed.
 | Plug-in for AutoCAD 2021 to 2024 (.NET Framework 4.8) | **Built, never run**: no PC with that AutoCAD | Group C: NO MACHINE |
 | Server as one `autocad-mcp.exe` (the release zip) | **Built, not checked live** | No PASS row |
 | Installer (`Install.bat`, `Rollback.bat`, `CheckForUpdate.bat`) | **Not checked live**: tried only in a test user folder | Group P: P2-P5 NOT RUN |
+| One-file setup (`HeronAutoCAD-<version>-setup.exe`) | **Built and tried on GitHub's Windows machine only** (install, refusals, uninstall; no AutoCAD there) | Group AK: AK1-AK11 NOT RUN |
 | Claude Code connection through this folder's `.mcp.json` | **Checked live, AutoCAD 2027** | A2: Claude asked AutoCAD and got the answer |
 | Claude Code and Claude Desktop entries written by the installer | **Never run live** | Group P: P2 NOT RUN |
-| Plug-in DLLs and `autocad-mcp.exe` | **Unsigned** (no code signature) | [Issue #72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72). Windows SmartScreen or antivirus may warn |
+| Plug-in DLLs, `autocad-mcp.exe` and the setup | **Unsigned** (no code signature). The signing step is ready; the certificate is [Ajmal's decision](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164) | [Issue #72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72). Windows SmartScreen or antivirus may warn |
 | Install size on disk | **Not measured** | The release zip is built on Windows only; none is published yet |
 
 ### Steps

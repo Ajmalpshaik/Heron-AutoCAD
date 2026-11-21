@@ -130,6 +130,58 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-99 - One setup program, built with Inno Setup; signing ready behind secrets; tests import their own src
+
+**Decided:** 2026-11-21, for issues #73, #35 and #72 (#72 prepared only). **Status:** in force;
+extends D-56. Live rows AK1-AK11 NOT RUN.
+
+**The setup (#73).** `tools/make_installer.py` packs the release folder `make_release.py` leaves in
+`dist/` into `HeronAutoCAD-<version>-setup.exe`, with `tools/installer/HeronAutoCAD.iss`.
+**Inno Setup, not WiX:** a per-user install is Inno's ordinary case (`PrivilegesRequired=lowest`),
+uninstall and update by a fixed AppId are built in, the whole installer is one readable script,
+and its Pascal code can refuse while AutoCAD runs and run `Install.ps1`. A per-user MSI in WiX
+needs a registry key path for every component and custom actions to run PowerShell, for no gain
+here. Inno Setup's licence allows commercial use; its authors ask commercial users to buy a
+licence, which a free plug-in does not need. The compiler is **pinned**: 6.7.3 from NuGet
+(`Tools.InnoSetup`, which packs the official files), checked in `release.yml` by its SHA-256 and by
+the Authenticode signature of its authors (Pyrsys B.V.) on `ISCC.exe`. windows-latest has no Inno
+Setup. Inno Setup 7 exists; moving to it is a change of its own.
+
+What the setup does, and why it matches `Install.bat` (D-56):
+- **Same places:** the bundle in `%APPDATA%\Autodesk\ApplicationPlugins`, the server in
+  `%LOCALAPPDATA%\Heron\autocad`; no folder page. Its AppId is the bundle's UpgradeCode. The
+  versions come from `Directory.Build.props` (plug-in and setup) and `autocad_mcp/__init__.py`
+  (server) through `/D`; the script refuses to build without them.
+- **Refuses** while `acad.exe` runs, or `autocad-mcp.exe` runs from the install folder (a
+  developer's `.venv` server elsewhere does not count): at start, again just before copying, and
+  when removing. It never closes a program itself (`CloseApplications=no`).
+- **Claude** is set up by `Install.ps1 -Connect` and taken out by `Install.ps1 -Disconnect`, the
+  same `Connect-Claude` / `Disconnect-Claude` lines `Install.bat` and `Uninstall.bat` run, so the
+  two ways can never drift. The last page shows what was set up.
+- **Update** is a newer setup over the old one (or over a zip install); it deletes the whole old
+  bundle first, as `Install.bat` does. **Going back** is the older setup from the releases page: the
+  setup keeps no `previous` copy. **Uninstall** removes only what it installed, plus the `previous`
+  copy `Install.bat` kept; saved commands, check lists, logs and the audit stay.
+- **The zip and `Install.bat` stay** until Group AK has a live PASS. `Uninstall.bat` now also removes
+  the kept earlier version, and sends a setup install to Windows Settings > Apps.
+
+**Signing (#72), prepared only.** `tools/signing.py` signs Heron's own files with `signtool`
+(SHA-256, time-stamped): `Heron.*.dll` in every Contents folder before they are packed,
+`autocad-mcp.exe`, `Install.ps1`, and the setup with its uninstaller (Inno's `SignTool`). It runs
+only when the repository has **both** secrets `HERON_SIGN_PFX_BASE64` and `HERON_SIGN_PFX_PASSWORD`;
+without them the release says *Not signed* (a notice and the run summary) and goes on; one without
+the other stops the build. The password never reaches a log. No certificate was bought or made up:
+that is Ajmal's call, issue #164. Since June 2023 public code-signing certificates come on a token
+or as cloud signing, so the seller's own step is added to `release.yml` when one is chosen; the
+`.pfx` route serves a test certificate on Ajmal's own PC (docs/SETUP.md, Code signing). Whether
+AutoCAD's SECURELOAD asks about Heron at all is row AK10: it decides whether signing is worth buying.
+
+**Tests import their own src (#35).** `pyproject.toml` gives pytest `pythonpath = ["src"]`, so a
+worktree sharing the main checkout's `.venv` tests its own code, and `tests/conftest.py`'s
+`script_env()` puts the same `src` first for scripts a test starts. `tests/test_checkout_import.py`
+fails when `autocad_mcp` comes from anywhere else, even with another copy first on `PYTHONPATH`.
+`PYTHONPATH=src` in the Linux gate commands is now harmless, not needed.
+
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
