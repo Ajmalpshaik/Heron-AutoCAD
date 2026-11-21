@@ -180,7 +180,7 @@ public class RunTests
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Read, level);
         }
-        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material", "switch_lights", "set_sun", "add_camera_view", "sync_attributes", "excel_table", "update_table_links" })
+        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material", "switch_lights", "set_sun", "add_camera_view", "sync_attributes", "excel_table", "update_table_links", "flat_views", "section_plane", "loft_surface", "planar_surface", "network_surface", "add_mesh" })
         {
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Change, level);
@@ -431,6 +431,21 @@ public class TileGridTests
         Assert.NotNull(error);
         Assert.Contains(TileGrid.MostTiles.ToString(), error);
         Assert.Empty(positions);
+    }
+
+    [Fact]
+    public void Image_tiles_have_a_lower_cap_and_say_so()
+    {
+        // 50 x 50 = 2,500 tiles: fine as blocks, too many as raster images (D-95).
+        var area = new[] { 50.0, 50.0 };
+        Assert.Null(TileGrid.Positions(new[] { 0.0, 0.0 }, area, new[] { 0.0, 0.0 }, 1, 1, 0, new[] { 0.0, 0.0 }, new[] { 1.0, 1.0 }, out var blocks));
+        Assert.Equal(2500, blocks.Count);
+        var error = TileGrid.Positions(new[] { 0.0, 0.0 }, area, new[] { 0.0, 0.0 }, 1, 1, 0, new[] { 0.0, 0.0 }, new[] { 1.0, 1.0 }, out var images,
+            TileGrid.MostImageTiles);
+        Assert.NotNull(error);
+        Assert.Contains(TileGrid.MostImageTiles.ToString(), error);
+        Assert.Contains("of this kind", error);
+        Assert.Empty(images);
     }
 
     [Theory]

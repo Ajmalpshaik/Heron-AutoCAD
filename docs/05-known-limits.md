@@ -154,8 +154,9 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
   pick it by number. A face word only ever picks a flat face: a cone's side or a bowl's inside is
   picked by number.
 - A chamfer is measured from one face, as AutoCAD's own is: its edges must be on that face.
-- Press-pull moves flat faces only. Loft makes solids only: open outlines would make a surface, and
-  are refused. Loft and thicken keep their outlines and surfaces (as with DELOBJ off).
+- Press-pull moves flat faces only. Loft makes a solid from closed outlines; open outlines are
+  refused unless `surface=true`, which makes a surface (limit 32). Loft and thicken keep their
+  outlines and surfaces (as with DELOBJ off).
 - `autocad_super_hatch` fills an outline drawn flat in plan (world XY). Arcs in it are followed in
   short straight steps, as XCLIP stores any boundary: within 1/10,000 of the outline's size for a
   polyline's arcs and a circle (2 mm in a 20 m room), 16 steps per segment of an old-style 2D
@@ -458,3 +459,35 @@ From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
   then the old file opened again, or a second (read-only) copy of the same file.
 - **A plug-in built before this change** does not record events: the guard compares names only
   (a Save As then needs a new `autocad_status`), and a batch goes in 600-character pieces.
+
+## 32. 3D for MEP: duct runs, spools, flat views, sections, surfaces, meshes have their own limits
+
+From [D-94](DECISIONS.md) and [D-95](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AH).
+- **A duct run or a spool is its centreline through corner points**, with one bend per corner. A
+  leg too short for the bends at its ends (radius x tan(angle / 2) each) or for a flange is refused
+  with the numbers; a corner turning more than 179 degrees is refused. Fittings are plain: no
+  vanes, no reducers, no socket or weld-neck shapes; a flange is a disc with its bore and bolt holes.
+- **Default bend radii are conventions, not your catalogue's**: R/W = 1 for a rectangular duct,
+  1.5 x D round, 1.5 x OD for an elbow (a long-radius elbow is 1.5 x the nominal size). Give
+  `bend_radius` when it matters. A duct that starts vertical has its height facing north unless
+  `up` says otherwise.
+- **Whether AutoCAD revolves a bend forwards** is not in its reference: Heron checks and makes it
+  again the other way, and says so (`revolved_the_other_way`, row AH3).
+- **Flat views show visible lines only**: hidden lines are not drawn (there is no way to tell them
+  from visible ones in what AutoCAD gives back). Several solids are flattened each on its own, so
+  one does not hide another unless `join=true`, which also loses the line between flush faces.
+  Views are square on (front, top, right, left, back, bottom), not isometric.
+- **A section plane is straight**: two points (a vertical cut) or three (any plane), no jogs. By
+  default it cuts every solid in model space, at most 1,000; it does not cut surfaces, meshes or
+  blocks.
+- **Where AutoCAD puts a 2D section's lines** is not documented, so Heron lays them flat by what it
+  finds and says which (`laid_flat_from`); a curve that has to be projected and cannot be, or a
+  hatch in that case, is dropped and counted (`dropped`). Rows AH4 and AH6 settle it.
+- **Surfaces and meshes**: a planar surface fills closed, flat outlines; a network surface needs
+  each curve one way to cross every curve the other way. Mesh smoothness is 0 to 4. A mesh made
+  from a solid uses the drawing's FACETER settings and keeps the solid.
+- **Super hatch tiles**: an image needs its width (`image_size`); at most 2,000 image tiles.
+  Whether XCLIP hides the parts of images inside the block outside the outline is row AH12. An
+  xref given as a .dwg is attached under its file name; one already attached under that name is
+  used as it is.
+- None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AH](NEEDS-CHECKING.md)).
