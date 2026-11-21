@@ -8,7 +8,24 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+## Latest - 2026-11-21 (files with AutoCAD closed, standards against a reference, shared check lists: #71, #69, #135; D-92, D-93)
+
+Two new tools (**171** with the 2D edits and `autocad_render` removed): `autocad_read_file` (Read, needs no
+AutoCAD: a DXF with ezdxf, a DWG / DWS / DWT through the ODA File Converter only when it is
+installed) and `autocad_share_checklist` (Publish: the office list into the office folder, a
+project's changes into `Heron check list changes.json` in the drawing's folder).
+`autocad_check_standards` takes `reference=` (a `.dws`, `.dwt`, `.dwg` or `.dxf`; read by Heron, or
+by AutoCAD's ObjectDBX when it is a DWG and the converter is not there). `autocad_checklist` has
+`action='office_folder'` and names the file every check came from. The DXF reader is proved
+offline on DXF files made by ezdxf; the converter, ObjectDBX on a `.dws` and a real network share
+are not. Versions not bumped (the parent does).
+
+**Next (on this PC):** close Claude, `.venv\Scripts\python.exe -m pip install ezdxf`, start
+Claude, then live rows **AG1-AG15**. AG3 needs the ODA File Converter installed by hand; AG9-AG13
+need a real share and a second PC. If Ajmal wants the office folder set in `.mcp.json` instead, or
+roles for who may change the office list, that is a new decision on top of D-93.
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
 Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /
