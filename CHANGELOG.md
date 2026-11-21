@@ -4,6 +4,18 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Drawing events from the plug-in, and fewer batch pieces (2026-11-21, #48, #45).** The plug-in
+  now writes down what happens to the drawings the moment AutoCAD says it: opened, came to the
+  front, saved (a Save As with its old name), closed. The wrong-drawing guard asks for them at the
+  next change: the checked drawing closed and opened again, or a restarted AutoCAD, needs
+  `autocad_status` again; a Save As is followed with no new check. A batch's input is refused
+  once another drawing came to the front during the job, and never typed into the wrong drawing.
+  The docked palette's Activity list shows the drawing in front and the drawing events live. A
+  batch through the plug-in goes in pieces up to 1,500 characters (its ping says `quietLimit`):
+  about 9 `Command:` prompts instead of 25 for 41 objects, offline; over COM it stays at 600. A
+  batch that came back with results missing says so (`missing`). New protocol op `drawings`; no
+  new tool ([D-98](docs/DECISIONS.md)). Live rows AJ1-AJ10 NOT RUN.
+
 - **Layers and annotation (2026-11-21, #37, #107, #108, #116).** Seven new tools (**159** in all, with the block, table and render tools):
   `autocad_layer_states` saves, restores and deletes named layer states (listed by
   `autocad_list_layers`); `autocad_isolate_layers` isolates the layers of picked objects and puts

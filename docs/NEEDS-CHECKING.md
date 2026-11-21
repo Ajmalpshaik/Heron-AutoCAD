@@ -637,6 +637,26 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC15 | Same, with a handle from plan.dwg, and with `source='plan'` | Refused before anything is copied: the wrong handle is named; the active drawing as source points at `autocad_copy_entities` | NOT RUN |
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 
+## Group AJ - Drawing events from the plug-in, fewer batch pieces (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-98](DECISIONS.md); issues #48, #45). Built and tested offline only
+(`DrawingEventsTests.cs`, `tests/test_drawing_events.py`, `tests/test_quiet_pieces.py`). Needs the
+plug-in built from this change (its ping says `quietLimit`, it knows the op `drawings`), reinstalled,
+and the server restarted. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AJ1 | Connect, open the Heron palette (Activity). Open a second drawing, switch between the two, QSAVE one, Save As the other to a new name, close one | Each shows at once, newest first: "b.dwg opened", "b.dwg came to the front", "a.dwg saved", "Drawing1.dwg saved as plan.dwg", "b.dwg closed"; the "In front:" line follows every switch. The log (`addin-*.log`) shows no error | NOT RUN |
+| AJ2 | SAVETIME 1, leave a drawing open for 2 minutes untouched | No "saved" line from the automatic save (.sv$) | NOT RUN |
+| AJ3 | `autocad_status` on a.dwg; close a.dwg and open it again; ask Heron to draw a line | REFUSED: "a.dwg was closed at hh:mm:ss and opened again since Heron checked it. Call autocad_status first"; after `autocad_status` the line is drawn | NOT RUN |
+| AJ4 | `autocad_status` on an unsaved Drawing1; Save As `C:\...\plan.dwg` by hand; ask Heron to draw a line | The line is drawn in plan.dwg with no new status check (the Save As is followed). With a plug-in built before this change: refused "The active drawing changed from Drawing1.dwg to ..." as before | NOT RUN |
+| AJ5 | `autocad_status`; close AutoCAD; start it again with the same drawing; press Heron; ask Heron to draw a line (same chat) | REFUSED: "AutoCAD was started again, or another AutoCAD is in front, since Heron checked a.dwg"; after `autocad_status` it draws | NOT RUN |
+| AJ6 | `autocad_batch_draw` of the A22 batch (41 objects) with the plug-in connected, then F2 | About 9 `Command:` prompts (it was about 27), all 41 made, no `missing` in the answer, no LISP text in the history. **Write the count down** | NOT RUN |
+| AJ7 | `autocad_batch_draw` of 2,000 lines, then of one 800-vertex polyline and 50 texts | `created` = `requested`, no `missing`, `completed` true: every piece up to 1,500 characters arrived. If any is missing, write the batch size and lower `QUIET_CHUNK_LIMIT` | NOT RUN |
+| AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, on layer 0 (no `layer`: a new layer is made over COM, in whichever drawing is in front, see the known limit); press Ctrl+Tab to b.dwg while it runs | The steps after the switch are refused: "The drawing in front changed while this job ran ... so Heron typed none of this input"; nothing from Heron lands in b.dwg; a.dwg has the steps before the switch | NOT RUN |
+| AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
+| AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
