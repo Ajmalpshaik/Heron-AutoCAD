@@ -396,7 +396,7 @@ From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
   drawing is followed under its new name.
 - **Only the plug-in's quiet input stops at a switch mid-job.** A long job (a sequence) whose next
   step works over COM (a layer a batch makes, a COM draw) still goes to whichever drawing is in
-  front. Do not switch drawings while the banner shows a job.
+  front. Do not switch drawings while the banner shows a job ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)).
 - **50 events are kept.** A chat that comes back after more than 50 opens, switches, saves and
   closes cannot tell what happened, and the guard compares names only, as before #48.
 - **A plug-in built before this change** does not record events: the guard compares names only
