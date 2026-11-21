@@ -123,3 +123,15 @@ def test_the_command_line_takes_the_palettes_request():
     args = server.build_parser().parse_args(["--run-saved", "r.json", "--acad-pid", "4242"])
     assert (args.run_saved, args.acad_pid) == ("r.json", 4242)
     assert server.build_parser().parse_args([]).run_saved is None
+
+
+def test_the_gates_plain_line_first_is_read_not_shown_as_the_answer():
+    # D-62: every change answer starts with DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN.
+    done = palette.outcome("Plinth", "DONE - 2 objects added.\n\n" + json.dumps(REPORT))
+    assert done == {"ok": True, "message": "Done: 'Plinth', 2 of 2 step(s)."}
+    refused = palette.outcome("Plinth", "REFUSED - nothing was sent to AutoCAD.\n\nError: Changes is off. Nothing was sent to AutoCAD.")
+    assert refused == {"ok": False, "message": "Changes is off. Nothing was sent to AutoCAD."}
+    discarded = palette.outcome("Plinth", "NOTHING CHANGED - the modeller chose Discard.\n\nDiscarded: nothing was kept.")
+    assert discarded == {"ok": False, "message": "Discarded: nothing was kept."}
+    unknown = palette.outcome("Plinth", "OUTCOME UNKNOWN - look at the drawing.\n\nError: Outcome unknown: AutoCAD went busy.")
+    assert unknown["ok"] is False and unknown["message"].startswith("Outcome unknown: look at the drawing.")

@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .core import sessions
+from .core import answers, sessions
 from .core.bridge import NOT_CONNECTED, Bridge
 from .core.errors import AutocadError
 
@@ -58,7 +58,25 @@ def _error_text(text: str) -> str:
 
 
 def outcome(name: str, text: str) -> dict[str, Any]:
-    """The saved command's answer, said for the palette in one or two sentences."""
+    """The saved command's answer, said for the palette in one or two sentences.
+
+    The gate puts one plain line first (D-62): DONE, NOTHING CHANGED, REFUSED
+    or OUTCOME UNKNOWN. Only DONE is a run that worked; the rest of the answer
+    says what happened, in the tool's own words.
+    """
+    head, rest = answers.split(text)
+    said = _said(name, rest)
+    if head is None or head == answers.DONE or head.startswith(answers.DONE + " - "):
+        return said
+    word, _, why = head.partition(" - ")
+    if word == answers.REFUSED:
+        return _no(said["message"] or why)
+    if word == answers.NOTHING_CHANGED and said["message"].startswith("Discarded"):
+        return _no(said["message"])
+    return _no(f"{word.capitalize()}: {why} {said['message']}".strip())
+
+
+def _said(name: str, text: str) -> dict[str, Any]:
     if text.startswith("Error:"):
         return _no(_error_text(text))
     try:
