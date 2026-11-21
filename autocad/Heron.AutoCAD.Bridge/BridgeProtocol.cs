@@ -56,6 +56,13 @@ namespace Heron.AutoCAD.Bridge
 
         public void Stop() => _stopped = true;
 
+        /// <summary>
+        /// Something the modeller is doing in AutoCAD that no new job may start
+        /// under: the palette's Undo waiting for AutoCAD to run it (D-68). The
+        /// sentence for the chat, or null. Asked at begin only, on the pipe thread.
+        /// </summary>
+        public Func<string?>? BlockedBy { get; set; }
+
         public void Resume() => _stopped = false;
 
         /// <summary>Set by the server so info can report it.</summary>
@@ -150,6 +157,8 @@ namespace Heron.AutoCAD.Bridge
         private string Begin(JsonElement root, string conversation)
         {
             if (!RiskNames.TryParse(Str(root, "risk"), out var risk)) return Refuse("Level", Texts.UnknownRisk);
+            var blocked = BlockedBy?.Invoke();
+            if (blocked != null) return Refuse("Busy", blocked);
             if (!_hold.TryTake(conversation, _clock())) return Refuse("InUse", Texts.InUse);
             var config = _config();
             var refusal = Permissions.Refusal(risk, config);

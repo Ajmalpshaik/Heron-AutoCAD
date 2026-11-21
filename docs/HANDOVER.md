@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (autocad_why after D-59, and Heron's folders, #134)
+## Latest - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
+
+A review of the docked palette (D-68) after plug-in 1.6.0 merged found one safety gap and three
+robustness gaps, all fixed in PR #137. Plug-in **1.6.0** already carries them if it is
+built from `main` after #137; no version change.
+- **Safety:** the palette's Run inherited AutoCAD's environment, so a developer's
+  `HERON_AUTOCAD_BRIDGE=off` or a chat id there would have reached it. Now forced on and dropped
+  (`PaletteServer.PrepareEnvironment`), and the server refuses `--run-saved` with the checks off.
+- **#138:** while a palette Undo waits for AutoCAD, the plug-in refuses a new job's begin with
+  "try again in a moment" (`BridgeProtocol.BlockedBy`, one minute at most).
+- An UNDO AutoCAD has not started in 30 s is given up; a job whose end never came stops blocking
+  the palette after 20 minutes.
+
+**Next:** as below, plus live rows X22-X24 (X23: whether zooming inside a layout viewport counts as
+a change, which would make Undo refuse there).
+
+## Earlier - 2026-11-21 (autocad_why after D-59, and Heron's folders, #134)
 
 Follow-up to PR #120, server only, no version change.
 - **Bug fixed:** since D-59 (padlocks in AutoCAD's memory) `diagnose.report()` has no padlocks,
