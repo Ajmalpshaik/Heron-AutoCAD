@@ -186,7 +186,11 @@ Neither PYRAMID nor POLYSOLID has an ActiveX call, so both are plug-in operation
   along the path from its start is on its left or its right. `side` is center, left or right (looking
   along the path from its start), or inside / outside of a closed path, worked out from which way
   the path runs. A path that turns tighter than the wall is wide, or crosses itself, is refused.
-  Points can stand in for a path; they make a temporary polyline that is never added.
+  Points can stand in for a path; they make a temporary polyline that is never added. A path that
+  ends where it starts but is not closed (PLINE back to the first point without C) is closed on a
+  copy; the drawing's polyline is left as drawn. Fixes from an independent review: that case, a
+  probe for the offset's direction kept small so a small ring cannot fail it, and the open wall's
+  ends joined to the nearer ends.
 - The sums (pyramid turn and volume, left of a path, inside of a ring) are pure, in
   `Bridge/SolidShapeMath.cs`, and tested offline.
 

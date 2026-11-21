@@ -60,8 +60,11 @@ namespace Heron.AutoCAD.Addin
                     var ratio = wide / made;
                     if (Math.Abs(ratio - 1) > 1e-3)
                     {
-                        solid.Dispose();
+                        // Made before the first is let go: if it fails, the catch below still
+                        // holds a live solid to dispose, and the refusal keeps its words.
+                        var first = solid;
                         solid = MakePyramid(height, sides, wide * ratio, narrow * ratio, flip);
+                        first.Dispose();
                         remade = true;
                         read = PyramidMath.WideEnd(Corners(solid), out centre, out angle, out cornerRadius, out low, out _);
                     }
@@ -137,6 +140,7 @@ namespace Heron.AutoCAD.Addin
                 path = RunDrawing.Open<Curve>(tr, db, pathHandle, OpenMode.ForRead, PathKinds);
                 owner = (BlockTableRecord)tr.GetObject(path.OwnerId, OpenMode.ForWrite);
             }
+            Polyline? closedCopy = null;
             try
             {
                 var along = Sample(path);
@@ -146,13 +150,26 @@ namespace Heron.AutoCAD.Addin
                     throw new RunRefusal("The path is not flat in plan. A polysolid's wall goes straight up from a path drawn level: "
                         + "draw it flat (all at one Z), or use autocad_extrude_profile to sweep a section along a 3D route.");
                 var closed = IsClosed(path);
+                var shape = path;
+                if (closed && !path.Closed)
+                {
+                    // Ends where it starts but not closed (PLINE back to the first point
+                    // without typing C): offset as it is, its corner there would not meet.
+                    if (!(path is Polyline open))
+                        throw new RunRefusal("The path ends where it starts but is not closed. Close it first (PEDIT Close, or JOIN), then make the wall.");
+                    closedCopy = (Polyline)open.Clone();
+                    var last = closedCopy.NumberOfVertices - 1;
+                    if (last > 2 && closedCopy.GetPoint3dAt(0).IsEqualTo(closedCopy.GetPoint3dAt(last))) closedCopy.RemoveVertexAt(last);
+                    closedCopy.Closed = true;
+                    shape = closedCopy;
+                }
                 var side = PolysolidMath.Resolve(args.Text("side", "center"), closed, SignedArea(along) > 0, out var sideError);
                 if (sideError != null) throw new RunRefusal(sideError);
                 var error = PolysolidMath.Faces(width, height, side, out var first, out var second);
                 if (error != null) throw new RunRefusal(error);
 
                 Solid3d solid;
-                using (var outline = Outline(path, first, second, closed))
+                using (var outline = Outline(shape, first, second, closed, size))
                 {
                     solid = new Solid3d();
                     solid.SetDatabaseDefaults(db);
@@ -186,6 +203,7 @@ namespace Heron.AutoCAD.Addin
             }
             finally
             {
+                closedCopy?.Dispose();
                 if (made) path.Dispose();
             }
         }
@@ -252,7 +270,12 @@ namespace Heron.AutoCAD.Addin
                 if (list.Count > 0 && p.IsEqualTo(list[list.Count - 1])) continue;
                 list.Add(p);
             }
-            if (closed && list.Count > 2 && list[0].IsEqualTo(list[list.Count - 1])) list.RemoveAt(list.Count - 1);
+            // Points that come back to the first one are a closed path, asked or not.
+            if (list.Count > 3 && list[0].IsEqualTo(list[list.Count - 1]))
+            {
+                list.RemoveAt(list.Count - 1);
+                closed = true;
+            }
             if (list.Count < 2) throw new RunRefusal("A wall's path needs at least two different points.");
             if (closed && list.Count < 3) throw new RunRefusal("A closed path needs at least three different points.");
             var level = list[0].Z;
@@ -271,9 +294,12 @@ namespace Heron.AutoCAD.Addin
         /// closed one). Which way AutoCAD's offset goes is read off the path,
         /// never assumed.
         /// </summary>
-        private static Region Outline(Curve path, double first, double second, bool closed)
+        private static Region Outline(Curve path, double first, double second, bool closed, double size)
         {
-            var left = LeftSign(path, Math.Abs(first) > 0 ? Math.Abs(first) : Math.Abs(second));
+            // Only the direction matters: a small probe cannot fail on a small path
+            // the way an offset by the whole wall could, inwards.
+            var probe = Math.Min(Math.Abs(first) > 0 ? Math.Abs(first) : Math.Abs(second), size * 1e-3);
+            var left = LeftSign(path, probe);
             var parts = new DBObjectCollection();
             try
             {
@@ -282,8 +308,12 @@ namespace Heron.AutoCAD.Addin
                 var b = Offset(path, second * left);
                 parts.Add(b);
                 if (closed) return Ring(a, b);
-                parts.Add(new Line(a.StartPoint, b.StartPoint));
-                parts.Add(new Line(a.EndPoint, b.EndPoint));
+                // Each end of one face to the nearer end of the other: an offset that came
+                // back the other way round (a mirrored arc) still closes, not as a bow tie.
+                var straight = a.StartPoint.DistanceTo(b.StartPoint) + a.EndPoint.DistanceTo(b.EndPoint)
+                    <= a.StartPoint.DistanceTo(b.EndPoint) + a.EndPoint.DistanceTo(b.StartPoint);
+                parts.Add(new Line(a.StartPoint, straight ? b.StartPoint : b.EndPoint));
+                parts.Add(new Line(a.EndPoint, straight ? b.EndPoint : b.StartPoint));
                 return OneRegion(parts, "The wall's outline");
             }
             finally
@@ -295,7 +325,16 @@ namespace Heron.AutoCAD.Addin
         private static Region Ring(Curve a, Curve b)
         {
             var one = OneRegion(new DBObjectCollection { a }, "One face of the wall");
-            var other = OneRegion(new DBObjectCollection { b }, "One face of the wall");
+            Region other;
+            try
+            {
+                other = OneRegion(new DBObjectCollection { b }, "One face of the wall");
+            }
+            catch
+            {
+                one.Dispose();
+                throw;
+            }
             var outer = one.Area >= other.Area ? one : other;
             var inner = ReferenceEquals(outer, one) ? other : one;
             try

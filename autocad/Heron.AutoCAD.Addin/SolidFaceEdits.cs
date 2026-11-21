@@ -201,11 +201,21 @@ namespace Heron.AutoCAD.Addin
             if (pieces == null || pieces.Length == 0)
                 throw new RunRefusal(handle + " is one piece already: there is nothing to separate. A union of solids that touch stays one solid.");
             var owner = (BlockTableRecord)tr.GetObject(solid.OwnerId, OpenMode.ForWrite);
-            foreach (var piece in pieces)
+            try
             {
-                piece.SetPropertiesFrom(solid);
-                owner.AppendEntity(piece);
-                tr.AddNewlyCreatedDBObject(piece, true);
+                foreach (var piece in pieces)
+                {
+                    piece.SetPropertiesFrom(solid);
+                    owner.AppendEntity(piece);
+                    tr.AddNewlyCreatedDBObject(piece, true);
+                }
+            }
+            catch
+            {
+                // Pieces already in the drawing go with the transaction; the rest are let go here.
+                foreach (var piece in pieces)
+                    if (piece.ObjectId.IsNull) piece.Dispose();
+                throw;
             }
             return RunResult.Done(w =>
             {
