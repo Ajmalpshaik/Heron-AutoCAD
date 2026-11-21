@@ -32,7 +32,8 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions |
 | `tools/dimensions.py` | dimension runs (chain, baseline, ordinate), centre marks |
 | `tools/drafting.py` | splines, multilines (MLINE), wipeouts |
-| `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths |
+| `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths; attach an image or a PDF / DWF / DGN underlay; clip an xref, image or underlay (D-84) |
+| `tools/cleanup.py` | Overkill (the geometry is `acad/overkill.py`), the boundary trace done by the plug-in, eTransmit (the file list and packing are `acad/transmittal.py`) (D-84, D-85) |
 | `tools/patterns.py` | write custom hatch pattern (.pat) and linetype (.lin) files; the text is `acad/patterns.py` |
 | `tools/annotate.py` | multileaders, tables, revision clouds |
 | `tools/solids.py` | 3D solids, extrude and revolve, booleans, mass properties, 3D views |

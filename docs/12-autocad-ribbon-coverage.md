@@ -74,7 +74,7 @@ every project; **low** = rare, or for other trades.
 |---|---|---|---|---|---|
 | Block | Insert, Edit Attribute | **Yes**: `insert_block`, `set_attributes`, `place_from_csv`, `place_along`, `number_tags` | - | COM | - |
 | Block Definition | Create Block, Define Attributes, Manage Attributes, Block Editor | **Part**: `make_block` | Define attributes; manage attributes; dynamic block authoring | Attributes: COM. Dynamic block authoring: No | ATTDEF **medium**; rest low |
-| Reference | Attach (DWG, image, PDF, DWF, DGN), Clip, Adjust, Underlay Layers, Frames | **Part**: `attach_xref`, `manage_xref`, `xref_tree`, `list_blocks` (paths) | **Attach an image**; **attach a PDF underlay** (consultant backgrounds); DWF / DGN underlays; **clip** an xref, image or underlay; fade / contrast | Image attach, image clip, fade: COM. PDF / DWF / DGN underlay: .NET. Xref clip: .NET (spatial filter) | **high** |
+| Reference | Attach (DWG, image, PDF, DWF, DGN), Clip, Adjust, Underlay Layers, Frames | **Part**: `attach_xref`, `manage_xref`, `xref_tree`, `list_blocks` (paths); `attach_underlay` (image, PDF, DWF, DGN) and `clip_reference` (xref, image, underlay), built 2026-11-21, NOT RUN live ([#104](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/104)) | Fade / contrast; underlay layers; frames | Image attach, image clip, fade: COM. PDF / DWF / DGN underlay: .NET. Xref clip: .NET (spatial filter) | **high** |
 | Point Cloud | Attach, ReCap | **No** | All | .NET, partly (unsure) | low |
 | Import | Import, PDF Import | **No** | **PDF Import** (turn a PDF into lines); import of other formats | PDF Import: Typed (`-PDFIMPORT`). Other imports: COM `Import` (WMF, SAT, EPS) | **medium** |
 | Data | Field, Update Fields, Hyperlink, OLE Object, Data Link | **Part**: `add_field_label` (length / area fields) | Other fields (sheet number, date, attribute of another block); hyperlinks on objects; **Data Link** (an Excel range as a live table) | Fields: COM (field codes in text). Hyperlink: COM. Data Link: .NET. OLE: No | Data Link **medium**; rest low |
@@ -125,7 +125,7 @@ numbers already, so the whole tab is low.
 | Customization | User Interface (CUI), Tool Palettes, Edit Aliases | **No** | All | No (and should stay that way: Heron does not change the modeller's AutoCAD set-up) | - |
 | Applications | Load Application, Run Script, Visual LISP, VBA | **Admin only**: `run_lisp`, `send_command` | - (deliberately Admin) | Typed | - |
 | CAD Standards | Configure, Check, Layer Translator | **Part**: `check_standards` (rules file), `remap_layers` (layer translator's job), `checklist` | Check against a reference DWS / DWG | COM (read both drawings) | **medium** ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69)) |
-| Cleanup | Purge, Overkill, Audit | **Part**: `purge`, `audit` (both Admin), `tidy_entities` | Overkill (see Home / Modify) | Typed, or own check over COM | **medium** |
+| Cleanup | Purge, Overkill, Audit | **Part**: `purge`, `audit` (both Admin), `tidy_entities`; `overkill` built 2026-11-21, NOT RUN live ([#112](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/112)) | Polyline segments overlapping are listed, not fixed | Typed, or own check over COM | **medium** |
 
 ### Output tab
 
@@ -134,7 +134,7 @@ numbers already, so the whole tab is low.
 | Plot | Plot, Page Setup Manager, Plotter Manager, Preview | **Yes**: `export` (PDF), `page_setup`, `preview` | Make or edit a plotter (PC3) file | No (PC3 editing has no API, unsure) | low |
 | Export to DWF / PDF | Export PDF, Export DWF, Page Setup Override | **Part**: `export` (PDF, DXF, WMF, SAT, BMP, EPS, STL), `publish_pdf` | DWF / DWFx | COM (plot to the DWF6 ePlot plotter) | low |
 | Publish | Publish, Batch Plot, 3D Print, View Details | **Part**: `publish_pdf` (one drawing's sheets) | **Batch plot a folder** of drawings; 3D print | Folder: COM / .NET. 3D print: No | Folder **high** ([#67](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/67)); 3D print low |
-| (Application menu) | eTransmit: pack a drawing with its xrefs, fonts and plot styles to send out | **Part**: `xref_tree` (lists what would be packed) | **Make the pack** | COM library for transmittal (unsure) | **medium** |
+| (Application menu) | eTransmit: pack a drawing with its xrefs, fonts and plot styles to send out | **Part**: `xref_tree`; `etransmit` (zip or folder, report, missing list) built 2026-11-21, NOT RUN live ([#114](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/114)) | Paths inside the packed drawing are not rewritten | COM library for transmittal (unsure) | **medium** |
 
 ## 3D Modeling workspace
 

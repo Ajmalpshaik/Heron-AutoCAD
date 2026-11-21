@@ -298,3 +298,47 @@ From [docs/13](13-sheets-folders-companion.md); all NOT RUN live (NEEDS-CHECKING
 - **The Companion page's view and selection are as of the last `autocad_companion` call**, not
   live: the page says when they were read. The activity list is updated after every job.
 
+
+## 28. Overkill, boundary, eTransmit, underlays and clips have their own limits
+
+From issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md)); all NOT RUN
+live (NEEDS-CHECKING group AD). The plug-in parts (underlays, xref and underlay clips, boundary,
+eTransmit's file list) need the plug-in **newer than 1.7.0**; an older one answers that it does not
+have the operation, and nothing is sent.
+
+- **`autocad_overkill` never breaks or changes a polyline.** A polyline is erased only when it is
+  an exact copy of another (either direction, any start corner); overlaps on polylines, a polyline
+  doubling back on itself, and a loose line lying only partly on one are listed under `left`.
+  Widths are not compared. Only lines, arcs, circles and polylines lying flat in plan (normal +Z)
+  are looked at; a line with its ends at two heights, a curve-fit or spline-fit 2D polyline, and
+  anything else are counted as skipped. Arcs that together go all the way round are left (one arc
+  cannot be a circle).
+- **It reads the curves over COM one by one:** at most 20,000 curves (200,000 objects in the
+  space); give `layers` or `handles`, or type OVERKILL in AutoCAD for more. The second call
+  (`confirm=true`) looks again, so it acts on the drawing as it is then.
+- **When the modeller says no to Heron's erase question** ([D-50](DECISIONS.md)), the erased
+  objects come back and the stretched lines stay stretched: the lines overlap again, nothing is
+  lost. Ctrl+Z takes the whole step back.
+- **The tolerance is in drawing units** and defaults to OVERKILL's 0.000001. Two lines count as on
+  one line when each end of the shorter is within it of the longer. A very short piece a little more
+  askew than the drawing's typical line may be missed; it is left as it was, never wrongly merged.
+- **`autocad_trace_boundary` uses `Editor.TraceBoundary`, never -BOUNDARY or BPOLY typed** (on a big
+  plan the typed command hung AutoCAD for over 100 s). The trace looks at what is on screen, so give
+  a `window` round the room: AutoCAD zooms there, counts what is in it (over `most_objects`, 5,000 by
+  default, nothing is traced), traces, and zooms back. An xref counts as one object however big it
+  is: unload or freeze a heavy one first ([§23](#23-sheets-with-a-heavy-3d-xref-and-a-paper-space-that-will-not-answer)).
+  Heron stops waiting after `timeout` seconds (60 by default), but a trace that has started cannot
+  be stopped: AutoCAD may still finish it and make the outline. Whether `TraceBoundary` looks only at
+  what is in view, as BOUNDARY's "current viewport" set does, is the reason for row AD7.
+- **eTransmit packs the drawing as last saved** and refuses one with unsaved changes. Everything goes
+  in one folder (or zip) beside the drawing, without rewriting the paths saved in it: AutoCAD finds
+  an xref, image or font by its bare name in the drawing's folder (row AD10 proves it on another PC).
+  Two different files with one name cannot both go in: the second is listed under `clashes`. Plot
+  styles go in `PlotStyles` for the receiver to copy into their own plot styles folder. Images and
+  underlays inside a loaded xref are packed; inside an unloaded xref they are not looked for.
+  Windows' own TrueType fonts are listed (`system_fonts`), not packed. AutoCAD's transmittal COM
+  library is not used.
+- **A raster image at scale 1** is the size its own resolution gives, or 1 drawing unit wide when it
+  has none: give `width`. A DWF with no `page` given uses whatever AutoCAD picks for an empty sheet
+  name (row AD3). An underlay clip is stored in the underlay's own coordinates, an xref clip in the
+  block's: both are worked out from the world outline (rows AD5, AD6 check a rotated, scaled one).
