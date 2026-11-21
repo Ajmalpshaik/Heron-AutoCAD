@@ -685,6 +685,54 @@ the row that says which cause #41 was. **Every row below is NOT RUN.**
 | AM5 | `autocad_preview(width_px=4000)` and `width_px=640` | Record the `size` and `pixels` AutoCAD chose each time: they are the PNG plotter's biggest and smallest sizes, not yet known here | NOT RUN |
 | AM6 | `autocad_set_3d_view(direction='sw_iso')`, `autocad_preview(detail=2)`; then `autocad_preview(area='view', detail=2)` | First: one picture and `detail_skipped` naming the plan view. Second: refused, naming area='extents' or 'window'; nothing plotted | NOT RUN |
 
+## Group AG - Files with AutoCAD closed, standards against a reference drawing, shared check lists (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-92](DECISIONS.md), [D-93](DECISIONS.md); issues #71, #69, #135). Built and
+tested offline (`tests/test_read_file.py`, `tests/test_shared_checklists.py`): the DXF reader is
+proved there on small DXF files made with ezdxf, and the compare, the refusals and the shared-file
+rules on plain data. **Set-up:** close Claude, run `.venv\Scripts\python.exe -m pip install ezdxf`
+once (a new dependency, installed by name: [05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)),
+start Claude again. Server only: no plug-in build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AG1 | AutoCAD **closed**. `autocad_read_file(path="<a real project .dxf>")`, then `what="layers"`, `"blocks"`, `"text"`, `"attributes"` | Answers with AutoCAD closed; units, layer names and colours, block counts and title block values match what AutoCAD shows when the file is opened (record two counts side by side). No AutoCAD starts; the file's date is unchanged | NOT RUN |
+| AG2 | AutoCAD closed, ODA File Converter **not** installed: `autocad_read_file(path="<a .dwg>")` | Refused in plain words: needs AutoCAD, the ODA File Converter, or a DXF of it; nothing downloaded | NOT RUN |
+| AG3 | Install the ODA File Converter (from the Open Design Alliance, by hand). Repeat AG1 on a `.dwg` and on the office `.dws` | `read_by` names the converter's path; layers and block counts match AutoCAD; no converter window flashes up; nothing is left in `%TEMP%\heron-oda-*`; the `.dwg` / `.dws` date is unchanged. Record the converter version and the seconds taken | NOT RUN |
+| AG4 | `autocad_read_file` on a DWG with dynamic blocks (valves, doors) and `what="blocks"` | Placed counts are under the dynamic block's own name, not `*U12`; the count matches AutoCAD's BCOUNT / Count palette | NOT RUN |
+| AG5 | AutoCAD open, a project drawing active: `autocad_check_standards(reference="<the office .dws>")`, converter **not** installed | `reference.read_by` says AutoCAD's own reader (ObjectDBX); the .dws does not open on screen; the findings name layers and text styles that really differ (check two by hand in the Layer and Style dialogs). AutoCAD's CHECKSTANDARDS on the same pair: record where the two disagree | NOT RUN |
+| AG6 | AG5 with the office `.dws` **open** in AutoCAD as well | `read_by` says the drawing is open there; same findings as AG5 | NOT RUN |
+| AG7 | AG5 with a `.dxf` saved from the `.dws`, then with `flag_extra=false` | Same findings as AG5 (`read_by` ezdxf); with `flag_extra=false` the "not in standard" lines are gone. A layer with a true colour: record what is said | NOT RUN |
+| AG8 | Text styles: a style with a TrueType font (Arial) in both drawings, and one with romans.shx vs simplex.shx | Arial is not reported; the SHX pair is reported as "font ... here, ... in the standard" | NOT RUN |
+| AG9 | `autocad_checklist(action="office_folder", folder="<a real network share>")`, then `autocad_share_checklist(share="office_list", name="before issue")` with Publish ON; run `before issue` on a second PC pointed at the same share | The file appears on the share with `saved_by` = this Windows user; the second PC's run says `office_from: office folder` and names the share's file on every line | NOT RUN |
+| AG10 | Disconnect the network drive (or unplug), then run `before issue` | Within about 10 s: the run says the office folder could not be reached and that it used this PC's copy, with the date read; the verdict is given | NOT RUN |
+| AG11 | Second PC changes the list and shares it with `replace=true`; first PC shares its own different list without replace | First PC is refused, naming the second PC's user and time and what differs; the share's file is unchanged. With `replace=true`, the file holds `previous` with the second PC's list | NOT RUN |
+| AG12 | A share where this user has read-only rights: share a list | Refused: "read-only for you"; nothing written | NOT RUN |
+| AG13 | `autocad_share_checklist(share="project_changes", name="before issue", changes=[{id: "xrefs_found", on: false}])` in a job folder; open another drawing in the same folder on the second PC and run `before issue` | `Heron check list changes.json` is in the job folder; the second PC's run has `xrefs_found` NOT RUN, `from: project`, naming that file | NOT RUN |
+| AG14 | Padlocks: Publish OFF. `autocad_share_checklist(share="office_list")` | Refused by the plug-in (Publish padlock); nothing written to the share | NOT RUN |
+| AG15 | `autocad_why(job="read the layers of a DXF file")` with AutoCAD closed | `can_run: true`, the tool `autocad_read_file`, no "press Heron" reason | NOT RUN |
+
+## Group AJ - Drawing events from the plug-in, fewer batch pieces (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-98](DECISIONS.md); issues #48, #45). Built and tested offline only
+(`DrawingEventsTests.cs`, `tests/test_drawing_events.py`, `tests/test_quiet_pieces.py`). Needs the
+plug-in built from this change (its ping says `quietLimit`, it knows the op `drawings`), reinstalled,
+and the server restarted. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AJ1 | Connect, open the Heron palette (Activity). Open a second drawing, switch between the two, QSAVE one, Save As the other to a new name, close one | Each shows at once, newest first: "b.dwg opened", "b.dwg came to the front", "a.dwg saved", "Drawing1.dwg saved as plan.dwg", "b.dwg closed"; the "In front:" line follows every switch. The log (`addin-*.log`) shows no error | NOT RUN |
+| AJ2 | SAVETIME 1, leave a drawing open for 2 minutes untouched | No "saved" line from the automatic save (.sv$) | NOT RUN |
+| AJ3 | `autocad_status` on a.dwg; close a.dwg and open it again; ask Heron to draw a line | REFUSED: "a.dwg was closed at hh:mm:ss and opened again since Heron checked it. Call autocad_status first"; after `autocad_status` the line is drawn | NOT RUN |
+| AJ4 | `autocad_status` on an unsaved Drawing1; Save As `C:\...\plan.dwg` by hand; ask Heron to draw a line | The line is drawn in plan.dwg with no new status check (the Save As is followed). With a plug-in built before this change: refused "The active drawing changed from Drawing1.dwg to ..." as before | NOT RUN |
+| AJ5 | `autocad_status`; close AutoCAD; start it again with the same drawing; press Heron; ask Heron to draw a line (same chat) | REFUSED: "AutoCAD was started again, or another AutoCAD is in front, since Heron checked a.dwg"; after `autocad_status` it draws | NOT RUN |
+| AJ5b | `autocad_status` on a.dwg; Save As a-rev2.dwg; open a.dwg from disk again and keep it in front; ask Heron to draw a line | REFUSED: "a.dwg was opened at hh:mm:ss, after Heron checked a drawing"; after `autocad_status` it draws | NOT RUN |
+| AJ6 | `autocad_batch_draw` of the A22 batch (41 objects) with the plug-in connected, then F2 | About 9 `Command:` prompts (it was about 27), all 41 made, no `missing` in the answer, no LISP text in the history. **Write the count down** | NOT RUN |
+| AJ7 | `autocad_batch_draw` of 2,000 lines, then of one 800-vertex polyline and 50 texts | `created` = `requested`, no `missing`, `completed` true: every piece up to 1,500 characters arrived. If any is missing, or AutoCAD sits at a `(_>` prompt (a piece cut short), write the batch size and lower `QUIET_CHUNK_LIMIT` | NOT RUN |
+| AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, on layer 0 (no `layer`: a new layer is made over COM, in whichever drawing is in front, [#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)); press Ctrl+Tab to b.dwg while it runs | The steps after the switch are refused: "The drawing in front changed while this job ran ... so Heron typed none of this input"; nothing from Heron lands in b.dwg; a.dwg has the steps before the switch | NOT RUN |
+| AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
+| AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

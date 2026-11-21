@@ -71,6 +71,26 @@ namespace Heron.AutoCAD.Bridge
         public const string Stopped =
             "The modeller stopped Heron in AutoCAD (HERONSTOP). Nothing more is done until they type HERONSTOP again. " + NothingSent;
 
+        /// <summary>
+        /// send_quiet, when another drawing came to the front during the job
+        /// (#48). Not "nothing was sent": the job may have done work before it.
+        /// </summary>
+        public static string DrawingChangedInJob(string job, string active) =>
+            "The drawing in front changed while this job ran: it began in " + DrawingNames.Short(job) + ", and " +
+            (string.IsNullOrEmpty(active) ? "no drawing is in front now" : DrawingNames.Short(active) + " is in front now") +
+            ", so Heron typed none of this input. What the job did before it stays. Switch back to " + DrawingNames.Short(job) +
+            ", read it back, and call autocad_status before trying again.";
+
+        /// <summary>send_quiet, when AutoCAD did not get to the input in time: abandoned, never typed later.</summary>
+        public static string QuietNotStarted(int seconds, string? command) =>
+            "AutoCAD did not get to this input within " + seconds + " s" +
+            (string.IsNullOrWhiteSpace(command) ? " (a command or a dialog box may be open)" : " (it is still in the " + command + " command)") +
+            ", so Heron typed none of it, and never will. What the job did before it stays. Press Esc in AutoCAD, read the drawing back, and try again.";
+
+        /// <summary>send_quiet, when a line is longer than the plug-in types (#45).</summary>
+        public static string QuietTooLong(int limit) =>
+            "Heron in AutoCAD types drawing input lines of up to " + limit + " characters, and one was longer, so it typed none of them. " + NothingSent;
+
         public static string UnknownOp(string op) =>
             "Heron in AutoCAD does not know the request '" + op + "'. Update Heron so both sides match. " + NothingSent;
     }
