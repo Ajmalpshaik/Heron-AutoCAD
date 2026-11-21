@@ -91,6 +91,8 @@ namespace Heron.AutoCAD.Bridge
         public static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(400);
         public static readonly TimeSpan GiveUp = TimeSpan.FromSeconds(2);
         public const int MostPresses = 5;
+        /// <summary>A job whose end never came stops counting after this, as in the Activity log.</summary>
+        public static readonly TimeSpan MostJob = TimeSpan.FromMinutes(20);
         public const int IdCancel = 2;
         public const int IdNo = 7;
 
@@ -99,6 +101,7 @@ namespace Heron.AutoCAD.Bridge
         private readonly HashSet<long> _before = new HashSet<long>();
         private readonly Dictionary<long, Pressed> _pressed = new Dictionary<long, Pressed>();
         private readonly Dictionary<string, Expected> _expected = new Dictionary<string, Expected>();
+        private readonly Dictionary<string, DateTime> _began = new Dictionary<string, DateTime>();
         private long _seen;
         private DateTime _seenSince;
         private int _paused;
@@ -115,10 +118,14 @@ namespace Heron.AutoCAD.Bridge
         /// A job began. <paramref name="openNow"/> is every window AutoCAD had
         /// open at that moment: none of them is ever touched.
         /// </summary>
-        public void Begin(string job, IEnumerable<long> openNow)
+        public void Begin(string job, IEnumerable<long> openNow, DateTime? at = null)
         {
             lock (_gate)
             {
+                // One job runs at a time in an AutoCAD (one chat holds it, its calls run one after
+                // another), so a job still listed here is one whose end never came: a server
+                // stopped mid-job. Its box answer must not outlive it into this job.
+                foreach (var earlier in _notes.Keys.Where(k => k != (job ?? "")).ToList()) Forget(earlier);
                 if (_notes.Count == 0)
                 {
                     _before.Clear();
@@ -129,21 +136,26 @@ namespace Heron.AutoCAD.Bridge
                 }
                 foreach (var handle in openNow ?? Enumerable.Empty<long>()) _before.Add(handle);
                 _notes[job ?? ""] = new List<DialogNote>();
+                _began[job ?? ""] = at ?? DateTime.UtcNow;
             }
         }
 
         public void End(string job)
         {
-            lock (_gate)
+            lock (_gate) Forget(job ?? "");
+        }
+
+        /// <summary>A job is over: its notes, its named answer and its start go. Under the lock.</summary>
+        private void Forget(string job)
+        {
+            _notes.Remove(job);
+            _expected.Remove(job);
+            _began.Remove(job);
+            if (_notes.Count == 0)
             {
-                _notes.Remove(job ?? "");
-                _expected.Remove(job ?? "");
-                if (_notes.Count == 0)
-                {
-                    _before.Clear();
-                    _pressed.Clear();
-                    _seen = 0;
-                }
+                _before.Clear();
+                _pressed.Clear();
+                _seen = 0;
             }
         }
 
@@ -204,6 +216,7 @@ namespace Heron.AutoCAD.Bridge
             lock (_gate)
             {
                 Resolve(isOpen, now);
+                foreach (var lost in _began.Where(b => now - b.Value > MostJob).Select(b => b.Key).ToList()) Forget(lost);
                 if (_notes.Count == 0 || _paused > 0 || front == null || !Counts(front))
                 {
                     _seen = 0;

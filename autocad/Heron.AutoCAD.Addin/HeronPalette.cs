@@ -149,7 +149,12 @@ namespace Heron.AutoCAD.Addin
         internal static Document? ActiveDocument => AcApp.DocumentManager.MdiActiveDocument;
     }
 
-    /// <summary>Issue #92: Heron's recent change jobs, newest first, each with Select, Zoom and Undo.</summary>
+    /// <summary>
+    /// Issue #92: Heron's recent change jobs, newest first, each with Select,
+    /// Zoom and Undo; with what happened to the drawings between them (#48),
+    /// drawn again the moment a drawing opens, comes to the front, is saved or
+    /// closes.
+    /// </summary>
     internal sealed class ActivityTab
     {
         private readonly StackPanel _rows = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
@@ -159,14 +164,18 @@ namespace Heron.AutoCAD.Addin
         public ActivityTab()
         {
             Root = HeronPalette.Frame("Activity", _rows, _status);
-            // Raised on a pipe thread; the list is drawn again on the palette's own thread.
-            AcadJobHost.Activity.Changed += () =>
-            {
-                if (_redrawQueued) return;
-                _redrawQueued = true;
-                Root.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Redraw));
-            };
+            // Raised on a pipe thread (jobs) or the main thread (drawings); the
+            // list is drawn again on the palette's own thread.
+            AcadJobHost.Activity.Changed += QueueRedraw;
+            AcadJobHost.Drawings.Changed += QueueRedraw;
             Redraw();
+        }
+
+        private void QueueRedraw()
+        {
+            if (_redrawQueued) return;
+            _redrawQueued = true;
+            Root.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Redraw));
         }
 
         public Border Root { get; }
@@ -178,23 +187,39 @@ namespace Heron.AutoCAD.Addin
             _redrawQueued = false;
             _rows.Children.Clear();
             var entries = Log.Entries;
+            var active = AcadJobHost.Drawings.Active;
+            if (active != null)
+            {
+                var front = S.Body(PaletteTexts.InFront(active), S.TextSecondary, 11.5);
+                front.Margin = new Thickness(14, 10, 14, 0);
+                _rows.Children.Add(front);
+            }
             if (entries.Count == 0)
             {
                 var none = S.Body("Nothing yet. Heron's changes in this AutoCAD show here, newest first, from every chat.", S.TextMuted, 12);
                 none.Margin = new Thickness(14, 12, 14, 0);
                 _rows.Children.Add(none);
-                return;
             }
-            foreach (var entry in entries) _rows.Children.Add(Row(entry));
+            foreach (var row in PaletteRows.Merge(entries, AcadJobHost.Drawings.Recent(PaletteRows.MostDrawingRows)))
+                _rows.Children.Add(row.Job != null ? Row(row.Job, active) : DrawingRow(row.Drawing!));
         }
 
-        private UIElement Row(ActivityEntry entry)
+        /// <summary>Something that happened to a drawing: one quiet line between the jobs (#48).</summary>
+        private static UIElement DrawingRow(DrawingEvent e)
+        {
+            var line = S.Body(e.At.ToString("HH:mm") + "  ·  " + PaletteTexts.DrawingRow(e), S.TextMuted, 11);
+            line.Margin = new Thickness(16, 8, 14, 0);
+            return line;
+        }
+
+        private UIElement Row(ActivityEntry entry, string? active)
         {
             var body = new StackPanel();
             var what = S.Body(entry.Summary, S.TextPrimary, 12.5);
             what.FontWeight = FontWeights.SemiBold;
             body.Children.Add(what);
-            body.Children.Add(S.Body(entry.At.ToString("HH:mm") + "  ·  " + FileName(entry.Drawing) + "  ·  " + entry.State, S.TextMuted, 11));
+            var where = PaletteRows.InFront(entry, active) ? "" : "  ·  " + PaletteTexts.NotInFront;
+            body.Children.Add(S.Body(entry.At.ToString("HH:mm") + "  ·  " + FileName(entry.Drawing) + where + "  ·  " + entry.State, S.TextMuted, 11));
             body.Children.Add(S.Body(entry.Counts, S.TextSecondary, 11));
 
             if (!entry.Running)
@@ -597,6 +622,9 @@ namespace Heron.AutoCAD.Addin
             {
                 FileName = python,
                 Arguments = PaletteServer.Arguments(request, Process.GetCurrentProcess().Id),
+                // Never AutoCAD's own working folder (often the project share a DWG was opened
+                // from): "python -m" looks there first, so a planted .py would run on Run.
+                WorkingDirectory = PaletteServer.RequestFolder,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,

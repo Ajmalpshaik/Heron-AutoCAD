@@ -85,6 +85,20 @@ class TestLevelCeiling:
             plan_steps([{"tool": tool, "args": {}}])
         assert "an admin tool" in str(exc.value)
 
+    @pytest.mark.parametrize("tool", sorted(sequence.NOT_A_STEP))
+    def test_a_step_cannot_move_the_work_to_another_drawing_or_undo(self, tool):
+        # The gate checked one drawing and put its UNDO mark there; a step that switches
+        # drawing (or AutoCAD), or undoes, would leave the rest of the sequence unguarded.
+        assert tool in RISK
+        with pytest.raises(AutocadError, match="cannot be a step"):
+            plan_steps([LINE, {"tool": tool, "args": {}}, LINE])
+
+    def test_every_tool_that_changes_the_active_drawing_is_kept_out(self):
+        from autocad_mcp.core import gate
+
+        assert gate.UNDOES <= set(sequence.NOT_A_STEP)
+        assert gate.SESSION_TOOLS <= set(sequence.NOT_A_STEP)
+
     def test_a_sequence_cannot_contain_a_sequence(self):
         with pytest.raises(AutocadError, match="cannot contain a sequence"):
             plan_steps([{"tool": SELF, "args": {"steps": [LINE]}}])
