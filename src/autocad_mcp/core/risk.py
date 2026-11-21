@@ -186,6 +186,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "space_dimensions",
         "break_dimensions",
         "annotation_scales",
+        # PDF Import: a PDF page as lines, -PDFIMPORT typed in one form (D-106).
+        "import_pdf",
     ),
     Risk.PUBLISH: (
         "export_attribute_sheet",

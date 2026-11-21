@@ -41,6 +41,7 @@ def register_all() -> None:
         materials,
         modify,
         patterns,
+        pdf_import,
         project_notes,
         publish,
         query,

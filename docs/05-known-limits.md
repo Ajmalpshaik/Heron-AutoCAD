@@ -410,3 +410,21 @@ From [D-78](DECISIONS.md) and [D-79](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
 - **Draw order** works in one space at a time; the screen may need a regen to show it.
 - **Groups:** an unnamed group (*A1) is listed but not made. No Lengthen tool yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AA](NEEDS-CHECKING.md)).
+
+## 30. PDF Import has its own limits
+
+From [D-106](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AO).
+- **Typed, not an API.** `autocad_import_pdf` answers `-PDFIMPORT`'s six questions at once. If this
+  AutoCAD asks one more, or one fewer (a one-page PDF might not ask for the page: AO1), the command
+  is cancelled and the answer says so; it is never left open. Releases other than 2021-2027 are
+  refused, nothing sent.
+- **A scan has no lines.** A scanned PDF is a picture; nothing comes in. Pictures are always left
+  out (AutoCAD would write each one out as a file): attach the PDF as an underlay to see them.
+- **SHX text comes in as lines.** A PDF plotted from AutoCAD draws SHX text as strokes; only
+  TrueType text comes in as text. AutoCAD's PDFSHXTEXT turns strokes back into text; Heron does not.
+- **The size at scale 1 is AutoCAD's.** Check one known length with `autocad_measure` and import
+  again with the right scale (AO9 will say what scale 1 means).
+- **A big page takes time.** If AutoCAD is still importing when Heron's wait ends (about 10 s), the
+  answer is OUTCOME UNKNOWN and what came in is not counted or moved: let it finish and look.
+- **Layers.** With `layer`, everything goes onto that one layer and the PDF layers AutoCAD made are
+  left empty (named in `layers_added`, for `autocad_purge`). Without it, PDFIMPORTLAYERS decides.
