@@ -38,6 +38,10 @@ packages = ["src/autocad_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# This checkout's own src/ first, ahead of any installed copy: in a worktree the shared
+# .venv's editable install points at the main checkout, so without this the tests
+# tested the main checkout's code (issue #35, tests/test_checkout_import.py).
+pythonpath = ["src"]
 asyncio_mode = "auto"
 markers = [
     "live: requires a running AutoCAD instance (deselect with '-m \"not live\"')",
