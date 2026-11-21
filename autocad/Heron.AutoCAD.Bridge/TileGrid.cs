@@ -13,6 +13,9 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>More than this and AutoCAD would stall; the chat is asked for a bigger spacing.</summary>
         public const int MostTiles = 10000;
 
+        /// <summary>Each image tile is a raster image AutoCAD keeps loaded: fewer of them.</summary>
+        public const int MostImageTiles = 2000;
+
         /// <summary>
         /// Null and each tile's insertion point (world x, y), or why not.
         /// <paramref name="tileMin"/> / <paramref name="tileMax"/> are the tile's
@@ -20,7 +23,7 @@ namespace Heron.AutoCAD.Bridge
         /// </summary>
         public static string? Positions(
             double[] areaMin, double[] areaMax, double[] origin, double stepX, double stepY, double angle,
-            double[] tileMin, double[] tileMax, out List<double[]> positions)
+            double[] tileMin, double[] tileMax, out List<double[]> positions, int most = MostTiles)
         {
             positions = new List<double[]>();
             if (!(stepX > 0) || !(stepY > 0)) return "The tile spacing must be above zero both ways.";
@@ -47,9 +50,9 @@ namespace Heron.AutoCAD.Bridge
             if (iHigh < iLow || jHigh < jLow) return "The tile does not reach the area.";
 
             var count = (iHigh - iLow + 1) * (jHigh - jLow + 1);
-            if (count > MostTiles)
-                return "Covering this area takes " + count.ToString("0") + " tiles; one super hatch places at most " + MostTiles
-                    + ". Make the spacing or the scale bigger, or hatch a smaller area.";
+            if (count > most)
+                return "Covering this area takes " + count.ToString("0") + " tiles; one super hatch places at most " + most
+                    + (most < MostTiles ? " of this kind" : "") + ". Make the spacing or the scale bigger, or hatch a smaller area.";
 
             for (var j = jLow; j <= jHigh; j++)
                 for (var i = iLow; i <= iHigh; i++)

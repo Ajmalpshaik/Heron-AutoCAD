@@ -137,13 +137,19 @@ async def autocad_loft(
     path: Annotated[str | None, Field(default=None, description="Optional path curve the loft follows instead of guides.")] = None,
     ruled: Annotated[bool, Field(default=False, description="Straight between the outlines (a ruled transition) instead of smooth.")] = False,
     closed: Annotated[bool, Field(default=False, description="Loop back from the last outline to the first (a ring).")] = False,
+    surface: Annotated[
+        bool,
+        Field(default=False, description="Make a surface instead of a solid (LOFT's Surface mode). Open outlines always make a surface: a canopy, a curved roof sheet, a louvre blade."),
+    ] = False,
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
 ) -> str:
-    """Make a solid through closed outlines in order (LOFT): a duct transition, a taper, a hopper.
+    """Make a solid through closed outlines in order (LOFT), or a surface through open ones.
 
     A rectangular-to-round duct transition, a tapered column, a hopper: draw
-    each outline at its own height or position, then loft through them. The
+    each outline at its own height or position, then loft through them. With
+    ``surface=true`` the loft is a surface instead, and the outlines may be
+    open: a canopy through curved edges, a roof sheet between two arcs. The
     outlines are kept, as with DELOBJ off.
 
     One undo step.
@@ -154,24 +160,30 @@ async def autocad_loft(
         path (Optional[str]): a path curve, instead of guides.
         ruled (bool): straight between outlines.
         closed (bool): loop back to the first outline.
+        surface (bool): a surface instead of a solid; outlines may be open.
         layer (Optional[str]): layer for the solid, created if missing.
         color (Optional[str|int]): its colour.
 
     Returns:
-        str: JSON: {"created": true, "handle": str, "type": "3dsolid",
-             "sections": int, "volume": float, "verified": bool}
+        str: JSON: {"created": true, "handle": str, "type": "3dsolid" (or a
+             surface type), "sections": int, "volume": float (a solid) or
+             "area": float (a surface), "verified": bool}
 
     Examples:
         - Use when: "make a transition from the rectangular duct to the round
           duct" (600 x 400 to 450 round) — the rectangle and the circle at
           their heights, in order.
         - Use when: "loft these three sections into a tapered column".
+        - Use when: "a canopy surface through these two curved edges" —
+          surface=true; the arcs are open, so it is a surface.
         - Don't use when: one outline goes straight up or along a route -
           autocad_extrude_profile (extrude, revolve or sweep).
+        - Don't use when: the surface is flat, or spans a net of curves -
+          autocad_add_surface (planar or network).
 
     Error Handling:
-        - An open outline is refused: a loft of open shapes is a surface,
-          not a solid.
+        - An open outline is refused for a solid: a loft of open shapes is a
+          surface; give surface=true.
         - Guides and a path together are refused: a loft follows one or the
           other.
         - Outlines AutoCAD cannot loft (crossing, out of order) are refused
@@ -188,6 +200,8 @@ async def autocad_loft(
         "layer": layer,
         "color": to_aci(color),
     }
+    if surface:
+        return dumps(await run(lambda: _created("loft_surface", args, "Lofting a surface")))
     return dumps(await run(lambda: _created("loft", args, "Lofting")))
 
 

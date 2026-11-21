@@ -71,7 +71,7 @@ namespace Heron.AutoCAD.Addin
             var sections = sectionHandles.Select(h => RunDrawing.Open<Curve>(tr, db, h, OpenMode.ForRead, "an outline (a curve)")).ToArray();
             for (var i = 0; i < sections.Length; i++)
                 if (!IsClosed(sections[i]))
-                    throw new RunRefusal("Outline " + sectionHandles[i] + " is open, so the loft would be a surface, not a solid. Close it first.");
+                    throw new RunRefusal("Outline " + sectionHandles[i] + " is open, so the loft would be a surface, not a solid. Close it, or loft it as a surface (surface=true).");
             var guides = args.Texts("guides").Select(h => (Entity)RunDrawing.Open<Curve>(tr, db, h, OpenMode.ForRead, "a guide curve")).ToArray();
             var pathHandle = args.Text("path");
             Entity? path = pathHandle.Length > 0 ? RunDrawing.Open<Curve>(tr, db, pathHandle, OpenMode.ForRead, "a path curve") : null;

@@ -130,6 +130,12 @@ namespace Heron.AutoCAD.Addin
                 case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
                 case "excel_table": return ExcelTables.Make(db, tr, args);
                 case "update_table_links": return ExcelTables.Update(db, tr, args);
+                case "flat_views": return Sections.FlatViews(db, tr, args);
+                case "section_plane": return Sections.SectionPlaneOp(db, tr, args);
+                case "loft_surface": return Surfaces.LoftSurface(db, tr, args);
+                case "planar_surface": return Surfaces.PlanarSurface(db, tr, args);
+                case "network_surface": return Surfaces.NetworkSurface(db, tr, args);
+                case "add_mesh": return Surfaces.Mesh(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }
