@@ -222,7 +222,25 @@ yet is also re-run for up to 10 s. What is left:
 - **Busy for longer than that part-way through a change.** The answer is "Outcome unknown". Read the
   drawing back before trying again ([D-15](DECISIONS.md)).
 - **A dialog left open.** The answer is "AutoCAD stayed busy". Close it, press Esc, and try again.
+  Since [D-66](DECISIONS.md) a box AutoCAD opens *during* a Heron job is closed by the plug-in
+  with Cancel and named in the answer ([§25](#25-the-dialog-watch-closes-every-new-box-in-a-job));
+  a box that was already open when the job began is still yours to close.
 - **Run LISP.** `autocad_run_lisp` waits through refused reads for its full 10 s ([D-58](DECISIONS.md)).
   A "timed out" that says AutoCAD stayed busy means the expression was sent and probably ran.
 
 All three are NOT RUN live (NEEDS-CHECKING group Q).
+
+## 25. The dialog watch closes every new box in a job
+
+Since [D-66](DECISIONS.md) the plug-in closes a modal box AutoCAD opens while a Heron job runs
+(Cancel, else No, else Esc; never OK or Yes) and the answer names it (`heron_dialogs`).
+- **A box you open yourself while the banner shows a job is closed too.** Heron cannot tell who
+  opened it. Wait for the banner to go before opening a dialog.
+- **The step that box belonged to did not finish.** "Nothing was kept from that step" means what
+  the box asked for (a file to open, a save) did not happen. Read the drawing back before trying
+  again.
+- **A Yes / No box with no Cancel gets No.** For the rare box where No loses work (for example
+  "Save changes?" without a Cancel button), that is what happens. AutoCAD's own close-drawing
+  question has Cancel, so it gets Cancel.
+- **A box that ignores Cancel and Esc stays open.** The answer says so; close it by hand.
+- **Not proven in AutoCAD yet** ([NEEDS-CHECKING group V](NEEDS-CHECKING.md)).

@@ -391,6 +391,12 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 if counted is not None:
                     result = _with_changes(result, counted)
 
+            if job and job.bridge:
+                # A box AutoCAD opened mid-job was closed by the plug-in (D-66): say so.
+                boxes = await asyncio.to_thread(job.bridge.dialogs, job.id)
+                if boxes:
+                    result = _with_dialogs(result, boxes)
+
             asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES
             if tool in UNDOES:
                 pass  # the modeller asked for exactly this undo: no question about it
@@ -460,6 +466,34 @@ def _with_changes(result: Any, counted: dict[str, Any]) -> Any:
     if result.startswith("Error:") and not any(shown.values()):
         return result
     return f"{result}\n\nheron_changes: {json.dumps(shown)}"
+
+
+def dialog_sentence(box: dict[str, Any]) -> str:
+    """One box the plug-in answered, in the words the chat passes on (D-66)."""
+    title, pressed, closed = box.get("title", ""), box.get("pressed", "Esc"), box.get("closed")
+    if pressed == "none":
+        return (
+            f"AutoCAD kept opening boxes ('{title}' and more); Heron stopped closing them. Close "
+            "what is open in AutoCAD (Esc), then read the drawing back before trying again."
+        )
+    if closed is False:
+        return (
+            f"AutoCAD showed '{title}'; Heron pressed {pressed} but it is still open. Close it in "
+            "AutoCAD (Esc), then read the drawing back before trying again."
+        )
+    return f"AutoCAD showed '{title}'; Heron closed it with {pressed}, nothing was kept from that step."
+
+
+def _with_dialogs(result: Any, boxes: list[dict[str, Any]]) -> Any:
+    """Add a plain sentence per box the plug-in closed, so the chat knows the step did not finish."""
+    if not isinstance(result, str):
+        return result
+    said = [dialog_sentence(box) for box in boxes]
+    payload = _payload(result)
+    if isinstance(payload, dict):
+        payload["heron_dialogs"] = said
+        return json.dumps(payload, indent=2, default=str)
+    return result + "".join(f"\n\nheron_dialog: {line}" for line in said)
 
 
 async def _ask_erase(job: Job, result: Any, erased: int) -> Any:

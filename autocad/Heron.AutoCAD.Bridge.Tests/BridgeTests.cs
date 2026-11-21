@@ -206,6 +206,9 @@ public class FakeHost : IJobHost
     public bool? Before { get; set; }
     public bool? ChangedBefore(string job) => Before;
 
+    public List<DialogNote> Boxes { get; } = new();
+    public IReadOnlyList<DialogNote> Dialogs(string job) => Boxes;
+
     public List<EraseRequest> EraseAsked { get; } = new();
     public EraseAnswer EraseReply { get; set; } = new() { Answer = "restored", Restored = 0 };
     public EraseAnswer AskErase(EraseRequest request)
@@ -776,6 +779,7 @@ public class ReadLeavesNoUndoStepTests
         public ChangeReport? Changes(string job) => null;
         public EraseAnswer AskErase(EraseRequest request) => new();
         public bool? ChangedBefore(string job) => null;
+        public IReadOnlyList<DialogNote> Dialogs(string job) => new List<DialogNote>();
     }
 
     public ReadLeavesNoUndoStepTests() =>
