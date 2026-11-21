@@ -151,6 +151,71 @@ D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158)
 - **Left to issues, in areas other sessions are changing:** #189-#191 and #206-#212 (the palette
   Undo's guessed mark and the batch text escape first). Live rows: Group RV (NOT RUN).
 
+## D-111 - Tiled viewports and hyperlinks are COM; DWF goes the PDF way; the geographic location is the plug-in's and shares the sun's place
+
+**Decided:** 2026-11-21, part 2 of issue #119, split into #176, #178, #179 and #180. **Status:** in
+force.
+- **Tiled model viewports** (`autocad_tiled_viewports`, #176, a **View** tool: the screen, not the
+  drawing, so no Changes padlock). COM: `Viewports.Add("Heron")`, the view on screen copied onto it,
+  `Split(n)`, then `ActiveViewport =` it (a split shows only once its viewport is made active).
+  The named configuration "Heron" is kept (VPORTS > Named) and replaced the next time; it is not
+  deleted after use, as deleting a configuration just made active is untried. The
+  `AcViewportSplitType` numbers (two horizontal 0 ... four 8) were read from Autodesk's own interop
+  assembly (`Autodesk.AutoCAD.Interop.Common`, AutoCAD 2025), not guessed. The answer reads the
+  `*Active` tiles' corners back and `acad/tiles.py` says in words what AutoCAD built; a split that
+  came out another way is a warning. Model tab only: on a layout it is refused and points at
+  `autocad_add_viewport` (paper space belongs to the sheets tools). First named
+  `autocad_model_viewports`: the word "model" then won searches like "show me the model from the
+  south west", so it is `autocad_tiled_viewports`.
+- **Hyperlinks** (`autocad_hyperlinks` Change, `autocad_list_hyperlinks` Read, #178). COM: each
+  object's `Hyperlinks` (`Add(url, description, location)`, `Item`, `Delete`; checked in the same
+  interop assembly). One link per object, as HYPERLINK keeps: `set` replaces. The whole-drawing
+  listing selects by the hyperlink's extended data (application `PE_URL`, filter code 1001), so it
+  is one selection, not one COM call per object; objects inside block definitions are not reached.
+- **DWF export** (#179): `autocad_export` with a `.dwf` path, the PDF route (D-04) with
+  `DWF6 ePlot.pc3`: plotter set on the layout, `PlotToFile` with the path alone, the page setup put
+  back. Still a **Publish** job. Extended rather than a new tool, so "export" stays one tool and the
+  plot code one copy. DWFx (another plotter, name not checked) is left out.
+- **Geographic location** (`autocad_geo_location` Change, `autocad_get_geo_location` Read, #180):
+  .NET `GeoLocationData` in the plug-in (`set_geo_location`, `geo_location`), checked by reflection
+  on the reference DLLs for 2021-2027. Default coordinate system WORLD-MERCATOR (grid, metres), as
+  Autodesk's ObjectARX sample uses; `HorizontalUnits` = INSUNITS (refused when 0); scale worked out
+  at the reference point, so a metre drawn is a metre on the ground there. Whether the reference
+  point wants grid metres or longitude / latitude is not documented anywhere this session could
+  read, so the plug-in writes grid first, then lon / lat, and keeps the first that **AutoCAD's own
+  `TransformToLonLatAlt`** reads back right: the drawing point at the place asked (1e-6 degrees),
+  and a point 100 m along the north asked reading 100 m north on the ground (within 10 %, which also
+  catches the units). Neither: refused, nothing changed. The answer names the form that worked
+  (`reference_form`), for the live check to settle. **One place:** the sun's LATITUDE / LONGITUDE
+  (`autocad_set_sun`, D-86) is the place. Without a latitude and longitude the tool takes it, and
+  refuses AutoCAD's San Francisco default; with them, the sun's place is moved to the site in the
+  same undo step. The sun's date, time and time zone are never touched. North is degrees clockwise
+  from up the screen, as a compass reads.
+- **Not proved live.** Rows AQ6-AQ14 in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
+
+## D-110 - Associative and path arrays are a plug-in operation, checked against Heron's own plan before they are kept
+
+**Decided:** 2026-11-21, part 2 of issue #119, split into #175. **Status:** in force.
+`autocad_associative_array` (Change), beside `autocad_array_entities`, which keeps making loose COM
+copies. COM has no associative array, so the plug-in's `associative_array` does
+`AssocArray.CreateArray(sources, VertexRef, parameters)` with `AssocArrayRectangularParameters`,
+`AssocArrayPolarParameters` or `AssocArrayPathParameters` (path as an `EdgeRef` of the curve,
+Divide for a count, Measure for a spacing), then `AssocManager.EvaluateTopLevelNetwork` so the items
+have their places. Every name and signature was read from Autodesk's reference DLLs (AutoCAD.NET
+24, 25, 26), not from memory. What the DLLs do **not** say is what the base point means for a ring
+and whether the array's angles are degrees; the choices are: base point = the objects' own point
+for a grid and a path, the centre for a ring (radius and start angle from the objects' point);
+angles in degrees (ObjectARX's own defaults are 15 between items and 90 between axes). So the
+plug-in never trusts them blind: `Bridge/ArrayPlan.cs` works out where each item's base point
+should go, and after AutoCAD builds the array its extents must lie inside, and reach across, the
+items' boxes (exactly for items that do not turn, within the objects' reach for items that turn).
+Anything else aborts the transaction: "AutoCAD built the array somewhere other than asked ...
+Nothing was changed." Counts: at most 10,000 items; dividing an open path puts the first and last
+items at its ends; measuring fits as many as the path holds, or refuses a count that does not fit
+and says how many do. Default base point: one block's insertion point, else the path's start
+(path) or the objects' middle. Grids run along the world X and Y (no turned grid yet). ARRAY takes
+the originals into the array; the answer lists any left loose. Live rows AQ1-AQ5, NOT RUN.
+
 ## D-108 - Construction lines, regions, donuts, divide and measure: COM where it has a call, Heron's maths where not
 
 **Decided:** 2026-11-21, part 1 of issue #119 (the smaller ribbon gaps), split into #173, #174,
