@@ -450,6 +450,34 @@ pulling; no plug-in build is needed. **Every row below is NOT RUN.**
 | W7 | Read `autocad://tools/find/is that polyline closed` and `.../how many diffusers on this floor` | First match is a Read tool (`autocad_polyline_info`, `autocad_count_blocks`); no tool needing Changes in `matches` | NOT RUN |
 | W8 | Read `autocad://tools/find/is there a clash between the duct and the steel` | `matches` holds only Read tools; `autocad_check_interference` is under `would_change_the_drawing` | NOT RUN |
 
+## Group X - The docked Heron palette: Activity and Saved commands (D-68) (AutoCAD 2027, this PC)
+
+Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETTE` opens it.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| X1 | Type `HERONPALETTE`; then Heron (arrow) > **Heron palette**; then each again | A palette docked right with tabs **Activity** and **Saved commands**, dark Heron card, orange strip, the heron in the header; each press opens or closes it; the heron stays on top of the split button | NOT RUN |
+| X2 | Ask the chat to draw three lines, then a circle | Two rows appear at once, newest (the circle) on top, each "made N, changed 0, erased 0" with the time, drawing and "done"; reads (status, list) do not appear | NOT RUN |
+| X3 | On the lines row press **Select**, then **Zoom** | Select: the three lines selected, the view unchanged. Zoom: the view frames them, still selected; the line says how many | NOT RUN |
+| X4 | Ask to Keep **off**. Draw a circle (Keep not asked), press **Zoom** on it, then **Undo** | The circle is gone; the line says "Undone: ..."; the row reads "undone from this palette". If instead the zoom was undone and the circle stays, the line says objects are still there: record it as FAIL (the palette's zoom left an undo step) | NOT RUN |
+| X5 | Ask to Keep **on**. Draw a circle, Keep, then ask the chat to zoom, then **Undo** on the circle | `UNDO _Back`: the circle is gone (and the view goes back to before the job) | NOT RUN |
+| X6 | Draw a circle with the chat, then draw a line by hand, then **Undo** on the circle | Refused: "The drawing changed after this job ... Use Ctrl+Z yourself"; nothing undone | NOT RUN |
+| X7 | Two Heron changes, then **Undo** on the older one | Refused: "Heron did more after this job (...)"; nothing undone | NOT RUN |
+| X8 | While a long chat job runs (a big batch), press Select, Zoom and Undo on an older row | Each refused: "Heron is working on a job right now"; the job is not disturbed | NOT RUN |
+| X9 | Chat A holds this AutoCAD (a call less than 3 minutes ago): press **Select** and **Zoom** on its row | Both work (only a running job stops them) | NOT RUN |
+| X10 | After X4, ask the chat `autocad_undo_last` | Refused: the drawing changed since; nothing undone | NOT RUN |
+| X11 | In the chat: "save that as 'plinth'" with inputs width and depth; watch the Saved commands tab | 'plinth' shows within about 2 s, without a restart; search "plin" finds it | NOT RUN |
+| X12 | Pick 'plinth', leave width empty, press Run; then type "wide"; then 1500 | Empty: "'width' needs a value"; "wide": "'width' needs a number, e.g. ..."; nothing sent to AutoCAD either time | NOT RUN |
+| X13 | No chat holding AutoCAD (or after Free this AutoCAD). Fill 'plinth' with 1500 / 900, press **Run** | The banner shows the job; the plinth is drawn at those sizes; the line says "Done: 'plinth', N of N step(s)."; a new Activity row; then the chat can use AutoCAD at once (not after 3 minutes) | NOT RUN |
+| X14 | Changes **off**, press Run | Refused with the Changes sentence (press Settings ...); nothing drawn | NOT RUN |
+| X15 | Ask to Keep on, press Run, answer **Discard it** | Nothing kept; the line says "Discarded: nothing was kept." | NOT RUN |
+| X16 | A chat holds this AutoCAD (a call within 3 minutes), press Run | "This AutoCAD is in use by another chat. Nothing was sent to AutoCAD." | NOT RUN |
+| X17 | Press **Stop Heron now**, then Run | Refused: the modeller stopped Heron; nothing drawn | NOT RUN |
+| X18 | Disconnect Heron, press Run | "AutoCAD is not connected to Heron. Press the Heron button first" | NOT RUN |
+| X19 | Rename `%LOCALAPPDATA%\Heron\autocad\server.json`, press Run; put it back | "Heron's server has not run on this PC yet ..."; with it back, Run works. No console window flashes during a run | NOT RUN |
+| X20 | Two AutoCADs connected; Run from the second's palette | The command runs in the second AutoCAD, not the first | NOT RUN |
+| X21 | AutoCAD 2025 / 2026 and 2021-2024 builds: X1, X2, X4, X13 | As in AutoCAD 2027 | NO MACHINE |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
