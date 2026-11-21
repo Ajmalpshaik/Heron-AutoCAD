@@ -300,7 +300,7 @@ Newest first. Dates are when the change was made.
   glossiness, reflectivity, transparency and refraction, glow in cd/m² and Kelvin, bump image,
   metal shading; done by the plug-in, and `autocad_apply_material` takes it straight away).
   `autocad_save_view(from_screen=true)` saves the view on screen, 3D angle included. Known limits
-  [05 §22](docs/05-known-limits.md#22-lights-materials-and-the-saved-3d-view-have-their-own-limits).
+  [05 §22](docs/05-known-limits.md#22-lights-materials-the-saved-3d-view-and-the-render-set-up-have-their-own-limits).
 - **The DONE card always closes.** The activity banner counted begins and ends, so one job whose
   end never came (AutoCAD left mid-command and the COM link dropped, 2026-11-05) kept every later
   "Heron AI has finished" card on screen. `BannerJobs` (Bridge, tested offline in

@@ -135,8 +135,8 @@ banner on, because the banner is what shows the modeller that Heron is working.
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
 change DEFAULTLIGHTING behind the modeller's back" stands: only `autocad_switch_lights` changes it,
 when asked in words. **None of these tools renders** (Ajmal's rule): they set lights, sun and
-exposure, and Ajmal presses Render. `autocad_render` (Admin, types `-render`) is still on main as
-the one exception; whether it stays is Ajmal's decision (#158).
+exposure, and Ajmal presses Render. `autocad_render` (Admin, types `-render`) was still on main as
+the one exception when this was written; it was removed the same day (#158, the last bullet below).
 - **List** (`autocad_list_lights`, plug-in `list_lights`, Read), like the Lights in Model palette:
   every light in model space, then in each block definition (not layouts, not xrefs), with handle,
   name, kind, on or off, intensity and its unit, Kelvin, layer, position, and for a light in a block
@@ -673,6 +673,9 @@ its question mode; the code is this project's own.
   reasons that do not block, says it cannot see whether they are on, and never claims one is
   off. The refusal itself still names the padlock, and `autocad_gaps` counts it. A `dry_run`
   refusal (D-63) is logged with the reason word `no_dry_run`.
+- **Changed again the same day (#140):** the plug-in's `ping` now carries its padlocks, so
+  `autocad_why` asks the AutoCAD this chat works in and says which are on; only with no answer
+  does it fall back to naming them without guessing (D-59, "Added 2026-11-21, after the merge").
 
 Pinned by `tests/test_why_and_gaps.py` and `tests/test_find_tool.py`. Live rows: Group W.
 
