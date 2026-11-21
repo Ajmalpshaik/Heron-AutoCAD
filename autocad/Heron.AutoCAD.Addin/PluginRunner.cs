@@ -122,6 +122,9 @@ namespace Heron.AutoCAD.Addin
                 case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
                 case "excel_table": return ExcelTables.Make(db, tr, args);
                 case "update_table_links": return ExcelTables.Update(db, tr, args);
+                case "associative_array": return AssociativeArrays.Make(db, tr, args);
+                case "geo_location": return GeoLocation.Read(db, tr);
+                case "set_geo_location": return GeoLocation.Change(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

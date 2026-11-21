@@ -41,6 +41,11 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // An associative array (ARRAY) and the drawing's geographic location
+            // (GEOGRAPHICLOCATION): COM has a call for neither (D-110, D-111).
+            ["associative_array"] = Risk.Change,
+            ["geo_location"] = Risk.Read,
+            ["set_geo_location"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 
