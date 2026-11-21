@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **How a change job answers and what it keeps (2026-11-21, PR #124).** A chat Claude reopens
+  after a restart keeps its hold: the server takes Claude Code's own chat id, hashed; scripts stay
+  their own chat ([D-61](docs/DECISIONS.md), #78). Every change answer now starts with one plain
+  line, `DONE`, `NOTHING CHANGED`, `REFUSED` or `OUTCOME UNKNOWN`, from the plug-in's change count;
+  saved commands too ([D-62](docs/DECISIONS.md), #79). `dry_run=true` on any change tool runs the
+  job, reports, and goes back to Heron's UNDO mark; save, export, commands and AutoLISP refuse it
+  ([D-63](docs/DECISIONS.md), #81). The modify, attribute, find-replace, dynamic block, layer and
+  variable tools list old -> new per object, and no longer open an undo step when nothing differs
+  (#82, and part of #80; the rest of #80 waits for live row T7). Live rows T1-T7 NOT RUN.
+
 - **A moment of busy AutoCAD no longer stops a run (2026-11-20).** Two stops in the Luxury Suite 3
   rehearsal of 2026-11-18, both with AutoCAD having done nothing wrong. First,
   `autocad_create_layer` failed with "Call was rejected by callee" while drawing tabs were switched.
