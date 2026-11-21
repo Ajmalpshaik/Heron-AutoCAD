@@ -135,6 +135,12 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "solid_boolean",
         "check_interference",
         "slice_solid",
+        # Pyramid, polysolid and the rest of SOLIDEDIT, by the plug-in (D-112, D-113).
+        "add_pyramid",
+        "add_polysolid",
+        "edit_solid_faces",
+        "imprint_solid",
+        "separate_solid",
         # Done by the plug-in, which COM has no call for (D-40).
         "loft",
         "fillet_solid_edges",
