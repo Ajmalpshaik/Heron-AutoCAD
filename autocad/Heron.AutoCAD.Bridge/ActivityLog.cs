@@ -20,9 +20,27 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>The tool that is itself an undo: undoing it again would be a redo.</summary>
         public const string UndoTool = "autocad_undo_last";
 
+        /// <summary>
+        /// A job whose end never came (the pipe broke, the server was killed)
+        /// stops counting as running after this; longer than any real job,
+        /// Keep or Discard (9 minutes) and an operation (5 minutes) included.
+        /// </summary>
+        public static readonly TimeSpan MostJob = TimeSpan.FromMinutes(20);
+
         private readonly object _gate = new object();
         private readonly LinkedList<ActivityEntry> _entries = new LinkedList<ActivityEntry>();
+        private readonly Func<DateTime> _clock;
         private string? _running;
+        private DateTime _runningSince;
+
+        public ActivityLog() : this(() => DateTime.Now)
+        {
+        }
+
+        public ActivityLog(Func<DateTime> clock)
+        {
+            _clock = clock;
+        }
 
         /// <summary>Raised after every change to the list, on the thread that made it (a pipe thread, often).</summary>
         public event Action? Changed;
@@ -30,14 +48,17 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>True while any Heron job runs in this AutoCAD.</summary>
         public bool Busy
         {
-            get { lock (_gate) return _running != null; }
+            get { lock (_gate) return RunningLocked; }
         }
+
+        private bool RunningLocked => _running != null && _clock() - _runningSince < MostJob;
 
         public void Begin(JobInfo job, DateTime at)
         {
             lock (_gate)
             {
                 _running = job.Job;
+                _runningSince = _clock();
                 if (JobChanges.Watches(job.Risk))
                 {
                     _entries.AddFirst(new ActivityEntry
@@ -113,7 +134,7 @@ namespace Heron.AutoCAD.Bridge
             {
                 var entry = Find(job);
                 if (entry == null) return ShowVerdict.No(PaletteTexts.Gone);
-                if (_running != null) return ShowVerdict.No(PaletteTexts.Busy);
+                if (RunningLocked) return ShowVerdict.No(PaletteTexts.Busy);
                 if (entry.Undone) return ShowVerdict.No(PaletteTexts.ShowUndone);
                 if (entry.Outcome == "discarded") return ShowVerdict.No(PaletteTexts.ShowDiscarded);
                 if (!DrawingNames.Same(activeDrawing, entry.Drawing)) return ShowVerdict.No(PaletteTexts.OtherDrawing(entry.Drawing, activeDrawing));
@@ -135,7 +156,7 @@ namespace Heron.AutoCAD.Bridge
             {
                 var entry = Find(job);
                 if (entry == null) return UndoVerdict.No(PaletteTexts.Gone);
-                if (_running != null) return UndoVerdict.No(PaletteTexts.Busy);
+                if (RunningLocked) return UndoVerdict.No(PaletteTexts.Busy);
                 if (entry.Undone) return UndoVerdict.No(PaletteTexts.AlreadyUndone);
                 if (entry.Tool == UndoTool) return UndoVerdict.No(PaletteTexts.UndoOfUndo);
                 if (entry.Risk != Risk.Change) return UndoVerdict.No(PaletteTexts.UndoRawCommand);

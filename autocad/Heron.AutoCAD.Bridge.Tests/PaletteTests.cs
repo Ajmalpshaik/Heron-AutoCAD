@@ -193,6 +193,21 @@ public class ActivityLogTests
     }
 
     [Fact]
+    public void A_job_whose_end_never_came_stops_blocking_after_the_longest_job()
+    {
+        var now = At;
+        var log = new ActivityLog(() => now);
+        log.Begin(new JobInfo { Job = "j1", Tool = "t", Risk = Risk.Change, Drawing = Dwg }, At);
+        Assert.True(log.Busy);
+        now = At + ActivityLog.MostJob - TimeSpan.FromSeconds(1);
+        Assert.True(log.Busy);
+        now = At + ActivityLog.MostJob;
+        Assert.False(log.Busy);
+        // It never ended, so it is still not something to undo.
+        Assert.Equal(PaletteTexts.UndoNotClean(""), log.CanUndo("j1", Clean()).Reason);
+    }
+
+    [Fact]
     public void An_entry_handed_out_is_a_copy()
     {
         Job("j1");
@@ -431,6 +446,24 @@ public class PaletteServerTests : IDisposable
     public void Arguments_are_quoted_as_windows_reads_them(string arg, string quoted)
     {
         Assert.Equal(quoted, PaletteServer.Quote(arg));
+    }
+
+    [Fact]
+    public void The_run_always_has_the_plug_in_checks_on_and_is_never_another_chat()
+    {
+        var environment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["HERON_AUTOCAD_BRIDGE"] = "off",
+            ["heron_conversation_id"] = "a chat's id",
+            ["CLAUDE_CODE_SESSION_ID"] = "a host chat",
+            ["PATH"] = @"C:\Windows",
+        };
+        PaletteServer.PrepareEnvironment(environment);
+        Assert.Equal("on", environment["HERON_AUTOCAD_BRIDGE"]);
+        Assert.False(environment.ContainsKey("HERON_CONVERSATION_ID"));
+        Assert.False(environment.ContainsKey("CLAUDE_CODE_SESSION_ID"));
+        Assert.Equal("Heron palette", environment["HERON_CLIENT_ID"]);
+        Assert.Equal(@"C:\Windows", environment["PATH"]);
     }
 
     [Fact]

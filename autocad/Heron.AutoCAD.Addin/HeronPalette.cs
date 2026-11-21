@@ -318,19 +318,32 @@ namespace Heron.AutoCAD.Addin
     /// </summary>
     internal static class PaletteUndo
     {
+        /// <summary>UNDO typed but never started by then (a command or a box in the way): stop waiting.</summary>
+        private static readonly TimeSpan StartWait = TimeSpan.FromSeconds(30);
+
         public static void Start(Document doc, string job, UndoVerdict verdict, Action<string, bool> say)
         {
             var done = false;
+            var started = false;
+            CommandEventHandler? begun = null;
             CommandEventHandler? ended = null;
             CommandEventHandler? stopped = null;
+            var wait = new DispatcherTimer { Interval = StartWait };
+
+            void Unhook()
+            {
+                wait.Stop();
+                doc.CommandWillStart -= begun;
+                doc.CommandEnded -= ended;
+                doc.CommandCancelled -= stopped;
+                doc.CommandFailed -= stopped;
+            }
 
             void Finish(bool ran)
             {
                 if (done) return;
                 done = true;
-                doc.CommandEnded -= ended;
-                doc.CommandCancelled -= stopped;
-                doc.CommandFailed -= stopped;
+                Unhook();
                 if (!ran)
                 {
                     say(PaletteTexts.UndoDidNotRun, false);
@@ -351,11 +364,25 @@ namespace Heron.AutoCAD.Addin
                 });
             }
 
+            begun = (s, e) => { if (IsUndo(e)) started = true; };
             ended = (s, e) => { if (IsUndo(e)) Finish(true); };
             stopped = (s, e) => { if (IsUndo(e)) Finish(false); };
+            wait.Tick += (s, e) =>
+            {
+                // Still waiting in AutoCAD's queue: never let a later UNDO of the
+                // modeller's own be taken for this one.
+                if (started) return;
+                if (done) return;
+                done = true;
+                Unhook();
+                HeronLog.Write("palette undo: UNDO did not start within " + StartWait.TotalSeconds + " s");
+                say(PaletteTexts.UndoDidNotStart, false);
+            };
+            doc.CommandWillStart += begun;
             doc.CommandEnded += ended;
             doc.CommandCancelled += stopped;
             doc.CommandFailed += stopped;
+            wait.Start();
             doc.SendStringToExecute(verdict.Command, true, false, false);
             try
             {
@@ -574,8 +601,7 @@ namespace Heron.AutoCAD.Addin
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
-            start.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-            start.EnvironmentVariables["HERON_CLIENT_ID"] = "Heron palette";
+            PaletteServer.PrepareEnvironment(start.Environment);
 
             Busy(true);
             HeronPalette.Say(_status, PaletteTexts.Running(command.Name), S.TextSecondary);

@@ -58,6 +58,9 @@ namespace Heron.AutoCAD.Bridge
 
         public const string UndoDidNotRun = "The undo did not run (it was cancelled or AutoCAD refused it). Nothing was changed.";
 
+        public const string UndoDidNotStart =
+            "AutoCAD did not start the undo within 30 s (a command or a box may be open). Press Esc in AutoCAD and look at the drawing: if the undo still runs later, the job is gone.";
+
         public const string NoDrawing = "No drawing is open.";
 
         // ----- Saved commands -----

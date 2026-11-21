@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The palette's Run can never skip the plug-in's checks (2026-11-21).** If AutoCAD was started
+  with `HERON_AUTOCAD_BRIDGE=off` or a chat id in its environment, the palette's run used to inherit
+  them. It now always runs with the checks on and as its own chat, and the server refuses a palette
+  run with them off ([D-68](docs/DECISIONS.md)). An Undo AutoCAD has not started in 30 s is given
+  up with a plain line, and a job whose end never came stops blocking the palette after 20 minutes.
+  Live row X22 NOT RUN.
+
 - **Server 1.8.0 and plug-in 1.6.0 (2026-11-21).** One version for the whole batch of ideas from
   Heron AI for Revit merged today: padlocks in memory (#121), dialog watch (#100), the docked
   palette (#123) change the plug-in; server answers (#124), why / gaps (#120) and check lists

@@ -28,7 +28,7 @@ from typing import Any
 
 from . import __version__
 from .core import answers, sessions
-from .core.bridge import NOT_CONNECTED, Bridge
+from .core.bridge import NOT_CONNECTED, Bridge, bridge_enabled
 from .core.errors import AutocadError
 
 
@@ -115,6 +115,12 @@ async def run_saved(request: dict[str, Any], acad_pid: int | None) -> dict[str, 
         return _no("The palette's request names no saved command. Nothing was sent to AutoCAD.")
     if not isinstance(inputs, dict):
         return _no("The palette's request has no inputs Heron can read. Nothing was sent to AutoCAD.")
+    if not bridge_enabled():
+        # The palette's run is the modeller's, so it never runs without the plug-in's checks.
+        return _no(
+            "Heron's plug-in checks are switched off for this server (HERON_AUTOCAD_BRIDGE=off), and the "
+            "palette never runs without them. Nothing was sent to AutoCAD."
+        )
     if acad_pid:
         try:
             sessions.choose(acad_pid)

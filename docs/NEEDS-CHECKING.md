@@ -512,6 +512,7 @@ Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETT
 | X18 | Disconnect Heron, press Run | "AutoCAD is not connected to Heron. Press the Heron button first" | NOT RUN |
 | X19 | Rename `%LOCALAPPDATA%\Heron\autocad\server.json`, press Run; put it back | "Heron's server has not run on this PC yet ..."; with it back, Run works. No console window flashes during a run | NOT RUN |
 | X20 | Two AutoCADs connected; Run from the second's palette | The command runs in the second AutoCAD, not the first | NOT RUN |
+| X22 | Start AutoCAD from a command prompt after `set HERON_AUTOCAD_BRIDGE=off`; Changes **off**; press Run | Refused with the Changes sentence, as in X14: the run still goes through the plug-in's checks | NOT RUN |
 | X21 | AutoCAD 2025 / 2026 and 2021-2024 builds: X1, X2, X4, X13 | As in AutoCAD 2027 | NO MACHINE |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
