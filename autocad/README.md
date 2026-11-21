@@ -27,6 +27,8 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `DimensionLines.cs` | Where a linear or aligned dimension's line is, and moving it, for even spacing (D-80) |
 | `AnnotationScales.cs` | Annotative objects: the drawing's scale list, an object's scales, adding and removing them (D-81) |
 | `RenderSetup.cs` | Photometric lights and materials made from their settings ([D-42](../docs/DECISIONS.md)) |
+| `References.cs` | PDF / DWF / DGN underlays attached; an xref, block or underlay clipped; the files a drawing needs for eTransmit, found with AutoCAD's own search ([D-84](../docs/DECISIONS.md), [D-85](../docs/DECISIONS.md)) |
+| `Boundary.cs` | BOUNDARY without typing it: `Editor.TraceBoundary`, zoomed to a window, objects counted first ([D-84](../docs/DECISIONS.md)) |
 | `IdleQueue.cs` | Gets pipe-thread work onto AutoCAD's main thread through `Application.Idle` |
 | `UndoSwitch.cs` | Undo recording off while a read runs, back on after, with safety nets (rules: `Bridge/UndoPause.cs`, [D-34](../docs/DECISIONS.md)) |
 | `HeronActivityBanner.cs` | The READING / CHANGING / DONE / STOPPED card, on its own thread |

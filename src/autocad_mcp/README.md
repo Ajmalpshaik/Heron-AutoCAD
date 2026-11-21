@@ -36,7 +36,8 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/dimensions_edit.py` | dimensions already drawn: even spacing (DIMSPACE), breaks (DIMBREAK) |
 | `tools/annotation_scales.py` | annotative objects and their annotation scales, done by the plug-in |
 | `tools/drafting.py` | splines, multilines (MLINE), wipeouts |
-| `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths |
+| `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths; attach an image or a PDF / DWF / DGN underlay; clip an xref, image or underlay (D-84) |
+| `tools/cleanup.py` | Overkill (the geometry is `acad/overkill.py`), the boundary trace done by the plug-in, eTransmit (the file list and packing are `acad/transmittal.py`) (D-84, D-85) |
 | `tools/patterns.py` | write custom hatch pattern (.pat) and linetype (.lin) files; the text is `acad/patterns.py` |
 | `tools/annotate.py` | multileaders, tables, revision clouds |
 | `tools/blocks.py` | `autocad_make_block` (with attribute definitions) and `autocad_sync_attributes` (ATTSYNC, by the plug-in) |

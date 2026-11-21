@@ -119,7 +119,7 @@ def quiet_sender() -> Callable[[list[str]], bool] | None:
     return lambda lines: job.bridge.send_quiet(job.id, lines)
 
 
-def plugin_runner() -> Callable[[str, dict[str, Any]], dict[str, Any]] | None:
+def plugin_runner() -> Callable[..., dict[str, Any]] | None:
     """While a job runs with the plug-in: a way to have it do one of its own operations.
 
     For what COM has no call for (D-40). None outside a job or with the bridge
@@ -129,7 +129,13 @@ def plugin_runner() -> Callable[[str, dict[str, Any]], dict[str, Any]] | None:
     job = _current
     if job is None or job.bridge is None or job.id is None:
         return None
-    return lambda operation, args: job.bridge.run(job.id, operation, args)
+
+    def runner(operation: str, args: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
+        if timeout is None:
+            return job.bridge.run(job.id, operation, args)
+        return job.bridge.run(job.id, operation, args, timeout)
+
+    return runner
 
 
 def dialog_expecter() -> Callable[[str, str], str | None] | None:

@@ -122,6 +122,10 @@ namespace Heron.AutoCAD.Addin
                 case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
                 case "excel_table": return ExcelTables.Make(db, tr, args);
                 case "update_table_links": return ExcelTables.Update(db, tr, args);
+                case "attach_underlay": return References.AttachUnderlay(db, tr, args);
+                case "clip_reference": return References.Clip(db, tr, args);
+                case "list_dependencies": return References.Dependencies(db, tr, args);
+                case "trace_boundary": return Boundary.Trace(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

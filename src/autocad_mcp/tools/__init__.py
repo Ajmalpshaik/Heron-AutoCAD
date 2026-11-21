@@ -21,6 +21,7 @@ def register_all() -> None:
         blocks,
         check_folder,
         checklists,
+        cleanup,
         companion,
         convert,
         coordinates,
