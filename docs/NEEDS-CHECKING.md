@@ -692,6 +692,35 @@ were not checked against Autodesk's reference (D-108); each row compares with Au
 | AP10 | A line drawn in a UCS tilted out of plan, and a line sloping in Z: `autocad_divide_curve(segments=2)` on each; a polyline in paper space on a sheet | The first two refused plainly, nothing placed; the paper-space one gets its points on that sheet | NOT RUN |
 | AP11 | AutoCAD 2025 / 2026 and 2021-2024 builds: AP1, AP2, AP5, AP6 | As in AutoCAD 2027 | NO MACHINE |
 
+## Group AQ - Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-110](DECISIONS.md), [D-111](DECISIONS.md); issues #175, #176, #178, #179,
+#180, part 2 of #119). Built and tested offline only (`tests/test_ribbon_gaps_part2.py`,
+`tests/test_export.py`, `Bridge.Tests/ArrayPlanTests.cs`, `GeoPlaceTests.cs`). **New plug-in
+operations** (`associative_array`, `geo_location`, `set_geo_location`): build and install the
+plug-in, restart the server. Scratch drawing in millimetres, `autocad_status` first. After each
+change row press **Ctrl+Z once** and check the drawing is back as it was. The .NET names were read
+from Autodesk's reference DLLs and the COM numbers from Autodesk's interop DLL; what they *mean*
+(an array's base point and angles, a geo location's reference point) was not, so each row compares
+with AutoCAD's own command. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AQ1 | A line 0,0 to 9000,0 and a block HANGER at 0,0: `autocad_associative_array(handles=[HANGER], pattern='path', path=the line, spacing=1500)` | One array object (LIST says an associative array / ARRAY); 7 hangers at 0, 1500 ... 9000, each turned along the line; `associative: true`, `items: 7`. Click it: the ARRAY contextual tab opens; stretch the line to 12000: the hangers follow (Measure keeps 1500). One Ctrl+Z: back to the line and one loose hanger | NOT RUN |
+| AQ2 | An arc and a polyline with a bend: `pattern='path', count=5` on each, then `align_items=false` | 5 items spread end to end (first and last on the ends), turned with the path; without align, all square. **Record if any answer was refused "somewhere other than asked"**, and what ARRAYPATH puts at the same counts | NOT RUN |
+| AQ3 | A 600 x 600 diffuser block: `pattern='rectangular', rows=3, columns=4, row_spacing=1200, column_spacing=1200` | 12 diffusers, the original where it was, the grid growing up and to the right; ARRAYEDIT changes the count and the grid follows. Negative spacings build down and left | NOT RUN |
+| AQ4 | A circle r=20 at 100,0: `pattern='polar', count=8, center=[0,0]`; then `fill_angle=90, count=3`; then `rotate_items=false` | 8 circles evenly round 0,0 at radius 100, the first where the original is; then 3 over a quarter (0, 45, 90 degrees). **Record whether AutoCAD read the angles as degrees** (a refusal "somewhere other than asked" means it did not) and whether the centre came out at 0,0 | NOT RUN |
+| AQ5 | A line in model space and one on a layout as the objects; a path that is one of the objects; 9 items at 1500 on a 10 m line | Refused plainly before anything is made: "different spaces", "cannot also be one of the objects", "at most 7 fit" | NOT RUN |
+| AQ6 | `autocad_tiled_viewports(layout='two_vertical')`, then `'four'`, `'three_right'`, then `'one'`; then no layout | Two side by side, four in a 2 x 2, three with the big one on the right, then one; each starts from the view that was on screen; `arrangement` matches each time, no warning. **Record AutoCAD's own words** for acViewport2Vertical (side by side?) and acViewport3Right. VPORTS > Named shows "Heron" | NOT RUN |
+| AQ7 | On a layout tab: `autocad_tiled_viewports(layout='two_vertical')` | Refused, "switch to the Model tab", pointing at autocad_add_viewport; nothing changed. The Changes padlock off makes no difference on the Model tab (a View tool) | NOT RUN |
+| AQ8 | A block on the drawing: `autocad_hyperlinks(handles=[it], url='C:\\Temp\\test.pdf', description='Data sheet')`; hover, then Ctrl+click | The hover shows "Data sheet"; Ctrl+click opens the PDF; HYPERLINK on the object shows the same address. Then `url='https://www.autodesk.com'`: the old link is replaced, one link only. One Ctrl+Z takes it back | NOT RUN |
+| AQ9 | `autocad_list_hyperlinks()` with three linked objects and many without; then `action='remove'` on one; then list again | Exactly the three, with their links (the PE_URL selection works); after remove, two. An object on a locked layer: in `failed`, the rest done | NOT RUN |
+| AQ10 | A sheet with a title block: `autocad_export(path='C:\\Temp\\sheet.dwf', area='layout', scale='1:1')`, Publish padlock on; then with it off | A .dwf that opens in Autodesk Viewer / Design Review and looks like the PDF of the same sheet; the layout's page setup unchanged afterwards (PAGESETUP). Padlock off: refused | NOT RUN |
+| AQ11 | Drawing units mm. `autocad_geo_location(latitude=25.29, longitude=51.53, point=[0,0], north_angle=12)` | `located: true`, `reference_form` given (**record which: grid or lon_lat**); GEOGRAPHICLOCATION shows the marker at Doha, north 12 degrees to the right of up; `autocad_get_geo_location` reads 25.29, 51.53 and `agrees: true`; LATITUDE / LONGITUDE read 25.29 / 51.53. GEOMAP AERIAL (signed in): the map sits under the drawing at the right size (a 10 m line is 10 m on the map) | NOT RUN |
+| AQ12 | A new drawing never placed: `autocad_geo_location()` with no place; then `autocad_set_sun(latitude=9.93, longitude=76.27)` and `autocad_geo_location(point=[1000,2000])` | First refused, San Francisco named; then the location is Kochi at 1000,2000 and the sun's place did not move (`moved: false`) | NOT RUN |
+| AQ13 | INSUNITS 0: `autocad_geo_location(latitude=25.29, longitude=51.53)`; then units mm and `coordinate_system='UTM84-39N'`; then `'NOT-A-SYSTEM'`; then `action='remove'` | No units: refused; UTM84-39N: located at the same place; the unknown code: refused, nothing changed; remove: GEOGRAPHICLOCATION shows no location; one Ctrl+Z brings it back | NOT RUN |
+| AQ14 | AutoCAD 2025 / 2026 and 2021-2024 builds: AQ1, AQ4, AQ6, AQ8, AQ11 | As in AutoCAD 2027 | NO MACHINE |
+
 ## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-102](DECISIONS.md), issue #41). Built and tested offline only
@@ -785,6 +814,29 @@ and the server restarted. **Every row below is NOT RUN.**
 | AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
 | AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
 
+## Group AN - Multileader and table styles made by the plug-in (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-104](DECISIONS.md), [D-105](DECISIONS.md); issue #68). Built and tested
+offline only (`StylePlansTests.cs`, `tests/test_create_styles_plugin.py`; the add-in compiles against
+the 2021, 2025 and 2027 reference assemblies). Needs the plug-in built from this change (it knows the
+operations `multileader_style` and `table_style`), reinstalled, and the server restarted. Work in a
+scratch metric drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AN1 | `autocad_create_styles(multileader_styles=[{"name": "HERON-LABEL-50", "text_height": 2.5, "scale": "1:50", "current": true}])`, then open MLEADERSTYLE | The row says `created: true`, `attachment: underline_bottom_line`, `arrow: closed_filled`, arrow size and dogleg 2.5, `scale: 50`, `current: true`. In the dialog: content Mtext, text height 2.5, left **and** right attachment "Underline bottom line", arrowhead Closed filled 2.5, "Automatically include landing" ticked, landing distance 2.5, "Specify scale" 50, and it is the current style. **Write down the landing gap it shows** (AutoCAD's own default) | NOT RUN |
+| AN2 | After AN1, `autocad_add_multileader(landing=[1000,1000], arrows=[[0,0]], text="2 NOS FCU")` (it uses the current style) | The note's text sits on the landing line, the line running under the text (TLD look); text 125 high on screen (2.5 x 50); no `not_set` | NOT RUN |
+| AN3 | `autocad_create_styles(text_styles=[{"name": "ROMANS", "font": "romans.shx"}], multileader_styles=[{"name": "TAG-DOT", "text_style": "ROMANS", "text_height": 2.5, "arrow": "dot", "arrow_size": 1.5, "landing_gap": 0.5, "attachment": "middle"}])` in a drawing that has never used the dot arrow | Both made in one call; `arrow_block_added: "_DOT"`; the dialog shows text style ROMANS, arrowhead Dot 1.5, landing gap 0.5, attachment "Middle of multi-line text". **Then SETVAR DIMBLK**: empty (closed filled) as before, and the DIMSTYLE dialog shows **no** "Style overrides" | NOT RUN |
+| AN4 | AN3, then Ctrl+Z once | The text style, the multileader style and the `_DOT` block are all gone in one step (one undo mark round COM and the plug-in). **If it takes more than one Ctrl+Z, write how many** | NOT RUN |
+| AN5 | `autocad_create_styles(multileader_styles=[{"name": "HERON-LABEL-50", "text_height": 3.5}])` after AN1; then the same with `replace=true` | First: the row says `created: false` and "already ... Pass replace=true", nothing changed. Second: `created: false`, text height 3.5; the dialog shows 3.5 and the scale back at 1 (a replaced style takes the same defaults as a new one) | NOT RUN |
+| AN6 | `multileader_styles=[{"name": "BAD", "text_height": 2.5, "text_style": "NOPE"}, {"name": "GOOD", "text_height": 2.5}]` | BAD's row: "no text style called 'NOPE' ... Nothing was changed."; GOOD is made; MLEADERSTYLE lists GOOD, not BAD | NOT RUN |
+| AN7 | `autocad_create_styles(table_styles=[{"name": "SCHEDULE-50", "text_height": 2.5, "scale": "1:50", "alignment": "left", "current": true}])`, then open TABLESTYLE | `text_heights` 125 / 125 / 125, `margins` 41.67 both (125 / 3), alignment title and header `middle_centre`, data `middle_left`, `current: true`. In the dialog, for Title, Header and Data: text height 125, alignment Middle Center / Middle Center / **Middle Left**, horizontal and vertical margins 41.67; it is the current table style | NOT RUN |
+| AN8 | After AN7, `autocad_add_table(position=[0,0], title="AHU SCHEDULE", headers=["TAG","CFM"], rows=[["AHU-1","2000"]], style="SCHEDULE-50")` | The table takes the style: text 125 high, in the vertical middle of every cell, data left-aligned; `rows_aligned_middle: 3` | NOT RUN |
+| AN9 | `table_styles=[{"name": "NO-TITLE", "text_height": 2.5, "title_row": false, "header_row": false}]`, then `autocad_add_table` with that style and rows only | `title_row: false`, `header_row: false`; the dialog's "Title" / "Header" rows show as off (the style's suppress flags); the new table starts with a data row | NOT RUN |
+| AN10 | `table_styles=[{"name": "A", "text_height": 2.5, "alignment": "top left"}]`, then `multileader_styles=[{"name": "B", "text_height": 2.5, "scale": 0.02}]`, then `multileader_styles=[{"name": "C", "text_height": 2.5, "arow": "dot"}]` | A's row: "... vertical middle ...", B's: "'0.02' could be a ratio or a scale factor ... '1:50'", C: refused before anything ("arow is not an option"). None of the three is in the drawing | NOT RUN |
+| AN11 | With Changes **off**: AN1 again | Refused by the padlock before anything; MLEADERSTYLE unchanged | NOT RUN |
+| AN12 | AN1 with a plug-in built before this change | Refused: "Heron in AutoCAD does not have the operation 'multileader_style'. Update Heron ..."; nothing changed. With a text style in the same call: the text style is made and the multileader row carries that message | NOT RUN |
+
 ## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
 
 | Row | Do | Pass looks like | Result |
@@ -792,6 +844,24 @@ and the server restarted. **Every row below is NOT RUN.**
 | RV1 | Admin on. `autocad_send_command` with `expect_box` / `press` on a box that never comes; close the chat (stop the server) before the command ends; then, with no Heron job running, open a box yourself (e.g. OPTIONS) | Heron leaves your box alone; `addin-*.log` shows no "dialog watch" line for it | NOT RUN |
 | RV2 | `autocad_export_attribute_sheet`, then in Excel type `0051` and `1:100` over two values, save, `autocad_apply_attribute_sheet` | The attributes read `0051` and `1:100` exactly; nothing listed in `excel_converted` | NOT RUN |
 | RV3 | `autocad_sequence` with steps `[autocad_switch_drawing, autocad_draw_line]` | Refused naming step 1; nothing drawn in either drawing | NOT RUN |
+
+## Group AL - A busy AutoCAD past the message filter: never a false failure (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-100](DECISIONS.md), issue #36). Built and tested offline only
+(`tests/test_busy_refusals.py` with fake COM, `tests/test_busy_sweep.py` reading the source).
+Server only: restart the server after pulling; no plug-in build is needed. To keep AutoCAD busy
+for longer than the filter's 3 s, open the Options dialog (OP) and leave it open, or start a REGEN
+of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AL1 | Options dialog open. `autocad_list_layers`, `autocad_list_entities`, `autocad_get_entity` on a circle | Within about 15 s each says "AutoCAD stayed busy ... press Esc"; none comes back with layers marked off, an empty list or `null` values; after closing the dialog each works | NOT RUN |
+| AL2 | A UCS rotated 30 degrees. Options dialog open, `autocad_add_solid` (a box, `coords='ucs'`); close the dialog part-way through the wait | Either "AutoCAD stayed busy" and no box, or the box drawn square to the rotated UCS; never a box drawn in the world UCS | NOT RUN |
+| AL3 | Ask to Keep on. Options dialog open, `autocad_draw_circle` | REFUSED - "AutoCAD stayed busy ... nothing was changed"; no circle; no "Error executing tool"; Heron's Activity says it ended | NOT RUN |
+| AL4 | Ask to Keep on. Draw a circle, start a heavy REGEN in another drawing tab as you press Discard | Either "Discarded" with the circle gone, or OUTCOME UNKNOWN saying to look; never "UNDO is off" and never "Discarded" with the circle still there | NOT RUN |
+| AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
+| AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
+| AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

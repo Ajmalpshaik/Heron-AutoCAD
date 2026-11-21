@@ -18,7 +18,7 @@ from ..acad import sheets as sheet_plan
 from ..acad.coords import advice as ucs_advice
 from ..acad.units import unit_name
 from ..core.connection import get_app, get_doc, run
-from ..core.errors import AutocadError, com_message, is_retryable
+from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, point_to_list
 from ._shared import before_after, current_ucs, in_plugin
@@ -29,6 +29,10 @@ EXPORT_FORMATS = {"dxf", "wmf", "sat", "bmp", "eps", "stl"}
 # PDF plotting: the plotter AutoCAD ships, plus the AcPlotType and
 # AcPlotScale values for "plot the extents, fitted to the sheet".
 PDF_PLOTTER = "DWG To PDF.pc3"
+# DWF goes the same way, through the DWF6 plotter AutoCAD ships (#179, D-111).
+DWF_PLOTTER = "DWF6 ePlot.pc3"
+# The formats that plot rather than export, and the plotter each one uses.
+PLOTTERS = {"pdf": PDF_PLOTTER, "dwf": DWF_PLOTTER}
 AC_EXTENTS = 1
 AC_SCALE_TO_FIT = 0
 # AcPlotRotation: ac0degrees.
@@ -67,7 +71,7 @@ def _media_sizes(names: list[str] | tuple[str, ...]) -> list[str]:
     return list(dict.fromkeys(sizes))
 
 
-def _match_media(names: list[str] | tuple[str, ...], wanted: str) -> str:
+def _match_media(names: list[str] | tuple[str, ...], wanted: str, plotter: str = PDF_PLOTTER) -> str:
     """Pick the plotter's canonical media name for a paper size.
 
     Exact canonical or display names are used as given. Short names such as
@@ -99,7 +103,7 @@ def _match_media(names: list[str] | tuple[str, ...], wanted: str) -> str:
 
     if not ranked:
         raise AutocadError(
-            f"'{wanted}' is not a paper size the {PDF_PLOTTER} plotter offers. "
+            f"'{wanted}' is not a paper size the {plotter} plotter offers. "
             f"Sizes it has: {', '.join(_media_sizes(names))}. Add 'portrait' "
             "for an upright sheet, or pass an exact name such as "
             "'ISO full bleed A3 (420.00 x 297.00 MM)'."
@@ -112,8 +116,8 @@ def _snapshot_page_setup(doc: Any, layout: Any) -> Any:
     configs = doc.PlotConfigurations
     try:
         configs.Item(SNAPSHOT_NAME).Delete()
-    except BaseException:  # noqa: BLE001 - no leftover from an earlier run
-        pass
+    except BaseException as exc:  # noqa: BLE001 - no leftover from an earlier run
+        raise_if_busy(exc)
     snapshot = configs.Add(SNAPSHOT_NAME, bool(layout.ModelType))
     snapshot.CopyFrom(layout)
     return snapshot
@@ -156,8 +160,9 @@ def _plot_pdf(
     window: tuple[Any, Any] | None = None,
     view_name: str | None = None,
     scale: str | float | None = None,
+    plotter: str = PDF_PLOTTER,
 ) -> dict[str, Any]:
-    """Plot part of the active layout to a PDF, fitted to the sheet by default.
+    """Plot part of the active layout to a PDF (or a DWF), fitted to the sheet by default.
 
     PlotToFile(path, "DWG To PDF.pc3") raises a bare "Exception occurred" on
     AutoCAD 2027, so the plotter is chosen on the layout itself and
@@ -172,19 +177,19 @@ def _plot_pdf(
     original_media = str(layout.CanonicalMediaName)
     try:
         try:
-            layout.ConfigName = PDF_PLOTTER
+            layout.ConfigName = plotter
         except pythoncom.com_error as exc:
             if is_retryable(exc):
                 raise
             raise AutocadError(
-                f"AutoCAD could not select the '{PDF_PLOTTER}' plotter. "
+                f"AutoCAD could not select the '{plotter}' plotter. "
                 "Check it is listed in AutoCAD's PLOTTERMANAGER folder. "
                 f"(details: {com_message(exc)})"
             ) from exc
         layout.RefreshPlotDeviceInfo()
         names = tuple(layout.GetCanonicalMediaNames())
         if paper_size:
-            layout.CanonicalMediaName = _match_media(names, paper_size)
+            layout.CanonicalMediaName = _match_media(names, paper_size, plotter)
         elif original_media in names and str(layout.CanonicalMediaName) != original_media:
             # Choosing the plotter drops the sheet to the device default (ANSI A
             # on AutoCAD 2027), even on a layout already set to DWG To PDF A1.
@@ -276,7 +281,8 @@ def _plan_view(doc: Any) -> bool:
             and abs(view[1]) < 1e-9
             and view[2] > 0
         )
-    except BaseException:  # noqa: BLE001 - not known to be plan
+    except BaseException as exc:  # noqa: BLE001 - not known to be plan
+        raise_if_busy(exc)
         return False
 
 
@@ -290,8 +296,8 @@ def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None]:
     """
     try:
         doc.Regen(AC_ALL_VIEWPORTS)
-    except BaseException:  # noqa: BLE001 - the plot regenerates for itself anyway
-        pass
+    except BaseException as exc:  # noqa: BLE001 - the plot regenerates for itself anyway
+        raise_if_busy(exc)
     model = bool(layout.ModelType)
     if model and not _plan_view(doc):
         return None, "the screen is not a plan view of the world UCS"
@@ -299,7 +305,8 @@ def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None]:
         low = point_to_list(doc.GetVariable("EXTMIN" if model else "PEXTMIN"))
         high = point_to_list(doc.GetVariable("EXTMAX" if model else "PEXTMAX"))
         box = _box(low, high)
-    except BaseException:  # noqa: BLE001 - no extents to read
+    except BaseException as exc:  # noqa: BLE001 - no extents to read
+        raise_if_busy(exc)
         box = None
     return box, None if box else "the drawing has no extents (nothing drawn)"
 
@@ -380,8 +387,8 @@ def _plot_png(
         # the layout's own rotation back afterwards.
         try:
             layout.PlotRotation = AC_0_DEGREES
-        except BaseException:  # noqa: BLE001 - a preview on its side beats no preview
-            pass
+        except BaseException as exc:  # noqa: BLE001 - a preview on its side beats no preview
+            raise_if_busy(exc)
 
         # Which area the picture covers, so a sheet too big for the pixels, or
         # extents stretched by something far off, can be seen (issue #41).
@@ -472,14 +479,16 @@ def _ucs_name_of(doc: Any) -> str:
     """The name of the current UCS; an unnamed one reads back empty."""
     try:
         return str(doc.GetVariable("UCSNAME")).strip()
-    except BaseException:  # noqa: BLE001 - absent on a drawing with no UCS set
+    except BaseException as exc:  # noqa: BLE001 - absent on a drawing with no UCS set
+        raise_if_busy(exc)
         return ""
 
 
 def _units_of(doc: Any) -> str:
     try:
         return unit_name(int(doc.GetVariable("INSUNITS")))
-    except BaseException:  # noqa: BLE001 - drawing may predate INSUNITS
+    except BaseException as exc:  # noqa: BLE001 - drawing may predate INSUNITS
+        raise_if_busy(exc)
         return "unknown"
 
 
@@ -493,11 +502,12 @@ def _paper_space_count(doc: Any) -> int | None:
     """
     try:
         return int(doc.PaperSpace.Count)
-    except BaseException:  # noqa: BLE001 - see the docstring
-        pass
+    except BaseException as exc:  # noqa: BLE001 - see the docstring
+        raise_if_busy(exc)
     try:
         return int(doc.ActiveLayout.Block.Count)
-    except BaseException:  # noqa: BLE001 - report the drawing without it
+    except BaseException as exc:  # noqa: BLE001 - report the drawing without it
+        raise_if_busy(exc)
         return None
 
 
@@ -899,8 +909,8 @@ async def autocad_export(
         Field(
             description=(
                 "Output file path including extension, e.g. "
-                r"'D:\out\plan.dxf' or 'D:\out\plan.pdf'. The extension "
-                "selects the format."
+                r"'D:\out\plan.dxf', 'D:\out\plan.pdf' or 'D:\out\plan.dwf'. "
+                "The extension selects the format."
             ),
             min_length=4,
         ),
@@ -910,7 +920,7 @@ async def autocad_export(
         Field(
             default=None,
             description=(
-                "PDF only: the sheet to plot on, e.g. 'A3', 'A1 portrait', "
+                "PDF and DWF only: the sheet to plot on, e.g. 'A3', 'A1 portrait', "
                 "'ANSI D', or an exact DWG To PDF media name such as "
                 "'ISO full bleed A3 (420.00 x 297.00 MM)'. Short names pick "
                 "the full-bleed landscape sheet. Omit to keep the layout's "
@@ -924,7 +934,7 @@ async def autocad_export(
         Field(
             default="extents",
             description=(
-                "PDF only: what to plot. 'extents' (the default) plots "
+                "PDF and DWF only: what to plot. 'extents' (the default) plots "
                 "everything drawn. 'layout' plots the sheet itself, which is "
                 "what a sheet with a title block wants. 'window' plots the "
                 "rectangle given by corner1/corner2. 'view' plots a saved view "
@@ -950,23 +960,24 @@ async def autocad_export(
         Field(
             default=None,
             description=(
-                "PDF only: plot scale, e.g. '1:1' for a laid-out sheet or "
+                "PDF and DWF only: plot scale, e.g. '1:1' for a laid-out sheet or "
                 "'1:50' for a model-space plot. Omit to scale to fit the sheet."
             ),
         ),
     ] = None,
 ) -> str:
-    """Export the active drawing to DXF, PDF or another supported format.
+    """Export the active drawing to DXF, PDF, DWF or another supported format.
 
     The format comes from the file extension. DXF, WMF, SAT, BMP, EPS and STL
     are written by AutoCAD's exporter. PDF plots the active layout's extents,
-    centred and scaled to fit the sheet, through the "DWG To PDF" plotter;
-    the layout's own page setup is put back afterwards.
+    centred and scaled to fit the sheet, through the "DWG To PDF" plotter; DWF
+    plots the same way through the "DWF6 ePlot" plotter (Output > Export DWF).
+    The layout's own page setup is put back afterwards.
 
     Args:
         path (str): Output path whose extension selects the format.
         paper_size (Optional[str]): PDF sheet size; None keeps the current.
-        area (str): PDF only — extents, layout, limits, display, window or view.
+        area (str): PDF and DWF only — extents, layout, limits, display, window or view.
         corner1 (Optional[list[float]]): PDF window, first corner.
         corner2 (Optional[list[float]]): PDF window, opposite corner.
         view_name (Optional[str]): PDF saved view to plot.
@@ -983,6 +994,8 @@ async def autocad_export(
         - Use when: "give me this drawing as a DXF" -> path ending in .dxf.
         - Use when: "export a PDF of the current layout" -> path ending in .pdf.
         - Use when: "PDF it on A1" -> path ending in .pdf, paper_size="A1".
+        - Use when: "the consultant wants a DWF of this sheet" -> path ending
+          in .dwf, area="layout", scale="1:1".
         - Use when: "plot the sheet, not the geometry" -> area="layout",
           scale="1:1".
         - Use when: "plot the same area as the viewport" -> autocad_save_view
@@ -1001,9 +1014,9 @@ async def autocad_export(
     parent = os.path.dirname(target)
     if not os.path.isdir(parent):
         raise AutocadError(f"The output folder '{parent}' does not exist.")
-    if ext != "pdf" and ext not in EXPORT_FORMATS:
+    if ext not in PLOTTERS and ext not in EXPORT_FORMATS:
         raise AutocadError(
-            f"'{ext}' is not a supported export format. Use pdf, "
+            f"'{ext}' is not a supported export format. Use pdf, dwf, "
             + ", ".join(sorted(EXPORT_FORMATS))
             + "."
         )
@@ -1022,10 +1035,10 @@ async def autocad_export(
     ]
     if area != "extents":
         pdf_only.append("area")
-    if ext != "pdf" and pdf_only:
+    if ext not in PLOTTERS and pdf_only:
         raise AutocadError(
-            f"{', '.join(sorted(pdf_only))} only applies to PDF exports, not '{ext}'. "
-            "Leave it out, or give a path ending in .pdf."
+            f"{', '.join(sorted(pdf_only))} only applies to PDF and DWF exports, not '{ext}'. "
+            "Leave it out, or give a path ending in .pdf or .dwf."
         )
 
     window = None
@@ -1047,9 +1060,9 @@ async def autocad_export(
         doc = get_doc()
         result: dict[str, Any] = {"exported": True, "path": target, "format": ext}
         with undo_mark(doc):
-            if ext == "pdf":
+            if ext in PLOTTERS:
                 result.update(
-                    _plot_pdf(doc, target, paper_size, area, window, view_name, scale)
+                    _plot_pdf(doc, target, paper_size, area, window, view_name, scale, PLOTTERS[ext])
                 )
             else:
                 # Export takes the name without extension plus a format code,
@@ -1058,8 +1071,8 @@ async def autocad_export(
                 sel_name = "MCP_EXPORT_ALL"
                 try:
                     doc.SelectionSets.Item(sel_name).Delete()
-                except BaseException:  # noqa: BLE001 - no leftover set
-                    pass
+                except BaseException as exc:  # noqa: BLE001 - no leftover set
+                    raise_if_busy(exc)
                 sel = doc.SelectionSets.Add(sel_name)
                 try:
                     doc.Export(stem, ext.upper(), sel)
@@ -1081,8 +1094,8 @@ async def autocad_export(
         )
         raise AutocadError(
             f"AutoCAD reported success but did not write '{target}'.{stale} "
-            "For PDF, check the file is not open in a PDF viewer (which locks "
-            f"it) and that the '{PDF_PLOTTER}' plotter is installed; for other "
+            "For PDF or DWF, check the file is not open in a viewer (which locks "
+            f"it) and that the '{PLOTTERS.get(ext, PDF_PLOTTER)}' plotter is installed; for other "
             "formats, confirm the folder is writable."
         )
     result["size_bytes"] = os.path.getsize(target)
@@ -1344,6 +1357,7 @@ async def autocad_get_variable(
         try:
             value = doc.GetVariable(var)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"'{name}' is not a system variable this drawing recognises. "
                 "Check the spelling against AutoCAD's SETVAR list."
@@ -1405,6 +1419,7 @@ async def autocad_set_variable(
         try:
             previous = doc.GetVariable(var)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"'{name}' is not a system variable this drawing recognises."
             ) from exc

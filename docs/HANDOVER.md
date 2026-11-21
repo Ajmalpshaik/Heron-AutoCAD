@@ -14,6 +14,36 @@ Follow-up to #48 on branch `claude/plugin-events-165`. Plug-in change: `begin` a
 `drawingSeq`. `autocad_sequence` checks between steps (`gate.front_changed_in_job`) and stops
 when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Versions not bumped.
 
+## Earlier - 2026-11-21 (the smaller ribbon gaps, part 2 of #119, D-110, D-111)
+
+Six new tools (**185** in all), split from #119 into #175, #176, #178, #179, #180:
+`autocad_associative_array` (path, grid, ring; plug-in), `autocad_tiled_viewports` (COM, View),
+`autocad_hyperlinks` / `autocad_list_hyperlinks` (COM), `autocad_geo_location` /
+`autocad_get_geo_location` (plug-in), and DWF in `autocad_export`. The .NET names come from
+Autodesk's reference DLLs and the viewport split numbers from Autodesk's interop DLL; what an
+array's base point and angles mean, and the form of a geo location's reference point, could not be
+read here, so the plug-in checks AutoCAD's result and refuses a wrong one (D-110, D-111).
+
+**Next (on this PC):** build and install the plug-in, restart Claude, then live rows AQ1-AQ13.
+AQ4 (ring angles in degrees? centre?), AQ6 (which split is "vertical"), AQ11 (`reference_form`:
+grid or lon_lat) are the answers the code could not get. Not built (#216): turned grids, DWFx,
+projected coordinate systems in feet.
+
+## Earlier - 2026-11-21 (multileader and table styles by the plug-in, #68, D-104 and D-105)
+
+Branch `claude/styles-plugin`. `autocad_create_styles` takes `multileader_styles` and
+`table_styles`; the plug-in makes them (operations `multileader_style`, `table_style`). The
+rules (words, defaults, refusals) are in `Heron.AutoCAD.Bridge/StylePlans.cs` with
+`StylePlansTests.cs`; the add-in's `DrawingStyles.cs` only copies the plan and reads it back. Server
+side: `tests/test_create_styles_plugin.py`. A plot style table cannot be made (D-105, 05 §34). No
+new tool, so the tool count is unchanged. The add-in compiled here against the 2021, 2025 and 2027
+reference assemblies; nothing ran in AutoCAD.
+
+**Next (on this PC):** pull, rebuild and reinstall the plug-in, restart AutoCAD and Claude, then
+rows AN1-AN12. AN1 and AN3 answer what the reference could not: whether the dialog shows the
+attachment and the landing switch as set, and whether the DIMBLK round trip for a new arrow leaves
+no style override. AN4 says whether one Ctrl+Z takes it all back.
+
 ## Earlier - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
 
 A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
@@ -47,6 +77,22 @@ window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-k
 
 **Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
 AM1 names the cause; close #41 only after AM1 and AM2 pass.
+
+## Earlier - 2026-11-21 (a busy AutoCAD is never a false failure, #36, D-100)
+
+Issue #36 built offline. Past the D-57 message filter's 3 s, a refused COM call ("Call was rejected
+by callee") now goes up as it is from every tool: `raise_if_busy(exc)` (`core/errors.py`) is the
+first line of about 250 `except` blocks in `acad/`, `tools/` and the core. It is narrower than
+`is_retryable`: pywin32's "no such member" `AttributeError` still means "not there". About 40 places carry
+on through a refusal on purpose (restores, Esc, redraws, the D-58 waits, reads after the plug-in made
+something); each is in `ALLOWED` in `tests/test_busy_sweep.py` with its reason. Four shared `_try`
+readers (drafting, solids, sheets, dimensions_edit) take `busy_ok=True` for their restore, Esc and
+redraw calls. The gate: a busy UNDO mark before an Ask-to-Keep job is refused in words, not "UNDO is
+off" later. Tests: `tests/test_busy_refusals.py` (fake COM), `tests/test_busy_sweep.py` (reads the
+source; a new `except` that can swallow a busy refusal fails it, with how to fix it).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AL1-AL7 with the Options
+dialog left open.
 
 ## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
 

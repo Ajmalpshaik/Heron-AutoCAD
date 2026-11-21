@@ -61,6 +61,9 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "read_file",
         "list_groups",
         "list_annotation_scales",
+        # Hyperlinks and the geographic location, read (D-111).
+        "list_hyperlinks",
+        "get_geo_location",
     ),
     Risk.VIEW: (
         "check_folder",
@@ -71,6 +74,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "open_drawing",
         "create_drawing",
         "set_3d_view",
+        # Tiled viewports on the Model tab: the screen, not the drawing (D-111).
+        "tiled_viewports",
     ),
     Risk.CHANGE: (
         "undo_last",
@@ -197,6 +202,10 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "add_region",
         "add_donut",
         "divide_curve",
+        # The smaller ribbon gaps, part 2 of #119 (D-110, D-111).
+        "associative_array",
+        "hyperlinks",
+        "geo_location",
     ),
     Risk.PUBLISH: (
         "export_attribute_sheet",

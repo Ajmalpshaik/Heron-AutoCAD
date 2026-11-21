@@ -49,7 +49,7 @@ from ..acad.entities import read_attributes
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import describe_layer
 from ..core.connection import get_doc, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.folders import heron_local
 from ..core.project_notes import project_of
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
@@ -440,7 +440,8 @@ def gather(doc: Any, wanted: set[str], max_entities: int) -> dict[str, Any]:
             folder = str(_try(lambda: doc.Path, "") or "")
             tree = _xref_nodes(doc.Blocks, folder, 1, {str(_try(lambda: doc.FullName, "")).lower()})
             data["xrefs_broken"] = sorted({n["name"] for n in _walk(tree) if n["status"] == "not found"}, key=str.lower)
-        except BaseException:  # noqa: BLE001 - that one check says NOT RUN
+        except BaseException as exc:  # noqa: BLE001 - that one check says NOT RUN
+            raise_if_busy(exc)
             data["xrefs_broken"] = None
     if "entities" in wanted or "blocks" in wanted:
         entities: list[dict[str, Any]] = []
@@ -464,13 +465,13 @@ def gather(doc: Any, wanted: set[str], max_entities: int) -> dict[str, Any]:
                     try:
                         lo, hi = entity.GetBoundingBox()
                         row["box"] = (lo[0], lo[1], hi[0], hi[1])
-                    except BaseException:  # noqa: BLE001
-                        pass
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                 if kind in ("AcDbText", "AcDbMText"):
                     try:
                         row["height"] = float(entity.Height)
-                    except BaseException:  # noqa: BLE001
-                        pass
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                 if kind == "AcDbBlockReference" and "blocks" in wanted:
                     name = str(_try(lambda e=entity: e.EffectiveName, "") or _try(lambda e=entity: e.Name, ""))
                     blocks.append({"handle": row["handle"], "name": name, "attributes": read_attributes(entity)})

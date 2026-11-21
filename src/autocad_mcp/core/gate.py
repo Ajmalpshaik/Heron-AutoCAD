@@ -44,7 +44,7 @@ from .bridge import (
 )
 from .connection import get_app, run
 from .drawing_events import Mark, Verdict, front_moved, judge
-from .errors import AutocadError
+from .errors import AutocadError, raise_if_busy
 from .risk import Risk, risk_of
 
 DISCARDED = "Discarded: nothing was kept."
@@ -265,7 +265,8 @@ async def _mark() -> bool:
             control = int(doc.GetVariable("UNDOCTL"))
             if int(doc.GetVariable("CMDACTIVE")) != 0:
                 return False
-        except Exception:  # noqa: BLE001 - cannot tell: treat as off, never guess
+        except Exception as exc:  # noqa: BLE001 - cannot tell: treat as off, never guess
+            raise_if_busy(exc)
             return False
         # Bit 1: undo on. Bit 2: only one step kept, so a mark means nothing.
         if not control & 1 or control & 2:
@@ -299,8 +300,8 @@ async def _still_there(handles: list[str]) -> list[str]:
             try:
                 doc.HandleToObject(handle)
                 left.append(handle)
-            except Exception:  # noqa: BLE001 - gone is what we hope for
-                pass
+            except Exception as exc:  # noqa: BLE001 - gone is what we hope for
+                raise_if_busy(exc)  # busy is not gone: never a false "Discard took"
         return left
 
     return await run(look)
@@ -515,7 +516,13 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                         result = answers.with_line(result, answers.line(facts))
                     return result
             elif job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES:
-                marked = await _mark()
+                try:
+                    marked = await _mark()
+                except AutocadError as exc:
+                    # AutoCAD stayed busy before the job began: nothing was sent (D-100).
+                    result = f"Error: {exc}"
+                    facts = answers.Facts(result, ok=False, outcome="failed", busy=True)
+                    return answers.with_line(result, answers.line(facts))
 
             writes_before = connection.write_count()
             busy_before = connection.busy_count()

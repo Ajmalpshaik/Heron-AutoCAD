@@ -23,7 +23,7 @@ from ..acad.selection import discard_selection_set, iter_selection, select_filte
 from ..acad.tables import apply_properties
 from ..acad.text import unformat
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, point_to_list
 from ._shared import LAYER_OPT, before_after, point
@@ -172,7 +172,8 @@ def _layout_of(doc: Any, entity: Any) -> str | None:
     try:
         owner = doc.ObjectIdToObject(entity.OwnerID)
         return str(owner.Layout.Name) if owner.IsLayout else None
-    except BaseException:  # noqa: BLE001
+    except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         return None
 
 
@@ -185,7 +186,8 @@ def _attribute_refs(doc: Any, block_name: str | None, layer: str | None) -> tupl
                 if not ref.HasAttributes:
                     continue
                 name = str(getattr(ref, "EffectiveName", None) or ref.Name)
-            except BaseException:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 continue
             if block_name and name.lower() != block_name.lower():
                 continue
@@ -376,7 +378,8 @@ async def autocad_count_text(
                         for a in e.GetAttributes():
                             if not tag or str(a.TagString).upper() == tag.upper():
                                 values.append(str(a.TextString))
-                    except BaseException:  # noqa: BLE001
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         continue
             finally:
                 discard_selection_set(doc)
@@ -506,7 +509,8 @@ async def autocad_find_replace_text(
                                 for c in range(int(e.Columns)):
                                     check(h, kind, f"cell {r},{c}", str(e.GetText(r, c)),
                                           lambda v, e=e, r=r, c=c: e.SetText(r, c, v))
-                    except BaseException:  # noqa: BLE001 - one odd object does not stop the search
+                    except BaseException as exc:  # noqa: BLE001 - one odd object does not stop the search
+                        raise_if_busy(exc)
                         continue
             finally:
                 discard_selection_set(doc)

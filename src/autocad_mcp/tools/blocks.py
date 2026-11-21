@@ -26,7 +26,7 @@ from ..acad.entities import resolve_handles
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import apply_properties
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, object_array
 from ._shared import LAYER_OPT, before_after, in_plugin, point
@@ -58,7 +58,8 @@ def escape_wildcards(name: str) -> str:
 def _text_height(doc: Any) -> float:
     try:
         return float(doc.GetVariable("TEXTSIZE"))
-    except Exception:  # noqa: BLE001 - the planner falls back to a plain height
+    except Exception as exc:  # noqa: BLE001 - the planner falls back to a plain height
+        raise_if_busy(exc)
         return 0.0
 
 
@@ -114,8 +115,8 @@ async def autocad_make_block(
         require_idle(doc)
         try:
             doc.Blocks.Item(name)
-        except Exception:  # noqa: BLE001 - not found is what we want
-            pass
+        except Exception as exc:  # noqa: BLE001 - not found is what we want
+            raise_if_busy(exc)
         else:
             raise AutocadError(
                 f"A block named '{name}' already exists in this drawing. Insert it with "
@@ -171,7 +172,8 @@ def _block_definition(doc: Any, name: str) -> tuple[Any, list[dict[str, Any]]]:
     """The block and its attribute definitions in order, or a refusal naming the problem."""
     try:
         block = doc.Blocks.Item(name.strip())
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         raise AutocadError(f"This drawing has no block called '{name}'. autocad_list_blocks lists them.") from None
     for flag, what in (("IsLayout", "a layout"), ("IsXRef", "an xref")):
         try:
@@ -179,8 +181,8 @@ def _block_definition(doc: Any, name: str) -> tuple[Any, list[dict[str, Any]]]:
                 raise AutocadError(f"'{name}' is {what}, not a block whose inserts carry attributes.")
         except AutocadError:
             raise
-        except Exception:  # noqa: BLE001 - an older AutoCAD without the property
-            pass
+        except Exception as exc:  # noqa: BLE001 - an older AutoCAD without the property
+            raise_if_busy(exc)
     definitions: list[dict[str, Any]] = []
     for i in range(int(block.Count)):
         item = block.Item(i)
@@ -188,7 +190,8 @@ def _block_definition(doc: Any, name: str) -> tuple[Any, list[dict[str, Any]]]:
             continue
         try:
             at = [float(v) for v in item.InsertionPoint]
-        except Exception:  # noqa: BLE001 - only used to stack new ones under it
+        except Exception as exc:  # noqa: BLE001 - only used to stack new ones under it
+            raise_if_busy(exc)
             at = []
         definitions.append(
             {
@@ -232,7 +235,8 @@ def _inserts(doc: Any, name: str) -> list[dict[str, Any]]:
                 found.append(_describe(ref, effective))
             except AutocadError:
                 raise
-            except Exception:  # noqa: BLE001 - not a block reference after all
+            except Exception as exc:  # noqa: BLE001 - not a block reference after all
+                raise_if_busy(exc)
                 continue
     finally:
         discard_selection_set(doc)
@@ -258,8 +262,8 @@ def _nested_inserts(doc: Any, name: str) -> tuple[list[dict[str, Any]], bool]:
         try:
             if holder.IsLayout or holder.IsXRef:
                 continue
-        except Exception:  # noqa: BLE001 - an older AutoCAD without the property
-            pass
+        except Exception as exc:  # noqa: BLE001 - an older AutoCAD without the property
+            raise_if_busy(exc)
         for j in range(int(holder.Count)):
             scanned += 1
             if scanned > MOST_NESTED_SCAN:
@@ -273,7 +277,8 @@ def _nested_inserts(doc: Any, name: str) -> tuple[list[dict[str, Any]], bool]:
                     found.append(_describe(item, effective, inside=holder_name))
             except AutocadError:
                 raise
-            except Exception:  # noqa: BLE001 - not an insert after all
+            except Exception as exc:  # noqa: BLE001 - not an insert after all
+                raise_if_busy(exc)
                 continue
     return found, False
 
@@ -284,7 +289,8 @@ def _locked(doc: Any, layers: set[str]) -> list[str]:
         try:
             if doc.Layers.Item(layer).Lock:
                 locked.append(layer)
-        except Exception:  # noqa: BLE001 - unreadable: let AutoCAD decide
+        except Exception as exc:  # noqa: BLE001 - unreadable: let AutoCAD decide
+            raise_if_busy(exc)
             continue
     return locked
 
@@ -366,7 +372,8 @@ async def autocad_sync_attributes(
         if add_attributes:
             try:
                 origin = [float(v) for v in definition_block.Origin]
-            except Exception:  # noqa: BLE001 - a block drawn at 0,0
+            except Exception as exc:  # noqa: BLE001 - a block drawn at 0,0
+                raise_if_busy(exc)
                 origin = [0.0, 0.0, 0.0]
             shifted = []
             for number, spec in enumerate(add_attributes, 1):

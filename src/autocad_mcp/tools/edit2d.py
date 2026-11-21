@@ -24,7 +24,7 @@ from ..acad import props
 from ..acad.curves import read_path
 from ..acad.entities import read_attributes, resolve_handle, short_type
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, object_array
 from ._shared import (
@@ -53,7 +53,8 @@ LOCKED_HINT = (
 def _name(entity: Any) -> str:
     try:
         return str(entity.ObjectName)
-    except BaseException:  # noqa: BLE001 - an object that cannot say what it is
+    except BaseException as exc:  # noqa: BLE001 - an object that cannot say what it is
+        raise_if_busy(exc)
         return ""
 
 
@@ -72,7 +73,8 @@ def _flat(entity: Any) -> float:
     try:
         n = entity.Normal
         tilted = abs(float(n[0])) > 1e-9 or abs(float(n[1])) > 1e-9 or float(n[2]) <= 0
-    except BaseException:  # noqa: BLE001 - no Normal: nothing to check
+    except BaseException as exc:  # noqa: BLE001 - no Normal: nothing to check
+        raise_if_busy(exc)
         tilted = False
     if tilted:
         raise AutocadError(
@@ -83,7 +85,8 @@ def _flat(entity: Any) -> float:
         return float(entity.Center[2])
     try:
         return float(entity.Elevation)
-    except BaseException:  # noqa: BLE001 - no elevation means 0
+    except BaseException as exc:  # noqa: BLE001 - no elevation means 0
+        raise_if_busy(exc)
         return 0.0
 
 
@@ -107,12 +110,14 @@ def _width(entity: Any) -> float:
     try:
         width = float(entity.ConstantWidth)
     except BaseException as exc:  # noqa: BLE001 - AutoCAD has no one width to give
+        raise_if_busy(exc)
         raise varying from exc
     count = len(_path(entity)["bulges"])
     for i in range(count):
         try:
             start, end = entity.GetWidth(i)
-        except BaseException:  # noqa: BLE001 - cannot read it: trust ConstantWidth
+        except BaseException as exc:  # noqa: BLE001 - cannot read it: trust ConstantWidth
+            raise_if_busy(exc)
             break
         if abs(float(start) - width) > 1e-9 or abs(float(end) - width) > 1e-9:
             raise varying
@@ -133,7 +138,8 @@ def _same_owner(entities: Sequence[Any]) -> None:
 def _try(getter: Any, default: Any = None) -> Any:
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - this object has no such property
+    except BaseException as exc:  # noqa: BLE001 - this object has no such property
+        raise_if_busy(exc)
         return default
 
 
@@ -142,7 +148,8 @@ def _unlocked(doc: Any, entity: Any) -> None:
     try:
         layer = str(entity.Layer)
         locked = bool(doc.Layers.Item(layer).Lock)
-    except BaseException:  # noqa: BLE001 - cannot tell: AutoCAD will refuse the write itself
+    except BaseException as exc:  # noqa: BLE001 - cannot tell: AutoCAD will refuse the write itself
+        raise_if_busy(exc)
         return
     if locked:
         raise AutocadError(
@@ -164,16 +171,17 @@ def _copy_style(source: Any, target: Any) -> None:
     """Give a new piece the look of the object it came from."""
     try:
         target.TrueColor = source.TrueColor
-    except BaseException:  # noqa: BLE001 - older object model: the colour number
+    except BaseException as exc:  # noqa: BLE001 - older object model: the colour number
+        raise_if_busy(exc)
         try:
             target.Color = source.Color
-        except BaseException:  # noqa: BLE001
-            pass
+        except BaseException as busy_exc:  # noqa: BLE001
+            raise_if_busy(busy_exc)
     for attr in STYLE:
         try:
             setattr(target, attr, getattr(source, attr))
-        except BaseException:  # noqa: BLE001 - not on this kind of object
-            pass
+        except BaseException as exc:  # noqa: BLE001 - not on this kind of object
+            raise_if_busy(exc)
 
 
 def _write_polyline(entity: Any, path: geo.Path, width: float) -> None:
@@ -396,6 +404,7 @@ async def autocad_trim_extend(
                     raise AutocadError("That would cut all of it away. Delete it instead.")
                 plans.append((own, entity, pieces, z, width, report))
             except BaseException as exc:  # noqa: BLE001 - report, carry on with the rest
+                raise_if_busy(exc)
                 failed.append(_failure(h, exc))
 
         done: list[dict[str, Any]] = []
@@ -405,6 +414,7 @@ async def autocad_trim_extend(
                     try:
                         done.append({**_write_pieces(doc, entity, pieces, z, width), **report})
                     except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         failed.append(_failure(own, exc))
         result = {"operation": operation, "done": len(done), "objects": done}
         if failed and not done:
@@ -790,8 +800,8 @@ async def autocad_join_curves(
                 _copy_style(style, keeper)
                 try:
                     keeper.Elevation = z
-                except BaseException:  # noqa: BLE001 - stays at 0
-                    pass
+                except BaseException as exc:  # noqa: BLE001 - stays at 0
+                    raise_if_busy(exc)
             elif keeper is not style:
                 _copy_style(style, keeper)
             _write(keeper, joined["path"], z, width)
@@ -1038,6 +1048,7 @@ async def autocad_stretch(
                             "Heron does not reshape it",
                         })
             except BaseException as exc:  # noqa: BLE001 - report, carry on
+                raise_if_busy(exc)
                 skipped.append(_failure(h, exc))
 
         reshaped: list[dict[str, Any]] = []
@@ -1057,6 +1068,7 @@ async def autocad_stretch(
                             _write(entity, new, z, 0.0)
                             reshaped.append({"handle": str(entity.Handle), "vertices_moved": moved})
                     except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         failed.append(_failure(str(entity.Handle), exc))
         result: dict[str, Any] = {
             "reshaped": reshaped,
@@ -1120,6 +1132,7 @@ async def autocad_explode(
                 entity = resolve_handle(doc, h)
                 _unlocked(doc, entity)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 skipped.append(_failure(h, exc))
                 continue
             name = _name(entity)
@@ -1147,6 +1160,7 @@ async def autocad_explode(
                     try:
                         pieces = list(entity.Explode())
                     except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         failed.append(_failure(handle, exc))
                         continue
                     row: dict[str, Any] = {"handle": handle, "type": kind,
@@ -1158,6 +1172,7 @@ async def autocad_explode(
                         try:
                             entity.Delete()
                         except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                             row["warning"] = (
                                 f"The original could not be erased (it may already be gone): {com_message(exc)}. "
                                 "Look before exploding again."
@@ -1172,7 +1187,8 @@ async def autocad_explode(
 def _still_there(doc: Any, handle: str) -> bool:
     try:
         found = doc.HandleToObject(handle)
-    except BaseException:  # noqa: BLE001 - gone
+    except BaseException as exc:  # noqa: BLE001 - gone
+        raise_if_busy(exc)
         return False
     erased = _try(lambda: bool(found.Erased), False)
     return not erased
@@ -1187,7 +1203,8 @@ def _sortents(owner: Any) -> Any:
     xdict = owner.GetExtensionDictionary()
     try:
         return xdict.GetObject("ACAD_SORTENTS")
-    except BaseException:  # noqa: BLE001 - not made yet
+    except BaseException as exc:  # noqa: BLE001 - not made yet
+        raise_if_busy(exc)
         return xdict.AddObject("ACAD_SORTENTS", "AcDbSortentsTable")
 
 
@@ -1270,8 +1287,8 @@ def _color(entity: Any) -> Any:
         tc = entity.TrueColor
         if int(tc.ColorMethod) == AC_COLOR_BY_RGB:
             return f"RGB {int(tc.Red)},{int(tc.Green)},{int(tc.Blue)}"
-    except BaseException:  # noqa: BLE001 - no true colour: the number
-        pass
+    except BaseException as exc:  # noqa: BLE001 - no true colour: the number
+        raise_if_busy(exc)
     return int(entity.Color)
 
 
@@ -1345,7 +1362,8 @@ async def autocad_match_properties(
                 continue
             try:
                 values[prop] = READERS[prop](src)
-            except BaseException:  # noqa: BLE001 - this source has no such property
+            except BaseException as exc:  # noqa: BLE001 - this source has no such property
+                raise_if_busy(exc)
                 not_on_source.append(prop)
         if not values:
             raise AutocadError(f"The source, a {src_kind}, has none of: {', '.join(wanted)}.")
@@ -1358,6 +1376,7 @@ async def autocad_match_properties(
             try:
                 target = resolve_handle(doc, h)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 failed.append(_failure(h, exc))
                 continue
             kind = short_type(target)
@@ -1368,7 +1387,8 @@ async def autocad_match_properties(
                     continue
                 try:
                     old = READERS[prop](target)
-                except BaseException:  # noqa: BLE001
+                except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     skipped.append({"handle": h, "property": prop})
                     continue
                 if not same_value(old, value):
@@ -1399,6 +1419,7 @@ async def autocad_match_properties(
                                          "to": _shown(prop, values[prop])})
                             wrote = True
                         except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                             failed.append({"handle": h, "property": prop, "reason": com_message(exc)})
                     if wrote:
                         matched.append(h)

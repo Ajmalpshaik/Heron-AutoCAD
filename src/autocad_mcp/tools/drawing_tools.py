@@ -16,7 +16,7 @@ from pydantic import Field
 
 from ..acad.entities import resolve_handles
 from ..core.connection import get_app, get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import object_array
 
@@ -73,8 +73,8 @@ def _names(collection: Any, kind: str) -> dict[str, Any]:
             try:
                 if item.IsLayout or item.IsXRef:
                     continue
-            except BaseException:  # noqa: BLE001
-                pass
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
         out[str(item.Name)] = item
     return out
 
@@ -119,6 +119,7 @@ async def autocad_import_from_drawing(
                 source = app.GetInterfaceObject(dbx_progid(str(app.Version)))
                 source.Open(source_path)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(f"Could not read {source_path} ({com_message(exc)}). "
                                    "Open it in AutoCAD once and try again.") from exc
         attr = _COLLECTION[kind]
@@ -165,7 +166,8 @@ async def autocad_list_layouts() -> str:
                 try:
                     value = getattr(lay, attr)
                     row[key] = int(value.Count) if key == "objects" else str(value)
-                except BaseException:  # noqa: BLE001
+                except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     row[key] = None
             rows.append(row)
         return {"count": len(rows), "active": str(doc.ActiveLayout.Name), "layouts": rows}
