@@ -180,7 +180,7 @@ public class RunTests
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Read, level);
         }
-        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material", "switch_lights", "set_sun", "add_camera_view", "sync_attributes", "excel_table", "update_table_links" })
+        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material", "switch_lights", "set_sun", "add_camera_view", "sync_attributes", "excel_table", "update_table_links", "multileader_style", "table_style" })
         {
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Change, level);

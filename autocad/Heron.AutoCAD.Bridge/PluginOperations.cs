@@ -41,6 +41,9 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // Multileader and table styles: COM can make neither (D-104).
+            ["multileader_style"] = Risk.Change,
+            ["table_style"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

@@ -122,6 +122,8 @@ namespace Heron.AutoCAD.Addin
                 case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
                 case "excel_table": return ExcelTables.Make(db, tr, args);
                 case "update_table_links": return ExcelTables.Update(db, tr, args);
+                case "multileader_style": return DrawingStyles.Multileader(db, tr, args);
+                case "table_style": return DrawingStyles.Table(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }
