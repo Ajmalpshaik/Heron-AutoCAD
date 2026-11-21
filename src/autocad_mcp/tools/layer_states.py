@@ -24,7 +24,7 @@ from pydantic import Field
 from ..acad.entities import resolve_handles
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from . import _shared
 from ._shared import before_after, in_plugin
@@ -197,7 +197,8 @@ def merge_counts(moving: Sequence[dict[str, Any]], sources: Sequence[str]) -> di
 def _try(getter, default=None):
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 
@@ -396,6 +397,7 @@ async def autocad_isolate_layers(
                         setattr(doc.Layers.Item(change["layer"]), COM_PROPERTY[change["property"]], change["to"])
                         rows.append(change)
                     except BaseException as exc:  # noqa: BLE001 - one layer, not the isolate
+                        raise_if_busy(exc)
                         failed.append({"layer": change["layer"], "reason": com_message(exc)})
 
             # Kept layers on and thawed first: AutoCAD will not make a frozen layer current.
@@ -428,7 +430,8 @@ async def autocad_isolate_layers(
                 return False  # AutoCAD will not make a frozen layer current
             doc.ActiveLayer = target
             return True
-        except BaseException:  # noqa: BLE001 - the layer has gone since: keep the current one
+        except BaseException as exc:  # noqa: BLE001 - the layer has gone since: keep the current one
+            raise_if_busy(exc)
             return False
 
     def unisolate() -> dict[str, Any]:
@@ -592,6 +595,7 @@ async def autocad_merge_layers(
                     objects[item["handle"]].Layer = target
                     rows.append({"handle": item["handle"], "property": "layer", "from": item["layer"], "to": target})
                 except BaseException as exc:  # noqa: BLE001 - one object, not the merge
+                    raise_if_busy(exc)
                     failed.append({"handle": item["handle"], "reason": com_message(exc)})
                     left[item["layer"].casefold()] += 1
             for source in sources:
@@ -604,6 +608,7 @@ async def autocad_merge_layers(
                         rows.append({"layer": source, "property": "layer", "from": "there", "to": "merged and removed"})
                         continue
                     except BaseException as exc:  # noqa: BLE001 - still referenced somewhere
+                        raise_if_busy(exc)
                         kept.append({"layer": source, "why": f"AutoCAD would not remove it ({com_message(exc)}); it is still used somewhere, for example by a viewport or a layer filter"})
                 if source in relock:
                     _try(lambda s=source: setattr(doc.Layers.Item(s), "Lock", True))

@@ -16,7 +16,7 @@ from ..acad.entities import describe, resolve_handle, short_type
 from ..acad.tables import ensure_layer, ensure_linetype
 from ..acad.units import rad
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ._shared import HANDLES_OPT, before_after, point, same_value
 
@@ -37,6 +37,7 @@ def _apply_each(
         except AutocadError as exc:
             failed.append({"handle": handle, "reason": str(exc)})
         except BaseException as exc:  # noqa: BLE001 - report, do not abort
+            raise_if_busy(exc)
             failed.append(
                 {
                     "handle": handle,
@@ -207,6 +208,7 @@ async def autocad_copy_entities(
                         )
                         new_handles.append(str(duplicate.Handle))
                     except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         failed.append({"handle": handle, "reason": com_message(exc)})
                         break
 
@@ -393,6 +395,7 @@ async def autocad_mirror_entities(
                     if delete_original:
                         source.Delete()
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     failed.append({"handle": handle, "reason": com_message(exc)})
 
         result: dict[str, Any] = {
@@ -469,6 +472,7 @@ async def autocad_offset_entities(
                         for result in source.Offset(d):
                             new_handles.append(str(result.Handle))
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     failed.append(
                         {
                             "handle": handle,
@@ -637,6 +641,7 @@ async def autocad_array_entities(
                     for item in results:
                         new_handles.append(str(item.Handle))
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     failed.append({"handle": handle, "reason": com_message(exc)})
 
         per_source = (rows * columns) if pattern == "rectangular" else count
@@ -871,7 +876,8 @@ async def autocad_modify_entity(
                     continue
                 try:
                     old = read(entity, kind, prop)
-                except BaseException:  # noqa: BLE001 - wrong type for this prop
+                except BaseException as exc:  # noqa: BLE001 - wrong type for this prop
+                    raise_if_busy(exc)
                     skipped.append({"handle": handle, "type": kind, "property": prop})
                     continue
                 if not same_value(old, str(value).strip() if prop in ("layer", "linetype") else value):
@@ -895,8 +901,8 @@ async def autocad_modify_entity(
                             if bool(entity_layer.Lock):
                                 entity_layer.Lock = False
                                 unlocked.append(entity_layer)
-                        except BaseException:  # noqa: BLE001 - best effort
-                            pass
+                        except BaseException as exc:  # noqa: BLE001 - best effort
+                            raise_if_busy(exc)
 
                     changed_any = False
                     written: list[dict[str, Any]] = []
@@ -907,7 +913,8 @@ async def autocad_modify_entity(
                             applied.add(prop)
                             changed_any = True
                             written.append({"handle": handle, "property": prop, "from": old, "to": value})
-                        except BaseException:  # noqa: BLE001 - AutoCAD would not take it
+                        except BaseException as exc:  # noqa: BLE001 - AutoCAD would not take it
+                            raise_if_busy(exc)
                             skipped.append({"handle": handle, "type": short_type(entity), "property": prop})
                     order = [prop for prop, _, _ in changes]
                     rows.extend(sorted(written, key=lambda row: order.index(row["property"])))
@@ -917,6 +924,7 @@ async def autocad_modify_entity(
                             entity.Update()
                             succeeded.append(handle)
                         except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                             failed.append({"handle": handle, "reason": com_message(exc)})
 
                 for entity_layer in unlocked:

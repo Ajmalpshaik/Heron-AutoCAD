@@ -192,6 +192,7 @@ class Bridge:
 
     def __init__(self, pid: int) -> None:
         self.pid = pid
+        self.drawing_seq_at_begin: int | None = None
 
     def find(self) -> dict | None:
         """The address file, or None when this AutoCAD is not connected.
@@ -259,6 +260,9 @@ class Bridge:
         )
         if not reply.get("ok"):
             raise BridgeRefused(_ensure_sentence(str(reply.get("message", ""))))
+        seq = reply.get("drawingSeq")
+        # Where the plug-in's drawing log stood at begin (#165); None from an older plug-in.
+        self.drawing_seq_at_begin = seq if isinstance(seq, int) and not isinstance(seq, bool) else None
         return job, reply.get("askToKeep") is True
 
     def end(self, job: str, ok: bool, outcome: str, summary: str, ms: int) -> None:

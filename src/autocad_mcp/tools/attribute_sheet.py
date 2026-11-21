@@ -20,7 +20,7 @@ from pydantic import Field
 
 from ..acad import attribute_sheet, xlsx
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import before_after
 from .text_tools import _attribute_refs
@@ -32,7 +32,8 @@ MOST_LISTED = 200
 def _drawing_path(doc: Any) -> str:
     try:
         return str(doc.FullName or "")
-    except BaseException:  # noqa: BLE001 - an unsaved drawing may not say
+    except BaseException as exc:  # noqa: BLE001 - an unsaved drawing may not say
+        raise_if_busy(exc)
         return ""
 
 
@@ -215,6 +216,7 @@ async def autocad_apply_attribute_sheet(
                         ref.Update()
                         written.append(change)
                     except BaseException as exc:  # noqa: BLE001 - one cell, not the sheet
+                        raise_if_busy(exc)
                         failed.append({"handle": change["handle"], "tag": change["tag"], "reason": str(exc) or type(exc).__name__})
         return {"planned": planned, "written": written, "failed": failed}
 

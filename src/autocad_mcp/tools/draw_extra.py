@@ -25,7 +25,7 @@ from ..acad.curves import read_path
 from ..acad.entities import resolve_handle, resolve_handles, short_type
 from ..acad.tables import apply_properties, validate_name
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, object_array
 from ._shared import (
@@ -173,7 +173,8 @@ def marks_along(
 def _try(getter: Any, default: Any = None) -> Any:
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - this object has no such property
+    except BaseException as exc:  # noqa: BLE001 - this object has no such property
+        raise_if_busy(exc)
         return default
 
 
@@ -219,7 +220,8 @@ def _unlocked(doc: Any, entity: Any) -> None:
     try:
         layer = str(entity.Layer)
         locked = bool(doc.Layers.Item(layer).Lock)
-    except BaseException:  # noqa: BLE001 - cannot tell: AutoCAD will refuse the erase itself
+    except BaseException as exc:  # noqa: BLE001 - cannot tell: AutoCAD will refuse the erase itself
+        raise_if_busy(exc)
         return
     if locked:
         raise AutocadError(
@@ -232,7 +234,8 @@ def _verified(doc: Any, handles: Sequence[str]) -> bool:
     for h in handles:
         try:
             doc.HandleToObject(h)
-        except BaseException:  # noqa: BLE001 - not found is the finding
+        except BaseException as exc:  # noqa: BLE001 - not found is the finding
+            raise_if_busy(exc)
             return False
     return True
 
@@ -356,6 +359,7 @@ async def autocad_add_region(
             try:
                 made = list(target.AddRegion(object_array(outlines)) or [])
             except BaseException as exc:  # noqa: BLE001 - AutoCAD's reason, said plainly
+                raise_if_busy(exc)
                 raise AutocadError(
                     "AutoCAD made no region from those. Each loop must close exactly (ends meeting), "
                     "lie flat, and not cross itself; open polylines need closing first "
@@ -518,7 +522,8 @@ async def autocad_divide_curve(
         if name:
             try:
                 doc.Blocks.Item(name)
-            except BaseException:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(f"No block named '{name}' in this drawing; see autocad_list_blocks.") from None
         run_entity = resolve_handle(doc, path_handle)
         path = read_path(run_entity)

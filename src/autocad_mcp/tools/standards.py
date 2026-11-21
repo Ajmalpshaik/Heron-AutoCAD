@@ -31,7 +31,7 @@ from ..acad.entities import read_attributes
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import describe_layer
 from ..core.connection import get_app, get_doc, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from ..core.variants import point_to_list
 
@@ -151,7 +151,8 @@ def _load_rules(rules: dict | None, rules_path: str | None) -> dict:
 def _get(obj: Any, attr: str, default: Any = None) -> Any:
     try:
         return getattr(obj, attr)
-    except BaseException:  # noqa: BLE001 - a property this AutoCAD does not give
+    except BaseException as exc:  # noqa: BLE001 - a property this AutoCAD does not give
+        raise_if_busy(exc)
         return default
 
 
@@ -164,6 +165,7 @@ def _items(collection: Any, what: str | None = None) -> list[Any]:
     try:
         return [collection.Item(i) for i in range(collection.Count)]
     except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         if what is None:
             return []
         raise AutocadError(f"AutoCAD could not read the {what} ({com_message(exc)}). Nothing was checked.") from exc
@@ -180,8 +182,8 @@ def com_tables(doc: Any, layers: list[dict] | None = None) -> dict[str, list[dic
         family = ""
         try:
             family = str(style.GetFont()[0] or "")
-        except BaseException:  # noqa: BLE001 - a shape font has no typeface
-            pass
+        except BaseException as exc:  # noqa: BLE001 - a shape font has no typeface
+            raise_if_busy(exc)
         oblique = _get(style, "ObliqueAngle", 0.0)
         styles.append({
             "name": str(_get(style, "Name", "") or ""),
@@ -245,6 +247,7 @@ def _reference_from_autocad(path: str) -> dict[str, Any]:
         source = app.GetInterfaceObject(dbx_progid(str(app.Version)))
         source.Open(path)
     except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         raise AutocadError(
             f"AutoCAD could not read the reference {path} ({com_message(exc)}). Open it in AutoCAD once, or "
             "save it as DXF and give that. Nothing was checked."
@@ -358,8 +361,8 @@ async def autocad_check_standards(
                         try:
                             lo, hi = entity.GetBoundingBox()
                             row["box"] = (lo[0], lo[1], hi[0], hi[1])
-                        except BaseException:  # noqa: BLE001
-                            pass
+                        except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                     entities.append(row)
             finally:
                 discard_selection_set(doc)
@@ -441,7 +444,8 @@ async def autocad_extract_attributes(
                     if not ref.HasAttributes:
                         continue
                     name = str(getattr(ref, "EffectiveName", None) or ref.Name)
-                except BaseException:  # noqa: BLE001 - not a block reference after all
+                except BaseException as exc:  # noqa: BLE001 - not a block reference after all
+                    raise_if_busy(exc)
                     continue
                 if block_name and name.lower() != block_name.lower():
                     continue

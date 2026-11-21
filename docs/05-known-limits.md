@@ -286,6 +286,14 @@ yet is also re-run for up to 10 s. What is left:
 
 All three are NOT RUN live (NEEDS-CHECKING group Q).
 
+**Since [D-100](DECISIONS.md) (#36)** a refusal that outlasts the filter's 3 s goes up as it is from
+every tool, so it ends in "AutoCAD stayed busy" or "Outcome unknown", never in a made-up failure
+("Could not ...") or a wrong value (a layer read as off, the world UCS used instead of yours, "UNDO
+is off" after Discard). A few places still carry on through a refusal on purpose: putting your
+variables back, pressing Esc on the way to the real error, a redraw after the work, and the run-LISP
+waits. Each is named with its reason in `tests/test_busy_sweep.py`. NOT RUN live (NEEDS-CHECKING
+group AL).
+
 **Which command AutoCAD is in ([D-77](DECISIONS.md), #47).** A busy answer's first line now names
 it ("it is still in the HATCH command"), from the plug-in's command tracker, with what the plug-in
 counted so far. It needs the plug-in built from that change; an older one says no command. The
@@ -449,9 +457,11 @@ From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
   drawing is followed under its new name.
 - **A Save As during a batch job** stops its input (the name in front is not the job's), though
   it is the same drawing: run the batch again after `autocad_status`.
-- **Only the plug-in's quiet input stops at a switch mid-job.** A long job (a sequence) whose next
-  step works over COM (a layer a batch makes, a COM draw) still goes to whichever drawing is in
-  front. Do not switch drawings while the banner shows a job ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)).
+- **A switch mid-job stops the job at its next check, not at once.** The plug-in's quiet input
+  stops straight away, and `autocad_sequence` stops before its next step
+  ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)). Inside one step, COM work
+  (a layer a batch makes first, a COM draw) still goes to whichever drawing is in front. Do not
+  switch drawings while the banner shows a job.
 - **200 events are kept.** Each change the guard lets through moves its mark up, so only a chat
   idle through more than 200 opens, switches, saves and closes misses some; what is left is still
   judged, a Save As is then not followed, and the names are compared as before #48.
@@ -504,3 +514,26 @@ From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
   regen shrinks them after an erase is not proven (AM4); a ZOOM Extents does.
 - Close-ups need a plan view in the world UCS (or a window you give): in a 3D view the plan box does
   not match the picture, so they are skipped with the reason.
+
+## 34. Multileader and table styles, and plot style tables
+
+From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NEEDS-CHECKING group AN).
+- **A plot style table (.ctb / .stb) cannot be made by Heron.** It is a file in AutoCAD's Plot
+  Styles folder, and neither COM nor AutoCAD's .NET API can write one (checked in the 2021 and 2027
+  reference assemblies). Make or copy it in AutoCAD's Plot Style Manager, then set it on a sheet with
+  `autocad_page_setup(plot_style_table=...)`.
+- **A multileader style is text only, with straight leaders.** No block content (a tag bubble), no
+  spline leaders, no frame, no colours or lineweights set by Heron (they stay what AutoCAD gives
+  a new style), no angle constraints. Bring a style like that in with `autocad_import_from_drawing`.
+- **Annotative styles are not made here.** A new style carries its scale ('scale': '1:50'); an
+  existing annotative style keeps following the annotation scale, and a `scale` asked for it is
+  noted, not set.
+- **`replace=true` sets the whole style again**, defaults included: an option left out goes back to
+  Heron's default (TLD attachment, closed filled arrow, scale 1), not to what the style had.
+- **A table style sets the whole row type**: one text style for every row, and the same margins
+  for title, header and data. Grid lines, colours, cell formats (number, date) and a table's
+  direction stay AutoCAD's own. Text is always in the vertical middle of the cell.
+- **The arrow block** of a non-default arrow is made by naming it in DIMBLK, which is put back
+  straight after; that block stays even when a later step of the same style fails.
+- **Margins default to a third of the text height**, AutoCAD's own Standard proportion. A margin
+  of 0 is allowed; text then touches the grid lines.

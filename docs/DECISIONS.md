@@ -130,6 +130,40 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-118 - The live-check runner measures the later groups, never moves a padlock, never answers a box
+
+**Decided:** 2026-11-21. **Status:** in force. Adds to the runner's own design (`tools/live_check.py`,
+groups D, E and F).
+`tools/live_check.py` now also measures the rows of groups M to Z, AA to AP and RV that a script can
+judge: a count, a size, a refusal's words, a value read back with another tool. One file per area
+(`live_check_edits.py` AA, `live_check_layers.py` AB, `live_check_blocks.py` AC and Y,
+`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL,
+`live_check_heron.py` M to Z, AG, AJ and RV), sharing `live_common.py`.
+- **The padlocks come first, and are only read.** Since D-59 every AutoCAD starts with them off. The
+  runner reads them from the plug-in before anything else: Changes off stops it with "Turn Changes on
+  in Settings", Ask to Keep on stops it too (every change would wait for a click the runner cannot
+  give). Nothing is run and nothing is written. It never types HERONCHANGES or anything like it.
+- **A row may need Admin or Publish on, or off** (`needs` on the row). When the padlock is not so, the
+  row is said as "not run this time: it needs ..." and its result in the register is left alone.
+- **A NOT RUN reason never wipes a result written by hand.** It is written only over a row that says
+  NOT RUN already; a PASS, a FAIL or NO MACHINE stays (`live_results.kept_by_hand`). Before this, the
+  by-eye reasons of D12 and D20 would have overwritten their hand-recorded results.
+- **A row that erases is not scripted.** Erasing an object (or a layer: the plug-in counts symbol table
+  records) brings up Heron's "keep them erased?" box (D-50), which the runner cannot answer. Such rows,
+  and rows needing an eye, a click in a Heron window, a restart, the registry, a second AutoCAD or
+  HERONSTOP, are NOT RUN with the reason `--list` prints. A few older D-F rows erase too (a boolean, a
+  slice): the run then waits for that box, and the runner says so before it starts.
+- **Its own drawings only.** Rows that need a saved drawing save the scratch drawing, or another new
+  one, into the runner's own folder in %TEMP%; everything it opened is closed without saving and the
+  folder removed at the end. A check list, saved command or project note a row makes has an `lc-`
+  name and is deleted by the same row. "By hand" steps (a line the modeller draws, a true colour set
+  in Properties) are done straight over COM, outside Heron, and named as such.
+- **Offline, every check is judged both ways.** `tests/live_fakes.py` plays recorded answers into each
+  check, binding every call's arguments against the real tool, and failing on any call not recorded;
+  each new row has a good recording that must PASS and a bad one that must FAIL. That proves the
+  judging and the arguments, not AutoCAD.
+- **Found on the way:** V1, V4 and V7 send OPEN, CLOSE and PURGE through `autocad_send_command`, which
+  refuses all three before sending, so their box can never open ([#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213)).
 ## D-116 - What the review of the 2026-11-21 merges changed, and what it left to issues
 
 **Decided:** 2026-11-21, review of PRs #99 onward (PR #186). **Status:** in force; adds to D-29, D-66,
@@ -176,6 +210,71 @@ older plug-in, or one whose read fails, would lose a tool that worked). Also fro
 holding only rays or construction lines now says it has no extents, on both paths, instead of
 answering Infinity.
 
+## D-111 - Tiled viewports and hyperlinks are COM; DWF goes the PDF way; the geographic location is the plug-in's and shares the sun's place
+
+**Decided:** 2026-11-21, part 2 of issue #119, split into #176, #178, #179 and #180. **Status:** in
+force.
+- **Tiled model viewports** (`autocad_tiled_viewports`, #176, a **View** tool: the screen, not the
+  drawing, so no Changes padlock). COM: `Viewports.Add("Heron")`, the view on screen copied onto it,
+  `Split(n)`, then `ActiveViewport =` it (a split shows only once its viewport is made active).
+  The named configuration "Heron" is kept (VPORTS > Named) and replaced the next time; it is not
+  deleted after use, as deleting a configuration just made active is untried. The
+  `AcViewportSplitType` numbers (two horizontal 0 ... four 8) were read from Autodesk's own interop
+  assembly (`Autodesk.AutoCAD.Interop.Common`, AutoCAD 2025), not guessed. The answer reads the
+  `*Active` tiles' corners back and `acad/tiles.py` says in words what AutoCAD built; a split that
+  came out another way is a warning. Model tab only: on a layout it is refused and points at
+  `autocad_add_viewport` (paper space belongs to the sheets tools). First named
+  `autocad_model_viewports`: the word "model" then won searches like "show me the model from the
+  south west", so it is `autocad_tiled_viewports`.
+- **Hyperlinks** (`autocad_hyperlinks` Change, `autocad_list_hyperlinks` Read, #178). COM: each
+  object's `Hyperlinks` (`Add(url, description, location)`, `Item`, `Delete`; checked in the same
+  interop assembly). One link per object, as HYPERLINK keeps: `set` replaces. The whole-drawing
+  listing selects by the hyperlink's extended data (application `PE_URL`, filter code 1001), so it
+  is one selection, not one COM call per object; objects inside block definitions are not reached.
+- **DWF export** (#179): `autocad_export` with a `.dwf` path, the PDF route (D-04) with
+  `DWF6 ePlot.pc3`: plotter set on the layout, `PlotToFile` with the path alone, the page setup put
+  back. Still a **Publish** job. Extended rather than a new tool, so "export" stays one tool and the
+  plot code one copy. DWFx (another plotter, name not checked) is left out.
+- **Geographic location** (`autocad_geo_location` Change, `autocad_get_geo_location` Read, #180):
+  .NET `GeoLocationData` in the plug-in (`set_geo_location`, `geo_location`), checked by reflection
+  on the reference DLLs for 2021-2027. Default coordinate system WORLD-MERCATOR (grid, metres), as
+  Autodesk's ObjectARX sample uses; `HorizontalUnits` = INSUNITS (refused when 0); scale worked out
+  at the reference point, so a metre drawn is a metre on the ground there. Whether the reference
+  point wants grid metres or longitude / latitude is not documented anywhere this session could
+  read, so the plug-in writes grid first, then lon / lat, and keeps the first that **AutoCAD's own
+  `TransformToLonLatAlt`** reads back right: the drawing point at the place asked (1e-6 degrees),
+  and a point 100 m along the north asked reading 100 m north on the ground (within 10 %, which also
+  catches the units). Neither: refused, nothing changed. The answer names the form that worked
+  (`reference_form`), for the live check to settle. **One place:** the sun's LATITUDE / LONGITUDE
+  (`autocad_set_sun`, D-86) is the place. Without a latitude and longitude the tool takes it, and
+  refuses AutoCAD's San Francisco default; with them, the sun's place is moved to the site in the
+  same undo step. The sun's date, time and time zone are never touched. North is degrees clockwise
+  from up the screen, as a compass reads.
+- **Not proved live.** Rows AQ6-AQ14 in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
+
+## D-110 - Associative and path arrays are a plug-in operation, checked against Heron's own plan before they are kept
+
+**Decided:** 2026-11-21, part 2 of issue #119, split into #175. **Status:** in force.
+`autocad_associative_array` (Change), beside `autocad_array_entities`, which keeps making loose COM
+copies. COM has no associative array, so the plug-in's `associative_array` does
+`AssocArray.CreateArray(sources, VertexRef, parameters)` with `AssocArrayRectangularParameters`,
+`AssocArrayPolarParameters` or `AssocArrayPathParameters` (path as an `EdgeRef` of the curve,
+Divide for a count, Measure for a spacing), then `AssocManager.EvaluateTopLevelNetwork` so the items
+have their places. Every name and signature was read from Autodesk's reference DLLs (AutoCAD.NET
+24, 25, 26), not from memory. What the DLLs do **not** say is what the base point means for a ring
+and whether the array's angles are degrees; the choices are: base point = the objects' own point
+for a grid and a path, the centre for a ring (radius and start angle from the objects' point);
+angles in degrees (ObjectARX's own defaults are 15 between items and 90 between axes). So the
+plug-in never trusts them blind: `Bridge/ArrayPlan.cs` works out where each item's base point
+should go, and after AutoCAD builds the array its extents must lie inside, and reach across, the
+items' boxes (exactly for items that do not turn, within the objects' reach for items that turn).
+Anything else aborts the transaction: "AutoCAD built the array somewhere other than asked ...
+Nothing was changed." Counts: at most 10,000 items; dividing an open path puts the first and last
+items at its ends; measuring fits as many as the path holds, or refuses a count that does not fit
+and says how many do. Default base point: one block's insertion point, else the path's start
+(path) or the objects' middle. Grids run along the world X and Y (no turned grid yet). ARRAY takes
+the originals into the array; the answer lists any left loose. Live rows AQ1-AQ5, NOT RUN.
+
 ## D-108 - Construction lines, regions, donuts, divide and measure: COM where it has a call, Heron's maths where not
 
 **Decided:** 2026-11-21, part 1 of issue #119 (the smaller ribbon gaps), split into #173, #174,
@@ -212,6 +311,61 @@ answering Infinity.
   knowledge. Live rows AP1-AP11 in [NEEDS-CHECKING](NEEDS-CHECKING.md) compare each with AutoCAD's
   own command; all NOT RUN.
 
+## D-105 - A plot style table is not made by Heron: the .NET API cannot write one
+
+**Decided:** 2026-11-21, building issue #68. **Status:** in force (a known limit, [05 §34](05-known-limits.md)).
+A plot style table (`.ctb` colour-dependent, `.stb` named) is not part of the drawing: it is a
+file in AutoCAD's Plot Styles folder, made in the Plot Style Manager. Autodesk's .NET reference
+assemblies for 2021 and 2027 were searched for a way to make or edit one, and there is none: only
+`PlotStyleDescriptor` and `PlotStyleNameType` (a plot style's id on an object), the picker
+dialog `PlotStyleDialog`, and an event when a layout's table changes. COM has none either. So
+`autocad_create_styles` takes no plot style option and says so in its `Don't use when:`; the
+modeller makes or copies the `.stb` / `.ctb` in AutoCAD, and `autocad_page_setup(plot_style_table=...)`
+sets it on a sheet. **Rejected:** writing the file format ourselves (it is Autodesk's, compressed
+and undocumented; a file AutoCAD cannot read would show up only at plot time, and nothing here could
+check it), and typing STYLESMANAGER (it opens a window the chat cannot drive).
+
+## D-104 - Multileader and table styles are made by the plug-in; the rules are in the Bridge
+
+**Decided:** 2026-11-21, building issue #68. **Status:** in force; extends D-28 and D-40 (built
+and tested offline; live rows AN1-AN12 NOT RUN).
+- **Two new plug-in operations**, `multileader_style` and `table_style` (level Change), because
+  COM has no call to make either (until now they came in only with `autocad_import_from_drawing`).
+  `autocad_create_styles` takes `multileader_styles` and `table_styles` beside its text and
+  dimension styles, and stays a Change tool written from a fixed list (D-28): the options are a
+  list in `tools/settings.py`, a misspelt one is refused before anything is written, and a test
+  holds that list to the options the plug-in reads.
+- **The rules are pure code in `Heron.AutoCAD.Bridge/StylePlans.cs`** with their own tests: the
+  option words, the defaults and every refusal. The add-in (`DrawingStyles.cs`) only copies a plan
+  onto AutoCAD's `MLeaderStyle` / `TableStyle` and reads back what the style then holds. One
+  transaction per style: a style AutoCAD refuses is that style's row and nothing of it is kept;
+  the others are still made. Text styles come first in the same call (and the same undo mark), so a
+  style can use one made with it.
+- **A multileader style is Ajmal's TLD label unless asked otherwise (D-24):** MTEXT content,
+  straight leaders, the text attached *underline bottom line* on both sides (the leader ends under
+  the text), arrow and dogleg (the dialog's "landing") as big as the text, as `autocad_add_label`
+  draws them. Sizes are given as they plot and the style's own scale makes them drawing sizes, as
+  the Multileader Style dialog does. The dialog's one landing switch is `EnableDogleg` and
+  `EnableLanding` together. Arrows are AutoCAD's own by name (`dot`, `architectural_tick`...);
+  a block the drawing lacks is made the way AutoCAD's dialogs make it, by naming it in DIMBLK, which
+  is put back straight after (the one piece that is not undone if a later step fails, so everything
+  else is checked first). An annotative style keeps its own scale (the annotation session's work is
+  not touched).
+- **A table style keeps text in the vertical middle of every cell (D-83):** title, header and
+  data rows take left, centre or right only; top or bottom is refused. A table style has no scale
+  of its own, so text heights and margins are given as they plot and multiplied by the scale
+  (2.5 at 1:50 is 125). Margins default to a third of the text height, as in AutoCAD's own Standard
+  style (0.06 for 0.18 text); header and title heights to the data height.
+- **A scale reads as the dimension style's does:** a number is the factor (50 = 1:50), and text the
+  way the sheet writes it ('1:50', '2:1'). A bare number below 1 is refused rather than guessed
+  (0.02 could be the 1:50 ratio or a factor fifty times too small), the mirror of D-36.
+- **Not yet known (live rows):** whether AutoCAD's dialog shows these as set (the attachment
+  numbers and the landing switch are from Autodesk's reference, not a run), whether the DIMBLK
+  round trip leaves no style override, and whether one Ctrl+Z takes back text styles and plug-in
+  styles together. **Rejected:** typing MLEADERSTYLE / TABLESTYLE (each opens a dialog, which typed input
+  cannot drive), a COM dictionary `AddObject` of these classes (not proven anywhere), and a general "set any
+  property" request (D-40's reason).
+
 ## D-102 - A full-sheet preview says what it covered, and can add close-ups
 
 **Decided:** 2026-11-21, for issue #41. **Status:** in force; extends D-04 (the plot route) and
@@ -239,6 +393,44 @@ custom size is a pc3 edit by hand), and plotting the overview as a window (the e
 could be staler than AutoCAD's own Extents plot). Close-ups are refused for `area='view'` (no
 corners) and skipped, with the reason, in a 3D view or a rotated UCS, where the plan box does not
 match the picture. Live rows AM1-AM6 NOT RUN; issue #41 stays open until AM1 says which cause it was.
+
+## D-100 - A busy refusal goes up as it is from every `except`; a source test keeps it so
+
+**Decided:** 2026-11-21, for issue #36. **Status:** in force. Finishes what D-57 began in
+`ensure_layer` and `ensure_linetype`.
+After the message filter's 3 s (D-57), AutoCAD's refusal ("Call was rejected by callee") still
+reached about 300 `except` blocks in the tools that took it for "not there", "use the default",
+"skip it", or wrapped it in a plain `AutocadError`. So a busy AutoCAD gave a false failure ("Could
+not ..."), or a quiet wrong answer: a layer reported off, the world UCS used instead of his, "UNDO is
+off" offered after Discard, an object called gone after an UNDO.
+- **One helper, one line per place:** `raise_if_busy(exc)` in `core/errors.py`, first in each such
+  `except` (after any clean-up in it). Up at `_with_retry` the refusal is asked again while nothing
+  has been written, or becomes "Outcome unknown" once a write began (D-15). Nothing else in those
+  blocks changed, so many sessions could edit the same modules at once.
+- **What counts as busy (`is_busy`):** the two refusals (RPC_E_CALL_REJECTED,
+  RPC_E_SERVERCALL_RETRYLATER), VBA_E_IGNORE (a modal dialog open), or a COM description that says
+  "rejected by callee", "busy" or "retry later". It is narrower than `is_retryable` on purpose:
+  pywin32's `AttributeError` for a member it cannot resolve is left out, because asking a line for
+  its Radius gives the same error, and the tools rightly read that one as "not there".
+  RPC_E_SERVERFAULT is left out too: it says the call itself threw.
+- **Left as they are, each named with its reason** in `ALLOWED` in `tests/test_busy_sweep.py`:
+  putting things back (variables, page setup, locked layers, table redraw, undo groups), presses of
+  Esc on the way to the real error, the waits that deliberately read through a busy AutoCAD
+  (D-58), reads after the plug-in made something ("do not make it again"), and code with no COM
+  call. Raising there would hide the real answer or skip the rest of the clean-up.
+- **The gate:** a busy UNDOCTL read before an Ask-to-Keep job is no longer "UNDO is off": if
+  AutoCAD stays busy through the retry, the job is refused in words ("AutoCAD stayed busy ... nothing
+  was changed") before anything is sent, instead of a bare tool error.
+- **The source test:** `tests/test_busy_sweep.py` reads every module in `acad/` and `tools/` and
+  the three core modules that call COM. An `except` that can catch a COM error (bare,
+  `BaseException`, `Exception`, `com_error`) must call `raise_if_busy` / `is_busy` /
+  `is_retryable`, re-raise as it is, or be in `ALLOWED`. One directly in an `async def` is not
+  swept: COM runs on the worker thread only, so those reach AutoCAD through `run`, whose retry has
+  already answered. New code cannot bring the old way back without the test saying where.
+- **What changes for the modeller:** a long busy spell (a dialog left open, a heavy redraw) now
+  ends in "AutoCAD stayed busy ... press Esc" or "Outcome unknown, look before retrying", never in
+  a made-up failure or a wrong value. Tested offline with fake COM (`tests/test_busy_refusals.py`).
+  Not proven in AutoCAD: [NEEDS-CHECKING group AL](NEEDS-CHECKING.md).
 
 ## D-98 - The plug-in reports drawing events as they happen; a batch goes through it in pieces up to 1,500 characters
 
@@ -293,6 +485,11 @@ rows AJ1-AJ10 NOT RUN).
   .NET object, and says a Save As made while closing before the close.
 - **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
   update live without a server of its own; the docked palette is the live list.
+- **Added after the merge (#165, same day).** `begin` answers `drawingSeq`, where the drawing log
+  stood. Between its steps `autocad_sequence` asks the events since (`gate.front_changed_in_job`)
+  and stops when another drawing came to the front or the job's drawing closed (a Save As of it is
+  the same drawing), like HERONSTOP: the steps before stay, the rest are not run. An older
+  plug-in says no number, and the sequence runs on as before.
 
 ## D-95 - Sections, flat views, surfaces, meshes and the new super hatch tiles are plug-in operations
 

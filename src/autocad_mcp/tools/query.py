@@ -29,7 +29,7 @@ from ..acad.selection import (
 )
 from ..acad.units import unit_name
 from ..core.connection import get_doc, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta
 from ..core.variants import point_to_list
 from ._shared import faster_read
@@ -259,11 +259,13 @@ async def autocad_list_entities(
                 for entity in iter_selection(sel):
                     try:
                         classes[str(entity.ObjectName)] += 1
-                    except BaseException:  # noqa: BLE001
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         classes[""] += 1
                     try:
                         layers[str(entity.Layer)] += 1
-                    except BaseException:  # noqa: BLE001
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         layers["<unknown>"] += 1
                 return entity_summary(total, classes.items(), layers.items())
 
@@ -490,7 +492,8 @@ async def autocad_find_text(
                             if not bool(entity.HasAttributes):
                                 continue
                             attributes = entity.GetAttributes()
-                        except BaseException:  # noqa: BLE001
+                        except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                             continue
                         for att in attributes:
                             value = str(att.TextString)
@@ -590,7 +593,8 @@ async def autocad_get_extents(
         doc = get_doc()
         try:
             units = unit_name(int(doc.GetVariable("INSUNITS")))
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             units = "unknown"
 
         if layer:
@@ -719,7 +723,8 @@ async def autocad_measure(
         doc = get_doc()
         try:
             units = unit_name(int(doc.GetVariable("INSUNITS")))
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             units = "unknown"
 
         if mode == "distance":
@@ -768,13 +773,14 @@ async def autocad_measure(
                     total_length += float(getattr(entity, prop))
                     counted_length += 1
                     break
-                except BaseException:  # noqa: BLE001 - type has no length
+                except BaseException as exc:  # noqa: BLE001 - type has no length
+                    raise_if_busy(exc)
                     continue
             try:
                 total_area += float(entity.Area)
                 counted_area += 1
-            except BaseException:  # noqa: BLE001 - type has no area
-                pass
+            except BaseException as exc:  # noqa: BLE001 - type has no area
+                raise_if_busy(exc)
 
         return {
             "mode": "totals",

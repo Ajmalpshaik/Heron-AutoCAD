@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from ..core.errors import raise_if_busy
 from ..core.variants import int_array, variant_array
 
 # DXF group codes used in selection filters.
@@ -130,8 +131,8 @@ def make_selection_set(doc: Any, name: str = TEMP_SELSET_NAME) -> Any:
         existing = doc.SelectionSets.Item(name)
         existing.Clear()
         return existing
-    except BaseException:  # noqa: BLE001 - not created yet, fall through
-        pass
+    except BaseException as exc:  # noqa: BLE001 - not created yet, fall through
+        raise_if_busy(exc)
     return doc.SelectionSets.Add(name)
 
 

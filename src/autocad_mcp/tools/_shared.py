@@ -16,7 +16,7 @@ from ..acad.coords import Ucs, as_vec3
 from ..acad.entities import describe
 from ..core.bridge import OLD_PLUGIN, READS_SINCE, BridgeRefused, older
 from ..core.connection import mark_writing
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.gate import plugin_runner, plugin_version
 from ..core.variants import apoint
 
@@ -95,7 +95,8 @@ def current_ucs(doc: Any) -> Ucs:
             as_vec3(doc.GetVariable("UCSXDIR"), (1.0, 0.0, 0.0)),
             as_vec3(doc.GetVariable("UCSYDIR"), (0.0, 1.0, 0.0)),
         )
-    except BaseException:  # noqa: BLE001 - unreadable means assume the world one
+    except BaseException as exc:  # noqa: BLE001 - unreadable means assume the world one
+        raise_if_busy(exc)  # a busy AutoCAD is not a world UCS: points would land wrong
         return Ucs()
 
 

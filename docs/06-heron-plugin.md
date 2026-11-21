@@ -209,6 +209,8 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `update_table_links` | `autocad_update_table_links` | `Table.UpdateDataLink(SourceToData, SkipFormat)` |
 | `count_entities` (Read) | `autocad_list_entities(summary_only=true)` | `Editor.SelectAll` with the same DXF filter COM uses; each object's class and layer ([D-114](DECISIONS.md)) |
 | `entity_extents` (Read) | `autocad_get_extents(layer=...)` | `Editor.SelectAll`, `Entity.GeometricExtents` ([D-114](DECISIONS.md)) |
+| `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
+| `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.

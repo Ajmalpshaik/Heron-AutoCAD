@@ -9,6 +9,7 @@ test fails until the runner either measures it or says why it cannot.
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import re
 import subprocess
@@ -34,17 +35,19 @@ TEXT = SOURCE.read_text(encoding="utf-8")
 
 def register_rows() -> set[str]:
     """Every row id in the register."""
-    return set(re.findall(r"^\|\s*([A-Z]\d+[a-z]?)\s*\|", REGISTER.read_text(encoding="utf-8"), re.M))
+    return set(re.findall(r"^\|\s*([A-Z]{1,2}\d+[a-z]?)\s*\|", REGISTER.read_text(encoding="utf-8"), re.M))
 
 
-# The groups the runner is responsible for. Group A is the plug-in in the
-# ribbon, which a person has to click; B and C need machines we do not have.
-RUNNER_GROUPS = "DEF"
+lc = importlib.import_module("live_common")
+# The groups the runner is responsible for (live_check.RUNNER_GROUPS). Group A
+# is the plug-in in the ribbon, which a person has to click; B and C need
+# machines we do not have.
+RUNNER_GROUPS = live_check.RUNNER_GROUPS
 
 
 def live_rows() -> set[str]:
-    """The rows the runner must account for: groups D, E and F."""
-    return {row for row in register_rows() if row[0] in RUNNER_GROUPS}
+    """The rows the runner must account for: every row of its groups."""
+    return {row for row in register_rows() if lc.group_of(row) in RUNNER_GROUPS}
 
 
 class TestTheRowsAreReal:
@@ -65,12 +68,30 @@ class TestTheRowsAreReal:
     def test_every_live_row_is_accounted_for(self):
         """The point of the runner: no row in D or E is left unexplained."""
         covered = {c.row for c in live_check.CHECKS} | set(live_check.BY_EYE)
-        unaccounted = sorted(live_rows() - covered, key=lambda r: (r[0], int(re.sub(r"\D", "", r))))
+        unaccounted = sorted(live_rows() - covered, key=lambda r: (lc.group_of(r), int(re.sub(r"\D", "", r))))
         assert unaccounted == [], (
             "these register rows are neither measured nor given a reason: "
-            f"{unaccounted}. Add a check to tools/live_check.py, or a line to BY_EYE "
-            "saying why only an eye can answer it."
+            f"{unaccounted}. Add a check to the group's file in tools/ (live_check*.py), or a line "
+            "to its BY_EYE saying why only an eye or a hand can answer it."
         )
+
+    def test_every_group_on_the_register_is_known_to_the_runner(self):
+        """A new group is the runner's too, or named here as left to people: never forgotten.
+
+        A warning, not a failure: other sessions add groups all the time, and their pull
+        requests should not go red for it. Whoever looks after the runner adds them.
+        """
+        on_register = {lc.group_of(row) for row in register_rows()}
+        left_to_people = {"A", "B", "C", "G", "H", "I", "J", "K", "L", "S"}
+        new = sorted(on_register - set(RUNNER_GROUPS) - left_to_people)
+        if new:
+            import warnings
+
+            warnings.warn(
+                f"the register has groups the runner does not cover yet: {new}. Add their rows to "
+                "tools/live_check*.py (a check, or a BY_EYE reason) and the group to live_check.RUNNER_GROUPS.",
+                stacklevel=1,
+            )
 
     def test_each_reason_says_something(self):
         thin = sorted(row for row, why in live_check.BY_EYE.items() if len(why.split()) < 4)
@@ -87,7 +108,7 @@ class TestTheChecksAreWellFormed:
         assert len(functions) == len(set(functions)), "two rows share one check function"
 
     def test_every_check_is_in_the_group_its_row_says(self):
-        wrong = [f"{c.row} is in group {c.group}" for c in live_check.CHECKS if c.group != c.row[0]]
+        wrong = [f"{c.row} is in group {c.group}" for c in live_check.CHECKS if c.group != lc.group_of(c.row)]
         assert wrong == [], wrong
 
     def test_every_check_has_a_title(self):
@@ -100,27 +121,41 @@ class TestTheChecksAreWellFormed:
             assert check.run.__doc__ or "return" in TEXT, check.row
 
 
-class TestTheToolsItCallsExist:
-    MODULES = (
-        "annotate", "batch", "blocks", "convert", "coordinates", "dimensions",
-        "document", "draw", "geometry_tools", "layers", "query", "sequence",
-        "settings", "shapes", "sheets", "solids", "views",
-    )
+# Every file of checks: the runner and one per area (live_common.py says which).
+CHECK_FILES = sorted(TOOLS.glob("live_check*.py"))
 
-    def test_every_tool_function_it_calls_is_real(self):
+
+def _tool_imports(text: str) -> set[str]:
+    block = re.search(r"^from autocad_mcp\.tools import \((.*?)\)", text, re.M | re.S)
+    return set(re.findall(r"(\w+),", block.group(1))) if block else set()
+
+
+class TestTheToolsItCallsExist:
+    @pytest.mark.parametrize("path", CHECK_FILES, ids=lambda p: p.name)
+    def test_every_tool_function_it_calls_is_real(self, path):
+        text = path.read_text(encoding="utf-8")
+        modules = _tool_imports(text)
         missing = []
-        for module, attribute in sorted(set(re.findall(r"\b(\w+)\.(autocad_\w+)\(", TEXT))):
-            if module not in self.MODULES:
+        for module, attribute in sorted(set(re.findall(r"\b(\w+)\.(autocad_\w+)\(", text))):
+            if module not in modules:
                 continue
             loaded = importlib.import_module(f"autocad_mcp.tools.{module}")
             if not hasattr(loaded, attribute):
                 missing.append(f"{module}.{attribute}")
-        assert missing == [], f"the runner calls tools that do not exist: {missing}"
+        assert missing == [], f"{path.name} calls tools that do not exist: {missing}"
 
-    def test_it_calls_something_from_every_module_it_imports(self):
-        imported = set(re.findall(r"^    (\w+),$", TEXT, re.M))
-        used = {m for m, _ in re.findall(r"\b(\w+)\.(autocad_\w+)\(", TEXT)}
-        assert imported <= used, f"imported but never used: {sorted(imported - used)}"
+    @pytest.mark.parametrize("path", CHECK_FILES, ids=lambda p: p.name)
+    def test_it_calls_something_from_every_module_it_imports(self, path):
+        text = path.read_text(encoding="utf-8")
+        used = {m for m, _ in re.findall(r"\b(\w+)\.(\w+)\(", text)}
+        unused = sorted(_tool_imports(text) - used)
+        assert unused == [], f"{path.name} imports but never uses: {unused}"
+
+    @pytest.mark.parametrize("path", CHECK_FILES, ids=lambda p: p.name)
+    def test_a_tool_is_never_imported_on_its_own(self, path):
+        """The offline tests put recorded answers in place of module.autocad_x: a bare import would dodge them."""
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(r"^from autocad_mcp\.tools\.\w+ import", text, re.M), path.name
 
     def test_every_tool_named_in_a_sequence_step_is_registered(self):
         unknown = sorted({n for n in re.findall(r'"tool": "(\w+)"', TEXT) if n not in RISK})
@@ -156,3 +191,113 @@ class TestItRunsWithoutAutocad:
         )
         assert done.returncode == 1
         assert "No rows match" in done.stdout
+
+
+class TestThePadlocksComeFirst:
+    """D-59: the padlocks start off, only the modeller's click moves one, and the runner never tries."""
+
+    STATUS = '{"connected": true, "version": "26.0s", "application": "AutoCAD", "heron": {"connected": true}}'
+
+    def _ready(self, monkeypatch, locks):
+        from autocad_mcp.tools import document
+
+        async def status(**kwargs):
+            return self.STATUS
+
+        async def padlocks():
+            return locks
+
+        monkeypatch.setattr(document, "autocad_status", status)
+        monkeypatch.setattr(lc, "read_padlocks", padlocks)
+        ctx = lc.Context()
+        return asyncio.run(live_check.ready(ctx)), ctx
+
+    def test_changes_off_stops_the_run_and_says_what_to_do(self, monkeypatch, capsys):
+        code, _ = self._ready(monkeypatch, {"changes": False, "publish": False, "admin": False, "ask_to_keep": False})
+        said = capsys.readouterr().out
+        assert code == 2
+        assert "Turn Changes on in Settings" in said and "Nothing was run" in said
+
+    def test_ask_to_keep_on_stops_the_run(self, monkeypatch, capsys):
+        code, _ = self._ready(monkeypatch, {"changes": True, "publish": False, "admin": False, "ask_to_keep": True})
+        assert code == 2 and "Turn Ask to Keep off" in capsys.readouterr().out
+
+    def test_padlocks_that_cannot_be_read_stop_the_run(self, monkeypatch, capsys):
+        code, _ = self._ready(monkeypatch, None)
+        assert code == 2 and "cannot read" in capsys.readouterr().out
+
+    def test_changes_on_goes_on_and_says_the_padlocks(self, monkeypatch, capsys):
+        code, ctx = self._ready(monkeypatch, {"changes": True, "publish": False, "admin": True, "ask_to_keep": False})
+        assert code is None and ctx.padlocks["admin"] is True
+        assert "Changes on, Publish off, Admin on, Ask to Keep off" in capsys.readouterr().out
+
+    def test_the_runner_has_no_way_to_move_a_padlock(self):
+        for path in CHECK_FILES + [TOOLS / "live_common.py"]:
+            text = path.read_text(encoding="utf-8")
+            # Named in what the runner tells you to do, never typed or sent by it.
+            sent = re.findall(r"(?:command|expression|SendCommand)\s*[=(]\s*[^\n]*HERON(?:CHANGES|PUBLISH|ADMIN)", text)
+            assert sent == [], f"{path.name} would type a padlock command: {sent}"
+
+    def test_a_row_that_needs_another_padlock_is_said_not_failed(self):
+        why = lc.unmet(frozenset({"admin", "no_publish"}), {"changes": True, "admin": False, "publish": True})
+        assert why.startswith("not run this time") and "Admin on" in why and "Publish off" in why
+        assert lc.unmet(frozenset({"admin"}), {"admin": True}) is None
+
+    def test_every_need_a_check_names_is_known(self):
+        named = {need for check in live_check.CHECKS for need in check.needs}
+        assert named <= set(lc.NEEDS), sorted(named - set(lc.NEEDS))
+
+
+class TestTwoLetterGroups:
+    @pytest.mark.parametrize(("row", "group"), [("E4", "E"), ("A8e", "A"), ("AA12", "AA"), ("AC5b", "AC"), ("Z10", "Z")])
+    def test_a_rows_group(self, row, group):
+        assert lc.group_of(row) == group
+
+    def test_no_two_rows_share_a_spot(self):
+        rows = [c.row for c in live_check.CHECKS if lc.group_of(c.row) not in ("D", "E", "F")]
+        spots = [lc.origin(r) for r in rows]
+        assert len(set(spots)) == len(spots)
+        assert all(x >= 2_000_000 for x, _ in spots), "the later rows stay clear of where D, E and F draw"
+
+    def test_a_group_can_be_run_alone(self):
+        import argparse
+
+        picked = live_check.selected(argparse.Namespace(row=None, group="AA"))
+        assert picked and all(c.group == "AA" for c in picked)
+        eye = live_check.eye_rows(argparse.Namespace(row=None, group="AA,Z"))
+        assert eye and {lc.group_of(r) for r in eye} <= {"AA", "Z"}
+
+
+class TestTheRecordingsCannotLie:
+    """The harness itself: a misspelt argument or an unrecorded call fails the test, not AutoCAD."""
+
+    def test_a_misspelt_argument_is_caught(self, monkeypatch):
+        from live_fakes import play
+
+        from autocad_mcp.tools import edit2d
+
+        async def check(ctx):
+            await edit2d.autocad_trim_extend(operaton="trim", handles=["A"], edges=["B"])
+
+        with pytest.raises(AssertionError, match="would not take"):
+            play(monkeypatch, check, {"autocad_trim_extend": {}})
+
+    def test_a_call_nobody_recorded_is_caught(self, monkeypatch):
+        from live_fakes import play
+
+        from autocad_mcp.tools import query
+
+        async def check(ctx):
+            await query.autocad_get_entity(handle="A")
+
+        with pytest.raises(AssertionError, match="does not cover"):
+            play(monkeypatch, check, {})
+
+    def test_a_recording_of_something_that_does_not_exist_is_caught(self, monkeypatch):
+        from live_fakes import play
+
+        async def check(ctx):
+            return "x"
+
+        with pytest.raises(AssertionError, match="do not exist"):
+            play(monkeypatch, check, {"autocad_no_such_tool": {}})

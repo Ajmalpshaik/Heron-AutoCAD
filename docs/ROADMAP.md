@@ -155,6 +155,7 @@ done looks like here.
 - [x] Dynamic blocks: read and set properties (`autocad_get/set_dynamic_properties`). Authoring
   parameters and actions has no API; it stays a Block Editor job.
 - [x] The Lee Mac ideas: all built ([08](08-lee-mac-study.md)).
+- [ ] Left from part 2 of #119 (D-110, D-111): turned grids in `autocad_associative_array`, DWFx in `autocad_export`, coordinate systems in feet in `autocad_geo_location`. After Group AQ passes. ([#216](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/216))
 - [ ] `autocad_break_at_blocks` for polylines with arcs, through the plug-in's curve splitting. ([#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52))
 
 - [ ] `autocad_batch_draw`: hatch, mtext and dimension operations. Polyline bulges and text
@@ -169,9 +170,9 @@ done looks like here.
   (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
 - [ ] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines: not in
   D-95's first build (limit 32). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
-- [ ] Multileader, table and dimension **style** creation from `autocad_create_styles`: no
-  Automation API for the first two, and a dimension style already works, so this is really
-  "bring the office styles in" - `autocad_import_from_drawing` does it today. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
+- [x] Multileader, table and dimension **style** creation from `autocad_create_styles`: the
+  multileader and table styles by the plug-in since 2026-11-21 (D-104, live group AN NOT RUN).
+  ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [x] Draw an attribute schedule as an AutoCAD table: `autocad_add_table` ([10](10-geometry-annotation-3d.md)).
 - [x] Standards check against a reference DWG / DWS, not only a rules file: `autocad_check_standards(reference=...)`. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69), D-92; live rows AG5-AG8 NOT RUN)
 - [ ] A layer-standard rule file shipped for Ajmal's own office standard, beside the `ifc` preset
@@ -182,8 +183,9 @@ done looks like here.
 - [ ] `coords="ucs"` on the single-entity `autocad_draw_*` and `autocad_modify_*` tools. Today only
   `autocad_batch_draw` has it; the rest need each tool's rotation and planar vertex list converted
   too, and no live check behind it yet (D-27). ([#50](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/50))
-- [ ] Multileader, table and plot-style-table creation: no Automation API, so today they come in
-  with `autocad_import_from_drawing`. Worth moving into the plug-in. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
+- [x] Multileader and table style creation in the plug-in (D-104). A plot style table cannot be
+  made: AutoCAD's .NET API has no way to write the file (D-105, a known limit, 05 §34).
+  ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [ ] `autocad_add_viewport`: clip a viewport to a polyline, and annotative viewport scales. ([#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65))
 - [ ] A sheet-set tool: one call per drawing list (sheet number, title, scale, view) across a whole
   package, on top of `autocad_sequence`. ([#66](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/66))
@@ -208,10 +210,12 @@ done looks like here.
   `autocad_drawing_setup` left on the active style. Likely shape: set `StyleName` per dimension and
   skip the `ScaleFactor` write when a style is given; check the size live before trusting it. ([#37](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/37))
   Built 2026-11-21 in that shape ([D-80](DECISIONS.md)); the size in a 1:5 detail is live row AB1, NOT RUN.
-- [ ] About 70 places turn a COM error into a plain `AutocadError`, and a few `except` blocks take
+- [x] About 70 places turn a COM error into a plain `AutocadError`, and a few `except` blocks take
   any error for "not there" (as `ensure_layer` did until D-57). The message filter now hides short
   busy spells from all of them; a refusal longer than its 3 s still reads as a failure there, not
   as busy. Go through them and let a busy refusal up as it is, as `tables.py` now does. ([#36](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/36))
+  Done 2026-11-21 ([D-100](DECISIONS.md)): `raise_if_busy` in about 250 places, about 40 left on purpose with
+  their reasons, and `tests/test_busy_sweep.py` so new code cannot bring it back. Live rows AL1-AL7 NOT RUN.
 
 ## Repository
 

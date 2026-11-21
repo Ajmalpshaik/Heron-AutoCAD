@@ -162,9 +162,10 @@ scales, so the plug-in does it ([D-81](DECISIONS.md)). Sizes stay in drawing
 units at the current scale (125 for 2.5 mm at 1:50); the reply gives the paper
 height to check against.
 
-Multileader styles and table styles have **no Automation call to create them**.
-Make them in AutoCAD, or bring yours in with `autocad_import_from_drawing`;
-both tools name the style plainly when the drawing has not got it.
+Multileader styles and table styles have **no Automation call to create them**,
+so `autocad_create_styles` has Heron's plug-in make them ([D-104](DECISIONS.md));
+or bring your office ones in with `autocad_import_from_drawing`. Both tools
+name the style plainly when the drawing has not got it.
 
 ---
 
