@@ -77,5 +77,10 @@ dotnet test autocad/Heron.AutoCAD.Bridge.Tests
 .venv\Scripts\python.exe tools/check_structure.py
 ```
 
+On Linux (a cloud session) run the same four with `python` and `PYTHONPATH=src`. pywin32
+installs only on Windows, so stand-ins in `tests/winstubs` are picked up by themselves, and the
+tests that need Windows itself (named pipes, the COM message filter, Windows paths) are reported
+skipped with the reason ([D-72](docs/DECISIONS.md)). Windows CI still runs every test.
+
 Record a real choice in [docs/DECISIONS.md](docs/DECISIONS.md). Update
 [docs/HANDOVER.md](docs/HANDOVER.md) before you stop.

@@ -373,7 +373,7 @@ public class ServerTests : IDisposable
         if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
     }
 
-    [Fact]
+    [WindowsFact]
     public void Start_publishes_an_address_and_answers_ping_then_Stop_removes_it()
     {
         var server = new BridgeServer(new FakeHost(), () => new HeronConfig(), "26.0", "1.0.0", _dir,

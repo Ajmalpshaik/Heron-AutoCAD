@@ -4,6 +4,12 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The offline gates run on Linux (2026-11-21, #102).** pywin32 stand-ins in `tests/winstubs`,
+  used only where pywin32 is not installed, let the offline suite and `tools/check_structure.py`
+  run in a Linux cloud session; tests that need Windows itself (named pipes, the COM message filter,
+  Windows paths) are skipped there with the reason, and so is the bridge's named-pipe C# test.
+  Windows CI is unchanged ([D-72](docs/DECISIONS.md)).
+
 - **Attributes to Excel and back, a folder of drawings checked, the Companion page (2026-11-21).**
   `autocad_export_attribute_sheet` (Publish) writes every block's attributes to a new `.xlsx` next
   to the drawing; `autocad_apply_attribute_sheet` reads the edited sheet back and writes only the

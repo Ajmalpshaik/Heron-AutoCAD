@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 
 import pytest
 
@@ -34,6 +35,8 @@ DATA = {
     ],
     "xrefs_broken": ["ARCH-BASE"],
 }  # fmt: skip
+
+needs_windows_paths = pytest.mark.skipif(sys.platform != "win32", reason="Windows path rules (C:\\ drawing paths)")
 
 
 def _result(checks, data=DATA):
@@ -147,6 +150,7 @@ def test_checklist_and_notes_need_no_padlock():
 # ---------------------------------------------------------------------------
 
 
+@needs_windows_paths
 def test_a_project_is_its_folder_and_two_folders_never_share():
     project_notes.write(r"C:\Jobs\4355\M-101.dwg", "scale", "1:50", said="it's 1:50 for this job")
     assert project_notes.for_status(r"C:\Jobs\4355\M-102.dwg") == {"scale": "1:50"}
@@ -162,6 +166,7 @@ def test_an_unsaved_drawing_keeps_nothing():
     assert "not saved yet" in str(caught.value)
 
 
+@needs_windows_paths
 def test_a_note_can_be_forgotten_and_names_are_checked():
     project_notes.write(r"C:\Jobs\1\a.dwg", "Text Height", "2.5")
     assert project_notes.for_status(r"C:\Jobs\1\a.dwg") == {"text_height": "2.5"}
@@ -171,6 +176,7 @@ def test_a_note_can_be_forgotten_and_names_are_checked():
         project_notes.write(r"C:\Jobs\1\a.dwg", "1:50 scale!", "x")
 
 
+@needs_windows_paths
 def test_the_tool_reads_the_active_drawings_project(monkeypatch):
     class Doc:
         FullName = r"C:\Jobs\77\M-01.dwg"
@@ -187,6 +193,7 @@ def test_the_tool_reads_the_active_drawings_project(monkeypatch):
     assert "standard" in listed["notes"]
 
 
+@needs_windows_paths
 def test_status_hands_the_notes_to_the_next_chat():
     project_notes.write(r"C:\a\x.dwg", "scale", "1:100")
 
