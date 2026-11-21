@@ -3,8 +3,9 @@
 Ajmal's doubt, in his words: *"still, I have doubt that it will find
 everything fast."* He was right to doubt it - the first version put the right
 tool first on 36 of 55 phrases and missed six altogether. This file is how
-that stopped being an opinion. It now stands at 79 of 96 first and 96 of 96
-in the top three, over all 128 tools.
+that stopped being an opinion. It now stands at 84 of 97 first and 97 of 97
+in the top three, over all 137 tools, scored the way autocad://tools/find
+ranks them: a plain question gets the tools that only read first (D-67).
 
 **These phrases are our own**, so the score is a floor on a sample, not a
 promise about every phrase anyone will ever type. What it does catch is
@@ -24,8 +25,9 @@ import json
 
 import pytest
 
-from autocad_mcp.acad.findtool import Entry, search, split_bullets
+from autocad_mcp.acad.findtool import Entry, is_question, rank, search, split_bullets
 from autocad_mcp.core.registry import mcp
+from autocad_mcp.core.risk import RISK, Risk
 from autocad_mcp.tools import register_all, resources
 
 register_all()
@@ -158,8 +160,43 @@ def entries() -> list[Entry]:
 ENTRIES = entries()
 
 
+def reads(tool: str) -> bool:
+    return RISK.get(tool) is Risk.READ
+
+
 def found(phrase: str, limit: int = 3) -> list[str]:
-    return [hit.tool for hit in search(ENTRIES, phrase, limit=limit)]
+    """The tools autocad://tools/find puts first: a question gets the reading ones first."""
+    return [hit.tool for hit in rank(ENTRIES, phrase, limit=limit, reads=reads)]
+
+
+# Plain questions (issue #90, D-67): each must get a tool that only reads
+# first, and the expected one in the top three. Several of these put a change
+# tool first before question mode: "is that polyline closed" got
+# autocad_draw_polyline, "how big is that solid" autocad_add_solid.
+QUESTION_CASES = [
+    ("how many sheets does this drawing have", "autocad_list_layouts"),
+    ("how long is the pipe on the CHW layer", "autocad_total_length"),
+    ("what is the area of that room polyline", "autocad_polyline_info"),
+    ("which blocks are in this drawing", "autocad_list_blocks"),
+    ("is there any text on layer 0", "autocad_count_text"),
+    ("are there any xrefs in this drawing", "autocad_xref_tree"),
+    ("what is the current UCS", "autocad_get_ucs"),
+    ("what is LTSCALE set to", "autocad_get_variable"),
+    ("is that polyline closed", "autocad_polyline_info"),
+    ("how big is that solid", "autocad_solid_properties"),
+    ("what layers are frozen", "autocad_list_layers"),
+    ("what did you draw in this chat", "autocad_activity"),
+    ("what keeps failing this week", "autocad_gaps"),
+]
+
+# Not questions: each asks for a job, so question mode must leave it alone.
+NOT_QUESTIONS = [
+    "how do I draw a flange",
+    "can you plot this to PDF",
+    "does the ductwork clash with the steel",
+    "draw a polyline round the room",
+    "what if I move the duct up 200",
+]
 
 
 class TestItFindsTheRightTool:
@@ -241,3 +278,46 @@ class TestTheResourceAnswers:
         """Like the index, it reads no drawing, so it is not gated."""
         out = json.loads(asyncio.run(resources.find_tool("what units is this drawing in")))
         assert out["matches"]
+
+
+class TestAPlainQuestionNeverGetsAChangeToolFirst:
+    """Issue #90: "how many...", "what is...", "is there..." get a tool that only reads first."""
+
+    @pytest.mark.parametrize("phrase,want", QUESTION_CASES)
+    def test_it_reads_as_a_question(self, phrase, want):
+        assert is_question(phrase)
+
+    @pytest.mark.parametrize("phrase,want", QUESTION_CASES)
+    def test_a_reading_tool_comes_first_and_the_right_one_is_near(self, phrase, want):
+        top = found(phrase)
+        assert top and reads(top[0]), f"{phrase!r} got {top}"
+        assert want in top, f"{phrase!r} wanted {want}, got {top}"
+
+    @pytest.mark.parametrize("phrase", NOT_QUESTIONS)
+    def test_a_job_is_not_mistaken_for_a_question(self, phrase):
+        assert not is_question(phrase)
+
+    def test_every_measured_question_gets_a_reading_tool_first(self):
+        asked = [p for p, _ in CASES + QUESTION_CASES if is_question(p)]
+        assert len(asked) >= 20
+        wrong = [(p, found(p)[:1]) for p in asked if not reads(found(p)[0])]
+        assert not wrong, wrong
+
+    def test_the_raw_search_alone_would_have_put_a_change_tool_first(self):
+        """The proof the rule does something: without it, these answer a question with a change."""
+        assert search(ENTRIES, "is that polyline closed", limit=1)[0].tool == "autocad_draw_polyline"
+        assert found("is that polyline closed")[0] == "autocad_polyline_info"
+
+    def test_the_resource_offers_only_reading_tools_for_a_question(self):
+        out = json.loads(asyncio.run(resources.find_tool("is there a clash between the duct and the steel")))
+        assert out["question"] is True
+        assert all(reads(m["tool"]) for m in out["matches"]), out["matches"]
+        apart = [m["tool"] for m in out["would_change_the_drawing"]]
+        assert "autocad_check_interference" in apart
+        assert "would_change_the_drawing" in out["note"]
+
+    def test_the_resource_leaves_a_job_alone(self):
+        out = json.loads(asyncio.run(resources.find_tool("draw a 200 flange with 8 bolt holes")))
+        assert out["question"] is False
+        assert out["matches"][0]["tool"] == "autocad_make_shape"
+        assert "would_change_the_drawing" not in out

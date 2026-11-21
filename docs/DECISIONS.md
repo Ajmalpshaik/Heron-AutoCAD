@@ -130,6 +130,81 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-68 - One docked Heron palette: Activity with Undo by D-54's rule, saved commands run by a copy of the server
+
+**Decided:** 2026-11-21, from Heron AI for Revit's Activity and Commands panes (issues #92, #93).
+**Status:** in force; supersedes the last sentence of D-55 (a command run with no AI is now copied).
+`HERONPALETTE` (or Heron > **Heron palette** on the ribbon) opens one `PaletteSet`, docked right,
+with two tabs drawn in Heron's window style (D-45: Surface card, top strip, Ink header with the
+heron, Ink insets, brand buttons); the palette's own title bar stays AutoCAD's. The rules live in
+the bridge, tested offline (`ActivityLog`, `SavedCommandList`, `PaletteServer`); the add-in only
+shows them and makes the AutoCAD calls.
+
+- **Activity** lists Heron's change jobs (Change, Admin, Publish) in this AutoCAD, from every chat,
+  newest first, 30 kept, with what the plug-in counted (D-50). Reads and views are left out.
+  **Select** and **Zoom** take what the job made or changed (up to 500) and work whichever chat
+  holds this AutoCAD, but not while a job runs, and only in the job's drawing. The palette's Zoom
+  runs with undo recording off, so it leaves no step between the job and its Undo.
+- **Undo** belongs to the modeller, like Ctrl+Z: no padlock, no chat, any chat's job. It uses
+  D-54's rule, from what the plug-in itself knows: Heron's newest change job in this AutoCAD, a
+  Change job that ended `done` and changed something, not itself an undo, in the drawing in front,
+  nothing changed outside Heron's jobs since it ended (`JobChanges.ChangedSince`), UNDO on with more
+  than one step (UNDOCTL), and with no UNDO mark (Ask to Keep was off at begin) no Heron zoom or show
+  since. With the mark it is `UNDO _Back`, else `UNDO 1`, typed into AutoCAD; when UNDO ends,
+  Heron checks that what the job made is gone, as `autocad_undo_last` does. Anything else is
+  refused with the reason in plain words. A chat's `autocad_undo_last` stays limited to its own job;
+  after a palette Undo it is refused, because the drawing changed since.
+- **Saved commands** reads the files the server saves (`%LOCALAPPDATA%\Heron\autocad\commands`,
+  D-55) every 2 s while the tab is open, so a command saved in a chat shows without a restart;
+  search, fill the inputs (each typed value takes its example's type, a blank with a default is
+  left to the server), **Run**. Run does not go round the gate and the plug-in does not replay the
+  steps itself: it starts a copy of the server for that one run
+  (`python -m autocad_mcp --run-saved request.json --acad-pid <this AutoCAD>`), which is a chat of
+  its own to the plug-in. It runs `autocad_status` first (units, D-19), then `autocad_saved_command`
+  through the same gate, hold, padlocks, Keep or Discard, erase question and HERONSTOP, prints one
+  line `{"ok", "message"}`, and releases the hold so the modeller's chat is not kept out for 3
+  minutes. While a chat holds this AutoCAD, Run is refused with "in use by another chat", as for any
+  second chat. Every server writes `%LOCALAPPDATA%\Heron\autocad\server.json` (its Python) when it
+  starts; that is how the palette finds one, so Run needs Heron to have run once on this PC.
+- **Not copied:** a separate Commands pane (one palette with two tabs instead), and asking a
+  running chat's server to run it (a stdio server has no way in from the plug-in).
+
+## D-67 - Finding and explaining: why a job cannot run, what failed, a question gets a read tool
+
+**Decided:** 2026-11-21, from the comparison with Heron AI for Revit (issues #88, #89, #90, #43).
+**Status:** in force. Adds to D-48 and D-49. The ideas are Revit's `heron_why`, `heron_gaps` and
+its question mode; the code is this project's own.
+
+- **`autocad_why`** (Read) takes a job in plain words, finds its tool with the same search as
+  `autocad://tools/find`, then lists what is in the way, worst first, each with what to do: no
+  tool, a read-only server, the plug-in not installed, nothing connected, two AutoCADs and none
+  picked, server and plug-in from different releases, a plug-in older than the tool needs (read
+  from the tool's own "plug-in X or newer" line, so it cannot drift), a padlock off, an update the
+  chat has not loaded. It says what it cannot see from files: an open command, a locked layer,
+  another chat holding AutoCAD.
+- **`autocad_gaps`** (Read) sums up the last N days (1-90) of the audit log: calls per tool,
+  failures grouped by a plain reason with what to do, the slowest jobs. Drawings by file name
+  only; reading the log (`autocad_gaps`, `autocad_why`) is not counted.
+- **The audit line gets a `reason` word** when a call is refused or fails, from a fixed list in
+  `core/audit.py` (`changes_off`, `not_connected`, `autocad_busy`, ...), worked out from the
+  message. Only the word is kept, never the message, because a message can name layers, handles or
+  folders. Lines written before this read as `other`.
+- **Both tools need no AutoCAD.** The gate runs them like `autocad_use_autocad` (D-49): through
+  `guarded`, audited, but without looking at AutoCAD first (`gate.NO_AUTOCAD_TOOLS`). They read
+  only Heron's own files. Not a way round the gate: they are Read, touch no drawing, and the set
+  is named in one place.
+- **A plain question never gets a change tool first.** `autocad://tools/find/{phrase}` treats
+  "how many...", "what ...", "which...", "is there..." as a question: the matches are only tools
+  that read, and anything else that matched is listed apart under `would_change_the_drawing`.
+  "does" and "do" are left out on purpose: "does the ductwork clash" is answered by
+  `autocad_check_interference`, which makes solids. Measured on `tests/test_find_tool.py`: 84 of
+  97 phrases first (80 before) and 97 of 97 in the top three (96), plus 13 new question phrases.
+- **The audit folder never becomes relative** (#43): with `%LOCALAPPDATA%` unset, empty or not a
+  full path, it is `~/AppData/Local/Heron/autocad/audit`, where Windows normally points it.
+  `bridges_dir()` has the same pattern and is left for its own change.
+
+Pinned by `tests/test_why_and_gaps.py` and `tests/test_find_tool.py`. Live rows: Group W.
+
 ## D-66 - A box AutoCAD opens during a Heron job is closed with Cancel and named
 
 **Decided:** 2026-11-21, from the comparison with Heron AI for Revit (issue #83). **Status:** in
@@ -202,6 +277,73 @@ text. Known limit: one sheet, text and numbers only, no colours in Excel (the HT
   `autocad_checklist_report` and `autocad_check_standards` carry the same `pass_means` sentence; no
   answer says a drawing complies; [DISCLAIMER.md](../DISCLAIMER.md) says it in plain words. Heron
   never signs a drawing off.
+## D-63 - Any change tool can run as a dry run, inside Heron's UNDO mark
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-155). **Status:** in force.
+`dry_run=true` on any Change tool runs the job for real inside an UNDO mark (D-18), takes the
+plug-in's count, then goes `UNDO _Back` to the mark and checks every object it made is gone, the way
+Discard does. The answer is the tool's own answer with `NOTHING CHANGED - a dry run: it would have
+made ...` first (D-62); the handles in it no longer exist, and it says so. No Keep or Discard and no
+erase question are asked, since nothing is kept; the banner says "Dry run: ...". The gate gives it,
+so no tool was edited: `tool_errors` adds the argument to every Change, Publish and Admin tool that
+has no `dry_run` of its own, and passes it to the gate, never to the tool. Tools that already had
+one keep their meaning: a preview that writes nothing (annotate, convert, dimensions, patterns,
+settings, shapes, text tools, sequence, saved commands). Refused before anything is sent: every
+Publish and Admin tool (a file written, a command or AutoLISP run cannot be taken back by an UNDO
+mark; the argument is there so a dry run is refused, never ignored and run for real), and
+`autocad_undo_last`. A dry run needs UNDO on (UNDOCTL), or it is refused and nothing runs. If going
+back fails, or a new object is still there, the answer is OUTCOME UNKNOWN, naming them. A dry run
+leaves nothing for `autocad_undo_last`, since the undo history moved. A step inside a sequence
+cannot be a dry run on its own. Not proven live: that `UNDO _Back` takes back every kind of change
+(layers, variables, plug-in operations) as it does objects (rows T4-T5).
+
+## D-62 - Every change answers with one plain line first
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-168, and its failure answers).
+**Status:** in force. A Change, Admin or Publish job's answer starts with one line: `DONE`,
+`NOTHING CHANGED`, `REFUSED` or `OUTCOME UNKNOWN`, a dash, one plain sentence; then a blank line and
+the tool's own answer, unchanged. It is added in one place, the gate (`core/answers.py`, called from
+`core/gate.py`), so no tool can forget it, and saved-command runs and sequences get it the same way.
+The word comes from facts, not from what the tool says it did: the plug-in's count of objects added,
+modified and erased (D-50), whether a write began at all, Keep or Discard, and whether Heron's UNDO
+mark (D-18) was down. Rules: a padlock or guard refusal is REFUSED (nothing was sent); a tool error
+with nothing counted is REFUSED; a tool error after objects changed, or "Outcome unknown", is OUTCOME
+UNKNOWN and says whether the UNDO mark is there; a Discard is NOTHING CHANGED; a Change job that
+began no write is NOTHING CHANGED. The count is of drawing objects only, so a job that wrote and
+counted nothing (a new layer, a variable) is DONE, said carefully, and Admin and Publish jobs are
+never NOTHING CHANGED (a save, a command or a variable is not counted). Only with the plug-in on:
+with `--no-bridge` there is no count, so there is no line. Reads and views have none. Scripts and
+tests that parse answers drop the line with `answers.body()`; steps inside a sequence still see the
+tool's own answer, so "Error:" still starts a failed step there.
+**Before and after** (from Revit's D-156): `autocad_modify_entity`, `autocad_set_attributes`,
+`autocad_find_replace_text`, `autocad_set_dynamic_properties`, `autocad_create_layer`,
+`autocad_set_layer_state`, `autocad_set_current_layer`, `autocad_delete_layer`,
+`autocad_set_variable` and `autocad_drawing_setup` add `before_after`: one row per value changed,
+naming the object (`handle`, or `layer` / `variable`), the `property`, `from` and `to`; the first 50,
+then `before_after_more` counts the rest. They read each value first and write only what differs, so
+asking for what is already there writes nothing and leaves no undo step; an empty `before_after`
+then lets the line say NOTHING CHANGED even for a layer or a variable, which the count cannot see.
+**No empty undo step** (issue #80, Revit's D-160): only that part is done. A kept job that changed
+nothing is not taken back afterwards, because whether AutoCAD keeps an entry for an empty undo group
+or a lone mark is not known; one more `UNDO` would then undo the modeller's own last change. Written
+up in [05 §26](05-known-limits.md#26-a-job-that-changed-nothing-may-still-leave-an-undo-step), live
+row T7.
+
+## D-61 - A chat reopened after a restart keeps its hold
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-188). **Status:** in force.
+The plug-in lets one chat at a time into an AutoCAD (the hold). Each server process made a new chat
+id, so when the Claude app restarted and reopened the same chat, the new server was a stranger and
+its own hold refused it for three minutes. The server now takes its id from, in order:
+`HERON_CONVERSATION_ID` (a script or a developer fixes it); then the host's own chat id,
+`CLAUDE_CODE_SESSION_ID`, as `sha256("heron-conversation:" + id)`, first 32 hex characters (the
+host's id is never sent as it is); then a new random id. The same chat gives the same id; two chats
+give two. Only the server itself follows the host (`follow_host_chat()` in `server.main`): a
+command-line script such as `tools/live_check.py`, run from a chat's terminal, imports the same
+modules but stays its own chat, so it never takes or keeps that chat's hold by accident, and
+`tools/protocol_check.py` starts its server without the host's variable. Not proven live: whether
+Claude Code passes that variable to MCP servers, and keeps it on a resumed chat (row T1). Without
+it, nothing changes: a new id, as before.
 
 ## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
 

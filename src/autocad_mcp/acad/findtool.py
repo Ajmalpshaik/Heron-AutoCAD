@@ -20,12 +20,19 @@ The scoring is bag-of-words with three ideas:
   is inverse document frequency, worked out from the catalogue itself.
 * **"Don't use when" counts against.** A tool that names itself only to send
   you elsewhere should not win on that mention.
+
+And one rule on top (D-67, the idea of Heron AI for Revit's question mode):
+**a plain question never gets a tool that changes the drawing first.** "How
+many diffusers on this floor" wants a count, not a block inserted; ``rank``
+puts the tools that only read ahead of everything else when the phrase reads
+as a question.
 """
 
 from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 # Words too common in a drawing office to tell two tools apart.
@@ -273,4 +280,44 @@ def search(entries: list[Entry], phrase: str, limit: int = 5) -> list[Hit]:
     hits = [score(entry, terms, weights) for entry in entries]
     hits = [h for h in hits if h.score > 0.0]
     hits.sort(key=lambda h: (-h.score, h.tool))
+    return hits[:limit]
+
+
+# How a plain question starts. Only openings that ask for a fact: "how do I",
+# "can you" and "could you" ask for a job to be done, and "does it clash" is
+# answered here by autocad_check_interference, which makes solids, so "does"
+# and "do" are left out on purpose.
+QUESTION_STARTS = (
+    "how many", "how much", "how long", "how big", "how far", "how wide", "how high",
+    "how tall", "how deep", "how thick", "how large",
+    "what's", "whats", "which", "is there", "are there", "is it", "is this", "is that", "are these",
+    "are those", "are they", "are all", "is the", "are the", "where is", "where are",
+    "has this", "have we", "tell me", "list",
+)  # fmt: skip
+
+
+def is_question(phrase: str) -> bool:
+    """True when the phrase asks for a fact rather than for a job to be done.
+
+    Any "what ..." asks ("what layers are frozen", "what did you draw"), except
+    "what if", which is a job in disguise.
+    """
+    text = " ".join(_WORD.findall(phrase.lower().replace("_", " ")))
+    if text.startswith("what ") and not text.startswith("what if "):
+        return True
+    return any(text == start or text.startswith(start + " ") for start in QUESTION_STARTS)
+
+
+def rank(
+    entries: list[Entry], phrase: str, limit: int = 5, reads: Callable[[str], bool] | None = None
+) -> list[Hit]:
+    """``search``, except that for a question the tools that only read come first.
+
+    ``reads`` says whether a tool only reads. Inside each group the score
+    order stays as it was, so a question with a read tool to answer it gets
+    that tool first, and a change tool only after every read tool that matched.
+    """
+    hits = search(entries, phrase, limit=len(entries))
+    if reads is not None and is_question(phrase):
+        hits = [h for h in hits if reads(h.tool)] + [h for h in hits if not reads(h.tool)]
     return hits[:limit]

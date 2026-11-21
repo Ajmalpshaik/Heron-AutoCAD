@@ -18,7 +18,7 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `HeronApplication.cs` | Load / unload; starts disconnected |
 | `HeronActions.cs` | What the buttons and commands do; padlock confirmations |
 | `HeronRibbon.cs` | Tab Heron, panel AI Bridge, icons, rebuild on workspace change |
-| `HeronCommands.cs` | `HERON`, `HERONSTATUS`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`, `HERONASKTOKEEP` |
+| `HeronCommands.cs` | `HERON`, `HERONSTATUS`, `HERONPALETTE`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`, `HERONASKTOKEEP` |
 | `AcadJobHost.cs` | Bridge -> AutoCAD: banner, command-line line, select and zoom, Keep box, operations |
 | `PluginRunner.cs` | The plug-in's own operations ([D-40](../docs/DECISIONS.md)): right drawing, document lock, one transaction, refusals that say "Nothing was changed." |
 | `SolidOperations.cs` | Loft, fillet / chamfer edges, shell, press-pull, thicken, and the numbered faces and edges (Brep) |
@@ -28,6 +28,7 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `UndoSwitch.cs` | Undo recording off while a read runs, back on after, with safety nets (rules: `Bridge/UndoPause.cs`, [D-34](../docs/DECISIONS.md)) |
 | `HeronActivityBanner.cs` | The READING / CHANGING / DONE / STOPPED card, on its own thread |
 | `HeronStatusWindow.cs`, `HeronKeepQuestion.cs`, `HeronUi.cs` | The two windows and their shared look |
+| `HeronPalette.cs` | The docked Heron palette ([D-68](../docs/DECISIONS.md)): Activity (Select, Zoom, Undo) and Saved commands (Run through the server). Rules: `Bridge/ActivityLog.cs`, `Bridge/SavedCommandList.cs`, `Bridge/PaletteServer.cs`, words in `Bridge/PaletteTexts.cs` |
 | `Resources/*.png` | Icons copied from Heron AI for Revit |
 
 ```bash

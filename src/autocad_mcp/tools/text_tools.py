@@ -26,7 +26,7 @@ from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, point_to_list
-from ._shared import LAYER_OPT, point
+from ._shared import LAYER_OPT, before_after, point
 
 Order = Literal["rows", "columns", "path", "given"]
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
@@ -214,7 +214,8 @@ async def autocad_set_attributes(
     tag or the layout name. Pairs with autocad_extract_attributes (read, edit, write back).
 
     Returns:
-        JSON: {"changed": n, "changes": [{handle, block, layout, tag, old, new}], "unknown_tags", "unmatched_rows"}
+        JSON: {"changed": n, "changes": [{handle, block, layout, tag, old, new}], "unknown_tags", "unmatched_rows",
+        "before_after": the first 50 changes as {handle, property, from, to}}
 
     Examples:
         - Use when: "fill the title block on every sheet with this drawing
@@ -232,8 +233,11 @@ async def autocad_set_attributes(
         require_idle(doc)
         refs, objects = _attribute_refs(doc, block_name, layer)
         plan = plan_attributes(refs, values, rows, key)
-        if dry_run or not plan["changes"]:
+        if dry_run:
             return {"changed": 0, "dry_run": dry_run, "blocks_read": len(refs), **plan}
+        if not plan["changes"]:
+            # Nothing differs: no write, so no empty undo step (D-62).
+            return {"changed": 0, "dry_run": False, "blocks_read": len(refs), **plan, **before_after([])}
         with undo_mark(doc):
             for change in plan["changes"]:
                 ref = objects[change["handle"]]
@@ -241,7 +245,9 @@ async def autocad_set_attributes(
                     if str(att.TagString) == change["tag"]:
                         att.TextString = change["new"]
                 ref.Update()
-        return {"changed": len(plan["changes"]), "blocks_read": len(refs), **plan}
+        listed = [{"handle": c["handle"], "property": f"attribute {c['tag']}", "from": c["old"], "to": c["new"]}
+                  for c in plan["changes"]]  # fmt: skip
+        return {"changed": len(plan["changes"]), "blocks_read": len(refs), **plan, **before_after(listed)}
 
     return dumps(await run(work))
 
@@ -451,7 +457,8 @@ async def autocad_find_replace_text(
     Try dry_run first on a large drawing. One undo step.
 
     Returns:
-        JSON: {"replaced": n, "hits": [{handle, kind, where, before, after}]}
+        JSON: {"replaced": n, "hits": [{handle, kind, where, before, after}],
+        "before_after": the first 50 as {handle, property, from, to}}
 
     Examples:
         - Use when: "change every REV A to REV B across the whole sheet set",
@@ -507,8 +514,12 @@ async def autocad_find_replace_text(
             with undo_mark(doc):
                 for setter, value in setters:
                     setter(value)
-        return {"replaced": 0 if dry_run else sum(h["count"] for h in hits), "dry_run": dry_run,
-                "objects": len({h["handle"] for h in hits}), "hits": hits[:500], "truncated": len(hits) > 500}
+        answer = {"replaced": 0 if dry_run else sum(h["count"] for h in hits), "dry_run": dry_run,
+                  "objects": len({h["handle"] for h in hits}), "hits": hits[:500], "truncated": len(hits) > 500}
+        if not dry_run:
+            answer.update(before_after([{"handle": h["handle"], "property": f"{h['kind']} {h['where']}",
+                                         "from": h["before"], "to": h["after"]} for h in hits]))  # fmt: skip
+        return answer
 
     return dumps(await run(work))
 

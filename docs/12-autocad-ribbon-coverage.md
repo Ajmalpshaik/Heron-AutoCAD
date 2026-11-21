@@ -18,7 +18,7 @@ live is in [NEEDS-CHECKING](NEEDS-CHECKING.md) and nowhere else.
   AutoCAD here. The panel lists below are AutoCAD's out-of-the-box ribbon as written from
   knowledge, not read off a live ribbon. Panel names and the exact place of a button move a little
   between 2021 and 2027. **Before building from a row, open that panel in AutoCAD 2027 and check.**
-- **Heron's side:** the tool list in [`core/risk.py`](../src/autocad_mcp/core/risk.py) (136 tools
+- **Heron's side:** the tool list in [`core/risk.py`](../src/autocad_mcp/core/risk.py) (138 tools
   on 2026-11-21) and [03 - Tools reference](03-tools-reference.md).
 - **Not audited here:** the Collaborate, Express Tools and Add-ins tabs, the contextual tabs
   (Text Editor, Hatch Editor, Block Editor ...), and the 3D Modeling workspace's own Home tab

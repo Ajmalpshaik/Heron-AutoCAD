@@ -33,7 +33,7 @@ from pydantic import Field
 from ..core import gate
 from ..core.connection import get_doc, run
 from ..core.errors import AutocadError, com_message
-from ..core.registry import dumps, mcp, tool_errors, tool_meta
+from ..core.registry import GATE_DRY_RUN, dumps, mcp, tool_errors, tool_meta
 from ..core.risk import Risk, risk_of
 
 MAX_STEPS = 60
@@ -115,6 +115,13 @@ def plan_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         args = step.get("args") or step.get("arguments") or {}
         if not isinstance(args, dict):
             raise AutocadError(f"{where} ('{name}'): 'args' must be an object, got {args!r}.")
+        if "dry_run" in args and getattr(tool.fn, "heron_dry_run", None) == GATE_DRY_RUN:
+            # The gate's dry run goes back to an UNDO mark, which a step inside a
+            # sequence cannot have of its own (D-63).
+            raise AutocadError(
+                f"{where} ('{name}'): a step cannot be a dry run on its own. Leave dry_run out of "
+                "the step, or try that tool on its own call with dry_run=true. Nothing was run."
+            )
         try:
             tool.fn_metadata.arg_model.model_validate(args)
         except Exception as exc:  # noqa: BLE001 - pydantic's own message is the useful part

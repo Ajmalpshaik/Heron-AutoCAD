@@ -65,6 +65,8 @@ namespace Heron.AutoCAD.Bridge
         public string Summary { get; set; } = "";
         public string Drawing { get; set; } = "";
         public string Conversation { get; set; } = "";
+        /// <summary>What begin answered: the server puts an UNDO mark down before a Change job only then (D-68).</summary>
+        public bool AskToKeep { get; set; }
     }
 
     public sealed class JobEnd

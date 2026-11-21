@@ -401,6 +401,23 @@ Windows thread). Server only: restart the server after pulling; no plug-in build
 | Q4 | After Q2, `autocad_get_variable` OSMODE, USERS1 and USERS2 | The values from before the call (snaps on as he had them; USERS1 not the pending marker) | NOT RUN |
 | Q5 | Luxury Suite 3 player: the 2D rehearsal from `--from s037`, and the 3D steps marked `view_only` with that mark taken off | No stop at the layer steps or the view steps | NOT RUN |
 
+## Group T - How a change job answers and what it keeps (this PC)
+
+Added on 2026-11-21 ([D-61](DECISIONS.md), [D-62](DECISIONS.md), [D-63](DECISIONS.md)), from Heron
+AI for Revit (issues #78-#82). Built and tested offline only (`tests/test_bridge.py`,
+`tests/test_gate.py`, `tests/test_answers.py`). Server only: restart the server after pulling; no
+plug-in build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| T1 | In Claude Code, draw a line (Changes on), quit Claude Code, `claude --resume` the same chat at once, draw again | The second draw is let in at once, not "in use by another chat"; the audit lines of both carry the same `conversation`. A second, new chat at the same time is still refused | NOT RUN |
+| T2 | Changes on, Ask to Keep off: draw a line; `autocad_find_replace_text` for a word that is not in the drawing; draw with Changes off; `autocad_create_layer` | Each answer's first line: `DONE - 1 added, 0 changed, 0 erased.`; `NOTHING CHANGED - ...`; `REFUSED - nothing was sent to AutoCAD.`; `DONE - no drawing object ... not counted ...` | NOT RUN |
+| T3 | Ask to Keep on: draw a circle and press **Discard it**; then run a saved command (`autocad_saved_command` run) | `NOTHING CHANGED - the modeller chose Discard ...`; the saved command's answer starts with `DONE - ` and its counts | NOT RUN |
+| T4 | Ask to Keep off: `autocad_draw_circle(..., dry_run=true)`; then `autocad_modify_entity` on a line with `layer` and `color`, `dry_run=true`; then `autocad_create_layer` `M-TEST` with `dry_run=true` | Each answer starts `NOTHING CHANGED - a dry run`; no circle in the drawing; the line keeps its layer and colour; no layer M-TEST (LAYER); one Ctrl+Z after it undoes the modeller's own last change, not a Heron step | NOT RUN |
+| T5 | `autocad_loft` (a plug-in operation) and `autocad_set_current_layer` with `dry_run=true`; then `autocad_save_drawing(dry_run=true)` | The loft is gone and CLAYER is as before; the save is refused `REFUSED - nothing was sent ...`, and the file's date does not change | NOT RUN |
+| T6 | `autocad_modify_entity` two lines to layer `M-DUCT` colour red, one already on it; `autocad_set_layer_state` `M-*` off twice; `autocad_set_variable` DIMSCALE 100 (Admin on); `autocad_find_replace_text` REV A -> REV B | Each answer's `before_after` names each object with its old and new value; the line already on M-DUCT is in `already`; the second layer call says `NOTHING CHANGED` and adds no undo step (the UNDO list in the Undo drop-down is one shorter than with two calls) | NOT RUN |
+| T7 | Ask to Keep off: draw a line by hand. Then `autocad_align_text` mode `left` on two texts already lined up left (a tool that opens its group first). Open the Undo drop-down on the Quick Access toolbar. Repeat with Ask to Keep on and `autocad_find_replace_text` for a word that is not there | Write down what the list shows on top: the hand-drawn line (no empty Heron step), or a blank "Group" / "Mark" entry. One Ctrl+Z should remove the hand-drawn line; if it does not, the empty step is real (05 §26) | NOT RUN |
+
 ## Group V - The dialog watch (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-66](DECISIONS.md), issue #83). Built and tested offline
@@ -434,6 +451,50 @@ build is needed. **Every row below is NOT RUN.**
 | U8 | Open U7's `.xlsx` in Excel and the `.html` in a browser | Excel opens it with no repair message; one row per check with state, severity, source, from, objects; the HTML shows the same with coloured rows; both carry the coverage line and "PASS means the checked value is met" | NOT RUN |
 | U9 | Ask the chat "does this drawing comply?" after a run that passes | The answer gives the verdict and coverage line, says PASS means the checked value is met against the named source, and does not say the drawing complies | NOT RUN |
 | U10 | `autocad_check_standards(rules={...})` on a drawing that passes | `passed: true` with `source` and `pass_means`; the chat does not say "complies" | NOT RUN |
+## Group W - Finding and explaining: why, gaps, question mode (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-67](DECISIONS.md)). Built and tested offline
+(`tests/test_why_and_gaps.py`, `tests/test_find_tool.py`). Server only: restart the server after
+pulling; no plug-in build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| W1 | AutoCAD closed: "why can't you save this as PDF?" (`autocad_why`) | Answers at once, no error: cannot run, first reason "No AutoCAD is connected", what to do says press Heron | NOT RUN |
+| W2 | AutoCAD open, Heron pressed, Changes ON, Publish OFF: `autocad_why("save this as PDF")` | Cannot run; one reason "needs the Publish padlock, and it is off" with HERONPUBLISH; Changes not named | NOT RUN |
+| W3 | Same, all padlocks ON: `autocad_why("draw a 200 flange with 8 bolt holes")` | `can_run: true`, tool `autocad_make_shape`, "should run" | NOT RUN |
+| W4 | `autocad_why("make me a cup of tea")` | "Heron has no tool for this job" with "do it by hand" | NOT RUN |
+| W5 | Turn Changes OFF, ask the chat to draw a line (refused), then `autocad_gaps(days=1)` | `autocad_draw_line` shows 1 refused; the failure reason is "The Changes padlock was off" with HERONCHANGES | NOT RUN |
+| W6 | `autocad_gaps(days=30)` after a week of real work | Counts per tool look right; slowest jobs are the ones you remember as slow; drawings by file name only, no folder anywhere in the answer | NOT RUN |
+| W7 | Read `autocad://tools/find/is that polyline closed` and `.../how many diffusers on this floor` | First match is a Read tool (`autocad_polyline_info`, `autocad_count_blocks`); no tool needing Changes in `matches` | NOT RUN |
+| W8 | Read `autocad://tools/find/is there a clash between the duct and the steel` | `matches` holds only Read tools; `autocad_check_interference` is under `would_change_the_drawing` | NOT RUN |
+
+## Group X - The docked Heron palette: Activity and Saved commands (D-68) (AutoCAD 2027, this PC)
+
+Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETTE` opens it.
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| X1 | Type `HERONPALETTE`; then Heron (arrow) > **Heron palette**; then each again | A palette docked right with tabs **Activity** and **Saved commands**, dark Heron card, orange strip, the heron in the header; each press opens or closes it; the heron stays on top of the split button | NOT RUN |
+| X2 | Ask the chat to draw three lines, then a circle | Two rows appear at once, newest (the circle) on top, each "made N, changed 0, erased 0" with the time, drawing and "done"; reads (status, list) do not appear | NOT RUN |
+| X3 | On the lines row press **Select**, then **Zoom** | Select: the three lines selected, the view unchanged. Zoom: the view frames them, still selected; the line says how many | NOT RUN |
+| X4 | Ask to Keep **off**. Draw a circle (Keep not asked), press **Zoom** on it, then **Undo** | The circle is gone; the line says "Undone: ..."; the row reads "undone from this palette". If instead the zoom was undone and the circle stays, the line says objects are still there: record it as FAIL (the palette's zoom left an undo step) | NOT RUN |
+| X5 | Ask to Keep **on**. Draw a circle, Keep, then ask the chat to zoom, then **Undo** on the circle | `UNDO _Back`: the circle is gone (and the view goes back to before the job) | NOT RUN |
+| X6 | Draw a circle with the chat, then draw a line by hand, then **Undo** on the circle | Refused: "The drawing changed after this job ... Use Ctrl+Z yourself"; nothing undone | NOT RUN |
+| X7 | Two Heron changes, then **Undo** on the older one | Refused: "Heron did more after this job (...)"; nothing undone | NOT RUN |
+| X8 | While a long chat job runs (a big batch), press Select, Zoom and Undo on an older row | Each refused: "Heron is working on a job right now"; the job is not disturbed | NOT RUN |
+| X9 | Chat A holds this AutoCAD (a call less than 3 minutes ago): press **Select** and **Zoom** on its row | Both work (only a running job stops them) | NOT RUN |
+| X10 | After X4, ask the chat `autocad_undo_last` | Refused: the drawing changed since; nothing undone | NOT RUN |
+| X11 | In the chat: "save that as 'plinth'" with inputs width and depth; watch the Saved commands tab | 'plinth' shows within about 2 s, without a restart; search "plin" finds it | NOT RUN |
+| X12 | Pick 'plinth', leave width empty, press Run; then type "wide"; then 1500 | Empty: "'width' needs a value"; "wide": "'width' needs a number, e.g. ..."; nothing sent to AutoCAD either time | NOT RUN |
+| X13 | No chat holding AutoCAD (or after Free this AutoCAD). Fill 'plinth' with 1500 / 900, press **Run** | The banner shows the job; the plinth is drawn at those sizes; the line says "Done: 'plinth', N of N step(s)."; a new Activity row; then the chat can use AutoCAD at once (not after 3 minutes) | NOT RUN |
+| X14 | Changes **off**, press Run | Refused with the Changes sentence (press Settings ...); nothing drawn | NOT RUN |
+| X15 | Ask to Keep on, press Run, answer **Discard it** | Nothing kept; the line says "Discarded: nothing was kept." | NOT RUN |
+| X16 | A chat holds this AutoCAD (a call within 3 minutes), press Run | "This AutoCAD is in use by another chat. Nothing was sent to AutoCAD." | NOT RUN |
+| X17 | Press **Stop Heron now**, then Run | Refused: the modeller stopped Heron; nothing drawn | NOT RUN |
+| X18 | Disconnect Heron, press Run | "AutoCAD is not connected to Heron. Press the Heron button first" | NOT RUN |
+| X19 | Rename `%LOCALAPPDATA%\Heron\autocad\server.json`, press Run; put it back | "Heron's server has not run on this PC yet ..."; with it back, Run works. No console window flashes during a run | NOT RUN |
+| X20 | Two AutoCADs connected; Run from the second's palette | The command runs in the second AutoCAD, not the first | NOT RUN |
+| X21 | AutoCAD 2025 / 2026 and 2021-2024 builds: X1, X2, X4, X13 | As in AutoCAD 2027 | NO MACHINE |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

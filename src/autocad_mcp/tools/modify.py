@@ -17,7 +17,7 @@ from ..acad.units import rad
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
-from ._shared import HANDLES_OPT, point
+from ._shared import HANDLES_OPT, before_after, point, same_value
 
 
 # Applying one operation across many entities should not abort everything
@@ -750,7 +750,8 @@ async def autocad_modify_entity(
 
     Returns:
         str: JSON: {"modified": int, "handles": [str], "applied": [str],
-             "skipped": [{"handle": str, "type": str, "property": str}]}
+             "before_after": [{"handle", "property", "from", "to"}] (first 50),
+             "already": [str], "skipped": [{"handle": str, "type": str, "property": str}]}
 
     Examples:
         - Use when: "put those on layer A-WALL and make them red" ->
@@ -777,6 +778,42 @@ async def autocad_modify_entity(
             "linetype, text, height, radius, closed."
         )
 
+    def read(entity: Any, kind: str, prop: str) -> Any:
+        """The value now, so only what differs is written and old -> new is reported."""
+        if prop == "layer":
+            return str(entity.Layer)
+        if prop == "color":
+            return int(entity.Color)
+        if prop == "linetype":
+            return str(entity.Linetype)
+        if prop == "text":
+            if kind not in {"text", "mtext"}:
+                raise TypeError("not a text entity")
+            return str(entity.TextString)
+        if prop == "height":
+            return float(entity.Height)
+        if prop == "radius":
+            if kind not in {"circle", "arc"}:
+                raise TypeError("has no radius")
+            return float(entity.Radius)
+        return bool(entity.Closed)
+
+    def write(entity: Any, prop: str, value: Any) -> None:
+        if prop == "layer":
+            entity.Layer = str(value).strip()
+        elif prop == "color":
+            entity.Color = value
+        elif prop == "linetype":
+            entity.Linetype = str(value).strip()
+        elif prop == "text":
+            entity.TextString = str(value)
+        elif prop == "height":
+            entity.Height = float(value)
+        elif prop == "radius":
+            entity.Radius = float(value)
+        elif prop == "closed":
+            entity.Closed = bool(value)
+
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
@@ -784,75 +821,81 @@ async def autocad_modify_entity(
         skipped: list[dict[str, str]] = []
         succeeded: list[str] = []
         failed: list[dict[str, str]] = []
+        already: list[str] = []
+        rows: list[dict[str, Any]] = []
         unlocked: list[Any] = []
 
-        with undo_mark(doc):
-            if layer:
-                ensure_layer(doc, layer)
-            if linetype:
-                ensure_linetype(doc, linetype)
-
-            for handle in handles:
-                entity = resolve_handle(doc, handle)
-                kind = short_type(entity)
-
-                if layer_lock_override:
-                    try:
-                        entity_layer = doc.Layers.Item(str(entity.Layer))
-                        if bool(entity_layer.Lock):
-                            entity_layer.Lock = False
-                            unlocked.append(entity_layer)
-                    except BaseException:  # noqa: BLE001 - best effort
-                        pass
-
-                changed_any = False
-                for prop, value in requested.items():
-                    if value is None:
-                        continue
-                    try:
-                        if prop == "layer":
-                            entity.Layer = str(value).strip()
-                        elif prop == "color":
-                            entity.Color = value
-                        elif prop == "linetype":
-                            entity.Linetype = str(value).strip()
-                        elif prop == "text":
-                            if kind not in {"text", "mtext"}:
-                                raise TypeError("not a text entity")
-                            entity.TextString = str(value)
-                        elif prop == "height":
-                            entity.Height = float(value)
-                        elif prop == "radius":
-                            if kind not in {"circle", "arc"}:
-                                raise TypeError("has no radius")
-                            entity.Radius = float(value)
-                        elif prop == "closed":
-                            entity.Closed = bool(value)
-                        applied.add(prop)
-                        changed_any = True
-                    except BaseException:  # noqa: BLE001 - wrong type for this prop
-                        skipped.append(
-                            {"handle": handle, "type": kind, "property": prop}
-                        )
-
-                if changed_any:
-                    try:
-                        entity.Update()
-                        succeeded.append(handle)
-                    except BaseException as exc:  # noqa: BLE001
-                        failed.append({"handle": handle, "reason": com_message(exc)})
-
-            for entity_layer in unlocked:
+        # First look: what each entity has now. Only a value that differs is
+        # written, and an entity with nothing to change opens no undo step.
+        plans: list[tuple[str, Any, list[tuple[str, Any, Any]]]] = []
+        for handle in handles:
+            entity = resolve_handle(doc, handle)
+            kind = short_type(entity)
+            changes: list[tuple[str, Any, Any]] = []
+            for prop, value in requested.items():
+                if value is None:
+                    continue
                 try:
-                    entity_layer.Lock = True
-                except BaseException:  # noqa: BLE001
-                    pass
+                    old = read(entity, kind, prop)
+                except BaseException:  # noqa: BLE001 - wrong type for this prop
+                    skipped.append({"handle": handle, "type": kind, "property": prop})
+                    continue
+                if not same_value(old, str(value).strip() if prop in ("layer", "linetype") else value):
+                    changes.append((prop, old, value))
+            if changes:
+                plans.append((handle, entity, changes))
+            elif not any(row["handle"] == handle for row in skipped):
+                already.append(handle)
+
+        if plans:
+            with undo_mark(doc):
+                if layer and any(prop == "layer" for _, _, changes in plans for prop, _, _ in changes):
+                    ensure_layer(doc, layer)
+                if linetype and any(prop == "linetype" for _, _, changes in plans for prop, _, _ in changes):
+                    ensure_linetype(doc, linetype)
+
+                for handle, entity, changes in plans:
+                    if layer_lock_override:
+                        try:
+                            entity_layer = doc.Layers.Item(str(entity.Layer))
+                            if bool(entity_layer.Lock):
+                                entity_layer.Lock = False
+                                unlocked.append(entity_layer)
+                        except BaseException:  # noqa: BLE001 - best effort
+                            pass
+
+                    changed_any = False
+                    for prop, old, value in changes:
+                        try:
+                            write(entity, prop, value)
+                            applied.add(prop)
+                            changed_any = True
+                            rows.append({"handle": handle, "property": prop, "from": old, "to": value})
+                        except BaseException:  # noqa: BLE001 - AutoCAD would not take it
+                            skipped.append({"handle": handle, "type": short_type(entity), "property": prop})
+
+                    if changed_any:
+                        try:
+                            entity.Update()
+                            succeeded.append(handle)
+                        except BaseException as exc:  # noqa: BLE001
+                            failed.append({"handle": handle, "reason": com_message(exc)})
+
+                for entity_layer in unlocked:
+                    try:
+                        entity_layer.Lock = True
+                    except BaseException:  # noqa: BLE001
+                        pass
 
         result: dict[str, Any] = {
             "modified": len(succeeded),
             "handles": succeeded,
             "applied": sorted(applied),
+            **before_after(rows),
         }
+        if already:
+            result["already"] = already
+            result["already_note"] = "These already had the values asked for; nothing was written to them."
         if skipped:
             result["skipped"] = skipped
             result["skipped_note"] = (

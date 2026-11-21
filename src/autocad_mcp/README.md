@@ -4,7 +4,8 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 
 | Folder / file | Owns | Knows about |
 |---|---|---|
-| `server.py` | Command line: `--transport stdio/http`, `--host`, `--port`, `--list-tools`, `--read-only`, `--no-bridge` | everything below |
+| `server.py` | Command line: `--transport stdio/http`, `--host`, `--port`, `--list-tools`, `--read-only`, `--no-bridge`, `--run-saved` | everything below |
+| `palette.py` | The Heron palette's Run (D-68): one saved command through the gate, and `server.json` so the palette finds the server | `tools`, `core` |
 | `tools/` | The MCP tools, resources and prompts, one file per subject (`--list-tools` counts them) | MCP, `acad`, `core` |
 | `acad/` | AutoCAD domain: entities, selections, tables, AutoLISP, units, the UCS transform, sheet arithmetic, the shape library | `core` only |
 | `core/` | COM worker thread and its busy-call message filter, VARIANTs, errors, the FastMCP instance, undo groups, and the Heron gate (`gate.py`, `bridge.py`, `risk.py`, `audit.py`) | pywin32 only |
@@ -20,6 +21,7 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/modify.py` | move, copy, rotate, scale, mirror, offset, array, modify, delete |
 | `tools/layers.py` | layers, blocks, styles |
 | `tools/advanced.py` | send command, run LISP, purge, regen, audit |
+| `tools/explain.py` | `autocad_why` (why one job cannot run) and `autocad_gaps` (what failed and was slow, from the audit log): both need no AutoCAD (D-67) |
 | `tools/standards.py` | standards check, attribute extraction |
 | `tools/coordinates.py` | the UCS: read it, set it, convert points through it |
 | `tools/sheets.py` | layouts, page setup, title blocks, viewports |

@@ -171,6 +171,7 @@ namespace Heron.AutoCAD.Bridge
                 Summary = Str(root, "summary"),
                 Drawing = Str(root, "drawing"),
                 Conversation = conversation,
+                AskToKeep = askToKeep,
             };
             lock (_running) _running[job.Job] = new RunningJob(conversation, risk, job.Drawing);
             try
