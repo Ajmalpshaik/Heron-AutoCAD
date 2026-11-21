@@ -130,6 +130,65 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-79 - Explode, draw order, match properties, groups: plain COM, checked first
+
+**Decided:** 2026-11-21, building issues #105, #111 and #110 from the ribbon audit (#94).
+**Status:** in force; nothing here is proven in AutoCAD yet (NEEDS-CHECKING group AA).
+- **Explode** (`autocad_explode`) calls the object's own `Explode` and returns the new handles.
+  Autodesk's reference says it replaces the object, but forum reports say the original can stay;
+  so Heron looks for the original afterwards and erases it if it is still there. The erase goes
+  through D-50's question. A block with attributes is skipped unless `allow_attribute_loss=true`:
+  exploded, an attribute shows its tag, not its value, so the values are listed in the answer.
+  MINSERT arrays are refused. Exploding a part breaks drafting rule 2, so the tool says so.
+- **Draw order** (`autocad_draw_order`) writes the space's own `ACAD_SORTENTS` table through its
+  extension dictionary (`GetObject`, else `AddObject(..., "AcDbSortentsTable")`), with
+  `MoveToTop` / `MoveToBottom` / `MoveAbove` / `MoveBelow`, as DRAWORDER does. All the objects (and the
+  reference) must be in one space.
+- **Match properties** (`autocad_match_properties`) copies named properties: the general six
+  (layer, colour, linetype, linetype scale, lineweight, transparency) by default, `text_style` and
+  `dim_style` on request or with `all`. Only what differs is written, before / after is listed
+  (D-62), and a property the target does not have is skipped and said. A true colour is copied as a
+  true colour. **Lineweight and transparency** also go on `autocad_modify_entity`: lineweight in
+  millimetres as AutoCAD lists them, or hundredths (5 and up), or ByLayer / ByBlock / Default; a
+  value AutoCAD does not have is refused. Transparency 0-90 (AutoCAD's own limit) or ByLayer /
+  ByBlock, written to `EntityTransparency`.
+- **Groups**: `autocad_list_groups` (Read) and `autocad_group` (Change: make, add, remove, ungroup)
+  over the drawing's `Groups` collection. Names follow AutoCAD's symbol rules; a name taken is
+  refused (use add); a missing name gets GROUP1, GROUP2 ... Ungroup deletes the group object only;
+  Heron then checks every member is still there and says so if not.
+
+## D-78 - Trim, extend, fillet, chamfer, break, join and stretch are worked out in Python
+
+**Decided:** 2026-11-21, building issues #103 and #49. **Status:** in force; nothing here is proven
+in AutoCAD yet (NEEDS-CHECKING group AA).
+- **The geometry is Heron's own** (`acad/edit2d.py`, plain functions tested without AutoCAD, as
+  the shape library is, D-30), not a typed TRIM or FILLET. A typed command waits for picks, and a
+  command left waiting blocks everything after it (known limit 21). The tools read each object,
+  ask the geometry for the new shape, and write it back by setting the object's own points:
+  `StartPoint` / `EndPoint`, `StartAngle` / `EndAngle`, a polyline's `Coordinates` and bulges. Extra
+  pieces are `Copy()` of the object, so layer, colour, linetype, extended data and the handle of the
+  first piece stay. No plug-in change was needed.
+- **In plan, on flat objects.** Everything is worked in world X and Y, as TRIM does with PROJMODE at
+  its default. A sloping line, an arc or polyline on a tilted or flipped plane, and a polyline whose
+  width changes along it are refused rather than flattened or stripped. One constant width is kept.
+- **The rules a draftsman expects.** Trim removes the part pointed at, out to the next edge or to
+  the end; edges count as drawn, not as if they ran on (EDGEMODE 0); edges are read once, before
+  anything changes. Extend runs a straight end along its line and an arc end round its circle, to
+  the nearest boundary ahead, both ends when no point is given. A closed polyline cut twice opens
+  there; a circle cut or broken becomes an arc (a new object, so the circle's erase is asked about,
+  D-50). Fillet and chamfer work on two lines (each keeps its end farther from the corner, or the
+  side of `keep_points`; the new arc or line takes the first line's look; radius 0 is a sharp
+  corner) or on one polyline's corners (it stays one polyline: bulges, D-30 rule 17). A corner next
+  to an arc, or on a segment too short, is skipped and said. Join makes one line, one arc or one
+  polyline, keeping the first object given where it can; a branch or a gap is refused with where.
+- **Shape changes for #49**: `autocad_edit_vertex` (move, add, remove a polyline vertex; move a
+  line's end) keeps the bulges, as a grip drag does; `autocad_stretch` moves the points inside a
+  window, moves a circle, text, block or point whole when its base point is inside, and moves
+  anything else only when it is wholly inside, listing the rest. No `Lengthen` yet.
+- **Safety:** an object on a locked layer is refused before anything is written, a failed write
+  takes back the copies it made, the same object twice is refused, and a call with nothing to do
+  opens no undo step (D-62). Each call is one undo step.
+
 ## D-75 - What a review of the new tools found, and the rules added
 
 **Decided:** 2026-11-21, after an independent review of the code of PRs #124, #143 and #146.

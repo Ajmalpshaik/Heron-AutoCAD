@@ -261,8 +261,8 @@ async def autocad_send_command(
     """Run any AutoCAD command by sending it to the command line.
 
     This is the escape hatch for anything the typed tools do not cover —
-    TRIM, EXTEND, FILLET, JOIN, BOUNDARY, MEASUREGEOM, custom LISP commands,
-    third-party add-in commands.
+    BOUNDARY, MEASUREGEOM, custom LISP commands, third-party add-in commands.
+    TRIM, EXTEND, FILLET, CHAMFER, BREAK, JOIN and STRETCH have their own tools.
 
     The command runs as if the user typed it, so it needs every argument the
     interactive command would ask for, separated by \\n. A command left waiting
@@ -287,13 +287,12 @@ async def autocad_send_command(
              which means the command string was incomplete.
 
     Examples:
-        - Use when: "fillet those two lines with a 50 radius" ->
-          '_FILLET\\n_R\\n50\\n' then select.
         - Use when: running a custom LISP command the office has loaded.
         - Use when: a command asks a question in a box and the modeller has
           said the answer - expect_box='Purge - Confirm Purge', press='Yes'.
         - Don't use when: a typed tool exists — autocad_draw_circle beats
-          sending '_CIRCLE'.
+          sending '_CIRCLE', and autocad_fillet_chamfer, autocad_trim_extend
+          and autocad_join_curves beat typing FILLET, TRIM or JOIN.
 
     Error Handling:
         - Refuses commands known to open a modal dialog and names the

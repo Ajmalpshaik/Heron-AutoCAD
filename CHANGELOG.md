@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (153 in
+  all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
+  `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,
+  `autocad_explode`, `autocad_draw_order`, `autocad_match_properties`, `autocad_list_groups` and
+  `autocad_group`; `autocad_modify_entity` also sets lineweight and transparency. The geometry is
+  worked out in Python (`acad/edit2d.py`, tested offline) and written by setting each object's own
+  points over COM, so no command waits for a pick. One undo step each; locked layers refused before
+  anything is written ([D-78](docs/DECISIONS.md), [D-79](docs/DECISIONS.md)). Live rows AA1-AA20 NOT RUN.
+
 - **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
   fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,
   BLOCK or LAYOUT keeps its own column; a row whose Block is another block here is not used, and a

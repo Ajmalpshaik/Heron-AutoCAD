@@ -8,7 +8,21 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (review fixes for the new tools, D-75)
+## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+
+Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
+Eleven new tools in `tools/edit2d.py` (**153** tools): trim / extend, fillet / chamfer, break, join,
+edit a vertex, stretch, explode, draw order, match properties, list groups, group. Lineweight and
+transparency on `autocad_modify_entity`. The geometry is plain Python in `acad/edit2d.py`
+(`tests/test_edit2d_geometry.py`); the tools against fake COM in `tests/test_edit2d_tools.py`.
+No typed commands, no plug-in change. Limits: [05 §28](05-known-limits.md#28-the-everyday-2d-edits-have-their-own-limits).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AA1-AA19 in a scratch
+drawing. AA13 (does COM's Explode leave the original?) and AA14 (draw order in a drawing that has no
+table yet) are the two answers the code could not get from Autodesk's reference. Not built:
+Lengthen, and a fillet between a line and an arc.
+
+## Earlier - 2026-11-21 (review fixes for the new tools, D-75)
 
 An independent review of PRs #124, #143 and #146 found six real problems; all fixed with tests:
 Excel's date / time / percent typing written as numbers (now refused, `excel_converted`), a tag

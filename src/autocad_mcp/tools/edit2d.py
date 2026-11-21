@@ -1180,7 +1180,7 @@ async def autocad_draw_order(
         Field(default=None, description="For 'above' and 'under': the handle of the object to go above or under."),
     ] = None,
 ) -> str:
-    """Bring objects to the front or send them to the back: AutoCAD's DRAWORDER.
+    """Put objects in front of or behind the rest (send a hatch or wipeout to the back): AutoCAD's DRAWORDER.
 
     Written to the space's draw order table (ACAD_SORTENTS), as DRAWORDER
     does. The objects keep their order among themselves. All must be in one

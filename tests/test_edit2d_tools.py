@@ -815,3 +815,40 @@ def test_options_for_the_other_kind_of_corner_are_refused(doc):
     assert "'keep_points' is for two lines" in refusal(
         edit2d.autocad_fillet_chamfer("fillet", [box.Handle], radius=5, keep_points=[[1, 0], [0, 1]])
     )
+
+
+# ---- can a draftsman find them? -----------------------------------------------------------------------------
+
+# Kept here, not in test_find_tool.py, so this work and the other sessions' do not
+# collide; scored the same way, with its function.
+FIND = [
+    ("trim the pipe back to the wall", "autocad_trim_extend"),
+    ("extend the branch lines to the main", "autocad_trim_extend"),
+    ("put a 150 radius on that duct corner", "autocad_fillet_chamfer"),
+    ("fillet these two lines", "autocad_fillet_chamfer"),
+    ("fillet those two lines with a 50 radius", "autocad_fillet_chamfer"),
+    ("chamfer that corner 50 by 30", "autocad_fillet_chamfer"),
+    ("split that pipe at the tee", "autocad_break_curve"),
+    ("break this line at a point", "autocad_break_curve"),
+    ("join these lines into one polyline", "autocad_join_curves"),
+    ("move the end of that line to the column centre", "autocad_edit_vertex"),
+    ("move that polyline vertex", "autocad_edit_vertex"),
+    ("that box is drawn 200 too tall, stretch it", "autocad_stretch"),
+    ("explode that block", "autocad_explode"),
+    ("send the hatch behind the pipes", "autocad_draw_order"),
+    ("bring the text to the front", "autocad_draw_order"),
+    ("make these pipes look like that one", "autocad_match_properties"),
+    ("match properties from that line", "autocad_match_properties"),
+    ("group the pump and its valves", "autocad_group"),
+    ("ungroup that", "autocad_group"),
+    ("what groups are in this drawing", "autocad_list_groups"),
+    ("make those lines 0.35 lineweight", "autocad_modify_entity"),
+    ("make the existing services 50% transparent", "autocad_modify_entity"),
+]
+
+
+@pytest.mark.parametrize(("phrase", "want"), FIND)
+def test_the_new_tools_are_found_first_in_a_draftsmans_words(phrase, want):
+    from test_find_tool import found
+
+    assert found(phrase)[:1] == [want], (phrase, found(phrase))

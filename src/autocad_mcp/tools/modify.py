@@ -749,7 +749,7 @@ async def autocad_modify_entity(
         ),
     ] = False,
 ) -> str:
-    """Change properties of existing entities.
+    """Change properties of existing entities: layer, colour, linetype, lineweight, transparency, text.
 
     Only the arguments you pass are changed; everything else is left alone.
     Properties that do not apply to an entity's type are skipped for that
@@ -777,8 +777,8 @@ async def autocad_modify_entity(
         - Use when: "put those on layer A-WALL and make them red" ->
           layer="A-WALL", color="red".
         - Use when: "fix that label to say ROOM 12" -> text="ROOM 12".
-        - Use when: "make the existing services 0.18 and 50% see-through" ->
-          lineweight=0.18, transparency=50.
+        - Use when: "make the existing services 0.18 lineweight and 50% see-through"
+          -> lineweight=0.18, transparency=50.
         - Don't use when: the values should come from another object - use
           autocad_match_properties.
 
