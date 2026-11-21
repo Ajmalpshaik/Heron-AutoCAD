@@ -152,6 +152,31 @@ arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autoli
 `autocad_delete_entities` needs `confirm=true`. Without it the tool returns a preview and changes
 nothing.
 
+`autocad_modify_entity` also sets **lineweight** (0.25, 0.35 ... mm as AutoCAD lists them, or
+ByLayer / ByBlock / Default) and **transparency** (0-90, ByLayer, ByBlock) per object ([D-79](DECISIONS.md)).
+
+## Everyday 2D edits (Change; listing groups is Read)
+
+Worked out in Python and written back by setting each object's own points over COM: nothing is
+typed on the command line, so nothing is left waiting for a pick ([D-78](DECISIONS.md),
+[D-79](DECISIONS.md)). In plan, on flat lines, arcs, circles and polylines. Each call is one undo
+step; an object on a locked layer is refused before anything is written. Not proven in AutoCAD yet
+([NEEDS-CHECKING group AA](NEEDS-CHECKING.md); limits in [05 §29](05-known-limits.md#29-the-everyday-2d-edits-have-their-own-limits)).
+
+| Tool | Purpose |
+|---|---|
+| `autocad_trim_extend` | TRIM back to cutting edges (a point on the part to cut away) or EXTEND to boundaries (both ends when no point is given). Edges count as drawn. A cut circle becomes an arc |
+| `autocad_fillet_chamfer` | FILLET (radius; 0 = sharp corner) or CHAMFER (two distances, or a distance and an angle) of two lines, or of one polyline's corners (it stays one polyline) |
+| `autocad_break_curve` | BREAK one object at a point, or take out the part between two points |
+| `autocad_join_curves` | JOIN lines, arcs and open polylines end to end into one line, arc or polyline (`gap` to close small gaps); the others are erased |
+| `autocad_edit_vertex` | Move a polyline vertex or a line's end; add or remove a polyline vertex (bulges kept) |
+| `autocad_stretch` | STRETCH: the points inside a window move; circles, text, blocks and points move whole when their base point is inside; anything else only when wholly inside |
+| `autocad_explode` | EXPLODE blocks and polylines; returns the new handles. A block with attributes needs `allow_attribute_loss=true` |
+| `autocad_draw_order` | DRAWORDER: front, back, above or under one object (a hatch or wipeout to the back) |
+| `autocad_match_properties` | MATCHPROP: layer, colour, linetype, linetype scale, lineweight, transparency, and text or dimension style on request, from one object to others, with before / after |
+| `autocad_list_groups` | The drawing's groups and their members (Read) |
+| `autocad_group` | Make a named group, add or remove objects, ungroup (the objects stay) |
+
 ## Layers and blocks (lists Read, the rest Change)
 
 `autocad_list_layers` (and the saved layer states), `autocad_create_layer`, `autocad_set_layer_state`,
@@ -168,7 +193,7 @@ nothing.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_send_command` | Any AutoCAD command: TRIM, FILLET, add-in commands. `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)). An UNDO, U, REDO, MREDO or OOPS is never sent twice by a busy retry ([D-76](DECISIONS.md)) |
+| `autocad_send_command` | Any AutoCAD command, such as an add-in's (TRIM and FILLET have their own tools now, above). `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)). An UNDO, U, REDO, MREDO or OOPS is never sent twice by a busy retry ([D-76](DECISIONS.md)) |
 | `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Long code, or several top-level forms, is cut between the forms into pieces under 700 characters, run in order as one undo step; one form over 2,000 characters is refused ([D-76](DECISIONS.md), [05 §3](05-known-limits.md#3-long-autolisp-fails-silently)). `expect_box` + `press` as for send_command |
 | `autocad_purge` | Remove unused blocks, layers, linetypes, styles |
 | `autocad_regen` | Regenerate the display |

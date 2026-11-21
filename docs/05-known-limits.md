@@ -381,7 +381,36 @@ From [D-82](DECISIONS.md) and [D-83](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
   name that both drawings have is the target's own: the copies show the target's version.
   Coordinates are world coordinates in each drawing; the copies are moved, not turned or scaled.
 
-## 29. Files read with AutoCAD closed, the reference standard, and shared check lists
+## 29. The everyday 2D edits have their own limits
+
+From [D-78](DECISIONS.md) and [D-79](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AA).
+- **In plan, on flat objects only.** Lines, arcs, circles and polylines drawn flat in world XY. A
+  sloping line, an arc or polyline on a tilted or flipped plane, a spline, an ellipse or a 3D
+  polyline is refused, never flattened. An old-style 2D polyline can be a cutting edge or boundary,
+  but is not changed itself.
+- **A polyline whose width changes along it is refused** by trim, extend, break, join, fillet and
+  vertex edits (Heron would lose the widths). One constant width is kept. Stretch keeps the vertex
+  count, so widths should stay; not proven (AA12).
+- **Edges count as drawn,** as with EDGEMODE 0: a boundary that would need extending first is not
+  reached. All edges are read once, before anything changes.
+- **Fillet and chamfer** take two lines, or the corners of one polyline. Not a line and an arc, not
+  two polylines, not a corner next to an arc. Parallel lines are refused (AutoCAD's own FILLET
+  would draw a half circle). Two lines that cross keep their longer side each unless `keep_points`
+  says which part to keep.
+- **A circle that is trimmed or broken becomes a new arc** with a new handle; the circle is erased.
+- **Join, explode and a cut circle erase objects,** so Heron asks the modeller to keep them erased
+  ([D-50](DECISIONS.md)) whatever Ask to Keep says. Join takes its look from the first object given;
+  pieces joined across a `gap` meet at the earlier piece's end point; a branch is refused.
+- **Exploding a block with attributes** shows each attribute's tag, not its value; the tool refuses
+  it unless asked, and then lists the values. Whether COM's Explode leaves the original behind is
+  not documented one way; Heron erases it if it is still there (AA13).
+- **Stretch** moves a dimension, hatch, arc or anything else only when it lies wholly inside the
+  window, and lists the rest. AutoCAD's STRETCH would move a dimension's points; Heron does not.
+- **Draw order** works in one space at a time; the screen may need a regen to show it.
+- **Groups:** an unnamed group (*A1) is listed but not made. No Lengthen tool yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
+- None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AA](NEEDS-CHECKING.md)).
+
+## 30. Files read with AutoCAD closed, the reference standard, and shared check lists
 
 From [D-92](DECISIONS.md) and [D-93](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AG).
 - **A DWG needs the ODA File Converter** to be read with AutoCAD closed. Heron never downloads it;

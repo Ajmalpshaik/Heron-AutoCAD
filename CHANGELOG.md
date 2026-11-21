@@ -5,7 +5,7 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **Files with AutoCAD closed, standards against a reference drawing, check lists shared with the
-  team (2026-11-21, #71, #69, #135).** Two new tools (**160** in all, with `autocad_render` gone).
+  team (2026-11-21, #71, #69, #135).** Two new tools (**171** in all, with the 2D edits).
   `autocad_read_file` reads a `.dxf` on disk with AutoCAD closed - layers with object counts,
   blocks with placed counts and attribute tags, text, attribute values (JSON or CSV), extents,
   styles - and a `.dwg` / `.dws` / `.dwt` when the free ODA File Converter is installed (Heron
@@ -18,6 +18,15 @@ Newest first. Dates are when the change was made.
   the office folder or a project's changes in the drawing's folder, never over a teammate's file
   silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
   closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
+
+- **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
+  all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
+  `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,
+  `autocad_explode`, `autocad_draw_order`, `autocad_match_properties`, `autocad_list_groups` and
+  `autocad_group`; `autocad_modify_entity` also sets lineweight and transparency. The geometry is
+  worked out in Python (`acad/edit2d.py`, tested offline) and written by setting each object's own
+  points over COM, so no command waits for a pick. One undo step each; locked layers refused before
+  anything is written ([D-78](docs/DECISIONS.md), [D-79](docs/DECISIONS.md)). Live rows AA1-AA20 NOT RUN.
 
 - **`autocad_render` removed (2026-11-21, #158).** Heron never runs the render: `-render` waits on
   prompts and can stall AutoCAD, and a scripted render has been reported to drop objects. Heron

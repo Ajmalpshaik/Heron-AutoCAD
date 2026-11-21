@@ -11,6 +11,7 @@ from typing import Annotated, Any
 
 from pydantic import Field, StrictInt
 
+from ..acad import props
 from ..acad.entities import describe, resolve_handle, short_type
 from ..acad.tables import ensure_layer, ensure_linetype
 from ..acad.units import rad
@@ -719,6 +720,23 @@ async def autocad_modify_entity(
             ),
         ),
     ] = None,
+    lineweight: Annotated[
+        str | float | None,
+        Field(
+            default=None,
+            description=(
+                "New lineweight: millimetres as AutoCAD lists them (0.25, 0.35, 0.50 ...), "
+                "hundredths (25), or 'ByLayer', 'ByBlock', 'Default'."
+            ),
+        ),
+    ] = None,
+    transparency: Annotated[
+        str | int | None,
+        Field(
+            default=None,
+            description="New transparency: 0 (solid) to 90, or 'ByLayer', 'ByBlock'.",
+        ),
+    ] = None,
     layer_lock_override: Annotated[
         bool,
         Field(
@@ -731,7 +749,7 @@ async def autocad_modify_entity(
         ),
     ] = False,
 ) -> str:
-    """Change properties of existing entities.
+    """Change properties of existing entities: layer, colour, linetype, lineweight, transparency, text.
 
     Only the arguments you pass are changed; everything else is left alone.
     Properties that do not apply to an entity's type are skipped for that
@@ -746,6 +764,8 @@ async def autocad_modify_entity(
         height (Optional[float]): New height for text/mtext.
         radius (Optional[float]): New radius for circles/arcs.
         closed (Optional[bool]): Open or close a polyline.
+        lineweight (Optional[str | float]): New lineweight, mm or ByLayer.
+        transparency (Optional[str | int]): New transparency, 0-90 or ByLayer.
         layer_lock_override (bool): Unlock locked layers for the change.
 
     Returns:
@@ -757,6 +777,10 @@ async def autocad_modify_entity(
         - Use when: "put those on layer A-WALL and make them red" ->
           layer="A-WALL", color="red".
         - Use when: "fix that label to say ROOM 12" -> text="ROOM 12".
+        - Use when: "make the existing services 0.18 lineweight and 50% see-through"
+          -> lineweight=0.18, transparency=50.
+        - Don't use when: the values should come from another object - use
+          autocad_match_properties.
 
     Error Handling:
         - Reports a locked layer explicitly, and can work around it when
@@ -771,11 +795,13 @@ async def autocad_modify_entity(
         "height": height,
         "radius": radius,
         "closed": closed,
+        "lineweight": props.lineweight_value(lineweight) if lineweight is not None else None,
+        "transparency": props.transparency_value(transparency) if transparency is not None else None,
     }
     if all(v is None for v in requested.values()):
         raise AutocadError(
             "No changes requested. Pass at least one of: layer, color, "
-            "linetype, text, height, radius, closed."
+            "linetype, text, height, radius, closed, lineweight, transparency."
         )
 
     def read(entity: Any, kind: str, prop: str) -> Any:
@@ -796,6 +822,10 @@ async def autocad_modify_entity(
             if kind not in {"circle", "arc"}:
                 raise TypeError("has no radius")
             return float(entity.Radius)
+        if prop == "lineweight":
+            return int(entity.Lineweight)
+        if prop == "transparency":
+            return str(entity.EntityTransparency)
         return bool(entity.Closed)
 
     def write(entity: Any, prop: str, value: Any) -> None:
@@ -813,6 +843,10 @@ async def autocad_modify_entity(
             entity.Radius = float(value)
         elif prop == "closed":
             entity.Closed = bool(value)
+        elif prop == "lineweight":
+            entity.Lineweight = int(value)
+        elif prop == "transparency":
+            entity.EntityTransparency = str(value)
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -865,14 +899,18 @@ async def autocad_modify_entity(
                             pass
 
                     changed_any = False
-                    for prop, old, value in changes:
+                    written: list[dict[str, Any]] = []
+                    # The layer last: moved first onto a locked layer, the object would refuse the rest.
+                    for prop, old, value in sorted(changes, key=lambda change: change[0] == "layer"):
                         try:
                             write(entity, prop, value)
                             applied.add(prop)
                             changed_any = True
-                            rows.append({"handle": handle, "property": prop, "from": old, "to": value})
+                            written.append({"handle": handle, "property": prop, "from": old, "to": value})
                         except BaseException:  # noqa: BLE001 - AutoCAD would not take it
                             skipped.append({"handle": handle, "type": short_type(entity), "property": prop})
+                    order = [prop for prop, _, _ in changes]
+                    rows.extend(sorted(written, key=lambda row: order.index(row["property"])))
 
                     if changed_any:
                         try:
