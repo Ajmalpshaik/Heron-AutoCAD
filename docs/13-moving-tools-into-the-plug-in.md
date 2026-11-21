@@ -43,20 +43,26 @@ Live checks: Group AS in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
 
 ## Ranked: what to move next
 
-Ranked by gain first, then by how safe the move is. "Area" is the session area that owns the tool's
-file today: a tool is moved only when no running session is changing it.
+Ranked by gain first, then by how safe the move is. Round trips are counted from the code (an
+`Item` call, each property read, each failed try), not timed: the live row of each move times it.
+"Area" is the session area that owns the tool's file today: a tool is moved only when no running
+session is changing it.
 
-| Rank | Tool | Why it gains | What it risks | Area |
+| Rank (issue) | Tool | COM round trips today | What it risks | Area |
 |---|---|---|---|---|
-| 1 | `autocad_count_blocks` | Every block reference: real name, layer, and each dynamic property's name, value and read-only flag; with `include_nested`, every item of every block definition too. Easily the most trips per call of any take-off | Dynamic property values must come back the same type COM gives (distance, flip state, list choice), or the grouping by size splits | Blocks / take-off |
-| 2 | `autocad_total_length` | Every curve: type, layer, length, closed, area, several trips each | Length of splines and ellipses must match the server's own calculation to the last digit | Take-off |
-| 3 | `autocad_measure(layer=...)` | Same per-object loop as total length, over one layer | Same as rank 2 | Query (this area) |
-| 4 | `autocad_count_text` / `autocad_find_text` | Every text and mtext: its contents, layer and position | Mtext contents with formatting codes must be cleaned the same way | Text |
-| 5 | `autocad_extract_attributes` | Every block reference and every attribute on it | Attribute order and invisible or constant ones the same as COM | Blocks / standards |
-| 6 | `autocad_check_standards` | Every layer and every object checked against the rules | The rules engine stays in Python; only the facts it reads move | Files and standards |
-| 7 | `autocad_drawing_report` | A summary of the whole drawing, many collections | Wide answer, many shapes to keep equal | Drawing tools |
-| 8 | `autocad_merge_layers` | Moves every object off old layers, inside blocks too: one transaction would make it all-or-nothing | A change: needs the Changes padlock checks and Keep or Discard to see every object | Layers |
-| 9 | `autocad_list_layers` | Every layer, about eight properties each; drawings rarely have more than a few hundred layers, so the gain is small | Small | Layers |
+| 1 ([#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192)) | `autocad_count_blocks` | About 5 per block reference + 3 per dynamic property; with `include_nested`, 2-4 per item of every block definition | Dynamic property values must come back as the same type COM gives (distance, flip state, list choice), or a count by size splits in two | Take-off |
+| 2 ([#193](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/193)) | `autocad_drawing_report` | 2 per model space object (up to 50,000), plus every layer (5), block (4-5) and layout (6) | Counts model space only: `count_entities` needs a model-space option; the rest of the report can stay on COM | Drawing report |
+| 3 ([#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194)) | `autocad_list_blocks` (`include_counts`, on by default) | 2-3 per block reference, about 7 per definition, 2-3 per **item inside every definition** | Counts by real (effective) name, as COM gives it | Layers and blocks |
+| 4 ([#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195)) | `autocad_total_length`, `autocad_measure(layer=...)` | About 7-10 per curve (type, layer, up to 3 length tries, closed, area); splines and ellipses 4-5 more | The length of a spline or ellipse must match the server's own calculation to the last digit | Take-off, query |
+| 5 ([#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196)) | `autocad_check_standards` (entity rules) | 6 per object up to 20,000, plus 9 per layer | The rules stay in Python; only the facts move. The files and standards session is changing this file now: a later wave | Files and standards |
+| 6 ([#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197)) | `autocad_count_text`, `autocad_find_text` | 2 per text; 3 + 2 per attribute per block reference | Text read the same way (mtext formatting codes left as COM leaves them) | Text |
+| 7 ([#198](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/198)) | `autocad_extract_attributes`, `autocad_export_attribute_sheet` and the read half of `autocad_set_attributes` / `autocad_apply_attribute_sheet` | About 7-9 + 2 per attribute, per block reference | Attribute order, invisible and constant ones, the layout each insert is on | Blocks and attributes |
+| 8 ([#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199)) | `autocad_merge_layers` | Every item of every block definition (2-3), then one write per moved object | A **change**: gains one transaction (all moved or none), and must keep the Keep or Discard count right | Layers |
+| 9 ([#200](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/200)) | `autocad_apply_attribute_sheet`, `autocad_set_attributes` (the writes) | 3 + one per attribute per changed cell, up to 10,000 changes | A **change**: one transaction, so a failure half way leaves nothing half-written | Blocks and attributes |
+
+Not ranked, because the gain is small: `autocad_list_layers` (9 per layer; drawings rarely have
+more than a few hundred), `autocad_list_styles`, `autocad_xref_tree`, and the single-object draw
+and modify tools.
 
 Already in the plug-in for another reason ([D-40](DECISIONS.md)): solid edges and faces, super
 hatch, layer states, annotation scales, dimension line spacing, ATTSYNC, Excel tables, lights,
