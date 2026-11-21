@@ -329,6 +329,9 @@ drawing has no folder and gets no report. The workbook is written with the stand
 `.xlsx` is a zip of XML parts): `openpyxl` was not a dependency, and adding a package means every
 PC reinstalls ([05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)) for one sheet of
 text. Known limit: one sheet, text and numbers only, no colours in Excel (the HTML page has them).
+**Later the same day:** the workbook is now written by `acad/xlsx.py` (D-69's writer), so Heron keeps
+one `.xlsx` writer: a Summary sheet and a Check list sheet with its header row frozen; every cell
+is text. Still no colours in Excel.
 
 ## D-64 - Check lists: NO DATA, office lists with project changes, PASS is not "complies"
 

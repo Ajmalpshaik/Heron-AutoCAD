@@ -9,6 +9,9 @@ Newest first. Dates are when the change was made.
   in a Windows checkout, so a release made on Linux or a Mac would ship them broken for `cmd`.
   `.gitattributes` now sets CRLF for them on every checkout (the stored files are unchanged), and
   their line-ending test runs on Linux too ([D-72](docs/DECISIONS.md)).
+- **One Excel writer (2026-11-21).** The check list report's workbook is now written by
+  `acad/xlsx.py`, the writer the attribute sheets use, instead of a second copy: a Summary sheet
+  and a Check list sheet with its header row frozen ([D-65](docs/DECISIONS.md)).
 
 - **Check lists: a cut-off read is never a PASS (2026-11-21).** Found in review after PR #122:
   title blocks read from only part of a drawing (the `max_entities` cut-off) could still say PASS,

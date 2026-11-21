@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
-import zipfile
 from pathlib import Path
 
 import pytest
@@ -291,15 +290,16 @@ def test_the_report_tool_writes_both_files_next_to_the_drawing_and_never_overwri
     assert first["coverage"] == "5 of 5 decided, 0 no data, 0 not run"
 
 
-def test_the_workbook_opens_as_a_zip_of_sheet_xml_with_every_check(drawing):
+def test_the_workbook_reads_back_with_a_summary_and_every_check(drawing):
+    from autocad_mcp.acad import xlsx
+
     report = json.loads(_call(action="run", name="before issue"))
-    data = checklist_report.workbook(report, str(drawing), "2026-11-21 10:00")
-    with zipfile.ZipFile(__import__("io").BytesIO(data)) as archive:
-        assert {"[Content_Types].xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml"} <= set(archive.namelist())
-        sheet = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
-    assert report["coverage"] in sheet and checklist.PASS_MEANS in sheet
-    for row in report["results"]:
-        assert row["label"] in sheet
+    sheets = xlsx.read(checklist_report.workbook(report, str(drawing), "2026-11-21 10:00"))
+    summary = {row[0]: row[1] for row in sheets["Summary"][1:]}
+    assert summary["Coverage"] == report["coverage"] and summary["What PASS means"] == checklist.PASS_MEANS
+    rows = sheets["Check list"]
+    assert rows[0] == list(checklist_report.COLUMNS)
+    assert [row[3] for row in rows[1:]] == [r["label"] for r in report["results"]]
 
 
 def test_the_page_escapes_what_the_modeller_wrote(drawing):
