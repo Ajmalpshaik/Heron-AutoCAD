@@ -11,8 +11,8 @@
 ## Latest - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
 
 A review of the docked palette (D-68) after plug-in 1.6.0 merged found one safety gap and three
-robustness gaps, all fixed in the PR after #132. Plug-in **1.6.0** already carries them if it is
-built from `main` after that PR; no version change.
+robustness gaps, all fixed in PR #137. Plug-in **1.6.0** already carries them if it is
+built from `main` after #137; no version change.
 - **Safety:** the palette's Run inherited AutoCAD's environment, so a developer's
   `HERON_AUTOCAD_BRIDGE=off` or a chat id there would have reached it. Now forced on and dropped
   (`PaletteServer.PrepareEnvironment`), and the server refuses `--run-saved` with the checks off.
