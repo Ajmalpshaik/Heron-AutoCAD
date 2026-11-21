@@ -57,7 +57,7 @@ every project; **low** = rare, or for other trades.
 | Draw | Line, Polyline, Circle, Arc, Rectangle, Ellipse, Spline, Polygon, Hatch, Point | **Yes**: `draw_line`, `draw_polyline`, `draw_circle`, `draw_arc`, `draw_rectangle`, `draw_ellipse`, `draw_spline`, `draw_point`, `add_hatch`, `make_shape` (polygon), `batch_draw` | - | COM | - |
 | Draw (more) | Construction line, Ray, Region, Donut, Helix, Boundary, Divide, Measure, Revision cloud, Wipeout | **Part**: `add_revision_cloud`, `add_wipeout`, `draw_3d_path` (helix), `place_along` (blocks along a run) | Construction line and ray; region; donut; **Boundary** (a closed outline from what is drawn round a point); Divide / Measure with points | Xline, ray, region, donut: COM. Boundary: .NET (unsure). Divide / Measure with points: own maths | Boundary **medium**; rest low |
 | Modify | Move, Copy, Rotate, Mirror, Scale, Offset, Array, Erase | **Yes**: `move_entities`, `copy_entities`, `rotate_entities`, `mirror_entities`, `scale_entities`, `offset_entities`, `array_entities`, `delete_entities` | Path array and **associative** arrays (the ones that stay editable) | Path / associative array: .NET (unsure) | low |
-| Modify (edit) | **Trim, Extend, Fillet, Chamfer, Break, Join**, Lengthen, Stretch, Blend curves | **Part**: `break_at_blocks` (straight lines only); Admin only for the rest | Trim, extend, 2D fillet and chamfer, break at a point, join, lengthen, stretch | Trim / extend / break / join: .NET (curve splitting and joining). Fillet / chamfer / lengthen: own maths. Stretch: .NET | **high** ([#49](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/49), [#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52) cover stretch and break; trim / extend / fillet / join are new) |
+| Modify (edit) | **Trim, Extend, Fillet, Chamfer, Break, Join**, Lengthen, Stretch, Blend curves | **Part**: `break_at_blocks` (straight lines only); Admin only for the rest | Trim, extend, 2D fillet and chamfer, break at a point, join, lengthen, stretch | Trim / extend / break / join: .NET (curve splitting and joining). Fillet / chamfer / lengthen: own maths. Stretch: .NET | **high** ([#49](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/49), [#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52) cover stretch and break; trim / extend / fillet / join are [#103](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/103)) |
 | Modify (more) | Explode, Edit Polyline, Edit Spline, Edit Hatch, Draw Order, Reverse, Change Space, Overkill | **Part**: `modify_entity` (layer, colour, linetype, text, height, radius, closed), `tidy_entities` (back to ByLayer) | **Explode**; **Draw order** (wipeout / hatch to the back); polyline vertex and width editing; hatch pattern / scale change; change space; **Overkill** (delete duplicate lines) | Explode, draw order, polyline vertices, hatch pattern: COM. Change space: .NET. Overkill: Typed, or own check over COM | Explode, draw order **high**; Overkill **medium**; rest low |
 | Annotation | Text, Mtext, Dimension, Multileader, Table | **Yes**: `add_text`, `add_mtext`, `add_dimension`, `dimension_run`, `add_label`, `batch_labels`, `add_multileader`, `add_table` | - | COM | - |
 | Layers | Layer Properties, make current, On / Off, Freeze, Lock, Isolate, Match layer, **Layer States**, Merge, Delete, Copy to new layer | **Part**: `list_layers`, `create_layer`, `set_layer_state` (on, frozen, locked), `set_current_layer`, `delete_layer`, `remap_layers` (moves objects to other layers) | **Layer states** (save and bring back a set of on / off / frozen); **layer isolate** by layer; layer merge | Layer states: COM (LayerStateManager). Isolate, merge: COM (own steps) | **medium** |
@@ -146,7 +146,7 @@ numbers already, so the whole tab is low.
 | Solid | Extrude, Revolve, Sweep, Loft, Presspull | **Yes**: `extrude_profile` (extrude, revolve, sweep), `loft`, `press_pull_faces` | - | COM / .NET | - |
 | Boolean | Union, Subtract, Intersect, Interfere | **Yes**: `solid_boolean`, `check_interference` (clash check) | - | COM | - |
 | Solid Editing | Slice, Thicken, Shell, Fillet Edge, Chamfer Edge, Imprint, Separate, Check, Extract Edges, Offset / Taper / Move / Delete faces | **Part**: `slice_solid`, `thicken_surface`, `shell_solid`, `fillet_solid_edges`, `chamfer_solid_edges`, `list_solid_faces_and_edges` | Imprint, separate, check, extract edges; offset, taper, move and delete faces | .NET | low |
-| Section | Section Plane, Live Section, Generate Section, Flatshot | **No** (`SectionSolid` left out on purpose, [D-33](DECISIONS.md)) | **A section plane and a 2D section from the model**; Flatshot | .NET | **medium** ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54) covers Flatshot / SOLPROF; the section plane is new) |
+| Section | Section Plane, Live Section, Generate Section, Flatshot | **No** (`SectionSolid` left out on purpose, [D-33](DECISIONS.md)) | **A section plane and a 2D section from the model**; Flatshot | .NET | **medium** ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54) covers Flatshot / SOLPROF; the section plane is [#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109)) |
 
 ### Surface tab
 
@@ -182,24 +182,25 @@ numbers already, so the whole tab is low.
 
 ## Top 10 gaps for an MEP draftsman
 
-In order. "New" means no open issue had it on 2026-11-21; the parent session files those.
+In order. Gaps that had no issue on 2026-11-21 were filed the same day as [#103](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/103) to [#119](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/119) (label `from-ribbon-audit`).
 
 | # | Gap | Panel | Can be done | Issue |
 |---|---|---|---|---|
-| 1 | **Trim, extend, 2D fillet and chamfer, break at a point, join** on lines and polylines | Home > Modify | .NET (trim, extend, break, join); own maths (fillet, chamfer) | New; break with arcs is [#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52) |
+| 1 | **Trim, extend, 2D fillet and chamfer, break at a point, join** on lines and polylines | Home > Modify | .NET (trim, extend, break, join); own maths (fillet, chamfer) | [#103](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/103); break with arcs is [#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52) |
 | 2 | **Change the shape of what is drawn**: stretch, move a vertex or an end point, lengthen | Home > Modify | .NET / COM | [#49](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/49) |
-| 3 | **Attach an image or a PDF underlay**, and **clip** an xref, image or underlay (consultant backgrounds) | Insert > Reference | Image: COM. PDF underlay and xref clip: .NET | New |
-| 4 | **Explode** and **draw order** (send a hatch or wipeout to the back) | Home > Modify | COM | New |
-| 5 | **Copy objects from one open drawing to another** (Copy with Base Point / Paste) | Home > Clipboard | COM | New |
+| 3 | **Attach an image or a PDF underlay**, and **clip** an xref, image or underlay (consultant backgrounds) | Insert > Reference | Image: COM. PDF underlay and xref clip: .NET | [#104](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/104) |
+| 4 | **Explode** and **draw order** (send a hatch or wipeout to the back) | Home > Modify | COM | [#105](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/105) |
+| 5 | **Copy objects from one open drawing to another** (Copy with Base Point / Paste) | Home > Clipboard | COM | [#106](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/106) |
 | 6 | **PDF of a folder of drawings** (batch plot) and a sheet list | Output > Publish | COM / .NET | [#67](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/67), [#66](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/66) |
-| 7 | **Layer states** (save, bring back), layer isolate and merge | Home > Layers | COM | New |
-| 8 | **Annotative** text, dimensions and multileaders, with their scales | Annotate > Annotation Scaling | .NET | New; viewports are [#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65) |
-| 9 | **Section plane and a 2D section** from a 3D services model; Flatshot | Solid > Section | .NET | Flatshot is [#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54); the section plane is new |
-| 10 | **Groups** (make, list, ungroup) and **match properties** | Home > Groups, Properties | COM | New |
+| 7 | **Layer states** (save, bring back), layer isolate and merge | Home > Layers | COM | [#107](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/107) |
+| 8 | **Annotative** text, dimensions and multileaders, with their scales | Annotate > Annotation Scaling | .NET | [#108](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/108); viewports are [#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65) |
+| 9 | **Section plane and a 2D section** from a 3D services model; Flatshot | Solid > Section | .NET | Flatshot is [#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54); the section plane is [#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109) |
+| 10 | **Groups** (make, list, ungroup) and **match properties** | Home > Groups, Properties | COM | [#110](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/110), [#111](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/111) |
 
-Just below the ten: Overkill (delete duplicates after an import), PDF Import, eTransmit, multileader
+Just below the ten: Overkill [#112](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/112), PDF Import [#113](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/113), eTransmit [#114](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/114), multileader
 and table styles ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68)), dimension space
-and break, attribute definitions (ATTDEF), Data Link to Excel.
+and break [#116](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/116), attribute definitions [#115](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/115), Data Link to Excel [#117](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/117), Boundary [#118](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/118). The low
+ones are listed together in [#119](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/119).
 
 ## What this page is not
 
