@@ -491,3 +491,16 @@ From [D-94](DECISIONS.md) and [D-95](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
   xref given as a .dwg is attached under its file name; one already attached under that name is
   used as it is.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AH](NEEDS-CHECKING.md)).
+
+## 33. One preview picture cannot show a whole big sheet's small text
+
+From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
+- AutoCAD's PNG plotter has fixed pixel sizes, and the preview takes the one nearest `width_px`.
+  A whole A1 at 1:1 is about 0.5 mm a pixel: 2.5 mm text and thin lines do not show, though a heavy
+  frame does. The answer's `smallest_clear_text` says what reads; use `detail=2` or `3`, or a
+  window over one part. A bigger PNG needs a custom size added to `PublishToWeb PNG.pc3` by hand;
+  COM cannot add one.
+- `plotted` comes from EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a layout), read after a regen. Whether a
+  regen shrinks them after an erase is not proven (AM4); a ZOOM Extents does.
+- Close-ups need a plan view in the world UCS (or a window you give): in a 3D view the plan box does
+  not match the picture, so they are skipped with the reason.
