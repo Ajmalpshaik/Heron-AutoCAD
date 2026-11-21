@@ -17,7 +17,7 @@ from ..acad import sheets as sheet_plan
 from ..acad.coords import advice as ucs_advice
 from ..acad.units import unit_name
 from ..core.connection import get_app, get_doc, run
-from ..core.errors import AutocadError, com_message, is_retryable
+from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, point_to_list
 from ._shared import before_after, current_ucs, in_plugin
@@ -111,8 +111,8 @@ def _snapshot_page_setup(doc: Any, layout: Any) -> Any:
     configs = doc.PlotConfigurations
     try:
         configs.Item(SNAPSHOT_NAME).Delete()
-    except BaseException:  # noqa: BLE001 - no leftover from an earlier run
-        pass
+    except BaseException as exc:  # noqa: BLE001 - no leftover from an earlier run
+        raise_if_busy(exc)
     snapshot = configs.Add(SNAPSHOT_NAME, bool(layout.ModelType))
     snapshot.CopyFrom(layout)
     return snapshot
@@ -277,8 +277,8 @@ def _plot_png(
         # the layout's own rotation back afterwards.
         try:
             layout.PlotRotation = AC_0_DEGREES
-        except BaseException:  # noqa: BLE001 - a preview on its side beats no preview
-            pass
+        except BaseException as exc:  # noqa: BLE001 - a preview on its side beats no preview
+            raise_if_busy(exc)
         if area == "window":
             layout.SetWindowToPlot(_point2d(corner1, "corner1"), _point2d(corner2, "corner2"))
         layout.PlotType = _PREVIEW_AREAS[area]
@@ -302,14 +302,16 @@ def _ucs_name_of(doc: Any) -> str:
     """The name of the current UCS; an unnamed one reads back empty."""
     try:
         return str(doc.GetVariable("UCSNAME")).strip()
-    except BaseException:  # noqa: BLE001 - absent on a drawing with no UCS set
+    except BaseException as exc:  # noqa: BLE001 - absent on a drawing with no UCS set
+        raise_if_busy(exc)
         return ""
 
 
 def _units_of(doc: Any) -> str:
     try:
         return unit_name(int(doc.GetVariable("INSUNITS")))
-    except BaseException:  # noqa: BLE001 - drawing may predate INSUNITS
+    except BaseException as exc:  # noqa: BLE001 - drawing may predate INSUNITS
+        raise_if_busy(exc)
         return "unknown"
 
 
@@ -323,11 +325,12 @@ def _paper_space_count(doc: Any) -> int | None:
     """
     try:
         return int(doc.PaperSpace.Count)
-    except BaseException:  # noqa: BLE001 - see the docstring
-        pass
+    except BaseException as exc:  # noqa: BLE001 - see the docstring
+        raise_if_busy(exc)
     try:
         return int(doc.ActiveLayout.Block.Count)
-    except BaseException:  # noqa: BLE001 - report the drawing without it
+    except BaseException as exc:  # noqa: BLE001 - report the drawing without it
+        raise_if_busy(exc)
         return None
 
 
@@ -888,8 +891,8 @@ async def autocad_export(
                 sel_name = "MCP_EXPORT_ALL"
                 try:
                     doc.SelectionSets.Item(sel_name).Delete()
-                except BaseException:  # noqa: BLE001 - no leftover set
-                    pass
+                except BaseException as exc:  # noqa: BLE001 - no leftover set
+                    raise_if_busy(exc)
                 sel = doc.SelectionSets.Add(sel_name)
                 try:
                     doc.Export(stem, ext.upper(), sel)
@@ -1174,6 +1177,7 @@ async def autocad_get_variable(
         try:
             value = doc.GetVariable(var)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"'{name}' is not a system variable this drawing recognises. "
                 "Check the spelling against AutoCAD's SETVAR list."
@@ -1235,6 +1239,7 @@ async def autocad_set_variable(
         try:
             previous = doc.GetVariable(var)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"'{name}' is not a system variable this drawing recognises."
             ) from exc

@@ -22,7 +22,7 @@ from ..acad.entities import read_attributes
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import describe_layer
 from ..core.connection import get_doc, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from ..core.variants import point_to_list
 
@@ -198,8 +198,8 @@ async def autocad_check_standards(
                         try:
                             lo, hi = entity.GetBoundingBox()
                             row["box"] = (lo[0], lo[1], hi[0], hi[1])
-                        except BaseException:  # noqa: BLE001
-                            pass
+                        except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                     entities.append(row)
             finally:
                 discard_selection_set(doc)
@@ -248,7 +248,8 @@ async def autocad_extract_attributes(
                     if not ref.HasAttributes:
                         continue
                     name = str(getattr(ref, "EffectiveName", None) or ref.Name)
-                except BaseException:  # noqa: BLE001 - not a block reference after all
+                except BaseException as exc:  # noqa: BLE001 - not a block reference after all
+                    raise_if_busy(exc)
                     continue
                 if block_name and name.lower() != block_name.lower():
                     continue

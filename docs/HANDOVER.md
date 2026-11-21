@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+## Latest - 2026-11-21 (a busy AutoCAD is never a false failure, #36, D-100)
+
+Issue #36 built offline. Past the D-57 message filter's 3 s, a refused COM call ("Call was rejected
+by callee") now goes up as it is from every tool: `raise_if_busy(exc)` (`core/errors.py`) is the
+first line of 249 `except` blocks in `acad/`, `tools/` and the core. It is narrower than
+`is_retryable`: pywin32's "no such member" `AttributeError` still means "not there". 36 places carry
+on through a refusal on purpose (restores, Esc, redraws, the D-58 waits, reads after the plug-in made
+something); each is in `ALLOWED` in `tests/test_busy_sweep.py` with its reason. Four shared `_try`
+readers (drafting, solids, sheets, dimensions_edit) take `busy_ok=True` for their restore, Esc and
+redraw calls. The gate: a busy UNDO mark before an Ask-to-Keep job is refused in words, not "UNDO is
+off" later. Tests: `tests/test_busy_refusals.py` (fake COM), `tests/test_busy_sweep.py` (reads the
+source; a new `except` that can swallow a busy refusal fails it, with how to fix it).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AL1-AL7 with the Options
+dialog left open.
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
 Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /

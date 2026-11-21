@@ -278,6 +278,14 @@ yet is also re-run for up to 10 s. What is left:
 
 All three are NOT RUN live (NEEDS-CHECKING group Q).
 
+**Since [D-100](DECISIONS.md) (#36)** a refusal that outlasts the filter's 3 s goes up as it is from
+every tool, so it ends in "AutoCAD stayed busy" or "Outcome unknown", never in a made-up failure
+("Could not ...") or a wrong value (a layer read as off, the world UCS used instead of yours, "UNDO
+is off" after Discard). A few places still carry on through a refusal on purpose: putting your
+variables back, pressing Esc on the way to the real error, a redraw after the work, and the run-LISP
+waits. Each is named with its reason in `tests/test_busy_sweep.py`. NOT RUN live (NEEDS-CHECKING
+group AL).
+
 **Which command AutoCAD is in ([D-77](DECISIONS.md), #47).** A busy answer's first line now names
 it ("it is still in the HATCH command"), from the plug-in's command tracker, with what the plug-in
 counted so far. It needs the plug-in built from that change; an older one says no command. The

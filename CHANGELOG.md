@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A busy AutoCAD is never a false failure (2026-11-21, #36).** When AutoCAD stays busy past the
+  message filter's 3 s (a dialog left open, a heavy redraw), every tool now lets the refusal go up
+  as it is, so the answer is "AutoCAD stayed busy ... press Esc" or "Outcome unknown, look before
+  retrying". Before, about 250 places turned it into "Could not ...", or carried on with a wrong
+  value: a layer read as off, the world UCS used instead of yours, "UNDO is off" after Discard. One
+  helper, `raise_if_busy`, one line per place; 36 places carry on through it on purpose (putting
+  variables back, Esc, redraws) and are listed with their reasons. A new test reads the source so
+  new code cannot bring the old way back ([D-100](docs/DECISIONS.md)). Live rows AL1-AL7 NOT RUN.
+
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.

@@ -17,7 +17,7 @@ from pydantic import Field
 
 from ..acad import patterns as pat
 from ..core.connection import get_doc, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.folders import heron_local
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 
@@ -143,6 +143,7 @@ async def autocad_create_hatch_pattern(
             try:
                 return _on_support_path(get_doc(), path.parent)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"The pattern is written to '{path}', but AutoCAD would not take its folder onto "
                     f"the support path ({com_message(exc)}). Add it in OPTIONS > Files > Support File "

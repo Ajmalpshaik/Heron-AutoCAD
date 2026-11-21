@@ -27,7 +27,7 @@ from ..acad import sheets as plan
 from ..acad.tables import validate_name
 from ..acad.units import INSUNITS, rad
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
 from ._shared import before_after
@@ -383,7 +383,8 @@ def plan_dim_style(options: dict[str, Any]) -> dict[str, Any]:
 def _read_variable(doc: Any, name: str) -> Any:
     try:
         value = doc.GetVariable(name)
-    except BaseException:  # noqa: BLE001 - not every release has every variable
+    except BaseException as exc:  # noqa: BLE001 - not every release has every variable
+        raise_if_busy(exc)
         return None
     # Text first: a string is iterable too, and CANNOSCALE '1:10' or DIMTXSTY
     # 'Standard' must not be taken for a point.
@@ -514,6 +515,7 @@ async def autocad_drawing_setup(
                     # Python pair crosses COM as an array of variants.
                     doc.SetVariable(variable, double_array(value) if isinstance(value, tuple) else value)
                 except BaseException as exc:  # noqa: BLE001 - one refusal, not the batch
+                    raise_if_busy(exc)
                     failed.append({"variable": variable, "to": after, "reason": com_message(exc)})
                     continue
                 changed.append({"variable": variable, "from": before, "to": _read_variable(doc, variable)})
@@ -670,7 +672,7 @@ def _existing(collection: Any, name: str) -> Any:
 
 
 def _make_text_style(doc: Any, entry: dict[str, Any], replace: bool) -> dict[str, Any]:
-    """Create or update one text style. Never raises: the row carries the outcome."""
+    """Create or update one text style. The row carries the outcome; only a busy AutoCAD raises (D-100)."""
     try:
         name = validate_name(str(entry["name"]), "text style")
     except AutocadError as exc:
@@ -688,6 +690,7 @@ def _make_text_style(doc: Any, entry: dict[str, Any], replace: bool) -> dict[str
         try:
             style = doc.TextStyles.Add(name)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             return {"name": name, "created": False, "notes": [f"AutoCAD would not add it: {com_message(exc)}"]}
 
     font = str(entry.get("font", "") or "").strip()
@@ -698,11 +701,13 @@ def _make_text_style(doc: Any, entry: dict[str, Any], replace: bool) -> dict[str
             try:
                 style.fontFile = font
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 notes.append(f"the font '{font}' was not accepted ({com_message(exc)}); the style keeps its own")
         else:
             try:
                 style.SetFont(font, False, False, 0, 0)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 notes.append(f"the typeface '{font}' was not accepted ({com_message(exc)})")
 
     for key, prop in (("height", "Height"), ("width_factor", "Width"), ("oblique", "ObliqueAngle")):
@@ -714,12 +719,14 @@ def _make_text_style(doc: Any, entry: dict[str, Any], replace: bool) -> dict[str
         try:
             setattr(style, prop, value)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             notes.append(f"{key} was not accepted ({com_message(exc)})")
 
     if entry.get("big_font"):
         try:
             style.BigFontFile = str(entry["big_font"])
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             notes.append(f"the big font was not accepted ({com_message(exc)})")
 
     current = False
@@ -728,6 +735,7 @@ def _make_text_style(doc: Any, entry: dict[str, Any], replace: bool) -> dict[str
             doc.ActiveTextStyle = style
             current = True
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             notes.append(f"it could not be made current ({com_message(exc)})")
 
     row: dict[str, Any] = {
@@ -746,7 +754,8 @@ def _make_text_style(doc: Any, entry: dict[str, Any], replace: bool) -> dict[str
 def _safe(getter, default=None):
     try:
         return getter()
-    except BaseException:  # noqa: BLE001
+    except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         return default
 
 
@@ -778,15 +787,18 @@ def _make_dim_style(
                 doc.SetVariable(key, value)
                 applied[key] = value
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 notes.append(f"{key} was not accepted ({com_message(exc)})")
         if created:
             try:
                 style = doc.DimStyles.Add(name)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 return {"name": name, "created": False, "notes": [f"AutoCAD would not add it: {com_message(exc)}"]}
         try:
             style.CopyFrom(doc)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             notes.append(
                 f"the settings could not be copied into the style ({com_message(exc)}); it "
                 "exists but may hold the drawing's defaults"
@@ -809,6 +821,7 @@ def _make_dim_style(
             doc.ActiveDimStyle = style
             current = True
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             notes.append(f"it could not be made current ({com_message(exc)})")
 
     row: dict[str, Any] = {

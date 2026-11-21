@@ -669,6 +669,24 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 | AC17 | After AC3, make a SKID block holding one VALVE TAG insert, insert SKID twice. Change VALVE TAG's definition again; `autocad_sync_attributes(block='VALVE TAG', nested=true, dry_run=true)`, then without (#156) | The dry run lists the insert inside SKID with `"inside": "SKID"`; after the sync both SKID copies show the nested tag with its new attributes and its typed value kept; without `nested` it is not listed | NOT RUN |
 
+## Group AL - A busy AutoCAD past the message filter: never a false failure (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-100](DECISIONS.md), issue #36). Built and tested offline only
+(`tests/test_busy_refusals.py` with fake COM, `tests/test_busy_sweep.py` reading the source).
+Server only: restart the server after pulling; no plug-in build is needed. To keep AutoCAD busy
+for longer than the filter's 3 s, open the Options dialog (OP) and leave it open, or start a REGEN
+of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AL1 | Options dialog open. `autocad_list_layers`, `autocad_list_entities`, `autocad_get_entity` on a circle | Within about 15 s each says "AutoCAD stayed busy ... press Esc"; none comes back with layers marked off, an empty list or `null` values; after closing the dialog each works | NOT RUN |
+| AL2 | A UCS rotated 30 degrees. Options dialog open, `autocad_add_solid` (a box, `coords='ucs'`); close the dialog part-way through the wait | Either "AutoCAD stayed busy" and no box, or the box drawn square to the rotated UCS; never a box drawn in the world UCS | NOT RUN |
+| AL3 | Ask to Keep on. Options dialog open, `autocad_draw_circle` | REFUSED - "AutoCAD stayed busy ... nothing was changed"; no circle; no "Error executing tool"; Heron's Activity says it ended | NOT RUN |
+| AL4 | Ask to Keep on. Draw a circle, start a heavy REGEN in another drawing tab as you press Discard | Either "Discarded" with the circle gone, or OUTCOME UNKNOWN saying to look; never "UNDO is off" and never "Discarded" with the circle still there | NOT RUN |
+| AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
+| AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
+| AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
