@@ -157,8 +157,8 @@ nothing.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_send_command` | Any AutoCAD command: TRIM, FILLET, add-in commands. `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)) |
-| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Keep expressions under about 700 characters ([05](05-known-limits.md)). `expect_box` + `press` as for send_command |
+| `autocad_send_command` | Any AutoCAD command: TRIM, FILLET, add-in commands. `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)). An UNDO, U, REDO, MREDO or OOPS is never sent twice by a busy retry ([D-76](DECISIONS.md)) |
+| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Long code, or several top-level forms, is cut between the forms into pieces under 700 characters, run in order as one undo step; one form over 2,000 characters is refused ([D-76](DECISIONS.md), [05 §3](05-known-limits.md#3-long-autolisp-fails-silently)). `expect_box` + `press` as for send_command |
 | `autocad_purge` | Remove unused blocks, layers, linetypes, styles |
 | `autocad_regen` | Regenerate the display |
 | `autocad_audit` | Check and repair the drawing database |
@@ -249,7 +249,9 @@ Both default to `dry_run=true`: read the counts, then run it. Detail:
 tool's own schema **before the first one runs**, so a sequence with a mistake in step four changes
 nothing. Steps at the Publish or Admin level, and a sequence inside a sequence, are refused: a
 sequence holds the **Changes** padlock only ([D-29](DECISIONS.md)). `stop_on_error` (default true)
-and `dry_run`.
+and `dry_run`. `quiet=true` gives each step's answer as counts and handles only, without every
+point and measurement; errors stay whole ([D-77](DECISIONS.md)). `autocad_batch_draw`,
+`autocad_dimension_run` and `autocad_add_centre_marks` take `quiet` too.
 
 ## Shapes from a few numbers (Change)
 
@@ -271,7 +273,7 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `dim_style` draws the run in a named style at that style's own scale ([D-80](DECISIONS.md)); `annotative` makes it annotative |
+| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `dim_style` draws the run in a named style at that style's own scale ([D-80](DECISIONS.md)); `annotative` makes it annotative. `quiet=true`: counts and handles only |
 | `autocad_space_dimensions` | DIMSPACE: a stack of parallel dimensions moved to an even spacing off a base dimension (0 lines them up). Only the dimension lines move; the plug-in moves them, Heron works out where. `dry_run` reports the moves |
 | `autocad_break_dimensions` | DIMBREAK, automatic: a gap in each dimension wherever another object crosses it; `remove` takes the breaks off. Typed, since no API has a call for it |
 | `autocad_annotation_scales` | OBJECTSCALE: make objects annotative (or plain), add or remove annotation scales on them; a 1:N scale the drawing lacks can be added to its list. Done by the plug-in ([D-81](DECISIONS.md)) |

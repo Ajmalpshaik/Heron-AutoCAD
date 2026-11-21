@@ -283,6 +283,23 @@ class Bridge:
             "held": [name for name in ("changes", "publish", "admin") if held.get(name) is True],
         }
 
+    def current_command(self) -> tuple[bool, str | None]:
+        """Which command this AutoCAD's active drawing is in, from the plug-in's command tracker (#47).
+
+        (True, "HATCH"); (True, None) when it is in no command; (False, None)
+        when the plug-in cannot tell (one older than this does not say, or it
+        could not be asked). Answered on the plug-in's pipe thread, so it works
+        while AutoCAD itself is busy. Never raises.
+        """
+        try:
+            reply = self.call("ping")
+        except AutocadError:
+            return False, None
+        if reply.get("ok") is False or "command" not in reply:
+            return False, None
+        command = reply.get("command")
+        return True, (str(command).strip() or None) if command else None
+
     def stopped(self) -> bool:
         """True when the modeller pressed the emergency stop (HERONSTOP). False if it cannot tell."""
         try:

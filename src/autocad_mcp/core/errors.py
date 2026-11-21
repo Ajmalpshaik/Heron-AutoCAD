@@ -60,15 +60,19 @@ class OutcomeUnknown(AutocadError):
     """AutoCAD went busy after a write had started, so part of it may exist.
 
     Retrying would risk drawing the same thing twice, so the work is not
-    re-run: the agent is told to look before it tries again.
+    re-run: the agent is told to look before it tries again. A write that is
+    not a drawing (an UNDO sent as a command) gives its own words, which still
+    start "Outcome unknown".
     """
 
-    def __init__(self) -> None:
-        super().__init__(
-            "Outcome unknown: AutoCAD went busy part-way through, so part of this "
-            "may already be drawn (one Ctrl+Z reverses it). Read the drawing back "
-            "before retrying."
-        )
+    DEFAULT = (
+        "Outcome unknown: AutoCAD went busy part-way through, so part of this "
+        "may already be drawn (one Ctrl+Z reverses it). Read the drawing back "
+        "before retrying."
+    )
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message or self.DEFAULT)
 
 
 class StaleDispatchError(Exception):
