@@ -130,6 +130,26 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-63 - Any change tool can run as a dry run, inside Heron's UNDO mark
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-155). **Status:** in force.
+`dry_run=true` on any Change tool runs the job for real inside an UNDO mark (D-18), takes the
+plug-in's count, then goes `UNDO _Back` to the mark and checks every object it made is gone, the way
+Discard does. The answer is the tool's own answer with `NOTHING CHANGED - a dry run: it would have
+made ...` first (D-62); the handles in it no longer exist, and it says so. No Keep or Discard and no
+erase question are asked, since nothing is kept; the banner says "Dry run: ...". The gate gives it,
+so no tool was edited: `tool_errors` adds the argument to every Change, Publish and Admin tool that
+has no `dry_run` of its own, and passes it to the gate, never to the tool. Tools that already had
+one keep their meaning: a preview that writes nothing (annotate, convert, dimensions, patterns,
+settings, shapes, text tools, sequence, saved commands). Refused before anything is sent: every
+Publish and Admin tool (a file written, a command or AutoLISP run cannot be taken back by an UNDO
+mark; the argument is there so a dry run is refused, never ignored and run for real), and
+`autocad_undo_last`. A dry run needs UNDO on (UNDOCTL), or it is refused and nothing runs. If going
+back fails, or a new object is still there, the answer is OUTCOME UNKNOWN, naming them. A dry run
+leaves nothing for `autocad_undo_last`, since the undo history moved. A step inside a sequence
+cannot be a dry run on its own. Not proven live: that `UNDO _Back` takes back every kind of change
+(layers, variables, plug-in operations) as it does objects (rows T4-T5).
+
 ## D-62 - Every change answers with one plain line first
 
 **Decided:** 2026-11-21, from Heron AI for Revit (its D-168, and its failure answers).

@@ -413,6 +413,8 @@ plug-in build is needed. **Every row below is NOT RUN.**
 | T1 | In Claude Code, draw a line (Changes on), quit Claude Code, `claude --resume` the same chat at once, draw again | The second draw is let in at once, not "in use by another chat"; the audit lines of both carry the same `conversation`. A second, new chat at the same time is still refused | NOT RUN |
 | T2 | Changes on, Ask to Keep off: draw a line; `autocad_find_replace_text` for a word that is not in the drawing; draw with Changes off; `autocad_create_layer` | Each answer's first line: `DONE - 1 added, 0 changed, 0 erased.`; `NOTHING CHANGED - ...`; `REFUSED - nothing was sent to AutoCAD.`; `DONE - no drawing object ... not counted ...` | NOT RUN |
 | T3 | Ask to Keep on: draw a circle and press **Discard it**; then run a saved command (`autocad_saved_command` run) | `NOTHING CHANGED - the modeller chose Discard ...`; the saved command's answer starts with `DONE - ` and its counts | NOT RUN |
+| T4 | Ask to Keep off: `autocad_draw_circle(..., dry_run=true)`; then `autocad_modify_entity` on a line with `layer` and `color`, `dry_run=true`; then `autocad_create_layer` `M-TEST` with `dry_run=true` | Each answer starts `NOTHING CHANGED - a dry run`; no circle in the drawing; the line keeps its layer and colour; no layer M-TEST (LAYER); one Ctrl+Z after it undoes the modeller's own last change, not a Heron step | NOT RUN |
+| T5 | `autocad_loft` (a plug-in operation) and `autocad_set_current_layer` with `dry_run=true`; then `autocad_save_drawing(dry_run=true)` | The loft is gone and CLAYER is as before; the save is refused `REFUSED - nothing was sent ...`, and the file's date does not change | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

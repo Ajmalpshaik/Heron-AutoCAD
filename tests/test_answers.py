@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 
 import test_gate
@@ -10,6 +11,7 @@ from test_gate import FakeBridge, make_tool
 
 from autocad_mcp.core import answers, connection
 from autocad_mcp.core.answers import Facts, line
+from autocad_mcp.core.registry import tool_errors
 
 env = test_gate.env  # the gate with the bridge and COM faked
 
@@ -162,3 +164,119 @@ def test_the_line_is_not_sent_to_the_plug_in_or_the_audit(env):
     find, _ = make_tool("autocad_find_replace_text", '{"replaced": 0}', writes=False)
     call(find)
     assert [c for c in FakeBridge.calls if c[0] == "end"][-1][2:] == (True, "done")
+
+
+# --- dry run for any change tool (D-63) -----------------------------------------
+
+
+def test_a_dry_run_runs_reports_and_goes_back_to_the_mark(env):
+    FakeBridge.counted = COUNT
+    FakeBridge.ask_to_keep = True  # no question in a dry run, even with Ask to Keep on
+    draw, calls = make_tool("autocad_draw_line")
+    result = call(draw, dry_run=True)
+    assert calls == [1]
+    assert env["marks"] == 1 and env["discards"] == 1
+    assert result.startswith("NOTHING CHANGED - a dry run: it would have made 2 added, 1 changed, 0 erased;")
+    body = json.loads(answers.body(result))
+    assert body["handle"] == "2A" and "no longer exist" in body["heron_note"]
+    assert not [c for c in FakeBridge.calls if c[0] in ("ask_keep", "ask_erase")]
+    begin = next(c for c in FakeBridge.calls if c[0] == "begin")
+    assert begin[3].startswith("Dry run: ")  # the banner says so
+
+
+def test_a_dry_run_never_passes_dry_run_to_the_tool(env):
+    seen = {}
+
+    async def autocad_draw_line(start=None) -> str:
+        seen["start"] = start
+        return '{"created": true, "handle": "2A"}'
+
+    tool = tool_errors(autocad_draw_line)
+    assert "dry_run" in inspect.signature(tool).parameters
+    call(tool, start=[0, 0], dry_run=True)
+    assert seen == {"start": [0, 0]}
+
+
+def test_a_dry_run_whose_objects_stay_is_outcome_unknown(env):
+    env["left"] = ["2A"]
+    draw, _ = make_tool("autocad_draw_line")
+    result = call(draw, dry_run=True)
+    assert result.startswith("OUTCOME UNKNOWN - the dry run went back to Heron's UNDO mark, but these new objects")
+    assert "2A" in result.splitlines()[0]
+
+
+def test_a_dry_run_that_cannot_go_back_is_outcome_unknown(env, monkeypatch):
+    async def broken():
+        raise test_gate.AutocadError("AutoCAD stayed busy")
+
+    monkeypatch.setattr(test_gate.gate, "_discard", broken)
+    draw, _ = make_tool("autocad_draw_line")
+    assert word(call(draw, dry_run=True)) == "OUTCOME UNKNOWN"
+
+
+def test_a_dry_run_needs_undo_on_and_runs_nothing_without_it(env):
+    env["undo_on"] = False
+    draw, calls = make_tool("autocad_draw_line")
+    result = call(draw, dry_run=True)
+    assert calls == [] and env["discards"] == 0
+    assert word(result) == "REFUSED" and "UNDO on" in result
+
+
+def test_save_export_command_and_lisp_refuse_a_dry_run(env):
+    for name in ("autocad_save_drawing", "autocad_export", "autocad_publish_pdf", "autocad_send_command",
+                 "autocad_run_lisp", "autocad_set_variable", "autocad_undo_last"):  # fmt: skip
+        tool, calls = make_tool(name, '{"saved": true}')
+        result = call(tool, dry_run=True)
+        assert calls == [], name
+        assert word(result) == "REFUSED" and "dry run is not possible" in result, name
+    assert env["marks"] == 0 and not any(c[0] == "begin" for c in FakeBridge.calls)
+
+
+def test_a_failed_job_in_a_dry_run_is_refused_and_still_goes_back(env):
+    FakeBridge.counted = NONE
+    tool, _ = make_tool("autocad_modify_entity", "Error: That layer is locked.")
+    result = call(tool, dry_run=True)
+    assert env["discards"] == 1
+    assert result.startswith("REFUSED - the job failed in the dry run; Heron went back to its UNDO mark")
+
+
+def test_a_dry_run_leaves_nothing_for_undo_last(env):
+    draw, _ = make_tool("autocad_draw_line")
+    call(draw)
+    assert test_gate.gate.last_change() is not None
+    call(draw, dry_run=True)
+    assert test_gate.gate.last_change() is None
+
+
+def test_every_change_tool_takes_dry_run_and_the_ones_with_their_own_keep_it():
+    from autocad_mcp.core.registry import GATE_DRY_RUN, mcp
+    from autocad_mcp.core.risk import RISK, Risk
+    from autocad_mcp.server import register_all
+
+    register_all()
+    own = {"autocad_add_revision_cloud", "autocad_remap_layers", "autocad_tidy_entities",
+           "autocad_dimension_run", "autocad_add_centre_marks", "autocad_create_hatch_pattern",
+           "autocad_create_linetype", "autocad_saved_command", "autocad_sequence",
+           "autocad_drawing_setup", "autocad_make_shape", "autocad_set_attributes",
+           "autocad_number_tags", "autocad_text_clean", "autocad_find_replace_text"}  # fmt: skip
+    for tool in asyncio.run(mcp.list_tools()):
+        level = RISK[tool.name]
+        fn = mcp._tool_manager.get_tool(tool.name).fn
+        if level in (Risk.READ, Risk.VIEW):
+            assert "dry_run" not in tool.input_schema["properties"], tool.name
+            continue
+        assert "dry_run" in tool.input_schema["properties"], tool.name
+        given = getattr(fn, "heron_dry_run", None) == GATE_DRY_RUN
+        assert given == (tool.name not in own), tool.name
+
+
+def test_a_sequence_step_cannot_be_a_dry_run_on_its_own():
+    import pytest
+
+    from autocad_mcp.core.errors import AutocadError
+    from autocad_mcp.server import register_all
+    from autocad_mcp.tools import sequence
+
+    register_all()
+    with pytest.raises(AutocadError, match="cannot be a dry run on its own"):
+        sequence.plan_steps([{"tool": "autocad_draw_line", "args": {"start": [0, 0], "end": [1, 0], "dry_run": True}}])

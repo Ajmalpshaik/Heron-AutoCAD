@@ -200,3 +200,12 @@ Every Change, Admin or Publish answer starts with one line, before anything else
 The count is of drawing objects only. A job that made a layer or set a variable wrote something the
 count cannot see, so it says `DONE - no drawing object was added, changed or erased (...)`, never
 NOTHING CHANGED. With `--no-bridge` there is no count and no line.
+
+## A dry run of any change ([D-63](DECISIONS.md))
+
+`dry_run=true` on any change tool runs the job for real inside Heron's UNDO mark, reports what it
+did, then goes back to the mark and checks the new objects are gone. Nothing is asked and nothing is
+kept: the answer starts `NOTHING CHANGED - a dry run: it would have made ...`. Tools that had a dry
+run of their own keep it (a preview that writes nothing). A save, an export, a publish, a command or
+AutoLISP refuses a dry run, because an UNDO mark cannot take back a file or a command. UNDO must be
+on in the drawing.
