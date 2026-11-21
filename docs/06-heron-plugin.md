@@ -24,7 +24,8 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
 | **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
 
-- AutoCAD starts **disconnected** every time (unless `bridge.autoConnect` is set). Until you
+- AutoCAD starts **disconnected** every time; only your press of **Heron** connects it
+  ([D-73](DECISIONS.md)). Until you
   connect, a chat can learn only that AutoCAD is running and not connected: `autocad_status` returns
   no drawing name, path or contents, and every other tool is refused.
 - **Turning a padlock on asks first; turning it off never asks.** Ask to Keep is the other way round:
@@ -36,9 +37,9 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
   turns one on: in Settings, or in the same question `HERONCHANGES` / `HERONADMIN` /
   `HERONPUBLISH` open. No file can turn one on, so a chat that can write files cannot unlock itself.
 - **Each open AutoCAD has its own padlocks.** Turning Changes on in one does not turn it on in another.
-- `%APPDATA%\Heron\autocad\heron-autocad.config` now keeps only `bridge.autoConnect` and
-  `ui.activityBanner`. The padlock lines an older plug-in wrote there (`write.enabled`,
-  `publish.enabled`, `admin.enabled`, `write.askBeforeKeeping`) are **ignored**; you may delete them.
+- `%APPDATA%\Heron\autocad\heron-autocad.config` now keeps only `ui.activityBanner`. The
+  padlock lines an older plug-in wrote there (`write.enabled`, `publish.enabled`, `admin.enabled`,
+  `write.askBeforeKeeping`) and `bridge.autoConnect` are **ignored**; you may delete them.
   A file that cannot be read means no connect at start and the banner on.
 
 ### A Windows policy can hold a padlock off
@@ -110,7 +111,7 @@ before the job began, a Heron window, or anything outside a job. A box you open 
 the banner shows a job is closed too, so wait for the banner to go
 ([05 §25](05-known-limits.md#25-the-dialog-watch-closes-every-new-box-in-a-job)).
 
-**One named answer (plug-in 1.7.0, [D-73](DECISIONS.md)).** When the modeller has said the answer
+**One named answer (plug-in 1.7.0, [D-74](DECISIONS.md)).** When the modeller has said the answer
 to a box a command will ask ("yes, purge them"), `autocad_send_command` or `autocad_run_lisp` can
 name it: `expect_box="Purge - Confirm Purge", press="Yes"`. The plug-in presses that button only
 on a box with exactly that title, only once, and only in that call; every other box is still
@@ -149,7 +150,7 @@ AutoCAD."* The hold frees itself after 3 quiet minutes, or when you disconnect.
 | Address file | `%LOCALAPPDATA%\Heron\autocad\bridges\<pid>.json`: pid, pipe, versions, token, start time. Written on connect, deleted on disconnect; a file whose AutoCAD is gone is deleted by the server |
 | Token | 24 random bytes, new on every connect, compared in constant time |
 | Message | one JSON line each way: `{op, token, client, conversation, ...}` |
-| Ops | `ping` (also says which padlocks are on and which a Windows policy holds, read-only, [D-59](DECISIONS.md)), `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)), `expect_dialog` (an Admin job names one button for one box it expects, [D-73](DECISIONS.md)) |
+| Ops | `ping` (also says which padlocks are on and which a Windows policy holds, read-only, [D-59](DECISIONS.md)), `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)), `expect_dialog` (an Admin job names one button for one box it expects, [D-74](DECISIONS.md)) |
 
 **Units first ([D-19](DECISIONS.md)).** Nothing is changed in a drawing until Heron has run
 `autocad_status` on it, which reports its units. A switch to another drawing needs a new status check

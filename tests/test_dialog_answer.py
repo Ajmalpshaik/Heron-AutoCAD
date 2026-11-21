@@ -1,4 +1,4 @@
-"""A command or expression can name one button for one box it expects (#101, D-73)."""
+"""A command or expression can name one button for one box it expects (#101, D-74)."""
 
 from __future__ import annotations
 

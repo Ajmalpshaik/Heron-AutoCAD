@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (the dialog watch can press one named button, #101; plug-in 1.7.0)
 
-`autocad_send_command` / `autocad_run_lisp` take `expect_box` + `press` (D-73). The plug-in's
+`autocad_send_command` / `autocad_run_lisp` take `expect_box` + `press` (D-74). The plug-in's
 `DialogWatch` presses that button only on a box with exactly that title, once, in that Admin job;
 every other box is still cancelled. New protocol op `expect_dialog`; plug-in **1.7.0**, server
 **1.10.0**. Offline: C# `DialogAnswerTests`, `ExpectDialogOpTests`; Python

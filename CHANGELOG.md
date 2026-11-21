@@ -7,8 +7,11 @@ Newest first. Dates are when the change was made.
 - **The dialog watch can press one named button (2026-11-21, #101).** `autocad_send_command` and
   `autocad_run_lisp` take `expect_box` and `press`: the plug-in presses that button only on a box
   with exactly that title, once, in that call; every other box is still cancelled. Admin only.
-  Plug-in **1.7.0**, server **1.10.0** ([D-73](docs/DECISIONS.md)). Live rows V7-V8 NOT RUN.
+  Plug-in **1.7.0**, server **1.10.0** ([D-74](docs/DECISIONS.md)). Live rows V7-V8 NOT RUN.
 
+- **AutoCAD always starts disconnected (2026-11-21, #141).** `bridge.autoConnect` in the config
+  file is ignored: only the modeller's press of Heron connects AutoCAD, so no file can let a chat
+  read a drawing without a click ([D-73](docs/DECISIONS.md)). Live row R10 NOT RUN.
 - **The offline gates run on Linux (2026-11-21, #102).** pywin32 stand-ins in `tests/winstubs`,
   used only where pywin32 is not installed, let the offline suite and `tools/check_structure.py`
   run in a Linux cloud session; tests that need Windows itself (named pipes, the COM message filter,

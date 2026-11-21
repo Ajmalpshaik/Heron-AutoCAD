@@ -130,7 +130,7 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
-## D-73 - A command or expression may name one button for one box it expects
+## D-74 - A command or expression may name one button for one box it expects
 
 **Decided:** 2026-11-21, from Heron AI for Revit (issue #101, follow-up to D-66). **Status:** in
 force. `autocad_send_command` and `autocad_run_lisp` take `expect_box` (the box's exact title) and
@@ -143,6 +143,20 @@ Cancel, else No, else Esc. The note says `asked`, so the chat reads "Heron press
 this call asked", not "closed it". A refusal, or an older plug-in, stops the call before the
 command is sent. The decision stays in `DialogWatch.cs`, tested offline.
 
+## D-73 - AutoCAD always starts disconnected; no file can make it connect
+
+**Decided:** 2026-11-21 by Ajmal PS, issue #141 (option 2 of three). **Status:** in force. Replaces
+the "`autoConnect` stays a file setting" line of D-59.
+`"bridge.autoConnect": true` in `heron-autocad.config` made AutoCAD connect to Heron at start without
+the modeller's press of **Heron**. Every padlock was still off, so a chat could change nothing, but it
+could read the drawing's name, path and contents without a click, and any program that can write
+that file (an AI chat too) could switch it on.
+- **Removed.** The plug-in no longer connects at start; the key is ignored like the old padlock
+  lines. `HeronConfig` has no `AutoConnect` any more (a bridge test checks it stays gone).
+- **Not taken:** keeping it with a warning in the docs (option 1), and allowing it only from the
+  administrator's policy key (option 3). It was off on the owner's PC, so nothing changes for him;
+  an office that wants it can ask for option 3 later.
+- **Live row:** R10 (NOT RUN).
 ## D-72 - The offline gates run on Linux with pywin32 stand-ins; Windows-only tests skip, saying why
 
 **Decided:** 2026-11-21 (issue #102). **Status:** in force. Cloud sessions run on Linux, where
@@ -466,6 +480,7 @@ modeller's click, skipping "turning a padlock on asks first".
 - **The file keeps** `bridge.autoConnect` and `ui.activityBanner` only. The old padlock lines are
   ignored, never read, and the plug-in no longer writes the file. `autoConnect` stays a file
   setting: it only connects, and with every padlock off a chat can then read but change nothing.
+  Since D-73 `autoConnect` is ignored too.
 - **`autocad://diagnose`** no longer reads padlocks from the file: it would have reported stale
   lines as on.
 - **Added 2026-11-21, after the merge:** `autocad_why` (D-67) still read the padlocks from that

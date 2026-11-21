@@ -243,7 +243,7 @@ Since [D-66](DECISIONS.md) the plug-in closes a modal box AutoCAD opens while a 
   "Save changes?" without a Cancel button), that is what happens. AutoCAD's own close-drawing
   question has Cancel, so it gets Cancel.
 - **A box that ignores Cancel and Esc stays open.** The answer says so; close it by hand.
-- **A named answer needs the exact title** ([D-73](DECISIONS.md)): the box's title bar, word for
+- **A named answer needs the exact title** ([D-74](DECISIONS.md)): the box's title bar, word for
   word, same capitals. A box whose title differs, or that lacks the named button, gets Cancel / No /
   Esc as before. One named answer per call, used once. It presses the button by its control id, so
   a box drawn without Windows buttons (some WPF boxes) is not answered that way.
