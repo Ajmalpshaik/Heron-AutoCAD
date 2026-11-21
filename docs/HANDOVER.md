@@ -8,7 +8,29 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (this PC updated: server 1.7.0, plug-in 1.5.0 installed)
+## Latest - 2026-11-21 (every open item is a GitHub issue; seven cloud sessions build the Revit ideas)
+
+Every open [ROADMAP](ROADMAP.md) item became a GitHub issue (#39-#75), and the ROADMAP links each
+one. Two items were already built and are ticked: texture size (D-46) and the server version in
+status (D-48). Heron AI for Revit was compared again, and what AutoCAD lacks became issues #76-#97
+(label `from-heron-revit`, new ROADMAP section). The most important is a bug: **#76, a chat can
+switch its own padlocks on by writing `heron-autocad.config`**.
+
+Seven cloud sessions build them, each opening its own PR to `main`, none merged:
+padlocks #76-#77 (D-59/60, group R), server answers #78-#82 (D-61-63, group T), check lists
+#84-#87 (D-64/65, group U), dialog watch #83 (D-66, group V), why / gaps / question mode #88-#90
+and #43 (D-67, group W), docked palettes #92-#93 (D-68, group X), ribbon audit and install table
+#94-#95. They leave HANDOVER, CHANGELOG, ROADMAP and versions to the parent, with their lines in
+the PR description. Expect tool-count conflicts between them; merge one at a time.
+
+**Trap found:** a cloud session started from a worktree session begins on that session's branch,
+so the branch must be pushed first, or the cloud session stops at once with "An API error occurred"
+(the details say the branch was not found).
+
+**Next:** review each PR as it arrives; merge on Ajmal's yes, one at a time. Live rows for all of
+it stay NOT RUN until AutoCAD.
+
+## Earlier - 2026-11-21 (this PC updated: server 1.7.0, plug-in 1.5.0 installed)
 
 On Ajmal's word, with AutoCAD closed, the main checkout `D:\06_Development\09_Autocad MCP\Autocad MCP`
 was fast-forwarded to `main` a29b4a8 (PR #33). `tools/build_plugin.py` built plug-in **1.5.0**
