@@ -16,13 +16,24 @@ hatches, at a point, scale and rotation, on one layer, with a report of what cam
 `autocad_run_lisp` uses (now `advanced.send_lisp_pieces`): snaps off, a command still asking is
 cancelled and named, one undo step. It checks the release (2021-2027), the file and the page count
 first, and puts back every variable it sets. Server only, no plug-in change. Offline tests:
-`tests/test_pdf_import.py`. Limits: [05 §33](05-known-limits.md#33-pdf-import-has-its-own-limits).
+`tests/test_pdf_import.py`. Limits: [05 §34](05-known-limits.md#34-pdf-import-has-its-own-limits).
 
 **Next (on this PC):** pull, restart Claude (server only), then live rows AO1-AO9. **AO1 first**:
 type `-PDFIMPORT` by hand on a two-page and a one-page PDF and write the prompts down. The six
 questions were read from Autodesk's help through a search only, and whether a one-page PDF still
 asks for the page is not known; if it differs, the fix is `command_form` in `acad/pdf_import.py`.
 AO9 says what scale 1 means, so the help can say it plainly.
+
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
+
+Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
+only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
+pixels for the sheet (most likely), or extents stretched by something far off. `autocad_preview`
+now reports `plotted`, `pixels`, `smallest_clear_text` and a `tip`, and `detail=2` / `3` adds
+window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-known-limits.md#33-one-preview-picture-cannot-show-a-whole-big-sheets-small-text).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
+AM1 names the cause; close #41 only after AM1 and AM2 pass.
 
 ## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
 

@@ -692,6 +692,22 @@ is back as it was (one undo step). **Every row below is NOT RUN.**
 | AO9 | Scale: import a 1:100 A1 PDF of a mm drawing at `scale=1`, measure one known dimension with `autocad_measure`, work out the scale that makes it true, import again with it | Write the scale that was right here (it says how AutoCAD sizes a page at 1), so the tool's help can say it plainly | NOT RUN |
 | AO10 | On AutoCAD 2025 or 2026, and on 2021-2024: AO1 and AO2 | Same prompts and result | NO MACHINE |
 
+## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-102](DECISIONS.md), issue #41). Built and tested offline only
+(`tests/test_preview_extents.py`); server change only, no plug-in change. Restart the server first.
+Use the A1 automation room SLD from 2026-10-28 (or any A1 sheet at 1:1 with 2.5 mm text). AM1 is
+the row that says which cause #41 was. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AM1 | On the A1 SLD in Model: `autocad_preview()` (extents). Read `plotted`, `pixels`, `smallest_clear_text`, `tip` | Record all four and whether the picture shows the contents. **Tells the causes apart:** `plotted` about 841 x 594 and `smallest_clear_text` above 2.5 = too few pixels (go to AM2); `plotted` much bigger than the frame = something far off (find it with `autocad_get_extents`, ZOOM E; erase it and repeat); `plotted` right, picture shows the sheet full size and yet nothing but the frames = a third cause in AutoCAD's Extents plot itself (record it, the close-ups in AM2 still work round it) | NOT RUN |
+| AM2 | `autocad_preview(detail=2)`, then `detail=3` | 5 then 10 pictures: the overview, then the parts top left first, each with its `part` and corners; the 2.5 mm text reads in the detail=3 parts; parts overlap a little at the seams; `detail_smallest_clear_text` smaller than in AM1 | NOT RUN |
+| AM3 | After AM2: PAGESETUP on Model, and BACKGROUNDPLOT | Page setup as before (plotter, paper, area, scale, rotation); BACKGROUNDPLOT as before; one U in AutoCAD undoes nothing of the previews | NOT RUN |
+| AM4 | Draw a line at 100000,100000, then `autocad_preview()`; erase it, `autocad_preview()` again | First: `plotted` reaches 100000 and the sheet is small in the picture. Second: record whether `plotted` shrank back to the sheet (the regen refreshed the extents) or still reaches 100000 (stale until ZOOM E; then the code should do more) | NOT RUN |
+| AM5 | `autocad_preview(width_px=4000)` and `width_px=640` | Record the `size` and `pixels` AutoCAD chose each time: they are the PNG plotter's biggest and smallest sizes, not yet known here | NOT RUN |
+| AM6 | `autocad_set_3d_view(direction='sw_iso')`, `autocad_preview(detail=2)`; then `autocad_preview(area='view', detail=2)` | First: one picture and `detail_skipped` naming the plan view. Second: refused, naming area='extents' or 'window'; nothing plotted | NOT RUN |
+
 ## Group AH - 3D for MEP: duct runs, pipe spools, flat views, sections, surfaces, meshes, super hatch tiles (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-94](DECISIONS.md), [D-95](DECISIONS.md); issues #53, #54, #109, #58,

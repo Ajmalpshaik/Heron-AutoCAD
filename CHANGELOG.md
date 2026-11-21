@@ -12,6 +12,13 @@ Newest first. Dates are when the change was made.
   AutoCAD still asks something; it is never left open. Pictures in the PDF are left out. 176 tools
   ([D-106](docs/DECISIONS.md)). Live rows AO1-AO10 NOT RUN.
 
+- **A preview of a full sheet (2026-11-21, #41).** `autocad_preview` now says the area it plotted
+  (`plotted`, extents refreshed first), its `pixels` and the smallest text that reads
+  (`smallest_clear_text`), with a `tip` when the drawing's text is smaller. `detail=2` or `3` adds 4
+  or 9 overlapping close-ups of the same area, plotted as windows. A whole A1 in one picture is about
+  0.5 mm a pixel, so its 2.5 mm text could not show ([D-102](docs/DECISIONS.md)). Live rows AM1-AM6
+  NOT RUN; #41 stays open until AM1 names the cause.
+
 - **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
   (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,
   elbows, flanges with bolt holes, and each pipe's cut length) as solids, each piece checked against
