@@ -4,7 +4,9 @@ Order for one call:
 
 1. Look at AutoCAD (which process, which drawing). Nothing is changed.
 2. Wrong-drawing guard: a change to a drawing other than the one Heron last
-   looked at (with autocad_status, or by switching) is refused.
+   looked at (with autocad_status, or by switching) is refused. The plug-in's
+   document events say what happened since (#48): the drawing closed and
+   opened again, or AutoCAD restarted, is refused too; a Save As is followed.
 3. Ask the plug-in to ``begin``: it checks connection, the chat's turn and
    the padlock this tool's level needs, raises the banner, and says whether
    it will ask Keep or Discard afterwards.
@@ -41,6 +43,7 @@ from .bridge import (
     bridge_enabled,
 )
 from .connection import get_app, run
+from .drawing_events import Mark, Verdict, judge
 from .errors import AutocadError
 from .risk import Risk, risk_of
 
@@ -92,6 +95,8 @@ MOST_HANDLES = 200
 # Undoes Heron's own last change: no UNDO mark, no Keep or Discard, no erase question about it.
 UNDOES = {"autocad_undo_last"}
 _last_drawing: str | None = None
+# Where the plug-in's drawing log stood when Heron checked _last_drawing (#48), or None.
+_checked_mark: Mark | None = None
 _current: Job | None = None  # the job whose tool is running right now
 
 
@@ -117,6 +122,20 @@ def quiet_sender() -> Callable[[list[str]], bool] | None:
     if job is None or job.bridge is None or job.id is None:
         return None
     return lambda lines: job.bridge.send_quiet(job.id, lines)
+
+
+def quiet_limit() -> int | None:
+    """While a job runs with the plug-in: the longest line its quiet input types (#45), or None.
+
+    None outside a job, with the bridge off, or from a plug-in that does not
+    say: the batch then keeps the pieces measured for COM. Asks the plug-in
+    (one ping), so call it from the COM worker, not the event loop.
+    """
+    job = _current
+    if job is None or job.bridge is None or job.id is None:
+        return None
+    ask = getattr(job.bridge, "quiet_limit", None)
+    return ask() if ask else None
 
 
 def plugin_runner() -> Callable[[str, dict[str, Any]], dict[str, Any]] | None:
@@ -158,10 +177,30 @@ def stopped_by_modeller() -> bool:
     return job.bridge.stopped()
 
 
-def reset(looked_at: str | None = None) -> None:
+def reset(looked_at: str | None = None, mark: Mark | None = None) -> None:
     """Forget which drawing Heron checked (tests, and a fresh server start)."""
-    global _last_drawing
+    global _last_drawing, _checked_mark
     _last_drawing = looked_at
+    _checked_mark = mark
+
+
+async def _since_checked(pid: int | None, drawing: str) -> Verdict:
+    """What the plug-in's document events say happened since Heron checked its drawing (#48)."""
+    mark = _checked_mark
+    if mark is None or pid is None or _last_drawing is None or not bridge_enabled():
+        return Verdict()
+    ask = getattr(Bridge(pid), "drawing_events", None)
+    history = await asyncio.to_thread(ask, mark.seq) if ask else None
+    return judge(_last_drawing, drawing, mark, pid, history)
+
+
+async def _mark_now(job: Job | None, pid: int | None) -> Mark | None:
+    """Where the plug-in's drawing log stands now, for the drawing just checked (#48)."""
+    if job is None or job.bridge is None or pid is None:
+        return None
+    ask = getattr(job.bridge, "drawing_mark", None)
+    found = await asyncio.to_thread(ask) if ask else None
+    return Mark(pid, found[0], found[1]) if found else None
 
 
 def _title(tool: str) -> str:
@@ -334,7 +373,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
     mark (D-63). Only a Change tool can; the rest are refused before anything
     is sent.
     """
-    global _last_drawing, _current
+    global _last_drawing, _checked_mark, _current
     async with _lock:
         risk = risk_of(tool)
         started = time.monotonic()
@@ -381,12 +420,20 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 refusal = str(exc)
 
         if refusal is None and probed and risk not in (Risk.READ, Risk.VIEW):
+            seen = Verdict()
+            if _last_drawing is not None:
+                seen = await _since_checked(pid, drawing)
+                if seen.follow:
+                    # A Save As gave the checked drawing a new name: the same drawing, the same units.
+                    _last_drawing = seen.follow
             if _last_drawing is None:
                 refusal = (
                     f"Heron has not checked {drawing or 'this drawing'} yet. Call autocad_status "
                     "first: it gives the drawing's units, and every coordinate depends on them. "
                     + NOTHING_SENT
                 )
+            elif seen.refusal:
+                refusal = seen.refusal
             elif drawing != _last_drawing:
                 refusal = (
                     f"The active drawing changed from {_last_drawing} to {drawing} since "
@@ -525,6 +572,8 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                     except AutocadError:
                         pass
                 _last_drawing = drawing
+                # After the work, so a drawing it opened itself is not news to the guard (#48).
+                _checked_mark = await _mark_now(job, pid)
             return result
         finally:
             if job and job.bridge:
