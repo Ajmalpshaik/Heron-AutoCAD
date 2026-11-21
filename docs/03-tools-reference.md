@@ -59,6 +59,11 @@ The group headings below give the level.
 `autocad_add_hatch` takes a pattern from acad.pat, or a custom one written by
 `autocad_create_hatch_pattern` (it tries acad.pat first, then a NAME.pat on the support path).
 
+`autocad_add_text`, `autocad_add_mtext` and `autocad_add_dimension` take `annotative=true`: the
+object is made annotative at the drawing's current annotation scale, by the plug-in
+([D-81](DECISIONS.md)). Sizes stay in drawing units at that scale (125 for 2.5 mm at 1:50); the
+reply gives the paper height. An annotative dimension is not given the drawing's DIMSCALE.
+
 ## Splines, multilines, wipeouts and xrefs (Change)
 
 | Tool | Purpose |
@@ -147,9 +152,15 @@ nothing.
 
 ## Layers and blocks (lists Read, the rest Change)
 
-`autocad_list_layers`, `autocad_create_layer`, `autocad_set_layer_state`,
+`autocad_list_layers` (and the saved layer states), `autocad_create_layer`, `autocad_set_layer_state`,
 `autocad_set_current_layer`, `autocad_delete_layer` (needs `confirm=true`), `autocad_list_blocks`,
 `autocad_list_styles`
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_layer_states` | Change | Save the layers as a named layer state (what it remembers is up to you), restore one (every layer it changed comes back in `before_after`), or delete one. Done by the plug-in ([D-81](DECISIONS.md)) |
+| `autocad_isolate_layers` | Change | LAYISO / LAYUNISO: keep the layers of picked objects (or named layers), every other layer `off`, `freeze` or `lock`. The layers before the first isolate are saved as the HERON-ISOLATE layer state; `unisolate` puts them back, current layer too |
+| `autocad_merge_layers` | Change | LAYMERGE: every object on the old layers moves to the new one (model, layouts, block definitions, attributes); an old layer is removed only when nothing is left on it. Needs `confirm=true`; without it, says what would move |
 
 ## Escape hatches (Admin; regen is View)
 
@@ -271,9 +282,13 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `quiet=true`: counts and handles only |
+| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `dim_style` draws the run in a named style at that style's own scale ([D-80](DECISIONS.md)); `annotative` makes it annotative. `quiet=true`: counts and handles only |
+| `autocad_space_dimensions` | DIMSPACE: a stack of parallel dimensions moved to an even spacing off a base dimension (0 lines them up). Only the dimension lines move; the plug-in moves them, Heron works out where. `dry_run` reports the moves |
+| `autocad_break_dimensions` | DIMBREAK, automatic: a gap in each dimension wherever another object crosses it; `remove` takes the breaks off. Typed, since no API has a call for it |
+| `autocad_annotation_scales` | OBJECTSCALE: make objects annotative (or plain), add or remove annotation scales on them; a 1:N scale the drawing lacks can be added to its list. Done by the plug-in ([D-81](DECISIONS.md)) |
+| `autocad_list_annotation_scales` | **Read.** The drawing's scale list, the current one (CANNOSCALE), and which scales each object carries, with its paper height |
 | `autocad_add_centre_marks` | The cross on every circle and arc, by handle or by layer; `extend` makes full centre lines |
-| `autocad_add_multileader` | One note with **as many arrows as it needs**; text or block content |
+| `autocad_add_multileader` | One note with **as many arrows as it needs**; text or block content; `annotative` |
 | `autocad_add_table` | A schedule as a real AutoCAD table, with title and headings; `text_height` and `text_style` on every row; text in the vertical middle of each cell |
 | `autocad_table_from_excel` | An Excel range as a table: a real **Data Link** made by the plug-in, so it can be updated; filled from the sheet with `"linked": false` and the reason when a link cannot be made. Cells Excel only shows as a date or percent are listed, not written ([D-83](DECISIONS.md)) |
 | `autocad_update_table_links` | Update linked tables from their sheets (DATALINKUPDATE), keeping the table's formatting |

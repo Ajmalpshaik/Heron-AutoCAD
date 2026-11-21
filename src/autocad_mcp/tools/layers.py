@@ -12,6 +12,7 @@ from ..core.connection import get_doc, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ._shared import before_after, same_value
+from .layer_states import layer_state_list
 
 
 @mcp.tool(
@@ -43,12 +44,17 @@ async def autocad_list_layers(
         str: JSON: {"count": int, "current_layer": str, "layers": [
              {"name": str, "color": int, "linetype": str, "lineweight": int,
               "on": bool, "frozen": bool, "locked": bool, "plottable": bool,
-              "entity_count": int}]}
+              "entity_count": int}],
+             "layer_states": [{"name": str, "remembers": [str], "description": str}]}
              "entity_count" appears only when include_entity_counts is true.
+             "layer_states" (the saved layer states) is read by Heron's plug-in;
+             null, with a note, when it cannot be read.
 
     Examples:
         - Use when: "what layers does this drawing use?"
         - Use when: before drawing, to match the existing naming convention.
+        - Use when: "which layer states are saved in this drawing?" — they come
+          back in "layer_states"; autocad_layer_states saves and restores them.
     """
 
     def work() -> dict[str, Any]:
@@ -69,6 +75,8 @@ async def autocad_list_layers(
             "count": len(layers),
             "current_layer": str(doc.ActiveLayer.Name),
             "layers": sorted(layers, key=lambda item: item["name"].lower()),
+            # Saved layer states, through the plug-in (#107, D-81).
+            **layer_state_list(),
         }
 
     return dumps(await run(work))

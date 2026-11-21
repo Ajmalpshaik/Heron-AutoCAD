@@ -108,6 +108,12 @@ namespace Heron.AutoCAD.Addin
                 case "super_hatch": return SuperHatch.Make(db, tr, args);
                 case "add_light": return RenderSetup.AddLight(db, tr, args);
                 case "create_material": return RenderSetup.CreateMaterial(db, tr, args);
+                case "dimension_lines": return DimensionLines.Read(db, tr, args);
+                case "move_dimension_lines": return DimensionLines.Move(db, tr, args);
+                case "annotation_scales": return AnnotationScales.Read(db, tr, args);
+                case "set_annotation_scales": return AnnotationScales.Set(db, tr, args);
+                case "layer_state_names": return LayerStates.Names(db, tr, args);
+                case "layer_state": return LayerStates.Change(db, tr, args);
                 case "current_view": return RenderView.CurrentView(doc, tr);
                 case "list_lights": return RenderView.ListLights(doc, tr);
                 case "switch_lights": return RenderView.SwitchLights(db, tr, args);

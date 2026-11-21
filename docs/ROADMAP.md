@@ -188,13 +188,14 @@ done looks like here.
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway. ([#43](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/43))
 - [x] `send_command` with an undo-stack command (UNDO, U, REDO, MREDO, OOPS) is sent outside an undo mark (D-76, 2026-11-21: now marked as a write; live row Z1 NOT RUN), so it does not mark "write started" and a busy retry can still re-run it ([D-15](DECISIONS.md)). Every other `send_command` and every `run_lisp` now runs inside `undo_mark`. ([#42](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/42))
-- [ ] `autocad_dimension_run`: an optional `dim_style` (an existing style name), so a 1:5 detail
+- [x] `autocad_dimension_run`: an optional `dim_style` (an existing style name), so a 1:5 detail
   does not have to change DIMSCALE through `autocad_drawing_setup` mid-run (asked 2026-11-18). Not
   built in D-57 because it cannot be proved offline. Traps found: the tool sets every dimension's
   `ScaleFactor` to the drawing's DIMSCALE, which would hide the style's own scale; and making the
   style active for the run, then putting the old one back, wipes DIMSCALE overrides that
   `autocad_drawing_setup` left on the active style. Likely shape: set `StyleName` per dimension and
   skip the `ScaleFactor` write when a style is given; check the size live before trusting it. ([#37](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/37))
+  Built 2026-11-21 in that shape ([D-80](DECISIONS.md)); the size in a 1:5 detail is live row AB1, NOT RUN.
 - [ ] About 70 places turn a COM error into a plain `AutocadError`, and a few `except` blocks take
   any error for "not there" (as `ensure_layer` did until D-57). The message filter now hides short
   busy spells from all of them; a refusal longer than its 3 s still reads as a failure there, not

@@ -12,6 +12,11 @@ namespace Heron.AutoCAD.Bridge
         private static readonly Dictionary<string, Risk> Levels = new Dictionary<string, Risk>
         {
             ["solid_topology"] = Risk.Read,
+            // Where dimension lines are, the drawing's and objects' annotation scales,
+            // and the drawing's layer states (D-80, D-81).
+            ["dimension_lines"] = Risk.Read,
+            ["annotation_scales"] = Risk.Read,
+            ["layer_state_names"] = Risk.Read,
             // Selects, zooms and isolates what was asked for: on screen only.
             ["show"] = Risk.View,
             ["loft"] = Risk.Change,
@@ -23,6 +28,9 @@ namespace Heron.AutoCAD.Bridge
             ["super_hatch"] = Risk.Change,
             ["add_light"] = Risk.Change,
             ["create_material"] = Risk.Change,
+            ["move_dimension_lines"] = Risk.Change,
+            ["set_annotation_scales"] = Risk.Change,
+            ["layer_state"] = Risk.Change,
             // Setting a render up (D-86, D-87). None of them renders.
             ["current_view"] = Risk.Read,
             ["list_lights"] = Risk.Read,

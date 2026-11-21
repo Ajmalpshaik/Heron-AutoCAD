@@ -32,6 +32,7 @@ from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
 from ._shared import COLOR_OPT, COORDS_OPT, LAYER_OPT, point, ucs_for, world_coords
+from .annotation_scales import ANNOTATIVE_OPT, make_new_annotative, require_plugin
 from .batch import draw_operations
 
 Point = tuple[float, float]
@@ -182,6 +183,7 @@ async def autocad_add_multileader(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     coords: Annotated[str, COORDS_OPT] = "world",
+    annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """One note with as many arrows as it needs: a real MULTILEADER.
 
@@ -206,10 +208,12 @@ async def autocad_add_multileader(
         layer (Optional[str]): target layer, created if missing.
         color (Optional[str | int]): colour.
         coords (str): 'world' or 'ucs'.
+        annotative (bool): make it annotative at the current annotation scale.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "leader_lines": int,
              "arrows": [[x, y]], "landing": [x, y], "not_set": [str]}
+             With annotative: also "annotative" and "annotation_scales".
 
     Examples:
         - Use when: "label these four holes with one note".
@@ -231,6 +235,8 @@ async def autocad_add_multileader(
     if len(landing) < 2:
         raise AutocadError("landing needs [x, y].")
     aci = to_aci(color)
+    if annotative:
+        require_plugin("Making a multileader annotative")
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -297,6 +303,7 @@ async def autocad_add_multileader(
                     extra += 1
                 except BaseException as exc:  # noqa: BLE001 - report, keep what worked
                     not_set.append(f"leader line to {list(arrow)} ({com_message(exc)})")
+            scaled = make_new_annotative([str(mleader.Handle)]) if annotative else {}
 
         result: dict[str, Any] = {
             "created": True,
@@ -308,6 +315,7 @@ async def autocad_add_multileader(
             "content": "block" if block else "text",
         }
         result.update(notes)
+        result.update(scaled)
         if not_set:
             result["not_set"] = not_set
         return result

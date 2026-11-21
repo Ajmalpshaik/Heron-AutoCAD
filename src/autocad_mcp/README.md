@@ -20,6 +20,7 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/query.py` | list, get, selection, find text, extents, measure |
 | `tools/modify.py` | move, copy, rotate, scale, mirror, offset, array, modify, delete |
 | `tools/layers.py` | layers, blocks, styles |
+| `tools/layer_states.py` | layer states (by the plug-in), isolate and un-isolate, merge layers |
 | `tools/advanced.py` | send command, run LISP, purge, regen, audit |
 | `tools/explain.py` | `autocad_why` (why one job cannot run) and `autocad_gaps` (what failed and was slow, from the audit log): both need no AutoCAD (D-67) |
 | `tools/standards.py` | standards check, attribute extraction |
@@ -30,7 +31,9 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/convert.py` | an import into a shop drawing: remap layers, tidy overrides |
 | `tools/sequence.py` | `autocad_sequence`: several tools in one call |
 | `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions |
-| `tools/dimensions.py` | dimension runs (chain, baseline, ordinate), centre marks |
+| `tools/dimensions.py` | dimension runs (chain, baseline, ordinate, a named style), centre marks |
+| `tools/dimensions_edit.py` | dimensions already drawn: even spacing (DIMSPACE), breaks (DIMBREAK) |
+| `tools/annotation_scales.py` | annotative objects and their annotation scales, done by the plug-in |
 | `tools/drafting.py` | splines, multilines (MLINE), wipeouts |
 | `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths |
 | `tools/patterns.py` | write custom hatch pattern (.pat) and linetype (.lin) files; the text is `acad/patterns.py` |

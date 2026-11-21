@@ -58,6 +58,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "drawing_report",
         "why",
         "gaps",
+        "list_annotation_scales",
     ),
     Risk.VIEW: (
         "check_folder",
@@ -166,6 +167,13 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "set_layer_state",
         "set_current_layer",
         "delete_layer",
+        # Layers and annotation (D-80, D-81).
+        "layer_states",
+        "isolate_layers",
+        "merge_layers",
+        "space_dimensions",
+        "break_dimensions",
+        "annotation_scales",
     ),
     Risk.PUBLISH: (
         "export_attribute_sheet",
