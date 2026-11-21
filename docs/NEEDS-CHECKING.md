@@ -561,6 +561,33 @@ the server. Changes on. **Every row below is NOT RUN.**
 | AB10 | `autocad_add_dimension(..., annotative=true)`, `autocad_dimension_run(..., annotative=true)`, `autocad_add_multileader(..., annotative=true)`, then one Ctrl+Z each | Each is annotative at 1:50 (OBJECTSCALE lists 1:50), arrows and text sized from the scale, not doubled by DIMSCALE; one Ctrl+Z removes the object and its annotative state together | NOT RUN |
 | AB11 | `autocad_annotation_scales(handles=[it], add=["1:25"])`, then with `add_missing_to_drawing=true`; then `remove=["1:25","1:50","1:100"]` | First is refused (no 1:25); second adds 1:25 to SCALELISTEDIT and to the object (`scales_created`); removing every scale is refused and nothing changes | NOT RUN |
 
+## Group AE - Setting a render up: style read back, camera views, sun, lights, exposure (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-86](DECISIONS.md), [D-87](DECISIONS.md); issues #59-#63). Built and tested
+offline only (`tests/test_render_view.py`, `RenderViewMathTests.cs`, `RunTests.cs`); the add-in
+**compiles** for all three AutoCAD builds. Needs the plug-in built from this change (five new
+operations) and a server restart. **None of these tools renders: in every row Ajmal presses Render.**
+Use a model with a room, a few lights and a light block (the villa or Luxury Suite model).
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AE1 | `autocad_set_3d_view(visual_style=...)` once for each of the ten styles; then VSCURRENT Hidden by hand and `autocad_set_3d_view(direction='sw_iso')` | Each answer's `visual_style_found` is the style on screen (record AutoCAD's exact names, e.g. `Realistic`, `Shades of Gray`), with no `visual_style_warning` and no `visual_style_found_from` for a style that took; after the hand change it says `Hidden`. If it lags one style behind, the read needs the viewports written to the drawing first, as `set_sun` does | NOT RUN |
+| AE2 | Inside a room: `autocad_add_camera_view(name='LIVING-CAM-1', eye=[<corner>, 1600], target=[<far wall>, 1200], lens=24)` | The screen shows the room in perspective from the corner (in 2D Wireframe the answer warns instead, and perspective shows after `visual_style='realistic'`); VIEW lists LIVING-CAM-1 as a perspective view; Properties of the view: lens 24 mm. Record AutoCAD's Field of view next to the answer's `field_of_view_degrees` (73.74). One Ctrl+Z removes the view | NOT RUN |
+| AE3 | After AE2: zoom and orbit away, then VIEW, restore LIVING-CAM-1 | The same perspective comes back at **24 mm** (an `entmake` view came back at 50 mm on 2026-11-09); no DVIEW prompt, nothing hangs | NOT RUN |
+| AE4 | `autocad_add_camera_view` with the AE2 name again, then with `replace=true` and a new eye, then a new name with `look_through=false` | First refused naming replace; second moves LIVING-CAM-1; third saves the view and leaves the screen as it was. Ajmal renders LIVING-CAM-1 from the Render window's view list: the picture is the camera's | NOT RUN |
+| AE5 | `autocad_set_sun(date='2026-06-21', time='10:00', latitude=25.29, longitude=51.53, utc_offset=3, daylight_saving=false, on=true)` | Sun Properties: 21/06/2026, 10:00, no daylight saving; Geographic Location: 25.29 **N**, 51.53 **E**, UTC+3; `(entget (cdr (assoc 361 (entget (tblobjname "VPORT" "*Active")))))` shows groups 91 and 92 equal to the answer's `dxf` (2461213, 36000000). Record whether `azimuth` / `altitude` are in degrees as Sun Properties shows them. One Ctrl+Z takes back the date, the place and SUNSTATUS together | NOT RUN |
+| AE6 | Orbit the view, then `autocad_set_sun(time='16:30')` | Only the time changes (date and place stay); the view on screen does **not** jump back to an older angle; the shadows move in a realistic view with DEFAULTLIGHTING 0 | NOT RUN |
+| AE7 | In a new drawing that has never had a sun: `autocad_set_sun(date='2026-12-21', time='09:00')`, then one Ctrl+Z | `sun_made: true`; Sun Properties shows the date and time; one Ctrl+Z takes back the sun's date and any place set in the same call | NOT RUN |
+| AE8 | `autocad_set_sun(latitude=9.93, longitude=76.27, utc_offset=5.5)`; then `utc_offset=5.75` | TIMEZONE reads 5030 and Geographic Location shows the India time zone; 5045 is taken as Nepal. If AutoCAD refuses a code, it is in `not_set` | NOT RUN |
+| AE9 | `autocad_list_lights` in the villa (lights in model space and in a light block) | The list matches the Lights in Model palette: names, on / off, intensity and unit; the block's lights show its name and the right insert count; the sun part matches Sun Properties; DEFAULTLIGHTING 1 gives the warning | NOT RUN |
+| AE10 | `autocad_switch_lights(turn_off=['<a model space light>'])`; then `turn_on=['NO-SUCH-LIGHT', '<that light>']` | The palette shows it off and the room goes darker in a realistic view; one Ctrl+Z switches it back on (the plug-in's switch and the variables are one undo step); the second call is refused listing the light names, and the light stays off | NOT RUN |
+| AE11 | `autocad_switch_lights(turn_off=['<the light's name inside the block>'])` | Every insert of the light block goes dark after the answer (it regenerates); BEDIT shows the light off in the definition | NOT RUN |
+| AE12 | DEFAULTLIGHTING 1, SUNSTATUS 0: `autocad_switch_lights(sun=true)`; undo; then `autocad_switch_lights(default_lighting=false, sun=true)` | Record whether AutoCAD shows its viewport lighting question in each case, and what the answer says (the dialog watch names a box it closed). In the second, both are set with no question | NOT RUN |
+| AE13 | Lock a light's layer, then switch that light | Refused: an object is on a locked layer; nothing switched | NOT RUN |
+| AE14 | `autocad_set_render_exposure(exposure=7, white_balance=4500)`, then `autocad_list_lights` | If AutoCAD 2027 has EXPVALUE: the RENDEREXPOSURE palette shows 7 and 4500, and a render Ajmal starts is brighter and cooler than at 8.8 / 6500. If it is refused naming RENDEREXPOSURE: record it, nothing changed, and the ROADMAP's viewport route is next | NOT RUN |
+| AE15 | AE1-AE14 on AutoCAD 2025/2026 and 2021-2024 | As AE1-AE14 | NOT RUN (no PC with those versions yet) |
+
 ## Group Z - Undo commands, long AutoLISP, quiet answers, busy answers (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-76](DECISIONS.md), [D-77](DECISIONS.md); issues #42, #44, #46, #47). Built

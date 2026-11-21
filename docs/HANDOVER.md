@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
 
-Seven new tools (**154** with the block and table tools): `autocad_layer_states`, `autocad_isolate_layers`,
+Seven new tools (**159** with the block, table and render tools): `autocad_layer_states`, `autocad_isolate_layers`,
 `autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,
 `autocad_annotation_scales`, `autocad_list_annotation_scales`; `annotative=true` on `add_text`,
 `add_mtext`, `add_dimension`, `dimension_run`, `add_multileader`; `dim_style` on
@@ -22,6 +22,24 @@ compiled for all three builds; the plug-in version is not bumped here (the paren
 **Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then
 live rows **AB1-AB11**. AB1 (the 1:5 style size) and AB9 (what height an annotative text gets)
 decide whether the two size rules in D-80 / D-81 hold.
+
+## Earlier - 2026-11-21 (setting a render up from the chat, #59-#63, D-86 / D-87)
+
+Five new tools (**152** with the blocks and tables work merged first) and five new plug-in operations, built and tested offline in one PR:
+`autocad_add_camera_view` (a view record with perspective and a lens, never DVIEW),
+`autocad_set_sun` (date and time on the model viewport's sun through the plug-in; LATITUDE,
+LONGITUDE, TIMEZONE and SUNSTATUS over COM), `autocad_list_lights` and `autocad_switch_lights`
+(lights in model space and in light blocks; the sun and DEFAULTLIGHTING), and
+`autocad_set_render_exposure` (EXPVALUE / EXPWHITEBALANCE). `autocad_set_3d_view` reads the
+visual style back (`visual_style_found`). **None of these tools renders**: Ajmal presses Render;
+whether `autocad_render` (Admin) stays is Ajmal's call, issue **#158**. An independent review found
+six real problems before merging, all fixed with tests (stale sun on / off, a year refused only
+after the place was set, TIMEZONE codes like 9031, a style reading taken as a failure, no warning
+for 2D Wireframe, a layout view replaceable). The
+add-in compiles for all three builds; versions not bumped (the parent does).
+**Next (on this PC, AutoCAD closed):** build and install the plug-in, restart Claude, then live
+rows **AE1-AE14**. AE14 decides the exposure route: if 2027 has no EXPVALUE, the ROADMAP item for
+the viewport's `PhotographicExposureParameters` is next.
 
 ## Earlier - 2026-11-21 (blocks, attributes and tables: #115, #117, #106; D-82, D-83)
 

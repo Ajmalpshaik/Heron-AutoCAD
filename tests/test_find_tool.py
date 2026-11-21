@@ -163,6 +163,12 @@ CASES = [
     ("break the dimensions where the pipes cross them", "autocad_break_dimensions"),
     ("add the 1:100 scale to these notes", "autocad_annotation_scales"),
     ("which annotation scales does this note have", "autocad_list_annotation_scales"),
+    # Setting a render up (2026-11-21, #59-#63): none of these renders.
+    ("put a camera in the living room corner with a 24 mm lens", "autocad_add_camera_view"),
+    ("set the sun for Doha at 10 in the morning on 21 June", "autocad_set_sun"),
+    ("which lights are on in the villa", "autocad_list_lights"),
+    ("night render: sun off and all the downlights on", "autocad_switch_lights"),
+    ("the render is too dark, change the exposure", "autocad_set_render_exposure"),
     # Blocks, attributes and tables (D-82, D-83; issues #115, #117, #106).
     ("make a tag block with a TAG attribute", "autocad_make_block"),
     ("I added an attribute to the block, update all the inserts", "autocad_sync_attributes"),
