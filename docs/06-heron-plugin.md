@@ -207,6 +207,8 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `sync_attributes` | `autocad_sync_attributes` | `AttributeReference.SetAttributeFromBlock`, `AttributeCollection.AppendAttribute` (ATTSYNC, [D-82](DECISIONS.md)) |
 | `excel_table` | `autocad_table_from_excel` | `DataLinkManager.AddDataLink`, `Cell.SetDataLink` ([D-83](DECISIONS.md)) |
 | `update_table_links` | `autocad_update_table_links` | `Table.UpdateDataLink(SourceToData, SkipFormat)` |
+| `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
+| `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.

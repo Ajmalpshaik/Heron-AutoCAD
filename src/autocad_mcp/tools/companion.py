@@ -16,6 +16,7 @@ from pydantic import Field
 from ..acad.units import unit_name
 from ..core import companion, gate
 from ..core.connection import get_doc, run
+from ..core.errors import raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 
 MOST_SELECTION = 2000
@@ -28,7 +29,8 @@ def _snapshot() -> dict[str, Any]:
     def ask(read: Any, default: Any = None) -> Any:
         try:
             return read()
-        except BaseException:  # noqa: BLE001 - one value the page leaves out
+        except BaseException as exc:  # noqa: BLE001 - one value the page leaves out
+            raise_if_busy(exc)
             return default
 
     centre = ask(lambda: doc.GetVariable("VIEWCTR"))

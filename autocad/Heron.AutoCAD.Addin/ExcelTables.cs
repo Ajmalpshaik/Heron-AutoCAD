@@ -173,7 +173,7 @@ namespace Heron.AutoCAD.Addin
             if (name.Length == 0) return db.Tablestyle;
             var styles = (DBDictionary)tr.GetObject(db.TableStyleDictionaryId, OpenMode.ForRead);
             if (!styles.Contains(name))
-                throw new RunRefusal("This drawing has no table style called '" + name + "'. Copy it in with autocad_import_from_drawing, or leave style out.");
+                throw new RunRefusal("This drawing has no table style called '" + name + "'. Make it with autocad_create_styles(table_styles=...), copy it in with autocad_import_from_drawing, or leave style out.");
             return styles.GetAt(name);
         }
 

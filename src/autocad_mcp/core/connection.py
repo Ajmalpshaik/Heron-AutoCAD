@@ -34,6 +34,7 @@ from .errors import (
     com_message,
     is_dispatch_failure,
     is_retryable,
+    raise_if_busy,
 )
 
 T = TypeVar("T")
@@ -225,8 +226,8 @@ class _AppCache:
                 first = win32com.client.GetActiveObject(PROG_ID)
                 if _pid_of(first) == target:
                     return first
-            except BaseException:  # noqa: BLE001 - the drawing search below decides
-                pass
+            except BaseException as exc:  # noqa: BLE001 - the drawing search below decides
+                raise_if_busy(exc)
             found = _app_of_process(target)
             if found is None:
                 raise AutocadError(
@@ -238,6 +239,7 @@ class _AppCache:
         try:
             return win32com.client.GetActiveObject(PROG_ID)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)  # an AutoCAD is there, only busy: never "none running"
             if not launch_if_needed:
                 raise AutocadError(
                     "No running AutoCAD instance was found. Start AutoCAD and "
@@ -287,7 +289,8 @@ def _pid_of(app: Any) -> int | None:
         import win32process
 
         return int(win32process.GetWindowThreadProcessId(int(app.HWND))[1])
-    except BaseException:  # noqa: BLE001
+    except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         return None
 
 
@@ -375,14 +378,13 @@ def get_space(doc: Any, space: str = MODEL_SPACE) -> Any:
     try:
         return doc.PaperSpace
     except BaseException as exc:  # noqa: BLE001 - the layout's block is tried next
-        if is_retryable(exc):
-            raise
+        raise_if_busy(exc)
         try:
             layout = doc.ActiveLayout
             if str(layout.Name) != "Model":
                 return layout.Block
-        except BaseException:  # noqa: BLE001 - the first error says more
-            pass
+        except BaseException as inner:  # noqa: BLE001 - the first error says more
+            raise_if_busy(inner)
         raise
 
 
@@ -394,7 +396,8 @@ def require_idle(doc: Any) -> None:
     """
     try:
         active = int(doc.GetVariable("CMDACTIVE"))
-    except BaseException:  # noqa: BLE001 - probing CMDACTIVE is best-effort
+    except BaseException as exc:  # noqa: BLE001 - probing CMDACTIVE is best-effort
+        raise_if_busy(exc)
         return
     if active:
         raise AutocadError(

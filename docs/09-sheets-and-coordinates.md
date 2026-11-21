@@ -143,7 +143,7 @@ out of the canonical media name, which carries the dimensions
 | Tool | Level | What it does |
 |---|---|---|
 | `autocad_drawing_setup` | Change | Units, precision, the drawing scale and everything that follows from it, object snaps, point style, linetype scaling, limits. `dry_run` shows the plan |
-| `autocad_create_styles` | Change | Text styles and dimension styles with real values |
+| `autocad_create_styles` | Change | Text, dimension, multileader and table styles with real values |
 
 Give the scale once — `scale="1:50"` — and `DIMSCALE`, the annotation scale and `LTSCALE` follow.
 `paper_text_height=2.5` with it sets `TEXTSIZE` to the model height (125 at 1:50).
@@ -156,8 +156,10 @@ list ([D-28](DECISIONS.md)). Every call reports the old value beside the new one
 
 A dimension style is built the way AutoCAD's API requires: the `DIM` variables are set, the style is
 added, the style copies them off the document, and the drawing's own variables are **put back**.
-Multileader styles have no Automation API; make one in AutoCAD, or bring it in with
-`autocad_import_from_drawing`.
+Multileader and table styles have no Automation API, so Heron's plug-in makes them
+([D-104](DECISIONS.md)): a multileader style is Ajmal's TLD label unless asked otherwise, a table
+style keeps its text in the vertical middle of each cell. A plot style table is a file the .NET API
+cannot write ([D-105](DECISIONS.md)); `autocad_page_setup` sets one that exists.
 
 ---
 

@@ -187,6 +187,61 @@ D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158)
   knowledge. Live rows AP1-AP11 in [NEEDS-CHECKING](NEEDS-CHECKING.md) compare each with AutoCAD's
   own command; all NOT RUN.
 
+## D-105 - A plot style table is not made by Heron: the .NET API cannot write one
+
+**Decided:** 2026-11-21, building issue #68. **Status:** in force (a known limit, [05 §34](05-known-limits.md)).
+A plot style table (`.ctb` colour-dependent, `.stb` named) is not part of the drawing: it is a
+file in AutoCAD's Plot Styles folder, made in the Plot Style Manager. Autodesk's .NET reference
+assemblies for 2021 and 2027 were searched for a way to make or edit one, and there is none: only
+`PlotStyleDescriptor` and `PlotStyleNameType` (a plot style's id on an object), the picker
+dialog `PlotStyleDialog`, and an event when a layout's table changes. COM has none either. So
+`autocad_create_styles` takes no plot style option and says so in its `Don't use when:`; the
+modeller makes or copies the `.stb` / `.ctb` in AutoCAD, and `autocad_page_setup(plot_style_table=...)`
+sets it on a sheet. **Rejected:** writing the file format ourselves (it is Autodesk's, compressed
+and undocumented; a file AutoCAD cannot read would show up only at plot time, and nothing here could
+check it), and typing STYLESMANAGER (it opens a window the chat cannot drive).
+
+## D-104 - Multileader and table styles are made by the plug-in; the rules are in the Bridge
+
+**Decided:** 2026-11-21, building issue #68. **Status:** in force; extends D-28 and D-40 (built
+and tested offline; live rows AN1-AN12 NOT RUN).
+- **Two new plug-in operations**, `multileader_style` and `table_style` (level Change), because
+  COM has no call to make either (until now they came in only with `autocad_import_from_drawing`).
+  `autocad_create_styles` takes `multileader_styles` and `table_styles` beside its text and
+  dimension styles, and stays a Change tool written from a fixed list (D-28): the options are a
+  list in `tools/settings.py`, a misspelt one is refused before anything is written, and a test
+  holds that list to the options the plug-in reads.
+- **The rules are pure code in `Heron.AutoCAD.Bridge/StylePlans.cs`** with their own tests: the
+  option words, the defaults and every refusal. The add-in (`DrawingStyles.cs`) only copies a plan
+  onto AutoCAD's `MLeaderStyle` / `TableStyle` and reads back what the style then holds. One
+  transaction per style: a style AutoCAD refuses is that style's row and nothing of it is kept;
+  the others are still made. Text styles come first in the same call (and the same undo mark), so a
+  style can use one made with it.
+- **A multileader style is Ajmal's TLD label unless asked otherwise (D-24):** MTEXT content,
+  straight leaders, the text attached *underline bottom line* on both sides (the leader ends under
+  the text), arrow and dogleg (the dialog's "landing") as big as the text, as `autocad_add_label`
+  draws them. Sizes are given as they plot and the style's own scale makes them drawing sizes, as
+  the Multileader Style dialog does. The dialog's one landing switch is `EnableDogleg` and
+  `EnableLanding` together. Arrows are AutoCAD's own by name (`dot`, `architectural_tick`...);
+  a block the drawing lacks is made the way AutoCAD's dialogs make it, by naming it in DIMBLK, which
+  is put back straight after (the one piece that is not undone if a later step fails, so everything
+  else is checked first). An annotative style keeps its own scale (the annotation session's work is
+  not touched).
+- **A table style keeps text in the vertical middle of every cell (D-83):** title, header and
+  data rows take left, centre or right only; top or bottom is refused. A table style has no scale
+  of its own, so text heights and margins are given as they plot and multiplied by the scale
+  (2.5 at 1:50 is 125). Margins default to a third of the text height, as in AutoCAD's own Standard
+  style (0.06 for 0.18 text); header and title heights to the data height.
+- **A scale reads as the dimension style's does:** a number is the factor (50 = 1:50), and text the
+  way the sheet writes it ('1:50', '2:1'). A bare number below 1 is refused rather than guessed
+  (0.02 could be the 1:50 ratio or a factor fifty times too small), the mirror of D-36.
+- **Not yet known (live rows):** whether AutoCAD's dialog shows these as set (the attachment
+  numbers and the landing switch are from Autodesk's reference, not a run), whether the DIMBLK
+  round trip leaves no style override, and whether one Ctrl+Z takes back text styles and plug-in
+  styles together. **Rejected:** typing MLEADERSTYLE / TABLESTYLE (each opens a dialog, which typed input
+  cannot drive), a COM dictionary `AddObject` of these classes (not proven anywhere), and a general "set any
+  property" request (D-40's reason).
+
 ## D-102 - A full-sheet preview says what it covered, and can add close-ups
 
 **Decided:** 2026-11-21, for issue #41. **Status:** in force; extends D-04 (the plot route) and
@@ -214,6 +269,44 @@ custom size is a pc3 edit by hand), and plotting the overview as a window (the e
 could be staler than AutoCAD's own Extents plot). Close-ups are refused for `area='view'` (no
 corners) and skipped, with the reason, in a 3D view or a rotated UCS, where the plan box does not
 match the picture. Live rows AM1-AM6 NOT RUN; issue #41 stays open until AM1 says which cause it was.
+
+## D-100 - A busy refusal goes up as it is from every `except`; a source test keeps it so
+
+**Decided:** 2026-11-21, for issue #36. **Status:** in force. Finishes what D-57 began in
+`ensure_layer` and `ensure_linetype`.
+After the message filter's 3 s (D-57), AutoCAD's refusal ("Call was rejected by callee") still
+reached about 300 `except` blocks in the tools that took it for "not there", "use the default",
+"skip it", or wrapped it in a plain `AutocadError`. So a busy AutoCAD gave a false failure ("Could
+not ..."), or a quiet wrong answer: a layer reported off, the world UCS used instead of his, "UNDO is
+off" offered after Discard, an object called gone after an UNDO.
+- **One helper, one line per place:** `raise_if_busy(exc)` in `core/errors.py`, first in each such
+  `except` (after any clean-up in it). Up at `_with_retry` the refusal is asked again while nothing
+  has been written, or becomes "Outcome unknown" once a write began (D-15). Nothing else in those
+  blocks changed, so many sessions could edit the same modules at once.
+- **What counts as busy (`is_busy`):** the two refusals (RPC_E_CALL_REJECTED,
+  RPC_E_SERVERCALL_RETRYLATER), VBA_E_IGNORE (a modal dialog open), or a COM description that says
+  "rejected by callee", "busy" or "retry later". It is narrower than `is_retryable` on purpose:
+  pywin32's `AttributeError` for a member it cannot resolve is left out, because asking a line for
+  its Radius gives the same error, and the tools rightly read that one as "not there".
+  RPC_E_SERVERFAULT is left out too: it says the call itself threw.
+- **Left as they are, each named with its reason** in `ALLOWED` in `tests/test_busy_sweep.py`:
+  putting things back (variables, page setup, locked layers, table redraw, undo groups), presses of
+  Esc on the way to the real error, the waits that deliberately read through a busy AutoCAD
+  (D-58), reads after the plug-in made something ("do not make it again"), and code with no COM
+  call. Raising there would hide the real answer or skip the rest of the clean-up.
+- **The gate:** a busy UNDOCTL read before an Ask-to-Keep job is no longer "UNDO is off": if
+  AutoCAD stays busy through the retry, the job is refused in words ("AutoCAD stayed busy ... nothing
+  was changed") before anything is sent, instead of a bare tool error.
+- **The source test:** `tests/test_busy_sweep.py` reads every module in `acad/` and `tools/` and
+  the three core modules that call COM. An `except` that can catch a COM error (bare,
+  `BaseException`, `Exception`, `com_error`) must call `raise_if_busy` / `is_busy` /
+  `is_retryable`, re-raise as it is, or be in `ALLOWED`. One directly in an `async def` is not
+  swept: COM runs on the worker thread only, so those reach AutoCAD through `run`, whose retry has
+  already answered. New code cannot bring the old way back without the test saying where.
+- **What changes for the modeller:** a long busy spell (a dialog left open, a heavy redraw) now
+  ends in "AutoCAD stayed busy ... press Esc" or "Outcome unknown, look before retrying", never in
+  a made-up failure or a wrong value. Tested offline with fake COM (`tests/test_busy_refusals.py`).
+  Not proven in AutoCAD: [NEEDS-CHECKING group AL](NEEDS-CHECKING.md).
 
 ## D-98 - The plug-in reports drawing events as they happen; a batch goes through it in pieces up to 1,500 characters
 

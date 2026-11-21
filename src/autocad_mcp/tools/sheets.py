@@ -38,7 +38,13 @@ from ..acad.tables import ensure_layer, validate_name
 from ..acad.units import rad
 from ..core.bridge import OLD_PLUGIN
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, OutcomeUnknown, com_message, is_retryable
+from ..core.errors import (
+    AutocadError,
+    OutcomeUnknown,
+    com_message,
+    is_retryable,
+    raise_if_busy,
+)
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
 from ._shared import COORDS_OPT, current_ucs, in_plugin, ucs_for, world_coords
@@ -76,11 +82,16 @@ Anchor = Literal["printable", "paper"]
 # ---------------------------------------------------------------------------
 
 
-def _try(getter, default=None):
-    """Read one COM property, tolerating a layout that does not carry it."""
+def _try(getter, default=None, busy_ok=False):
+    """Read one COM property, tolerating a layout that does not carry it.
+
+    busy_ok for a restore or a redraw, where a busy refusal must not hide the answer (D-100).
+    """
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        if not busy_ok:
+            raise_if_busy(exc)
         return default
 
 
@@ -88,7 +99,8 @@ def _read(target: Any, name: str, default: Any = None) -> Any:
     """Read one COM property by name, with a default when the type lacks it."""
     try:
         return getattr(target, name)
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 
@@ -107,7 +119,8 @@ def _write(target: Any, name: str, value: Any) -> bool:
     try:
         setattr(target, name, value)
         return True
-    except BaseException:  # noqa: BLE001 - a refusal is the answer, not a crash
+    except BaseException as exc:  # noqa: BLE001 - a refusal is the answer, not a crash
+        raise_if_busy(exc)
         return False
 
 
@@ -288,6 +301,7 @@ def _set_page(
                 failure = None
                 break
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 failure = exc
                 if attempt < PLOTTER_TRIES - 1:
                     time.sleep(PLOTTER_RETRY_DELAY)
@@ -368,6 +382,7 @@ def _set_page(
         try:
             layout.StyleSheet = name
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"AutoCAD would not use the plot style table '{name}' ({com_message(exc)}). "
                 "Give the file name as it appears in Page Setup, e.g. 'monochrome.ctb', and "
@@ -709,6 +724,7 @@ def _make_layout_com(
             layout = doc.Layouts.Add(clean)
             layout.CopyFrom(source)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"Could not copy layout '{copy_from}' ({com_message(exc)}). Make the "
                 "sheet without copy_from, or copy its contents with "
@@ -718,6 +734,7 @@ def _make_layout_com(
         try:
             layout = doc.Layouts.Add(clean)
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(f"AutoCAD would not add the layout '{clean}': {com_message(exc)}") from exc
 
     try:
@@ -966,7 +983,8 @@ def title_block_source(doc: Any, name: str, source: str | None) -> str:
         return source
     try:
         doc.Blocks.Item(name)
-    except BaseException:  # noqa: BLE001 - say what the drawing does have
+    except BaseException as exc:  # noqa: BLE001 - say what the drawing does have
+        raise_if_busy(exc)
         have = []
         for i in range(int(doc.Blocks.Count)):
             item = doc.Blocks.Item(i)
@@ -1020,8 +1038,8 @@ def put_title_block(
             try:
                 existing.Delete()
                 removed += 1
-            except BaseException:  # noqa: BLE001 - a locked layer, reported by count
-                pass
+            except BaseException as exc:  # noqa: BLE001 - a locked layer, reported by count
+                raise_if_busy(exc)
 
     try:
         reference = space.InsertBlock(
@@ -1029,6 +1047,7 @@ def put_title_block(
             float(scale), float(scale), float(scale), rad(rotation),
         )  # fmt: skip
     except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         raise AutocadError(
             f"Sheet '{label}': AutoCAD would not insert '{shown_as}' ({com_message(exc)})."
         ) from exc
@@ -1529,6 +1548,7 @@ def _new_viewport(doc: Any, sheet_name: str, cx: float, cy: float, pw: float, ph
     try:
         return doc.PaperSpace.AddPViewport(apoint(cx, cy, 0.0), pw, ph)
     except BaseException as first:  # noqa: BLE001 - MVIEW is tried next
+        raise_if_busy(first)
         refusal = com_message(first)
 
     block = _try(lambda: doc.ActiveLayout.Block)
@@ -1543,13 +1563,14 @@ def _new_viewport(doc: Any, sheet_name: str, cx: float, cy: float, pw: float, ph
     try:
         doc.SendCommand(mview_command(cx, cy, pw, ph))
     except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         raise AutocadError(
             f"AutoCAD would not add a viewport to '{sheet_name}' ({refusal}), and MVIEW was "
             f"refused too ({com_message(exc)}). Press Esc in AutoCAD and try again."
         ) from exc
     finally:
         if osmode is not None:
-            _try(lambda: doc.SetVariable("OSMODE", osmode))
+            _try(lambda: doc.SetVariable("OSMODE", osmode), busy_ok=True)
 
     for _ in range(MVIEW_POLL_ATTEMPTS):
         fresh = [v for v in _viewports_in(block) if str(_try(lambda v=v: v.Handle, "")) not in before]
@@ -1584,7 +1605,7 @@ def _aim(
     """
     notes: dict[str, Any] = {}
     viewport.ViewportOn = True
-    _try(lambda: doc.Regen(AC_ALL_VIEWPORTS))
+    _try(lambda: doc.Regen(AC_ALL_VIEWPORTS), busy_ok=True)
 
     if twist and not _write(viewport, "TwistAngle", rad(twist)):
         notes["twist_note"] = (
@@ -1622,5 +1643,5 @@ def _aim(
             "AutoCAD would not lock the viewport. Lock it from its properties, or the next "
             "zoom inside it will change the scale."
         )
-    _try(lambda: doc.Regen(AC_ALL_VIEWPORTS))
+    _try(lambda: doc.Regen(AC_ALL_VIEWPORTS), busy_ok=True)
     return notes
