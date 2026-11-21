@@ -8,7 +8,20 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (a preview of a full sheet, D-102)
+## Latest - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
+
+Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+(xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
+`autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
+(DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
+`tests/test_draw_extra.py`. Server only, no plug-in change. #119 stays open for its parts 2 and 3.
+
+**Next (on this PC):** pull, restart Claude, then live rows AP1-AP10. AP2 (does AddRegion keep the
+outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
+when counted from the end) are the answers the code could not get from Autodesk's reference. Not
+built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
+
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
 
 Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
 only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
