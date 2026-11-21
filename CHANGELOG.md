@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A sequence stops when another drawing comes to the front (2026-11-21, #165).** Between its
+  steps `autocad_sequence` asks the plug-in whether a drawing switch happened during the job; if
+  so it stops, like HERONSTOP, so no later step lands in the other drawing ([D-98](docs/DECISIONS.md)).
+  Live row AJ8 NOT RUN.
+
 - **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
   part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
   (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter

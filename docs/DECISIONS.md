@@ -268,6 +268,11 @@ rows AJ1-AJ10 NOT RUN).
   .NET object, and says a Save As made while closing before the close.
 - **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
   update live without a server of its own; the docked palette is the live list.
+- **Added after the merge (#165, same day).** `begin` answers `drawingSeq`, where the drawing log
+  stood. Between its steps `autocad_sequence` asks the events since (`gate.front_changed_in_job`)
+  and stops when another drawing came to the front or the job's drawing closed (a Save As of it is
+  the same drawing), like HERONSTOP: the steps before stay, the rest are not run. An older
+  plug-in says no number, and the sequence runs on as before.
 
 ## D-95 - Sections, flat views, surfaces, meshes and the new super hatch tiles are plug-in operations
 

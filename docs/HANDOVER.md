@@ -8,7 +8,13 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
+## Latest - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
+
+Follow-up to #48 on branch `claude/plugin-events-165`. Plug-in change: `begin` answers
+`drawingSeq`. `autocad_sequence` checks between steps (`gate.front_changed_in_job`) and stops
+when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Versions not bumped.
+
+## Earlier - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
 
 A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
 SECURITY, PROJECT-MAP, 06), D-87 and D-67 notes, sequence steps that switch drawing or undo, the

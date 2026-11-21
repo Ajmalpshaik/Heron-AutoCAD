@@ -449,9 +449,11 @@ From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
   drawing is followed under its new name.
 - **A Save As during a batch job** stops its input (the name in front is not the job's), though
   it is the same drawing: run the batch again after `autocad_status`.
-- **Only the plug-in's quiet input stops at a switch mid-job.** A long job (a sequence) whose next
-  step works over COM (a layer a batch makes, a COM draw) still goes to whichever drawing is in
-  front. Do not switch drawings while the banner shows a job ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)).
+- **A switch mid-job stops the job at its next check, not at once.** The plug-in's quiet input
+  stops straight away, and `autocad_sequence` stops before its next step
+  ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)). Inside one step, COM work
+  (a layer a batch makes first, a COM draw) still goes to whichever drawing is in front. Do not
+  switch drawings while the banner shows a job.
 - **200 events are kept.** Each change the guard lets through moves its mark up, so only a chat
   idle through more than 200 opens, switches, saves and closes misses some; what is left is still
   judged, a Save As is then not followed, and the names are compared as before #48.
