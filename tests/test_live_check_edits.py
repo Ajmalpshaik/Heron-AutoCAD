@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import math
 
-import live_check_edits as edits
-import live_common as lc
 import pytest
-from live_fakes import TOOLS, play, seq  # noqa: F401 - TOOLS puts tools/ on the path
+from live_fakes import load, play, seq
+
+edits = load("live_check_edits")
+lc = load("live_common")
 
 
 def P(row: str, x: float, y: float) -> list[float]:

@@ -45,6 +45,11 @@ import live_common as lc  # noqa: E402
 import autocad_mcp.tools as tool_package  # noqa: E402
 
 
+def load(name: str) -> Any:
+    """A module from tools/ (live_common, live_check_edits ...), which is not a package."""
+    return importlib.import_module(name)
+
+
 def tool_modules() -> dict[str, Any]:
     """Every Heron tool function by name -> the module that holds it."""
     found: dict[str, Any] = {}
