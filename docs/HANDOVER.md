@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the Revit batch is merged: server 1.8.0, plug-in 1.6.0; nothing live yet)
+## Latest - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
+
+A review of the docked palette (D-68) after plug-in 1.6.0 merged found one safety gap and three
+robustness gaps, all fixed in the PR after #132. Plug-in **1.6.0** already carries them if it is
+built from `main` after that PR; no version change.
+- **Safety:** the palette's Run inherited AutoCAD's environment, so a developer's
+  `HERON_AUTOCAD_BRIDGE=off` or a chat id there would have reached it. Now forced on and dropped
+  (`PaletteServer.PrepareEnvironment`), and the server refuses `--run-saved` with the checks off.
+- **#138:** while a palette Undo waits for AutoCAD, the plug-in refuses a new job's begin with
+  "try again in a moment" (`BridgeProtocol.BlockedBy`, one minute at most).
+- An UNDO AutoCAD has not started in 30 s is given up; a job whose end never came stops blocking
+  the palette after 20 minutes.
+
+**Next:** as below, plus live rows X22-X24 (X23: whether zooming inside a layout viewport counts as
+a change, which would make Undo refuse there).
+
+## Earlier - 2026-11-21 (the Revit batch is merged: server 1.8.0, plug-in 1.6.0; nothing live yet)
 
 Every PR from the seven cloud sessions is merged into `main`, on Ajmal's word: ribbon audit and
 install table (#99), dialog watch (#100), why / gaps / question mode (#120), padlocks in memory
