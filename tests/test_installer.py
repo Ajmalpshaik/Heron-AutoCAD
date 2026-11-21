@@ -273,3 +273,22 @@ def test_checksums_list_the_zip_then_the_setup(tmp_path):
         f"{hashlib.sha256(b'PK zip').hexdigest()}  {archive.name}\n"
         f"{hashlib.sha256(b'MZ setup').hexdigest()}  {setup.name}\n"
     )
+
+
+def test_the_release_tries_the_setup_before_anything_is_published():
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    order = [workflow.index(s) for s in ("python tools/make_installer.py", "./tools/installer/Check-Setup.ps1 -Dist dist",
+                                         "actions/upload-artifact", "gh release create")]  # fmt: skip
+    assert order == sorted(order)
+
+
+def test_the_setup_check_runs_only_on_a_throwaway_machine_and_checks_each_promise():
+    check = (TOOLS / "installer" / "Check-Setup.ps1").read_text(encoding="ascii")
+    guard = check.index("if (-not $env:GITHUB_ACTIONS -and -not $env:HERON_CHECK_SETUP_HERE)")
+    assert guard < check.index("Run-Setup '"), "it must refuse before it installs anything"
+    for promise in ("stale file gone", "refused while acad.exe runs", "uninstall refused while acad.exe runs",
+                    "the other Claude Desktop entry is kept", "the modeller''s own files are kept",
+                    "Uninstall.bat on a setup install", "zip Install.ps1 finished"):  # fmt: skip
+        assert promise in check, promise
+    assert "exit 1" in check, "a failed check must fail the release"
+

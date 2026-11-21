@@ -637,6 +637,27 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC15 | Same, with a handle from plan.dwg, and with `source='plan'` | Refused before anything is copied: the wrong handle is named; the active drawing as source points at `autocad_copy_entities` | NOT RUN |
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 
+## Group AK - The setup program, update, uninstall, signing (Windows, AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-99](DECISIONS.md); issues #73, #72). The setup is built by `release.yml` on
+GitHub's Windows machine; nothing below has been run on a real PC. Get `HeronAutoCAD-<version>-setup.exe`
+from the release (or the workflow run's artifact). For AK1 use a Windows user that never had
+Heron and is **not** an administrator. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AK1 | Clean user account, AutoCAD and Claude closed: double-click the setup, Next to the end | No administrator (UAC) box at any point; the first page says NOT FINISHED; the last page lists the Claude Code and Claude Desktop lines; the bundle is in `%APPDATA%\Autodesk\ApplicationPlugins`, the server and `Install.ps1` in `%LOCALAPPDATA%\Heron\autocad`; Settings > Apps lists *Heron AI for AutoCAD* with its version and Ajmal PS; the Start menu has *Check for a newer Heron* and *Remove Heron AI for AutoCAD*. `claude mcp list` shows `autocad` at the installed server; AutoCAD starts with the Heron tab and Heron connects | NOT RUN |
+| AK2 | AutoCAD open: run the setup. Then close AutoCAD, run it, stop on the *Ready* page, start AutoCAD, press Install | First: refused at once, "AutoCAD is open... Nothing was changed", nothing on disk changed. Second: it stops on the *Preparing to Install* page with the same words, nothing copied | NOT RUN |
+| AK3 | Claude Desktop open and connected to the installed Heron: run the setup. Then the same with only a `.venv` dev server running (Claude Code in the source folder) | First: refused, "Claude is using Heron's server... Nothing was changed". Second: not refused (the dev server is somewhere else) | NOT RUN |
+| AK4 | With an older version installed by the zip's `Install.bat`: run the new setup | The last page shows the new version; the bundle folder holds only the new files (no file of the old one); `claude mcp list` and the Claude Desktop file still point at `%LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe`; AutoCAD loads the new version | NOT RUN |
+| AK5 | With the setup's own older version installed: run the next release's setup | Settings > Apps shows one *Heron AI for AutoCAD*, at the new version; AutoCAD loads the new version. Then run the older setup again: it goes back | NOT RUN (needs a second release built with the setup) |
+| AK6 | Settings > Apps > Heron AI for AutoCAD > Uninstall, first with AutoCAD open, then closed | Open: refused, "Nothing was removed". Closed: the bundle, the server, `Install.ps1`, `CheckForUpdate.bat`, the Start menu entries and any `previous` folder are gone; `claude mcp list` has no `autocad`; the Claude Desktop file has no `autocad` but keeps every other entry; `commands`, `checklists`, `logs` and `audit` in `%LOCALAPPDATA%\Heron\autocad` are still there | NOT RUN |
+| AK7 | After AK1 (setup install): double-click the zip's `Uninstall.bat` | It says Heron was installed with its setup and names Settings > Apps; nothing removed | NOT RUN |
+| AK8 | Start menu > Heron AI for AutoCAD > Check for a newer Heron | A window shows the installed version and either "the newest version" or the newer one's link; nothing installed | NOT RUN |
+| AK9 | Download the setup from the GitHub release in Edge and run it | Record exactly what Windows shows (SmartScreen *Windows protected your PC* or not, the publisher it names) and what the company antivirus does | NOT RUN |
+| AK10 | After AK1, SECURELOAD left at 1 (check with SECURELOAD at the command line): start AutoCAD 2027 | Record whether AutoCAD shows a security box for the **unsigned** Heron in `%APPDATA%\Autodesk\ApplicationPlugins`. No box: signing only helps SmartScreen (issue #164) | NOT RUN |
+| AK11 | Build on this PC with a test certificate (docs/SETUP.md, Code signing), install that build, start AutoCAD with SECURELOAD 1 | The DLLs' Properties > Digital Signatures show the test certificate; record whether AutoCAD loads Heron with no box, or asks once with a choice to trust the publisher | NOT RUN (no test certificate made yet) |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

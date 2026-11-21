@@ -108,6 +108,11 @@ jobs:
           HERON_SIGN_PFX: ${{ steps.certificate.outputs.pfx }}
           HERON_SIGN_PASSWORD: ${{ secrets.HERON_SIGN_PFX_PASSWORD }}
         run: python tools/make_installer.py
+      - name: Try the setup on this machine (no AutoCAD)
+        # Install from the zip, the setup over it, refusals while a stand-in acad.exe runs,
+        # uninstall. GitHub's machine has no AutoCAD: Group AK still needs a real PC.
+        shell: pwsh
+        run: ./tools/installer/Check-Setup.ps1 -Dist dist
       - name: Remove the certificate file
         if: always()
         shell: pwsh
