@@ -130,6 +130,60 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-98 - The plug-in reports drawing events as they happen; a batch goes through it in pieces up to 1,500 characters
+
+**Decided:** 2026-11-21, issues #48 and #45. **Status:** in force (built and tested offline; live
+rows AJ1-AJ10 NOT RUN).
+
+- **Drawing events (#48).** The plug-in records AutoCAD's document events as they happen
+  (`DrawingEvents`, fed by `DrawingWatch` in the add-in): a drawing *opened*
+  (`DocumentCreated`), *came to the front* (`DocumentBecameCurrent`; the one already in front is
+  not news), *saved* (`Database.SaveComplete`, read after the command so a Save As gives the old
+  name; the automatic save `.sv$` and backups are left out) and *closed*
+  (`DocumentToBeDestroyed`). Each event has a number, and the log an epoch that is new for every
+  AutoCAD session; 200 are kept. A stdio server has no way in from the plug-in (D-68), so the server
+  asks: the new op `drawings {since}` answers the events after that number, read only, on the
+  pipe thread.
+- **The wrong-drawing guard (D-19) uses them.** `autocad_status` (and `autocad_create_drawing`)
+  notes where the log stands; a later change asks for the events since. The checked drawing
+  **closed** since (even when the same name is open again: it is a new copy in memory, perhaps
+  changed on disk) or **another AutoCAD session** (restarted, or another AutoCAD) is refused with
+  "call autocad_status first". A **Save As** of the checked drawing is followed: the same drawing,
+  the same units, so no new check. A switch away and back is the same drawing and goes ahead, as
+  before. When the plug-in cannot tell (an older one, history dropped off) the guard is exactly
+  the name compare it was.
+- **Mid-job.** `send_quiet` refuses drawing input once another drawing came to the front (or the
+  job's drawing closed) after the job's `begin`, counted only from events AutoCAD reported, so a
+  missed event never refuses; the add-in checks the drawing in front again on the main thread
+  before typing. That refusal ends the input: the server never types it over COM instead.
+- **The palette** redraws its Activity list on every drawing event: a line "In front: plan.dwg",
+  the drawing events between the jobs (15 newest), and *not in front* on a job in another drawing.
+- **Fewer `Command:` prompts (#45).** Every top-level expression typed leaves one prompt, echo off
+  or not. The plug-in's ping now says `quietLimit` (1,500), and `send_quiet` refuses a longer line
+  before typing anything. The server builds the batch in pieces up to that (never above
+  `QUIET_CHUNK_LIMIT` = 1,500), packs the short set-up pieces into one `(progn ...)`, and keeps
+  the last piece (close the undo group, write DONE) on its own, so an error before it never
+  leaves the undo group open. Offline, the 41-object batch of the live checks goes from 25 pieces
+  to 9. Over COM, from an older plug-in, or when the plug-in refuses, the pieces stay under 600
+  (D-21). 1,500 is below the 2,000 characters that worked all day over COM and far from the
+  3,000 that arrived as nothing (known limits §3); it is not measured through `SendStringToExecute`
+  yet (AJ6, AJ7).
+- **Two safety nets found on the way.** A `send_quiet` that went out and got no answer is treated
+  as typed: sending it again over COM could draw the batch twice. A batch whose output file has
+  DONE but fewer result lines than operations says `missing` with a hint, never a quiet success.
+- **After an independent review (same day).** The guard also refuses a drawing *opened* since the
+  check when it is the one in front (a Save As, then the old file opened again; a second copy).
+  History that dropped off is no longer a reason to ignore the events still there; 200 are kept,
+  and every change the guard lets through moves its mark up. Names are compared exactly, so an
+  unsaved `Drawing1.dwg` is never taken for `D:\F\Drawing1.dwg`. `autocad_status` takes its mark
+  before its work. `send_quiet` now waits (up to 10 s) for AutoCAD to get to the input and answers
+  the truth: typed, refused because another drawing is in front (also when the switch came between
+  the server's look and `begin`), or not started in time (abandoned, never typed later). A Save As
+  of the job's drawing is followed. The add-in keeps the old names by AutoCAD's database, not the
+  .NET object, and says a Save As made while closing before the close.
+- **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
+  update live without a server of its own; the docked palette is the live list.
+
 ## D-93 - The office check lists live in a folder the modeller names; sharing them is its own Publish tool
 
 **Decided:** 2026-11-21, issue #135 (from the brief for this wave: "a folder the modeller names,
