@@ -155,8 +155,8 @@ nothing.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_send_command` | Any AutoCAD command: TRIM, FILLET, add-in commands. `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)) |
-| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Keep expressions under about 700 characters ([05](05-known-limits.md)). `expect_box` + `press` as for send_command |
+| `autocad_send_command` | Any AutoCAD command: TRIM, FILLET, add-in commands. `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)). An UNDO, U, REDO, MREDO or OOPS is never sent twice by a busy retry ([D-76](DECISIONS.md)) |
+| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Long code, or several top-level forms, is cut between the forms into pieces under 700 characters, run in order as one undo step; one form over 2,000 characters is refused ([D-76](DECISIONS.md), [05 §3](05-known-limits.md#3-long-autolisp-fails-silently)). `expect_box` + `press` as for send_command |
 | `autocad_purge` | Remove unused blocks, layers, linetypes, styles |
 | `autocad_regen` | Regenerate the display |
 | `autocad_audit` | Check and repair the drawing database |
@@ -247,7 +247,9 @@ Both default to `dry_run=true`: read the counts, then run it. Detail:
 tool's own schema **before the first one runs**, so a sequence with a mistake in step four changes
 nothing. Steps at the Publish or Admin level, and a sequence inside a sequence, are refused: a
 sequence holds the **Changes** padlock only ([D-29](DECISIONS.md)). `stop_on_error` (default true)
-and `dry_run`.
+and `dry_run`. `quiet=true` gives each step's answer as counts and handles only, without every
+point and measurement; errors stay whole ([D-77](DECISIONS.md)). `autocad_batch_draw`,
+`autocad_dimension_run` and `autocad_add_centre_marks` take `quiet` too.
 
 ## Shapes from a few numbers (Change)
 
@@ -269,7 +271,7 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement |
+| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `quiet=true`: counts and handles only |
 | `autocad_add_centre_marks` | The cross on every circle and arc, by handle or by layer; `extend` makes full centre lines |
 | `autocad_add_multileader` | One note with **as many arrows as it needs**; text or block content |
 | `autocad_add_table` | A schedule as a real AutoCAD table, with title and headings; `text_height` and `text_style` on every row; text in the vertical middle of each cell |

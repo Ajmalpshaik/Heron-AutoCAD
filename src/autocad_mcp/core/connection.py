@@ -104,6 +104,7 @@ _worker = _ComWorker()
 
 _attempt = threading.local()
 _writes = 0
+_busy = 0
 
 
 def write_count() -> int:
@@ -111,15 +112,32 @@ def write_count() -> int:
     return _writes
 
 
-def mark_writing() -> None:
+def busy_count() -> int:
+    """How many calls ended in a busy AutoCAD since the server started (the gate compares, #47)."""
+    return _busy
+
+
+def note_busy() -> None:
+    """Record that a call ended because AutoCAD stayed busy, so the gate can say where AutoCAD is (#47).
+
+    ``_with_retry`` calls it for its own two busy endings; a tool that waits
+    out a busy AutoCAD itself (autocad_run_lisp's read of the answer) calls it too.
+    """
+    global _busy
+    _busy += 1
+
+
+def mark_writing(unknown: str | None = None) -> None:
     """Record that the current attempt has started changing the drawing.
 
     Called by ``undo_mark`` on the worker thread. From then on a busy signal
     is no longer safe to retry: the first try may already have drawn part of
-    the work.
+    the work. ``unknown`` is the "Outcome unknown" sentence to give then, for
+    a write that is not a drawing (an UNDO sent as a command, #42).
     """
     global _writes
     _attempt.writing = True
+    _attempt.unknown = unknown
     _writes += 1
 
 
@@ -134,13 +152,15 @@ def _with_retry(fn: Callable[[], T]) -> T:
     started = time.monotonic()
     for _ in range(RETRY_ATTEMPTS):
         _attempt.writing = False
+        _attempt.unknown = None
         try:
             return fn()
         except BaseException as exc:  # noqa: BLE001
             if not is_retryable(exc):
                 raise
             if getattr(_attempt, "writing", False):
-                raise OutcomeUnknown() from exc
+                note_busy()
+                raise OutcomeUnknown(getattr(_attempt, "unknown", None)) from exc
             last = exc
             if is_dispatch_failure(exc):
                 # The cached pointer, or an object reached through it, stopped
@@ -160,6 +180,7 @@ def _with_retry(fn: Callable[[], T]) -> T:
             "not shown a crash or recovery dialog. If it was restarted, this "
             f"server will reconnect on the next call. (details: {last})"
         )
+    note_busy()
     raise AutocadError(
         f"AutoCAD stayed busy for {window:.0f}s and never accepted the request. "
         "This almost always means a dialog box is open or a command is waiting "

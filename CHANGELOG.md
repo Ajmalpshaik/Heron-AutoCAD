@@ -18,6 +18,20 @@ Newest first. Dates are when the change was made.
   title no longer writes into the merged title row. Three new plug-in operations
   (`sync_attributes`, `excel_table`, `update_table_links`). Live rows AC1-AC16 NOT RUN.
 
+- **Safer undo commands, long AutoLISP in pieces, quiet answers, busy answers that name the
+  command (2026-11-21, #42 #44 #46 #47).** An UNDO, U, REDO, MREDO or OOPS sent with
+  `autocad_send_command` is never sent a second time by a busy retry: the answer is OUTCOME UNKNOWN
+  instead. `autocad_run_lisp` cuts long code between its top-level forms into pieces under 700
+  characters, run in order as one undo step, instead of refusing over 2,000; one form over 2,000 is
+  still refused ([D-76](docs/DECISIONS.md)). `quiet=true` on `autocad_sequence`,
+  `autocad_batch_draw`, `autocad_dimension_run` and `autocad_add_centre_marks` answers with counts
+  and handles only. When AutoCAD was busy, the first line names the command it is in, from the
+  plug-in's command tracker (its ping now says `command`), and what the plug-in counted so far; a
+  run_lisp wait that ran out reads OUTCOME UNKNOWN, not DONE ([D-77](docs/DECISIONS.md)). From a
+  review of the change: Discard's own `UNDO _Back` is never sent twice either, a `"` in a comment
+  can no longer hide a save from the run_lisp check, and `quiet` keeps `new_handles`. Live rows
+  Z1-Z10 NOT RUN; the plug-in part needs a version bump before release.
+
 - **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
   fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,
   BLOCK or LAYOUT keeps its own column; a row whose Block is another block here is not used, and a

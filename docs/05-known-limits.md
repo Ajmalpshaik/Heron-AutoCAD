@@ -21,9 +21,20 @@ reconnect the MCP server) after changing anything in `src/`.
 
 `autocad_run_lisp` expressions near 3,600 characters fail with no error. Keep chunks under about
 700 characters. On 2026-11-09 (AutoCAD 2027) a ~3,000-character `defun` block arrived as nothing,
-while calls under 2,000 worked all day, so `autocad_run_lisp` now **refuses anything over 2,000**
-with a plain message. A ~2,400-character call ran but its result came after the 10 s wait and it
-reported a timeout: the timeout note now says to count what landed before sending it again.
+while calls under 2,000 worked all day, so `autocad_run_lisp` refused anything over 2,000. A
+~2,400-character call ran but its result came after the 10 s wait and it reported a timeout: the
+timeout note says to count what landed before sending it again.
+
+**Since [D-76](DECISIONS.md) (2026-11-21)** the server cuts long code itself, between its top-level
+forms, into pieces under 700 characters, run in order as one undo step. What is left:
+- **One form over 2,000 characters is still refused**, never cut: make helpers with `defun` as
+  separate top-level forms. At most 12,000 characters and 20 pieces a call.
+- **A piece that fails stops the rest**, after the pieces before it ran. A LISP error is still found
+  only by the 10 s wait running out, so a mistake in piece 5 takes 10 s to report.
+- **A command split over two top-level forms** can land in two pieces: the first is cancelled
+  ([§21](#21-a-command-left-open-by-autolisp-blocks-everything)) and the rest is not sent. Keep a
+  `(command ...)` and all its answers in one form.
+- None of it is proven in AutoCAD yet (NEEDS-CHECKING Z2-Z4).
 
 ## 4. Two sessions on one AutoCAD
 
@@ -66,8 +77,11 @@ The padlocks stop Heron; they do not stop another program that drives AutoCAD ov
 
 ## 12. Escape hatches can still be re-run when busy
 
-`send_command` and `run_lisp` paths that manage their own undo do not mark "write started", so a busy
-retry could repeat them ([D-15](DECISIONS.md)).
+`send_command` and `run_lisp` paths that manage their own undo did not mark "write started", so a busy
+retry could repeat them ([D-15](DECISIONS.md)). **Closed on 2026-11-21 ([D-76](DECISIONS.md)):** an
+UNDO, U, REDO, MREDO or OOPS is marked as a write just before it is sent, so a busy signal after it
+is OUTCOME UNKNOWN, never a second send; so is the gate's own UNDO Back for Discard. Not proven in
+AutoCAD yet (NEEDS-CHECKING Z1, Z10).
 
 ## 13. Proven live on AutoCAD 2027 only
 
@@ -180,7 +194,9 @@ put OSMODE back. Never split an interactive command across two calls.
 
 **Since 2026-11-05 the server does both itself** (cancel and snaps off; NEEDS-CHECKING J4, NOT
 RUN). The rule still stands: a cancelled command did not finish, so `cancelled_command` in the
-result means the expression has to be written again, complete.
+result means the expression has to be written again, complete. Long code is sent in pieces
+([§3](#3-long-autolisp-fails-silently)): a command is cancelled at the end of its piece and the
+pieces after it are not sent, so keep each `(command ...)` whole inside one top-level form.
 
 ## 22. Lights, materials and the saved 3D view have their own limits
 
@@ -226,9 +242,16 @@ yet is also re-run for up to 10 s. What is left:
   with Cancel and named in the answer ([§25](#25-the-dialog-watch-closes-every-new-box-in-a-job));
   a box that was already open when the job began is still yours to close.
 - **Run LISP.** `autocad_run_lisp` waits through refused reads for its full 10 s ([D-58](DECISIONS.md)).
-  A "timed out" that says AutoCAD stayed busy means the expression was sent and probably ran.
+  A "timed out" that says AutoCAD stayed busy means the expression was sent and probably ran. Its
+  first line is OUTCOME UNKNOWN, not DONE, since [D-77](DECISIONS.md).
 
 All three are NOT RUN live (NEEDS-CHECKING group Q).
+
+**Which command AutoCAD is in ([D-77](DECISIONS.md), #47).** A busy answer's first line now names
+it ("it is still in the HATCH command"), from the plug-in's command tracker, with what the plug-in
+counted so far. It needs the plug-in built from that change; an older one says no command. The
+tracker follows AutoCAD's command and LISP events only, so a box opened outside a command reads as
+"in no command now". NOT RUN live (NEEDS-CHECKING Z6-Z9).
 
 ## 25. The dialog watch closes every new box in a job
 
