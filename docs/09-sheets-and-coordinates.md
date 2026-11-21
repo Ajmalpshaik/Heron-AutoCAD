@@ -31,8 +31,18 @@ a turned grid comes out turned. The arithmetic is in
 [`acad/coords.py`](../src/autocad_mcp/acad/coords.py), built from `UCSORG`, `UCSXDIR` and `UCSYDIR`,
 and tested without AutoCAD.
 
-The single-entity `autocad_draw_*` tools still take world coordinates only; convert first with
-`autocad_convert_points`, or draw through `autocad_batch_draw` ([ROADMAP](ROADMAP.md)).
+The single-entity tools take it too ([D-96](DECISIONS.md)): every `autocad_draw_*` tool, text,
+mtext, dimensions and blocks, and move, copy, rotate, scale, mirror and array. Each converts its
+points, its vertex lists and its angles through the same transform. A displacement (move, copy) is
+turned but not moved; a turn (rotate, a polar array's fill) is the same amount on any plan UCS. A
+rectangle comes out square to the UCS, a horizontal dimension measures along the UCS's own X, and a
+rectangular array lays its rows along the UCS's axes (copy by copy, as ARRAY over COM would follow
+the world's). A polyline drawn in a UCS moved up or down gets that height as its Elevation.
+
+**A flipped UCS** (its Z pointing down, a mirror of the plan) turns angles the other way: an arc's
+ends swap and a bulge changes sign. Text, mtext, dimensions and blocks are **refused** on one,
+because over COM they would lie on the world plane and read mirrored in that view, where AutoCAD's
+own commands would lay them on the UCS's plane.
 
 **A tilted UCS is refused, not guessed.** On a UCS tilted out of the world XY plane a flat `[x, y]`
 has no single world answer and an on-screen angle is not a world angle, so `coords="ucs"` says so

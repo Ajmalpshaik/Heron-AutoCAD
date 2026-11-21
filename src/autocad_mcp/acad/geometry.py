@@ -358,6 +358,49 @@ def _de_boor(u: float, degree: int, knots: Sequence[float], ctrl: list[list[floa
     return d[degree]
 
 
+MOST_SPLINE_DEGREE = 10
+
+
+def control_spline(
+    points: Sequence[Sequence[float]], degree: int = 3, closed: bool = False
+) -> tuple[list[list[float]], list[float]]:
+    """The control points and knots of a spline drawn by its control points (the SPLINE command's CV method).
+
+    Open: the knots are clamped (the curve starts on the first control point
+    and ends on the last, leaving along the first and last legs of the
+    frame) and evenly spaced between. Closed: the first ``degree`` points are
+    repeated at the end and the knots are evenly spaced all the way, so the
+    curve comes round and meets itself smoothly, with no corner where it
+    started. Returns (control points as [x, y, z], knots).
+    """
+    p = int(degree)
+    if p < 1 or p > MOST_SPLINE_DEGREE:
+        raise ValueError(f"the degree must be 1 to {MOST_SPLINE_DEGREE}; 3 is the usual smooth curve")
+    pts = [[float(v[0]), float(v[1]), float(v[2]) if len(v) > 2 else 0.0] for v in points]
+    if closed and len(pts) > 1 and math.dist(pts[0], pts[-1]) <= EPS:
+        pts.pop()
+    for a, b in zip(pts, pts[1:], strict=False):
+        if math.dist(a, b) <= EPS:
+            raise ValueError("two control points in a row are at one place; take one of them out")
+    least = max(p + 1, 3 if closed else 2)
+    if len(pts) < least:
+        raise ValueError(
+            f"a {'closed ' if closed else ''}degree {p} spline needs at least {least} control points; "
+            f"there are {len(pts)}"
+        )
+    if closed:
+        wrapped = pts + [list(v) for v in pts[:p]]
+        return wrapped, [float(i) for i in range(len(wrapped) + p + 1)]
+    inner = len(pts) - p - 1
+    knots = [0.0] * (p + 1) + [float(i) for i in range(1, inner + 1)] + [float(inner + 1)] * (p + 1)
+    return pts, knots
+
+
+def spline_point(control: Sequence[Sequence[float]], knots: Sequence[float], degree: int, u: float) -> list[float]:
+    """The point on a (non-rational) spline at parameter u, by de Boor's algorithm."""
+    return _de_boor(u, int(degree), knots, [list(map(float, c)) for c in control])
+
+
 def nurbs_length(control: Sequence[float], knots: Sequence[float], degree: int, weights: Sequence[float],
                  samples: int = 2000) -> float:
     """Length of a spline from its control points, knots and weights (no COM length exists)."""

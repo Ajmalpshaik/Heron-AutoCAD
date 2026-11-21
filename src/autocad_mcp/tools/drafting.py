@@ -17,19 +17,26 @@ from pydantic import Field, StrictInt
 from ..acad.coords import as_vec3
 from ..acad.curves import curve_length
 from ..acad.entities import resolve_handle
+from ..acad.geometry import MOST_SPLINE_DEGREE, control_spline
 from ..acad.tables import apply_properties
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
-from ..core.variants import apoint, double_array
+from ..core.variants import apoint, double_array, group_coordinates
+from . import _shared
 from ._shared import (
     COLOR_OPT,
     COORDS_OPT,
     LAYER_OPT,
     LINETYPE_OPT,
+    PLUGIN_ONLY,
     SPACE_OPT,
+    before_after,
     created_payload,
+    in_plugin,
+    plugin_created,
     ucs_for,
+    ucs_used,
     world_coords,
     world_direction,
 )
@@ -108,57 +115,79 @@ def spline_tangents(
 async def autocad_draw_spline(
     points: Annotated[
         list[list[float]],
-        Field(min_length=2, description="The points the curve passes through, in order, as [[x, y], ...] or [[x, y, z], ...]. Three or more give a real curve."),
+        Field(min_length=2, description="In order, as [[x, y], ...] or [[x, y, z], ...]. With method 'fit_points' (the default) the curve passes through every one; with 'control_points' they are the frame the curve is pulled towards."),
     ],
     closed: Annotated[bool, Field(default=False, description="Close the curve back to its first point smoothly, e.g. an irregular planting bed or a kidney-shaped opening.")] = False,
-    start_tangent: Annotated[list[float] | None, Field(default=None, description="Which way the curve leaves its first point, as [x, y, z]. Omit to follow the first segment.")] = None,
-    end_tangent: Annotated[list[float] | None, Field(default=None, description="Which way the curve arrives at its last point, as [x, y, z]. Omit to follow the last segment.")] = None,
+    start_tangent: Annotated[list[float] | None, Field(default=None, description="Which way the curve leaves its first point, as [x, y, z]. Omit to follow the first segment. Fit points only.")] = None,
+    end_tangent: Annotated[list[float] | None, Field(default=None, description="Which way the curve arrives at its last point, as [x, y, z]. Omit to follow the last segment. Fit points only.")] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     linetype: Annotated[str | None, LINETYPE_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
     coords: Annotated[str, COORDS_OPT] = "world",
+    method: Annotated[str, Field(default="fit_points", pattern="^(fit_points|control_points)$", description="'fit_points' (default): through the points, SPLINE's Fit method. 'control_points': the points are the control vertices, SPLINE's CV method - a smoother, fairer curve that touches only the first and last point (made by Heron's plug-in).")] = "fit_points",
+    degree: Annotated[int, Field(default=3, ge=1, le=MOST_SPLINE_DEGREE, description="Control points only: 1 draws straight between them, 2 is gentle, 3 (default) is the usual smooth curve. Needs one more point than the degree.")] = 3,
 ) -> str:
-    """Draw a smooth spline that passes through the points given.
+    """Draw a smooth spline through the points given, or pulled by them as control points.
 
-    A fit-point spline, the SPLINE command's default: the curve goes through
+    By fit points (the SPLINE command's default): the curve goes through
     every point, not near them. The ends leave and arrive along the first and
     last segments unless tangents are given.
+
+    By control points (SPLINE's CV method): the points are the frame the
+    curve follows; it starts on the first and ends on the last, and leaves
+    along the first and last legs. Closed, it comes round smoothly with no
+    corner where it started. Made by Heron's plug-in, as COM has no call for it.
 
     One undo step.
 
     Args:
-        points (list[list[float]]): the fit points, in order.
+        points (list[list[float]]): the fit points, or the control points.
         closed (bool): close it smoothly back to the first point.
-        start_tangent / end_tangent (Optional[list[float]]): end directions.
+        start_tangent / end_tangent (Optional[list[float]]): end directions,
+            fit points only.
         layer (Optional[str]): target layer, created if missing.
         color (Optional[str | int]): colour name or ACI number.
         linetype (Optional[str]): linetype name.
         space (str): 'model' or 'paper'.
         coords (str): 'world' or 'ucs'.
+        method (str): 'fit_points' or 'control_points'.
+        degree (int): 1-10, control points only.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "spline",
              "layer": str, "fit_points": int, "closed": bool,
              "length": float, "not_set": [str]}
+             By control points: "control_points" and "degree" in place of
+             "fit_points".
 
     Examples:
         - Use when: "draw a flexible duct from the grille to the diffuser" —
           the route as points.
         - Use when: "draw a curved boundary / contour / landscape edge through
           these points".
+        - Use when: "a smooth fair curve using these as control vertices" —
+          method='control_points', degree=3.
         - Don't use when: the curve is made of arcs and straights — that is a
           polyline (autocad_draw_polyline or autocad_batch_draw with bulges).
+        - Don't use when: the spline is drawn and only its points move —
+          autocad_edit_spline.
 
     Error Handling:
         - Fewer than two points, points all at one place, or a zero tangent are
           refused before anything is drawn.
+        - By control points: too few points for the degree, two in a row at one
+          place, or tangents given are refused before anything is drawn; so is
+          running without the plug-in.
         - A closed spline AutoCAD will not close is drawn open and says so in
           "not_set".
     """
     for i, p in enumerate(points):
         if len(p) < 2:
             raise AutocadError(f"Point {i} must be [x, y] or [x, y, z]; got {p}.")
+    if method == "control_points":
+        return dumps(await _control_spline(points, closed, start_tangent, end_tangent, degree, layer, color,
+                                           linetype, space, coords))
     fit = _drop_closing(points) if closed else list(points)
     if closed and len(fit) < 3:
         raise AutocadError("A closed spline needs at least three points.")
@@ -202,7 +231,216 @@ async def autocad_draw_spline(
         )
         if not_set:
             payload["not_set"] = not_set
-        return payload
+        return ucs_used(payload, ucs)
+
+    return dumps(await run(work))
+
+
+async def _control_spline(points: list[list[float]], closed: bool, start_tangent: Any, end_tangent: Any,
+                          degree: int, layer: str | None, color: Any, linetype: str | None, space: str,
+                          coords: str) -> dict[str, Any]:
+    """A spline by its control points, made by the plug-in (D-97): the knots are worked out here."""
+    if start_tangent is not None or end_tangent is not None:
+        raise AutocadError(
+            "Tangents go with method='fit_points'. A control-point spline leaves along its first leg and "
+            "arrives along its last: move the second or the second-last point to steer it."
+        )
+    if _shared.plugin_runner() is None:
+        raise AutocadError(PLUGIN_ONLY.format(what="A spline by control points"))
+    try:
+        control_spline(points, degree, closed)  # refuse a bad frame before AutoCAD is touched
+    except ValueError as exc:
+        raise AutocadError(f"{exc}.") from exc
+    aci = to_aci(color)
+
+    def work() -> dict[str, Any]:
+        doc = get_doc()
+        require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        world = [world_coords(p, ucs) for p in points]
+        control, knots = control_spline(world, degree, closed)
+        with undo_mark(doc):
+            report = in_plugin(
+                "add_cv_spline",
+                {"points": [v for p in control for v in p], "knots": knots, "degree": int(degree),
+                 "space": space, "layer": layer.strip() if layer else None, "color": aci},
+                "A spline by control points",
+            )
+            payload = plugin_created(doc, report)
+            if linetype:
+                try:
+                    payload.update(apply_properties(doc, doc.HandleToObject(payload["handle"]), None, None, linetype))
+                except Exception as exc:  # noqa: BLE001 - drawn; the linetype is said, not raised
+                    payload["not_set"] = [f"linetype ({com_message(exc)})"]
+        payload.setdefault("closed", bool(closed))
+        payload.setdefault("degree", int(degree))
+        payload.setdefault("control_points", len(control))
+        return ucs_used(payload, ucs)
+
+    return await run(work)
+
+
+# ---------------------------------------------------------------------------
+# Editing a spline's fit points
+# ---------------------------------------------------------------------------
+
+
+def plan_fit_edits(
+    current: Sequence[Sequence[float]], edits: Sequence[dict[str, Any]], closed: bool = False
+) -> tuple[list[dict[str, Any]], list[list[float]], list[dict[str, Any]]]:
+    """A spline's fit points after a list of edits, and the steps that get there.
+
+    Each edit is one of {"move": i, "to": point}, {"insert": i, "point": point}
+    (the new point becomes number i; the count adds after the last) or
+    {"remove": i}, numbered from 0 as the points stand when that edit comes.
+    Points are world [x, y, z] by now. Returns (steps for the plug-in, the
+    points that should be there after, and one before / after row per point
+    moved, added or removed).
+    """
+    pts = [list(as_vec3(p)) for p in current]
+    if not pts:
+        raise ValueError("this spline has no fit points: it was drawn by its control points")
+    steps: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    for n, edit in enumerate(edits):
+        if not isinstance(edit, dict):
+            raise ValueError(f"edit {n} must be an object such as {{\"move\": 2, \"to\": [x, y]}}")
+        kinds = [k for k in ("move", "insert", "remove") if k in edit]
+        if len(kinds) != 1:
+            raise ValueError(f"edit {n} must be exactly one of move, insert or remove")
+        kind = kinds[0]
+        index = edit[kind]
+        if isinstance(index, bool) or not isinstance(index, int):
+            raise ValueError(f"edit {n}: '{kind}' takes a point number, counted from 0")
+        if kind == "move":
+            if not 0 <= index < len(pts):
+                raise ValueError(f"edit {n} moves point {index}, but the spline has {len(pts)} (0 to {len(pts) - 1})")
+            to = edit.get("to")
+            if not isinstance(to, (list, tuple)) or len(to) < 2:
+                raise ValueError(f"edit {n} needs 'to' as [x, y] or [x, y, z]")
+            new = list(as_vec3(to))
+            rows.append({"property": f"fit point {index}", "from": pts[index], "to": new})
+            pts[index] = new
+            steps.append({"kind": "set", "index": index, "point": new})
+        elif kind == "insert":
+            if not 0 <= index <= len(pts):
+                raise ValueError(f"edit {n} adds point {index}, but the spline has {len(pts)} (0 to {len(pts)} to add)")
+            at = edit.get("point")
+            if not isinstance(at, (list, tuple)) or len(at) < 2:
+                raise ValueError(f"edit {n} needs 'point' as [x, y] or [x, y, z]")
+            new = list(as_vec3(at))
+            pts.insert(index, new)
+            rows.append({"property": f"fit point {index}", "from": None, "to": new})
+            steps.append({"kind": "insert", "index": index, "point": new})
+        else:
+            if not 0 <= index < len(pts):
+                raise ValueError(f"edit {n} removes point {index}, but the spline has {len(pts)} (0 to {len(pts) - 1})")
+            rows.append({"property": f"fit point {index}", "from": pts.pop(index), "to": None})
+            steps.append({"kind": "remove", "index": index})
+    least = 3 if closed else 2
+    if len(pts) < least:
+        raise ValueError(f"that leaves {len(pts)} fit points; a {'closed ' if closed else ''}spline needs {least}")
+    ring = pts + ([pts[0]] if closed else [])
+    for a, b in zip(ring, ring[1:], strict=False):
+        if math.dist(a, b) <= 1e-9:
+            raise ValueError(f"two fit points in a row would be at one place ({[round(v, 6) for v in a]})")
+    return steps, pts, rows
+
+
+EDITS_OPT = Field(
+    min_length=1,
+    max_length=200,
+    description=(
+        "The changes, in order. Each is one of:\n"
+        '{"move": 2, "to": [x, y]} - fit point 2 goes to that place;\n'
+        '{"insert": 3, "point": [x, y]} - a new point becomes number 3 (the count adds after the last);\n'
+        '{"remove": 4} - fit point 4 goes.\n'
+        "Numbered from 0, as the points stand when that edit comes. autocad_get_entity lists them."
+    ),
+)
+
+
+@mcp.tool(name="autocad_edit_spline", **tool_meta("Edit A Spline's Fit Points"))
+@tool_errors
+async def autocad_edit_spline(
+    handle: Annotated[str, Field(min_length=1, description="The spline to change.")],
+    edits: Annotated[list[dict[str, Any]], EDITS_OPT],
+    coords: Annotated[str, COORDS_OPT] = "world",
+) -> str:
+    """Move, add or take away the fit points of a spline that is already drawn.
+
+    SPLINEDIT's Fit data: the spline keeps its handle, layer and end tangents
+    and is refitted through the new points. Done by Heron's plug-in, which
+    checks the points it ends with against the ones asked for; anything else
+    and nothing is changed. One undo step.
+
+    Args:
+        handle (str): the spline.
+        edits (list[dict]): moves, inserts and removes, in order.
+        coords (str): 'world' or 'ucs' for the points given.
+
+    Returns:
+        str: JSON: {"edited": true, "handle": str, "fit_points_before": int,
+             "fit_points": int, "closed": bool, "points": [[x, y, z]],
+             "before_after": [{"handle", "property", "from", "to"}]}
+
+    Examples:
+        - Use when: "move the third point of that duct spline to 4200,1800" ->
+          edits=[{"move": 2, "to": [4200, 1800]}].
+        - Use when: "add a point between points 1 and 2 so the curve clears
+          the column" -> {"insert": 2, "point": [...]}.
+        - Use when: "take out the kink at point 4" -> {"remove": 4}.
+        - Don't use when: the spline was drawn by control points - it has no
+          fit points; redraw it with autocad_draw_spline.
+        - Don't use when: the whole curve moves - autocad_move_entities.
+
+    Error Handling:
+        - A point number off the end, two points in a row at one place, or too
+          few points left are refused before anything is changed, naming the
+          edit.
+        - A spline with no fit points (drawn by control points) is refused.
+        - Without the plug-in it is refused before anything is read.
+    """
+    if _shared.plugin_runner() is None:
+        raise AutocadError(PLUGIN_ONLY.format(what="Editing a spline's fit points"))
+
+    def work() -> dict[str, Any]:
+        doc = get_doc()
+        require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        spline = resolve_handle(doc, handle)
+        if str(_try(lambda: spline.ObjectName, "")) != "AcDbSpline":
+            raise AutocadError(f"{handle} is not a spline. Give the handle of a spline (autocad_list_entities type='spline').")
+        current = group_coordinates(_try(lambda: spline.FitPoints, []) or [], 3)
+        is_closed = bool(_try(lambda: spline.Closed, False))
+        given = []
+        for edit in edits:
+            moved = dict(edit) if isinstance(edit, dict) else edit
+            if isinstance(moved, dict):
+                for field in ("to", "point"):
+                    if isinstance(moved.get(field), (list, tuple)) and len(moved[field]) >= 2:
+                        moved[field] = world_coords(moved[field], ucs)
+            given.append(moved)
+        try:
+            steps, result, rows = plan_fit_edits(current, given, is_closed)
+        except ValueError as exc:
+            raise AutocadError(f"{handle}: {exc}. Nothing was changed.") from exc
+        with undo_mark(doc):
+            report = in_plugin(
+                "edit_spline_fit_points",
+                {"handle": str(handle), "steps": steps, "result": [v for p in result for v in p]},
+                "Editing a spline's fit points",
+            )
+        payload: dict[str, Any] = {
+            "edited": True,
+            "handle": str(report.get("handle") or handle),
+            "fit_points_before": int(report.get("fit_points_before", len(current))),
+            "fit_points": int(report.get("fit_points", len(result))),
+            "closed": bool(report.get("closed", is_closed)),
+            "points": [[round(v, 6) for v in p] for p in result],
+            **before_after([{"handle": str(handle), **row} for row in rows]),
+        }
+        return ucs_used(payload, ucs)
 
     return dumps(await run(work))
 
@@ -225,7 +463,7 @@ async def autocad_draw_multiline(
     scale: Annotated[float | None, Field(default=None, gt=0, description="Width scale. The STANDARD style is 1 unit wide, so this is the wall or duct thickness: 200 for a 200 mm wall. Omit to keep the drawing's CMLSCALE.")] = None,
     justification: Annotated[str, Field(default="zero", description="'zero' (the points are the centre line), 'top' or 'bottom' (the points are one face).")] = "zero",
     style: Annotated[str | None, Field(default=None, description="Multiline style, already in the drawing (MLSTYLE makes one). Omit for the current one.")] = None,
-    closed: Annotated[bool, Field(default=False, description="Come back to the first point, e.g. a room. The closing corner is not mitred - see Error Handling.")] = False,
+    closed: Annotated[bool, Field(default=False, description="Come back to the first point, e.g. a room, with the last corner mitred like the rest (MLINE's own Close, done by Heron's plug-in).")] = False,
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
@@ -264,10 +502,11 @@ async def autocad_draw_multiline(
     Error Handling:
         - A style the drawing does not have is refused before anything is
           drawn, naming MLSTYLE and autocad_import_from_drawing.
-        - Automation has no "close" for a multiline, so a closed one repeats
-          its first point: the last corner overlaps instead of being mitred.
-          The result says so; close it with MLINE's own Close option where
-          that corner shows.
+        - Automation has no "close" for a multiline, so a closed one is drawn
+          open and Heron's plug-in closes it the way MLINE's Close does,
+          mitring the last corner ("mitred": true). Without the plug-in, or if
+          it cannot, the first point is repeated instead: the last corner
+          overlaps, "mitred" is false and the result says so.
         - The drawing's current multiline style is put back afterwards.
     """
     key = str(justification).strip().lower()
@@ -286,7 +525,11 @@ async def autocad_draw_multiline(
         require_idle(doc)
         ucs = ucs_for(doc, coords)
         world = [world_coords(p, ucs) for p in vertices]
-        if closed:
+        # The plug-in closes it the way MLINE's Close does, mitring the last
+        # corner (D-97). Without the plug-in the first point is repeated, and
+        # that corner overlaps.
+        by_plugin = closed and _shared.plugin_runner() is not None
+        if closed and not by_plugin:
             world.append(list(world[0]))
         flat = [float(v) for p in world for v in p]
         not_set: list[str] = []
@@ -324,6 +567,7 @@ async def autocad_draw_multiline(
                 # Inside the undo step, so one Ctrl+Z takes the multiline and the style back.
                 if before is not None:
                     _try(lambda: doc.SetVariable("CMLSTYLE", before))
+            mitred, why = (close_multiline(entity, flat) if by_plugin else (False, ""))
 
         payload = created_payload(
             entity,
@@ -331,20 +575,46 @@ async def autocad_draw_multiline(
             style=_try(lambda: str(entity.StyleName)) or style,
             scale=_try(lambda: round(float(entity.MLineScale), 6)),
             justification=key,
-            vertices=len(world),
+            vertices=len(vertices),
         )
         if closed:
+            payload["closed"] = True
+            payload["mitred"] = mitred
+        if closed and not mitred:
             mitre = (
-                "Closed by repeating the first point: Automation has no close for a multiline, "
-                "so the last corner overlaps rather than being mitred. Where it shows, redraw "
-                "that corner with MLINE's Close option."
+                "Closed by repeating the first point" + (f" ({why})" if why else
+                ": Heron's plug-in is not in this job, and Automation has no close for a multiline") +
+                ", so the last corner overlaps rather than being mitred. Where it shows, close it "
+                "with MLINE's Close option."
             )
             payload["warning"] = f"{payload['warning']} {mitre}" if payload.get("warning") else mitre
         if not_set:
             payload["not_set"] = not_set
-        return payload
+        return ucs_used(payload, ucs)
 
     return dumps(await run(work))
+
+
+def close_multiline(entity: Any, flat: list[float]) -> tuple[bool, str]:
+    """Have the plug-in close a multiline just drawn, mitring its last corner; (mitred, why not). Never raises.
+
+    The multiline is drawn already, so an error would send the chat round to
+    draw it twice. If the plug-in cannot close it, the first point is added
+    again over COM - the old way, overlapped - and why is said.
+    """
+    handle = str(entity.Handle)
+    try:
+        report = in_plugin("close_multiline", {"handle": handle}, "Closing a multiline")
+        if report.get("closed"):
+            return True, ""
+        why = "Heron's plug-in did not close it"
+    except AutocadError as exc:
+        why = f"Heron's plug-in could not close it: {exc}"
+    try:
+        entity.Coordinates = double_array(list(flat) + list(flat[:3]))
+    except BaseException as exc:  # noqa: BLE001 - drawn open; said
+        why += f"; adding the first point again failed too ({com_message(exc)}), so it is drawn OPEN"
+    return False, why
 
 
 # ---------------------------------------------------------------------------

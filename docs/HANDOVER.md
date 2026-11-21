@@ -8,7 +8,22 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
+## Latest - 2026-11-21 (the drawing tools: #50, #51, #52, #55, #56; D-96, D-97)
+
+One new tool (**160** in all): `autocad_edit_spline`. `coords="ucs"` on the single-entity draw and
+modify tools; `mtext`, `hatch` (solid) and `dimension` (linear) in `autocad_batch_draw`; `filled=true`
+on four symbol shapes; `autocad_break_at_blocks` cuts arcs; `autocad_draw_multiline(closed=true)`
+mitres its last corner; `autocad_draw_spline(method="control_points")`. Three new plug-in
+operations (`close_multiline`, `add_cv_spline`, `edit_spline_fit_points`), checked against
+Autodesk's reference assemblies and compiled for all three builds; the plug-in version is not
+bumped here (the parent does it).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then
+live rows **AI1-AI14**. AI4 decides whether an entmade solid hatch lands (if it does, `filled` could
+become the default on the symbol shapes); AI11 says how AutoCAD shows a closed control-point
+spline; AI12 says whether `insert` at the count adds after the last fit point.
+
+## Earlier - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
 
 Seven new tools (**159** with the block, table and render tools): `autocad_layer_states`, `autocad_isolate_layers`,
 `autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,

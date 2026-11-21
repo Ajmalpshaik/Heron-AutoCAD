@@ -111,8 +111,8 @@ done looks like here.
   press-pull, thicken, and the face and edge listing they pick from - done by the plug-in (D-40,
   2026-10-29). Built and compiled; live rows H1-H9 and H13 NOT RUN, so **not yet proven**.
 - [ ] Loft to a surface (open outlines), surfaces from curves (PLANESURF, NETWORK) and meshes. ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58))
-- [ ] `autocad_draw_multiline` close with a mitred corner (MLINE's own Close) - needs the plug-in. ([#55](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/55))
-- [ ] `autocad_draw_spline` by control points, and editing a spline's fit points. ([#56](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/56))
+- [x] `autocad_draw_multiline` close with a mitred corner (MLINE's own Close) - by the plug-in's `close_multiline` (D-97). ([#55](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/55)) Live rows AI8-AI9 NOT RUN.
+- [x] `autocad_draw_spline` by control points (`method="control_points"`, the plug-in's `add_cv_spline`), and editing a spline's fit points (`autocad_edit_spline`) (D-97). ([#56](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/56)) Live rows AI10-AI13 NOT RUN.
 
 ## Asked for on 2026-11-05 (villa model, render)
 
@@ -147,12 +147,16 @@ done looks like here.
 - [x] Dynamic blocks: read and set properties (`autocad_get/set_dynamic_properties`). Authoring
   parameters and actions has no API; it stays a Block Editor job.
 - [x] The Lee Mac ideas: all built ([08](08-lee-mac-study.md)).
-- [ ] `autocad_break_at_blocks` for polylines with arcs, through the plug-in's curve splitting. ([#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52))
+- [x] `autocad_break_at_blocks` for polylines with arcs: bulge arithmetic in Python, each piece keeps its arc (D-97). ([#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52)) Live row AI7 NOT RUN.
 
-- [ ] `autocad_batch_draw`: hatch, mtext and dimension operations. Polyline bulges and text
-  justification landed with the shape library (D-30); these three are what is left. ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51))
-- [ ] A hatch or solid fill for the furniture shapes: an arrowhead and a north point come out as
-  outlines today, because a batch has no fill. ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51))
+- [x] `autocad_batch_draw`: hatch (solid fill), mtext and linear dimension operations (D-96). ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51)) Live rows AI4-AI6 NOT RUN.
+- [x] A solid fill for the furniture shapes: `filled=true` on section_mark, north_arrow, scale_bar
+  and level_mark (D-96). ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51)) Off by default until AI4 passes.
+- [ ] Hatch **patterns** in `autocad_batch_draw` (ANSI31, AR-CONC): entmake needs each pattern's
+  line definitions written out, read from acad.pat. Today the batch fills solid only and
+  `autocad_add_hatch` does patterns (D-96).
+- [ ] Radial, diametric and angular dimensions in `autocad_batch_draw` (today: linear only; the
+  single `autocad_add_dimension` does all of them) (D-96).
 - [ ] `autocad_make_shape`: a 3D shape group (duct runs, pipe spools) once the solid tools have a
   live check behind them. ([#53](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/53))
 - [ ] Flatten a 3D solid to 2D views for a shop drawing (AutoCAD's SOLPROF / FLATSHOT). No
@@ -167,9 +171,9 @@ done looks like here.
 - [ ] Read DXF / DWG files without AutoCAD (ezdxf, plus the ODA converter for DWG), read only. ([#71](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/71))
 - [x] Paper-space layouts and viewports: `autocad_create_layout`, `autocad_page_setup`,
   `autocad_place_title_block`, `autocad_add_viewport` (D-27, [09](09-sheets-and-coordinates.md)).
-- [ ] `coords="ucs"` on the single-entity `autocad_draw_*` and `autocad_modify_*` tools. Today only
-  `autocad_batch_draw` has it; the rest need each tool's rotation and planar vertex list converted
-  too, and no live check behind it yet (D-27). ([#50](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/50))
+- [x] `coords="ucs"` on the single-entity `autocad_draw_*` and `autocad_modify_*` tools: points,
+  vertex lists, angles and turns converted; a flipped UCS refused for text, blocks and dimensions
+  (D-96). ([#50](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/50)) Live rows AI1-AI3 NOT RUN.
 - [ ] Multileader, table and plot-style-table creation: no Automation API, so today they come in
   with `autocad_import_from_drawing`. Worth moving into the plug-in. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [ ] `autocad_add_viewport`: clip a viewport to a polyline, and annotative viewport scales. ([#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65))

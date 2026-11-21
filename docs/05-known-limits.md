@@ -127,8 +127,17 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
   layout viewport, otherwise the layout, because it types WIPEOUT; its edges are straight only, as
   WIPEOUT's are. A boundary polyline from the other space, or drawn on a flipped or tilted plane, is
   refused - give the corners as points.
-- `autocad_draw_multiline` with `closed=true` repeats the first point: Automation has no close for an
-  MLINE, so that last corner overlaps rather than being mitred.
+- `autocad_draw_multiline` with `closed=true` is closed by Heron's plug-in the way MLINE's Close does,
+  with the last corner mitred (D-97). Without the plug-in (`--no-bridge`), or if it cannot, the first
+  point is repeated instead and that corner overlaps; the result says `"mitred": false` and why.
+- `autocad_draw_spline(method="control_points")` and `autocad_edit_spline` need the plug-in. A spline
+  drawn by control points has no fit points, so `autocad_edit_spline` refuses it.
+- `autocad_batch_draw` fills **solid only**: its `hatch` is a SOLID fill of its own outline, not tied
+  to any object (not associative). Patterns stay with `autocad_add_hatch`. Its `dimension` is linear
+  only (aligned, horizontal, vertical, rotated); radial, diametric and angular stay with
+  `autocad_add_dimension` (D-96).
+- On a **flipped** UCS (Z pointing down), `coords="ucs"` refuses text, mtext, dimensions and blocks:
+  over COM they would read mirrored in that view (D-96).
 - `autocad_create_linetype` sizes the gap for its text from an estimate (0.9 x height per letter for
   STANDARD); a wide font can crowd the dashes - give `text_width`. On a text style with a fixed height
   the text is scaled from that height when the linetype is loaded; written with `load=false` it
