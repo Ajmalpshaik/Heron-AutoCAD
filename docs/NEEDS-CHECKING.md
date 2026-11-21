@@ -415,6 +415,7 @@ plug-in build is needed. **Every row below is NOT RUN.**
 | T3 | Ask to Keep on: draw a circle and press **Discard it**; then run a saved command (`autocad_saved_command` run) | `NOTHING CHANGED - the modeller chose Discard ...`; the saved command's answer starts with `DONE - ` and its counts | NOT RUN |
 | T4 | Ask to Keep off: `autocad_draw_circle(..., dry_run=true)`; then `autocad_modify_entity` on a line with `layer` and `color`, `dry_run=true`; then `autocad_create_layer` `M-TEST` with `dry_run=true` | Each answer starts `NOTHING CHANGED - a dry run`; no circle in the drawing; the line keeps its layer and colour; no layer M-TEST (LAYER); one Ctrl+Z after it undoes the modeller's own last change, not a Heron step | NOT RUN |
 | T5 | `autocad_loft` (a plug-in operation) and `autocad_set_current_layer` with `dry_run=true`; then `autocad_save_drawing(dry_run=true)` | The loft is gone and CLAYER is as before; the save is refused `REFUSED - nothing was sent ...`, and the file's date does not change | NOT RUN |
+| T6 | `autocad_modify_entity` two lines to layer `M-DUCT` colour red, one already on it; `autocad_set_layer_state` `M-*` off twice; `autocad_set_variable` DIMSCALE 100 (Admin on); `autocad_find_replace_text` REV A -> REV B | Each answer's `before_after` names each object with its old and new value; the line already on M-DUCT is in `already`; the second layer call says `NOTHING CHANGED` and adds no undo step (the UNDO list in the Undo drop-down is one shorter than with two calls) | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

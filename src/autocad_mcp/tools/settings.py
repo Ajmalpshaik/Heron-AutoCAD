@@ -30,6 +30,7 @@ from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
+from ._shared import before_after
 
 # ---------------------------------------------------------------------------
 # Plain words to system variables (pure: no AutoCAD below this line)
@@ -517,8 +518,14 @@ async def autocad_drawing_setup(
                     continue
                 changed.append({"variable": variable, "from": before, "to": _read_variable(doc, variable)})
 
-        if dry_run:
-            apply()
+        def nothing_differs() -> bool:
+            return all(
+                _same(_read_variable(doc, variable), list(value) if isinstance(value, tuple) else value)
+                for variable, value in wanted.items()
+            )
+
+        if dry_run or nothing_differs():
+            apply()  # writes nothing: no undo step, empty or not (D-62)
         else:
             with undo_mark(doc):
                 apply()
@@ -529,6 +536,9 @@ async def autocad_drawing_setup(
             "unchanged": sorted(unchanged),
             "failed": failed,
         }
+        if not dry_run:
+            result.update(before_after([{"variable": row["variable"], "property": "value", "from": row["from"],
+                                         "to": row["to"]} for row in changed]))  # fmt: skip
         current = _read_variable(doc, "OSMODE")
         if isinstance(current, int):
             result["osnaps_now"] = osnap_names(current)

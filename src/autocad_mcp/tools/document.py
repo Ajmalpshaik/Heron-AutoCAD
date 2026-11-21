@@ -20,7 +20,7 @@ from ..core.connection import get_app, get_doc, run
 from ..core.errors import AutocadError, com_message, is_retryable
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, point_to_list
-from ._shared import current_ucs, in_plugin
+from ._shared import before_after, current_ucs, in_plugin
 
 # Formats doc.Export writes directly. PDF goes through the plotter instead.
 EXPORT_FORMATS = {"dxf", "wmf", "sat", "bmp", "eps", "stl"}
@@ -1213,7 +1213,8 @@ async def autocad_set_variable(
         value (str): New value; converted to the variable's existing type.
 
     Returns:
-        str: JSON: {"name": str, "previous": Any, "value": Any}
+        str: JSON: {"name": str, "previous": Any, "value": Any,
+             "before_after": [{variable, property, from, to}] (empty when it already had that value)}
 
     Error Handling:
         - Returns a type error rather than a COM failure when a numeric
@@ -1274,13 +1275,10 @@ async def autocad_set_variable(
 
         doc.SetVariable(var, new_value)
         current = doc.GetVariable(var)
-        return {
-            "name": var,
-            "previous": point_to_list(previous)
-            if isinstance(previous, tuple)
-            else previous,
-            "value": point_to_list(current) if isinstance(current, tuple) else current,
-        }
+        before = point_to_list(previous) if isinstance(previous, tuple) else previous
+        after = point_to_list(current) if isinstance(current, tuple) else current
+        rows = [] if before == after else [{"variable": var, "property": "value", "from": before, "to": after}]
+        return {"name": var, "previous": before, "value": after, **before_after(rows)}
 
     return dumps(await run(work))
 

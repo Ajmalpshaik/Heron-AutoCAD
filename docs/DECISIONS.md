@@ -168,6 +168,14 @@ never NOTHING CHANGED (a save, a command or a variable is not counted). Only wit
 with `--no-bridge` there is no count, so there is no line. Reads and views have none. Scripts and
 tests that parse answers drop the line with `answers.body()`; steps inside a sequence still see the
 tool's own answer, so "Error:" still starts a failed step there.
+**Before and after** (from Revit's D-156): `autocad_modify_entity`, `autocad_set_attributes`,
+`autocad_find_replace_text`, `autocad_set_dynamic_properties`, `autocad_create_layer`,
+`autocad_set_layer_state`, `autocad_set_current_layer`, `autocad_delete_layer`,
+`autocad_set_variable` and `autocad_drawing_setup` add `before_after`: one row per value changed,
+naming the object (`handle`, or `layer` / `variable`), the `property`, `from` and `to`; the first 50,
+then `before_after_more` counts the rest. They read each value first and write only what differs, so
+asking for what is already there writes nothing and leaves no undo step; an empty `before_after`
+then lets the line say NOTHING CHANGED even for a layer or a variable, which the count cannot see.
 
 ## D-61 - A chat reopened after a restart keeps its hold
 

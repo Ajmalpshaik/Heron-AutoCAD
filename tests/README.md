@@ -7,6 +7,7 @@
 | `test_heron.py` | No | Risk levels complete, `--read-only`, `autocad_preview` (incl. through the MCP layer) |
 | `test_bridge.py` | No (fake plug-in pipe) | Address file, dead-AutoCAD clean-up, token, refusals, hung-pipe timeout |
 | `test_answers.py` | No (faked bridge and COM) | The plain first line of every change answer (DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN), and dry runs |
+| `test_before_after.py` | No (fake COM) | Old -> new per object on the modify, attribute, find-replace, dynamic block, layer and variable tools; no undo step when nothing differs |
 | `test_gate.py` | No (faked bridge and COM) | Gate order, audit line, wrong-drawing guard, Keep or Discard, no retry after a write began, read-back |
 | `test_standards.py` | No | Standards rules, attribute CSV, resources and prompts |
 | `test_plugin_bundle.py` | No | Bundle layout, PackageContents.xml, installer refusing while AutoCAD runs |
