@@ -332,6 +332,7 @@ namespace Heron.AutoCAD.Addin
 
             void Unhook()
             {
+                AcadJobHost.Activity.UndoWaiting(false);
                 wait.Stop();
                 doc.CommandWillStart -= begun;
                 doc.CommandEnded -= ended;
@@ -383,6 +384,8 @@ namespace Heron.AutoCAD.Addin
             doc.CommandCancelled += stopped;
             doc.CommandFailed += stopped;
             wait.Start();
+            // From here until UNDO ends, no chat's job may begin (#138).
+            AcadJobHost.Activity.UndoWaiting(true);
             doc.SendStringToExecute(verdict.Command, true, false, false);
             try
             {

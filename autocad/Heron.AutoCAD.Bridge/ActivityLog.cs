@@ -32,6 +32,11 @@ namespace Heron.AutoCAD.Bridge
         private readonly Func<DateTime> _clock;
         private string? _running;
         private DateTime _runningSince;
+        private bool _undoWaiting;
+        private DateTime _undoSince;
+
+        /// <summary>The palette's Undo never holds jobs off longer than this, whatever happens to it.</summary>
+        public static readonly TimeSpan MostUndoWait = TimeSpan.FromMinutes(1);
 
         public ActivityLog() : this(() => DateTime.Now)
         {
@@ -115,6 +120,27 @@ namespace Heron.AutoCAD.Bridge
             get { lock (_gate) return _entries.Select(e => e.Copy()).ToList(); }
         }
 
+        /// <summary>
+        /// The palette has typed UNDO and AutoCAD has not finished it: no new
+        /// Heron job may begin meanwhile, or the UNDO could land inside it (#138).
+        /// </summary>
+        public void UndoWaiting(bool waiting)
+        {
+            lock (_gate)
+            {
+                _undoWaiting = waiting;
+                _undoSince = _clock();
+            }
+        }
+
+        /// <summary>For the bridge's begin: why a new job must wait, or null.</summary>
+        public string? Blocking()
+        {
+            lock (_gate) return UndoWaitingLocked ? PaletteTexts.JobWaitsForUndo : null;
+        }
+
+        private bool UndoWaitingLocked => _undoWaiting && _clock() - _undoSince < MostUndoWait;
+
         /// <summary>The palette's Undo went through and was checked.</summary>
         public void Undone(string job)
         {
@@ -157,6 +183,7 @@ namespace Heron.AutoCAD.Bridge
                 var entry = Find(job);
                 if (entry == null) return UndoVerdict.No(PaletteTexts.Gone);
                 if (RunningLocked) return UndoVerdict.No(PaletteTexts.Busy);
+                if (UndoWaitingLocked) return UndoVerdict.No(PaletteTexts.UndoAlreadyWaiting);
                 if (entry.Undone) return UndoVerdict.No(PaletteTexts.AlreadyUndone);
                 if (entry.Tool == UndoTool) return UndoVerdict.No(PaletteTexts.UndoOfUndo);
                 if (entry.Risk != Risk.Change) return UndoVerdict.No(PaletteTexts.UndoRawCommand);

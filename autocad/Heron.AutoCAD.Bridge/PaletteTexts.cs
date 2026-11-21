@@ -61,6 +61,12 @@ namespace Heron.AutoCAD.Bridge
         public const string UndoDidNotStart =
             "AutoCAD did not start the undo within 30 s (a command or a box may be open). Press Esc in AutoCAD and look at the drawing: if the undo still runs later, the job is gone.";
 
+        public const string UndoAlreadyWaiting = "An Undo from this palette is already waiting for AutoCAD. Wait until it is done.";
+
+        /// <summary>Said to a chat whose job would begin while the palette's Undo waits (#138).</summary>
+        public const string JobWaitsForUndo =
+            "The modeller is undoing a Heron change from the Heron palette right now. Try again in a moment. " + Texts.NothingSent;
+
         public const string NoDrawing = "No drawing is open.";
 
         // ----- Saved commands -----

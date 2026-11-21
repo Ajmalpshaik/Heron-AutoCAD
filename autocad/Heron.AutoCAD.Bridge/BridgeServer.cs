@@ -54,6 +54,9 @@ namespace Heron.AutoCAD.Bridge
         public string AddressPath => Path.Combine(_folder, ProcessId + ".json");
         public string? Token { get; private set; }
         public BridgeProtocol? Protocol { get; private set; }
+
+        /// <summary>Handed to every protocol this server starts: see <see cref="BridgeProtocol.BlockedBy"/>.</summary>
+        public Func<string?>? BlockedBy { get; set; }
         public DateTime StartedAt { get; private set; }
 
         public bool IsRunning
@@ -71,6 +74,7 @@ namespace Heron.AutoCAD.Bridge
                 Protocol = new BridgeProtocol(_host, _config, Token, new HeronHold(), () => DateTime.UtcNow);
                 Protocol.Info["acadVersion"] = _acadVersion;
                 Protocol.Info["addinVersion"] = _addinVersion;
+                Protocol.BlockedBy = BlockedBy;
                 _stop = new CancellationTokenSource();
                 for (var i = 0; i < Listeners; i++)
                 {

@@ -315,6 +315,9 @@ Stop Heron now all in force, and frees this AutoCAD when done. So:
 - The run always has the plug-in's checks on and is never another chat: the palette sets
   `HERON_AUTOCAD_BRIDGE=on` and drops `HERON_CONVERSATION_ID` and `CLAUDE_CODE_SESSION_ID` from what
   AutoCAD's own environment would pass on, and the server refuses a palette run with the checks off.
+- While a palette Undo waits for AutoCAD to run it, no chat's job may begin: the chat is told "The
+  modeller is undoing a Heron change from the Heron palette right now. Try again in a moment." (at
+  most one minute), so the UNDO can never land inside another job (#138).
 - An Undo that AutoCAD has not started within 30 s (a command or a box in the way) is given up, and
   the line says so; a job whose end never reached the plug-in stops blocking Select, Zoom and Undo
   after 20 minutes.

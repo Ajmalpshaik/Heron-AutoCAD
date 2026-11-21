@@ -172,7 +172,9 @@ shows them and makes the AutoCAD calls.
   another chat's id from the environment AutoCAD was started with: `HERON_AUTOCAD_BRIDGE` is forced
   on, `HERON_CONVERSATION_ID` and `CLAUDE_CODE_SESSION_ID` are dropped (`PaletteServer.
   PrepareEnvironment`), and the server refuses `--run-saved` with the checks off. A job whose end
-  never came stops counting as running after 20 minutes (`ActivityLog.MostJob`).
+  never came stops counting as running after 20 minutes (`ActivityLog.MostJob`). While a palette Undo
+  waits for AutoCAD, the plug-in refuses a new job's begin with a plain "try again" (`BlockedBy`,
+  at most one minute), so the UNDO never lands inside a chat's job (#138).
 
 ## D-67 - Finding and explaining: why a job cannot run, what failed, a question gets a read tool
 
