@@ -69,6 +69,16 @@ The outcome stays up for 1.4 s, then the card slides away. The card runs on its 
 and never takes focus. Afterwards the command line keeps a line: `Heron: Draw Line. Done in 0.4 s`.
 Switch it off with `"ui.activityBanner": false` in the config file.
 
+## 3a. A box AutoCAD opens during a job
+
+While a Heron job runs, the plug-in watches for a box AutoCAD opens (a file dialog, "Save
+changes?", an error message) and closes it the safe way: **Cancel**, else **No**, else **Esc** -
+never OK or Yes ([D-66](DECISIONS.md)). The chat is told: "AutoCAD showed 'Select File'; Heron
+closed it with Cancel, nothing was kept from that step." It never touches a window that was open
+before the job began, a Heron window, or anything outside a job. A box you open yourself while
+the banner shows a job is closed too, so wait for the banner to go
+([05 §25](05-known-limits.md#25-the-dialog-watch-closes-every-new-box-in-a-job)).
+
 ## 4. Keep or Discard
 
 With Ask to Keep on, the plug-in says so when the job begins, and the server puts an **UNDO mark**
@@ -101,7 +111,7 @@ AutoCAD."* The hold frees itself after 3 quiet minutes, or when you disconnect.
 | Address file | `%LOCALAPPDATA%\Heron\autocad\bridges\<pid>.json`: pid, pipe, versions, token, start time. Written on connect, deleted on disconnect; a file whose AutoCAD is gone is deleted by the server |
 | Token | 24 random bytes, new on every connect, compared in constant time |
 | Message | one JSON line each way: `{op, token, client, conversation, ...}` |
-| Ops | `ping`, `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)) |
+| Ops | `ping`, `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)) |
 
 **Units first ([D-19](DECISIONS.md)).** Nothing is changed in a drawing until Heron has run
 `autocad_status` on it, which reports its units. A switch to another drawing needs a new status check

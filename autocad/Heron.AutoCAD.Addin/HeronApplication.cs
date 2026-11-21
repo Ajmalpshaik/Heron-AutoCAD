@@ -56,6 +56,7 @@ namespace Heron.AutoCAD.Addin
             {
                 AcadVersion = Convert.ToString(AcApp.GetSystemVariable("ACADVER")) ?? "";
                 var banner = new HeronActivityBanner(AcApp.MainWindow.Handle);
+                DialogGuard.Init(AcApp.MainWindow.Handle);
                 Server = new BridgeServer(new AcadJobHost(banner, LoadConfig), LoadConfig, AcadVersion, AddinVersion);
                 IdleQueue.Hook();
                 CommandWatch.Hook();

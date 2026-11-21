@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Heron.AutoCAD.Bridge;
 using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
 
@@ -42,6 +43,8 @@ namespace Heron.AutoCAD.Addin
             Guard.Begin(job.Job, job.Risk);
             Counter.Begin(job.Job, job.Risk);
             _undo.Begin(job);
+            // Every window open now is the modeller's: the watch never touches it (D-66).
+            DialogGuard.Begin(job.Job);
             if (_config().ActivityBanner) _banner.Begin(job);
         }
 
@@ -50,6 +53,7 @@ namespace Heron.AutoCAD.Addin
             HeronLog.Write("end " + end.Job + " " + end.Outcome + " " + end.Ms + " ms");
             Guard.End(end.Job);
             Counter.End(end.Job);
+            DialogGuard.End(end.Job);
             // Before the reply, so the next job never starts with recording off.
             _undo.End(end.Job);
             _banner.End(end);
@@ -63,12 +67,23 @@ namespace Heron.AutoCAD.Addin
 
         public string AskKeep(KeepRequest request)
         {
-            var asked = IdleQueue.TryInvoke(() =>
+            // Heron's own question: the dialog watch keeps its hands off it.
+            DialogGuard.Watch.Pause();
+            bool asked;
+            string answer;
+            try
             {
-                var doc = AcApp.DocumentManager.MdiActiveDocument;
-                var count = doc == null ? request.Handles.Length : Showing.SelectAndZoom(doc, request.Handles);
-                return HeronKeepQuestion.Ask(request.Summary, count);
-            }, KeepWait, out var answer);
+                asked = IdleQueue.TryInvoke(() =>
+                {
+                    var doc = AcApp.DocumentManager.MdiActiveDocument;
+                    var count = doc == null ? request.Handles.Length : Showing.SelectAndZoom(doc, request.Handles);
+                    return HeronKeepQuestion.Ask(request.Summary, count);
+                }, KeepWait, out answer);
+            }
+            finally
+            {
+                DialogGuard.Watch.Resume();
+            }
             // No answer in time, or the box failed: only a clear "keep" keeps.
             return asked ? answer : "discard";
         }
@@ -91,17 +106,29 @@ namespace Heron.AutoCAD.Addin
 
         public bool? ChangedBefore(string job) => Counter.ChangedBefore(job);
 
+        public IReadOnlyList<DialogNote> Dialogs(string job) => DialogGuard.Watch.Notes(job);
+
         public EraseAnswer AskErase(EraseRequest request)
         {
-            var asked = IdleQueue.TryInvoke(() =>
+            DialogGuard.Watch.Pause();
+            bool asked;
+            EraseAnswer? answer;
+            try
             {
-                var choice = HeronEraseQuestion.Ask(request.Summary, request.Handles.Length);
-                if (choice == "keep_erased") return new EraseAnswer { Answer = "keep_erased" };
-                var doc = AcApp.DocumentManager.MdiActiveDocument;
-                var back = doc == null ? 0 : HeronEraseQuestion.Restore(doc, request.Handles);
-                HeronLog.Write("brought back " + back + " of " + request.Handles.Length + " erased object(s)");
-                return new EraseAnswer { Answer = "restored", Restored = back };
-            }, KeepWait, out var answer);
+                asked = IdleQueue.TryInvoke(() =>
+                {
+                    var choice = HeronEraseQuestion.Ask(request.Summary, request.Handles.Length);
+                    if (choice == "keep_erased") return new EraseAnswer { Answer = "keep_erased" };
+                    var doc = AcApp.DocumentManager.MdiActiveDocument;
+                    var back = doc == null ? 0 : HeronEraseQuestion.Restore(doc, request.Handles);
+                    HeronLog.Write("brought back " + back + " of " + request.Handles.Length + " erased object(s)");
+                    return new EraseAnswer { Answer = "restored", Restored = back };
+                }, KeepWait, out answer);
+            }
+            finally
+            {
+                DialogGuard.Watch.Resume();
+            }
             if (asked && answer != null) return answer;
             // Could not even ask: put them back, on the main thread, as soon as AutoCAD is free.
             IdleQueue.Post(() =>

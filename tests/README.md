@@ -11,6 +11,7 @@
 | `test_gate.py` | No (faked bridge and COM) | Gate order, audit line, wrong-drawing guard, Keep or Discard, no retry after a write began, read-back |
 | `test_standards.py` | No | Standards rules, attribute CSV, resources and prompts |
 | `test_plugin_bundle.py` | No | Bundle layout, PackageContents.xml, installer refusing while AutoCAD runs |
+| `test_why_and_gaps.py` | No | `autocad_why`, `autocad_gaps`, the audit reason words, the audit folder fallback ([D-67](../docs/DECISIONS.md)) |
 | `test_structure.py` | No | `tools/check_structure.py` |
 | `test_live.py` | **Yes**, marked `live` | Real drawing round trips |
 | `conftest.py` | | Switches the bridge off and moves `%LOCALAPPDATA%` to a temp folder for every test |
