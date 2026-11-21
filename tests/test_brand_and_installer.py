@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 ADDIN = ROOT / "autocad" / "Heron.AutoCAD.Addin"
@@ -20,6 +23,8 @@ WINDOWS = [
     "HeronStatusWindow.cs", "HeronSettingsWindow.cs", "HeronSwitchWindow.cs",
 ]
 RGB = re.compile(r"FromRgb\(\s*0x(\w\w),\s*0x(\w\w),\s*0x(\w\w)\s*\)")
+
+needs_windows_checkout = pytest.mark.skipif(sys.platform != "win32", reason="Git writes CRLF line endings only in a Windows checkout")
 
 
 def test_window_colours_are_heron_brand_colours():
@@ -49,6 +54,7 @@ def test_uninstall_bat_sits_beside_install_bat_and_asks_first():
     assert "Nothing was removed" in uninstall
 
 
+@needs_windows_checkout
 def test_release_scripts_use_windows_line_endings():
     for path in RELEASE.iterdir():
         data = path.read_bytes()

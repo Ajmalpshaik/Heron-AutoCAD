@@ -19,6 +19,18 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _windows_stand_ins() -> None:
+    """Off Windows, where pywin32 cannot install: the tests' stand-ins, so the tool rules can be read (#102)."""
+    import importlib.util
+
+    if importlib.util.find_spec("pythoncom") is None:
+        sys.path.insert(0, str(ROOT / "tests" / "winstubs"))
+        import _ctypes_names  # noqa: F401 - the ctypes names message_filter.py needs
+
+
+_windows_stand_ins()
 # .claude holds the padlock guard (settings.json, hooks/, D-59), which has no Markdown,
 # C# or tools, and Claude's local folders: in the main checkout other sessions'
 # worktrees, whole copies of this repository. Its tracked files are tested by
