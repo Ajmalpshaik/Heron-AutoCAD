@@ -18,6 +18,13 @@ Newest first. Dates are when the change was made.
   unsigned, and a modeller trusts the plug-in once at its first AutoCAD load (`docs/SETUP.md`,
   Code signing). **Tests** now always import this checkout's own `src`, also in a worktree (#35).
 
+- **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
+  part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
+  (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter
+  and centre), `autocad_add_donut` (DONUT's closed polyline with width, Heron's maths, many centres
+  in one undo step) and `autocad_divide_curve` (DIVIDE or MEASURE with points or a block, Heron's
+  maths) ([D-108](docs/DECISIONS.md)). Live rows AP1-AP11 NOT RUN.
+
 - **A preview of a full sheet (2026-11-21, #41).** `autocad_preview` now says the area it plotted
   (`plotted`, extents refreshed first), its `pixels` and the smallest text that reads
   (`smallest_clear_text`), with a `tip` when the drawing's text is smaller. `detail=2` or `3` adds 4
