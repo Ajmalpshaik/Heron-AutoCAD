@@ -8,7 +8,30 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (server answers #78-#82 merged, PR #124)
+## Latest - 2026-11-21 (docked Heron palette #92-#93 merged, PR #123)
+
+PR #123 was merged on Ajmal's word, after CI `python` and `plugin` passed (`review` was skipped,
+#34). Plug-in **and** server change: rebuild and reinstall the plug-in (AutoCAD closed), and
+restart the server after pulling.
+- **D-68:** `HERONPALETTE`, or Heron (arrow) -> **Heron palette**, opens one docked palette with two
+  tabs in Heron's window style. **Activity** lists Heron's change jobs from every chat, newest
+  first, with Select, Zoom and Undo; Undo is the modeller's (no padlock) but only by D-54's rule,
+  and says why when not. **Saved commands** lists the commands saved in a chat (shown within 2 s),
+  fills their inputs and runs one by starting a copy of the server
+  (`--run-saved request.json --acad-pid N`), which passes the same gate, hold and padlocks as any
+  chat, checks units first and frees the AutoCAD after.
+- Rules in the bridge, tested offline: `ActivityLog.cs`, `SavedCommandList.cs`, `PaletteServer.cs`,
+  words in `PaletteTexts.cs`. Server side: `src/autocad_mcp/palette.py`; every server now writes
+  `%LOCALAPPDATA%\Heron\autocad\server.json` at start, which is how the palette finds it.
+- Found on the rebase and fixed before merging: the palette read the D-62 plain line
+  (`REFUSED ...`) as success; it now reads the word. The palette run returns before
+  `follow_host_chat()`, so it never takes the chat's id (D-61).
+
+**Next:** install the plug-in and, in AutoCAD 2027, run group X rows X1-X20 (all NOT RUN); **X4
+first** (whether the palette's Zoom leaves an undo step that would block Undo). Version bump
+still to do: suggested plug-in **1.6.0** (new command, protocol unchanged).
+
+## Earlier - 2026-11-21 (server answers #78-#82 merged, PR #124)
 
 PR #124 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
 failed as on every PR, #34). Server only, no plug-in change; restart the server after pulling.
