@@ -288,7 +288,7 @@ namespace Heron.AutoCAD.Addin
             });
         }
 
-        private static int[] Pick(SolidTopology topology, PartKind kind, JsonElement selector)
+        internal static int[] Pick(SolidTopology topology, PartKind kind, JsonElement selector)
         {
             var parts = kind == PartKind.Edge ? topology.Edges : topology.Faces;
             var error = SolidPicks.Choose(parts, selector, kind, out var picked, topology.Low, topology.High);
@@ -309,7 +309,7 @@ namespace Heron.AutoCAD.Addin
             }
         }
 
-        private static RunResult Changed(string handle, Solid3d solid, double before, Action<Utf8JsonWriter> more) => RunResult.Done(w =>
+        internal static RunResult Changed(string handle, Solid3d solid, double before, Action<Utf8JsonWriter> more) => RunResult.Done(w =>
         {
             w.WriteString("handle", handle);
             more(w);
@@ -317,7 +317,7 @@ namespace Heron.AutoCAD.Addin
             WriteVolume(w, "volume_after", solid);
         });
 
-        private static double Volume(Solid3d solid)
+        internal static double Volume(Solid3d solid)
         {
             try
             {
@@ -329,7 +329,7 @@ namespace Heron.AutoCAD.Addin
             }
         }
 
-        private static void WriteVolume(Utf8JsonWriter w, string name, Solid3d solid)
+        internal static void WriteVolume(Utf8JsonWriter w, string name, Solid3d solid)
         {
             var volume = Volume(solid);
             if (!double.IsNaN(volume)) w.WriteNumber(name, Math.Round(volume, 6));

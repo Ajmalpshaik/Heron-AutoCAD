@@ -105,6 +105,14 @@ namespace Heron.AutoCAD.Addin
                 case "shell": return SolidOperations.Shell(db, tr, args);
                 case "press_pull": return SolidOperations.PressPull(db, tr, args);
                 case "thicken": return SolidOperations.Thicken(db, tr, args);
+                case "add_pyramid": return SolidPrimitives.Pyramid(db, tr, args);
+                case "add_polysolid": return SolidPrimitives.Polysolid(db, tr, args);
+                case "offset_faces": return SolidFaceEdits.Offset(db, tr, args);
+                case "taper_faces": return SolidFaceEdits.Taper(db, tr, args);
+                case "move_faces": return SolidFaceEdits.Move(db, tr, args);
+                case "delete_faces": return SolidFaceEdits.Delete(db, tr, args);
+                case "imprint_solid": return SolidFaceEdits.Imprint(db, tr, args);
+                case "separate_solid": return SolidFaceEdits.Separate(db, tr, args);
                 case "super_hatch": return SuperHatch.Make(db, tr, args);
                 case "add_light": return RenderSetup.AddLight(db, tr, args);
                 case "create_material": return RenderSetup.CreateMaterial(db, tr, args);
