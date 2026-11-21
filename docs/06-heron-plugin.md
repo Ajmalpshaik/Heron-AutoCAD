@@ -150,16 +150,17 @@ AutoCAD."* The hold frees itself after 3 quiet minutes, or when you disconnect.
 | Address file | `%LOCALAPPDATA%\Heron\autocad\bridges\<pid>.json`: pid, pipe, versions, token, start time. Written on connect, deleted on disconnect; a file whose AutoCAD is gone is deleted by the server |
 | Token | 24 random bytes, new on every connect, compared in constant time |
 | Message | one JSON line each way: `{op, token, client, conversation, ...}` |
-| Ops | `ping` (also says which padlocks are on and which a Windows policy holds, read-only, [D-59](DECISIONS.md)), `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)), `expect_dialog` (an Admin job names one button for one box it expects, [D-74](DECISIONS.md)) |
+| Ops | `ping` (also says which padlocks are on and which a Windows policy holds, read-only, [D-59](DECISIONS.md); the command AutoCAD is in; `quietLimit`, the longest line `send_quiet` types, [D-98](DECISIONS.md)), `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md); refused once another drawing came to the front during the job, or for a line over `quietLimit`), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)), `expect_dialog` (an Admin job names one button for one box it expects, [D-74](DECISIONS.md)), `drawings` (the drawing events after a number, read only, section 6b, [D-98](DECISIONS.md)) |
 
 **Units first ([D-19](DECISIONS.md)).** Nothing is changed in a drawing until Heron has run
 `autocad_status` on it, which reports its units. A switch to another drawing needs a new status check
-before the next change.
+before the next change. So does the same drawing closed and opened again, or a restarted AutoCAD;
+a Save As of it does not (section 6b).
 
 For each tool call the server ([`core/gate.py`](../src/autocad_mcp/core/gate.py)):
 
 1. looks up the AutoCAD process behind COM (from its main window) and reads that AutoCAD's address file;
-2. refuses a change if Heron has not checked this drawing's units with `autocad_status` yet, or the active drawing changed since;
+2. refuses a change if Heron has not checked this drawing's units with `autocad_status` yet, or the active drawing changed since, or the plug-in's drawing events say it was closed since or AutoCAD was restarted (section 6b);
 3. sends `begin {tool, risk, summary, drawing}`: the plug-in checks token, hold and padlock, shows
    the banner and answers whether it will ask Keep or Discard (`askToKeep`), or refuses naming the
    padlock;
@@ -217,6 +218,21 @@ and `entity_extents` are not "COM has no call for it": COM can do them, but one 
 object. With an older plug-in, or one that cannot do the read, the tool reads over COM instead and
 gives the same answer; a stop or "Outcome unknown" is said, not read again. Which tools come next:
 [13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
+
+## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)
+
+The plug-in writes down what happens to the drawings the moment AutoCAD says it: a drawing
+**opened**, **came to the front**, was **saved** (a Save As says the old name too) or **closed**.
+AutoCAD's automatic save (`.sv$`) and backups are left out. Each event has a number; the 200 newest
+are kept, in this AutoCAD's memory only.
+
+| Who reads them | What for |
+|---|---|
+| The server, op `drawings {since}` | `autocad_status` notes where the list stands. A later change asks for what came after: the checked drawing **closed** (and perhaps opened again), the drawing in front **opened** since, or **another AutoCAD session** (a restart), means "call autocad_status first"; a **Save As** of it is followed with no new check |
+| `send_quiet` | Once another drawing came to the front during the job (or its drawing closed), the batch input is refused and not typed: "The drawing in front changed while this job ran ... so Heron typed none of this input." The server never types it over COM instead. The plug-in waits up to 10 s for AutoCAD to get to the input, checks the drawing in front once more, and only then answers: typed, refused, or not started in time (never typed later) |
+| The palette's Activity tab | Drawn again at every event (section 10) |
+
+A plug-in built before this has no `drawings` op: the guard then compares names only, as before.
 
 ## 7. Files on disk
 
@@ -292,6 +308,11 @@ AutoCAD's.
 Heron's recent changes in this AutoCAD, newest first, from every chat (30 kept; reads and zooms are
 left out). Each row: what the job was, the time, the drawing, what became of it (done, discarded,
 stopped, undone), and what the plug-in counted: *made 3, changed 1, erased 0*.
+
+It updates live with the drawings too ([D-98](DECISIONS.md), section 6b): the top line says
+**In front: plan.dwg**, the drawing events sit between the jobs as one quiet line each (*b.dwg
+came to the front*, *Drawing1.dwg saved as plan.dwg*, *b.dwg closed*; the 15 newest), and a job
+whose drawing is not the one in front says **not in front**.
 
 | Button | What it does | When it says no |
 |---|---|---|

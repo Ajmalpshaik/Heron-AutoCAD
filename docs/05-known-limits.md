@@ -25,6 +25,13 @@ while calls under 2,000 worked all day, so `autocad_run_lisp` refused anything o
 ~2,400-character call ran but its result came after the 10 s wait and it reported a timeout: the
 timeout note says to count what landed before sending it again.
 
+**A batch through the plug-in ([D-98](DECISIONS.md), #45)** goes in pieces up to 1,500 characters,
+because the plug-in's ping says it types that much (`quietLimit`); over COM, and from an older
+plug-in, the pieces stay under 600. 1,500 is not measured through the plug-in yet (NEEDS-CHECKING
+AJ6, AJ7): a piece that never arrived shows as `missing` in the answer, with a hint. A piece cut
+short on the way would leave its brackets open: AutoCAD then waits for the rest (a `(_>` prompt),
+DONE never comes and the batch ends after its 60 s wait. Press Esc and read the drawing back.
+
 **Since [D-76](DECISIONS.md) (2026-11-21)** the server cuts long code itself, between its top-level
 forms, into pieces under 700 characters, run in order as one undo step. What is left:
 - **One form over 2,000 characters is still refused**, never cut: make helpers with `defun` as
@@ -147,8 +154,9 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
   pick it by number. A face word only ever picks a flat face: a cone's side or a bowl's inside is
   picked by number.
 - A chamfer is measured from one face, as AutoCAD's own is: its edges must be on that face.
-- Press-pull moves flat faces only. Loft makes solids only: open outlines would make a surface, and
-  are refused. Loft and thicken keep their outlines and surfaces (as with DELOBJ off).
+- Press-pull moves flat faces only. Loft makes a solid from closed outlines; open outlines are
+  refused unless `surface=true`, which makes a surface (limit 32). Loft and thicken keep their
+  outlines and surfaces (as with DELOBJ off).
 - `autocad_super_hatch` fills an outline drawn flat in plan (world XY). Arcs in it are followed in
   short straight steps, as XCLIP stores any boundary: within 1/10,000 of the outline's size for a
   polyline's arcs and a circle (2 mm in a 20 m room), 16 steps per segment of an old-style 2D
@@ -410,3 +418,76 @@ From [D-78](DECISIONS.md) and [D-79](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
 - **Draw order** works in one space at a time; the screen may need a regen to show it.
 - **Groups:** an unnamed group (*A1) is listed but not made. No Lengthen tool yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AA](NEEDS-CHECKING.md)).
+
+## 30. Files read with AutoCAD closed, the reference standard, and shared check lists
+
+From [D-92](DECISIONS.md) and [D-93](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AG).
+- **A DWG needs the ODA File Converter** to be read with AutoCAD closed. Heron never downloads it;
+  without it, open the drawing in AutoCAD or save it as DXF. Heron looks under Program Files\ODA
+  and on PATH; set `HERON_ODA_CONVERTER` (the `.exe`) in the MCP settings for another place.
+- **What is read is what was last saved.** Changes not yet saved in AutoCAD are not in the file.
+- **Files over 250 MB are refused** (ezdxf holds the whole file in memory); a DWG becomes a larger
+  DXF on the way, and that is held to the same limit.
+- **Dimension styles and linetypes are compared by name only** against a reference: COM cannot
+  read a dimension style's settings without making it current. **True colours** are compared by
+  their colour number.
+- **The office folder is given 10 seconds.** A lost network drive is then believed unreachable for
+  a minute, and the run uses this PC's copy, saying so. A PC that never read a list from the
+  office folder has no copy of it.
+- **Who may change the office list is Windows' business:** give the team read-only rights on the
+  office folder, and the keeper of the lists write rights. Heron refuses a read-only folder, saying
+  so; it adds no roles of its own.
+
+## 31. Drawing events and the wrong-drawing guard
+
+From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
+- **The guard asks at the next change, not before.** The plug-in records a switch, a save or a
+  close the moment AutoCAD reports it, but a chat's server only asks when its next change comes
+  (it has no way in from the plug-in). The palette's Activity list is the live view.
+- **A drawing closed and opened again needs `autocad_status` again**, even with the same name in
+  front: it is a new copy in memory. So does a restarted AutoCAD. A Save As does not: the same
+  drawing is followed under its new name.
+- **A Save As during a batch job** stops its input (the name in front is not the job's), though
+  it is the same drawing: run the batch again after `autocad_status`.
+- **Only the plug-in's quiet input stops at a switch mid-job.** A long job (a sequence) whose next
+  step works over COM (a layer a batch makes, a COM draw) still goes to whichever drawing is in
+  front. Do not switch drawings while the banner shows a job ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)).
+- **200 events are kept.** Each change the guard lets through moves its mark up, so only a chat
+  idle through more than 200 opens, switches, saves and closes misses some; what is left is still
+  judged, a Save As is then not followed, and the names are compared as before #48.
+- **A drawing opened since the check needs `autocad_status`**, as for one closed: a Save As and
+  then the old file opened again, or a second (read-only) copy of the same file.
+- **A plug-in built before this change** does not record events: the guard compares names only
+  (a Save As then needs a new `autocad_status`), and a batch goes in 600-character pieces.
+
+## 32. 3D for MEP: duct runs, spools, flat views, sections, surfaces, meshes have their own limits
+
+From [D-94](DECISIONS.md) and [D-95](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AH).
+- **A duct run or a spool is its centreline through corner points**, with one bend per corner. A
+  leg too short for the bends at its ends (radius x tan(angle / 2) each) or for a flange is refused
+  with the numbers; a corner turning more than 179 degrees is refused. Fittings are plain: no
+  vanes, no reducers, no socket or weld-neck shapes; a flange is a disc with its bore and bolt holes.
+- **Default bend radii are conventions, not your catalogue's**: R/W = 1 for a rectangular duct,
+  1.5 x D round, 1.5 x OD for an elbow (a long-radius elbow is 1.5 x the nominal size). Give
+  `bend_radius` when it matters. A duct that starts vertical has its height facing north unless
+  `up` says otherwise.
+- **Whether AutoCAD revolves a bend forwards** is not in its reference: Heron checks and makes it
+  again the other way, and says so (`revolved_the_other_way`, row AH3).
+- **Flat views show visible lines only**: hidden lines are not drawn (there is no way to tell them
+  from visible ones in what AutoCAD gives back). Several solids are flattened each on its own, so
+  one does not hide another unless `join=true`, which also loses the line between flush faces.
+  Views are square on (front, top, right, left, back, bottom), not isometric.
+- **A section plane is straight**: two points (a vertical cut) or three (any plane), no jogs. By
+  default it cuts every solid in model space, at most 1,000; it does not cut surfaces, meshes or
+  blocks.
+- **Where AutoCAD puts a 2D section's lines** is not documented, so Heron lays them flat by what it
+  finds and says which (`laid_flat_from`); a curve that has to be projected and cannot be, or a
+  hatch in that case, is dropped and counted (`dropped`). Rows AH4 and AH6 settle it.
+- **Surfaces and meshes**: a planar surface fills closed, flat outlines; a network surface needs
+  each curve one way to cross every curve the other way. Mesh smoothness is 0 to 4. A mesh made
+  from a solid uses the drawing's FACETER settings and keeps the solid.
+- **Super hatch tiles**: an image needs its width (`image_size`); at most 2,000 image tiles.
+  Whether XCLIP hides the parts of images inside the block outside the outline is row AH12. An
+  xref given as a .dwg is attached under its file name; one already attached under that name is
+  used as it is.
+- None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AH](NEEDS-CHECKING.md)).

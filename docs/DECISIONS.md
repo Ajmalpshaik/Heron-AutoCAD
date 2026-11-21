@@ -155,6 +155,215 @@ older plug-in, or one whose read fails, would lose a tool that worked). Also fro
 holding only rays or construction lines now says it has no extents, on both paths, instead of
 answering Infinity.
 
+## D-98 - The plug-in reports drawing events as they happen; a batch goes through it in pieces up to 1,500 characters
+
+**Decided:** 2026-11-21, issues #48 and #45. **Status:** in force (built and tested offline; live
+rows AJ1-AJ10 NOT RUN).
+
+- **Drawing events (#48).** The plug-in records AutoCAD's document events as they happen
+  (`DrawingEvents`, fed by `DrawingWatch` in the add-in): a drawing *opened*
+  (`DocumentCreated`), *came to the front* (`DocumentBecameCurrent`; the one already in front is
+  not news), *saved* (`Database.SaveComplete`, read after the command so a Save As gives the old
+  name; the automatic save `.sv$` and backups are left out) and *closed*
+  (`DocumentToBeDestroyed`). Each event has a number, and the log an epoch that is new for every
+  AutoCAD session; 200 are kept. A stdio server has no way in from the plug-in (D-68), so the server
+  asks: the new op `drawings {since}` answers the events after that number, read only, on the
+  pipe thread.
+- **The wrong-drawing guard (D-19) uses them.** `autocad_status` (and `autocad_create_drawing`)
+  notes where the log stands; a later change asks for the events since. The checked drawing
+  **closed** since (even when the same name is open again: it is a new copy in memory, perhaps
+  changed on disk) or **another AutoCAD session** (restarted, or another AutoCAD) is refused with
+  "call autocad_status first". A **Save As** of the checked drawing is followed: the same drawing,
+  the same units, so no new check. A switch away and back is the same drawing and goes ahead, as
+  before. When the plug-in cannot tell (an older one, history dropped off) the guard is exactly
+  the name compare it was.
+- **Mid-job.** `send_quiet` refuses drawing input once another drawing came to the front (or the
+  job's drawing closed) after the job's `begin`, counted only from events AutoCAD reported, so a
+  missed event never refuses; the add-in checks the drawing in front again on the main thread
+  before typing. That refusal ends the input: the server never types it over COM instead.
+- **The palette** redraws its Activity list on every drawing event: a line "In front: plan.dwg",
+  the drawing events between the jobs (15 newest), and *not in front* on a job in another drawing.
+- **Fewer `Command:` prompts (#45).** Every top-level expression typed leaves one prompt, echo off
+  or not. The plug-in's ping now says `quietLimit` (1,500), and `send_quiet` refuses a longer line
+  before typing anything. The server builds the batch in pieces up to that (never above
+  `QUIET_CHUNK_LIMIT` = 1,500), packs the short set-up pieces into one `(progn ...)`, and keeps
+  the last piece (close the undo group, write DONE) on its own, so an error before it never
+  leaves the undo group open. Offline, the 41-object batch of the live checks goes from 25 pieces
+  to 9. Over COM, from an older plug-in, or when the plug-in refuses, the pieces stay under 600
+  (D-21). 1,500 is below the 2,000 characters that worked all day over COM and far from the
+  3,000 that arrived as nothing (known limits §3); it is not measured through `SendStringToExecute`
+  yet (AJ6, AJ7).
+- **Two safety nets found on the way.** A `send_quiet` that went out and got no answer is treated
+  as typed: sending it again over COM could draw the batch twice. A batch whose output file has
+  DONE but fewer result lines than operations says `missing` with a hint, never a quiet success.
+- **After an independent review (same day).** The guard also refuses a drawing *opened* since the
+  check when it is the one in front (a Save As, then the old file opened again; a second copy).
+  History that dropped off is no longer a reason to ignore the events still there; 200 are kept,
+  and every change the guard lets through moves its mark up. Names are compared exactly, so an
+  unsaved `Drawing1.dwg` is never taken for `D:\F\Drawing1.dwg`. `autocad_status` takes its mark
+  before its work. `send_quiet` now waits (up to 10 s) for AutoCAD to get to the input and answers
+  the truth: typed, refused because another drawing is in front (also when the switch came between
+  the server's look and `begin`), or not started in time (abandoned, never typed later). A Save As
+  of the job's drawing is followed. The add-in keeps the old names by AutoCAD's database, not the
+  .NET object, and says a Save As made while closing before the close.
+- **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
+  update live without a server of its own; the docked palette is the live list.
+
+## D-95 - Sections, flat views, surfaces, meshes and the new super hatch tiles are plug-in operations
+
+**Decided:** 2026-11-21, for issues #54, #109, #58 and #57. **Status:** in force; extends D-40 and
+D-33. None of FLATSHOT, SOLPROF, SECTIONPLANE, PLANESURF, SURFNETWORK, MESH or Express Tools'
+image / xref / wipeout SUPERHATCH has an ActiveX call, so each is a listed plug-in operation
+(`flat_views`, `section_plane`, `loft_surface`, `planar_surface`, `network_surface`, `add_mesh`,
+and `super_hatch` with a `tile_kind`), Change level, one transaction each. Every .NET call was
+checked against the AutoCAD 2027 reference assemblies before it was written (the signatures, by
+reflection; the plug-in compiles for all three builds).
+
+**One mechanism for a section and a flat view.** Both use AutoCAD's own section object (`Section`)
+and `GenerateSectionGeometry`, the call behind "Generate Section / Elevation". A section plane goes
+through the modeller's points and is kept; a flat view puts a temporary plane outside the solids'
+box on the viewer's side, so it cuts nothing and the 2D "background" it returns is the view with
+hidden lines removed, as FLATSHOT draws it. The plane is made with its viewing direction given
+explicitly (`Section(points, vertical, viewing)`), so which side is seen is Heron's choice, not
+AutoCAD's default. Where each view looks, the third / first angle layout, and where a plane through
+two or three points runs (two points: a vertical cut looking left of the line; three: the plane,
+a level one looking down with north up) are pure arithmetic in `Bridge/SectionMath.cs`, tested
+offline. The 2D lines are laid flat by what they are found to lie on (the plane, already flat, or
+neither and then projected), and the answer says which (`laid_flat_from`), because the reference
+does not say where GenerateSectionGeometry puts a 2D section's lines; rows AH3 and AH6 settle it.
+
+**What is left out, on purpose.** Hidden (obscured) lines in a flat view: the API gives visible and
+hidden lines in one list with no way to tell them apart, so a view shows visible lines only, as
+FLATSHOT does by default. Several solids are flattened each on its own unless `join=true`, which
+flattens one temporary union of copies: it hides what is behind a part, and loses the line where
+two flush faces meet; the modeller chooses. Jogged section lines (more than one segment): later.
+
+**Super hatch tiles.** An image or a wipeout is first made into a small tile block of its own; an
+xref is the tile as it is, attached from its `.dwg` if it is not already there. Then the one block
+tiling path of D-40 does the rest, so every kind is one object, clipped as XCLIP clips. An xref
+this call attached is detached again if the hatch is then refused, because attaching is not only
+a database change. Image tiles are capped at 2,000 (raster images are heavy), blocks at 10,000. A
+block hatch sends exactly what it sent before, so an older plug-in still does it.
+
+Rejected: typing FLATSHOT (a dialog) or SOLPROF (works only inside a layout viewport and asks
+questions); projecting the solid's Brep edges ourselves (no hidden-line removal and no silhouette
+lines on a pipe or a cylinder); one "make a surface" operation taking any arguments (each kind is
+listed and checked on its own, as D-40 asks).
+
+## D-94 - A 3D shape is pieces in their own frames, made where COM has no doubt and then moved
+
+**Decided:** 2026-11-21, for issue #53. **Status:** in force; extends D-30.
+`autocad_make_shape` takes two 3D shapes, `duct_run` and `pipe_spool`. A solid cannot go down the
+batch engine, so a 3D shape is generated as a list of **pieces** (straight, bend, flange), each in
+its own frame where AutoCAD makes it without any doubt - a box or a cylinder standing on the origin
+up +Z, or a profile at the origin revolved round an axis through (radius, 0, 0) along +Y - plus one
+4 x 4 matrix that puts it in place. The pieces and their matrices are pure Python
+(`acad/shapes3d.py`), so what matters is tested without AutoCAD: each piece ends where the next
+begins, each bend leaves the way the next straight runs and is tangent to both legs at
+radius x tan(angle / 2), the straights are the legs less the tangent lengths (a spool's cut
+lengths), a rectangular duct is carried round its bends without twisting, and every matrix is a
+move, never a mirror.
+
+The COM side (`tools/_solid_pieces.py`) uses only calls already in use (AddBox, AddCylinder,
+AddRegion, AddRevolvedSolid, Boolean) plus TransformBy with the matrix. Two of its steps check
+themselves, because neither convention is in Autodesk's reference: a bend that came out sweeping
+backwards (the revolve's sense) is made again the other way, and every piece's box is compared
+with the box it should fill, so a piece that landed anywhere else is reported (`verified: false`)
+rather than looking finished. A refusal half way takes out every piece already made.
+
+Defaults, said in the tool so nobody is misled: a rectangular bend's centreline radius is the
+duct's size in the plane it bends in (R/W = 1), a round duct's 1.5 x D, a spool's elbow 1.5 x the
+outside diameter (a long-radius elbow is 1.5 x the nominal size: give `bend_radius` from the
+catalogue when it matters). Flanges have no default size; a flange table is the modeller's.
+Pieces are separate solids, as they are fabricated, with `join=true` to union them.
+
+Rejected: one sweep along a filleted path (AutoCAD sweeps along a 2D polyline with arcs or a
+spline, not a 3D route with bends, and the result could not be checked piece by piece); Rotate3D
+and Move instead of TransformBy (two more sign conventions to trust, each failing silently).
+
+## D-93 - The office check lists live in a folder the modeller names; sharing them is its own Publish tool
+
+**Decided:** 2026-11-21, issue #135 (from the brief for this wave: "a folder the modeller names,
+e.g. a shared drive, as the office list's home, with the local copy as the fallback, never
+overwriting a teammate's file silently"). **Status:** in force. Extends [D-64](#d-64---check-lists-no-data-office-lists-with-project-changes-pass-is-not-complies).
+
+- **Where it is set.** `autocad_checklist(action='office_folder', folder='S:\CAD\Heron')`, once per
+  PC, kept in `%LOCALAPPDATA%\Heron\autocad\checklist-office-folder.json`; `folder=''` clears it.
+  Not an environment variable in `.mcp.json`: the modeller sets it from the chat, and Heron checks
+  the folder answers before keeping it.
+- **Reading.** A run takes the list from the office folder first. Each read keeps a copy on this PC
+  (`checklists\office-copies\`). When the folder cannot be reached (it is given 10 s, then believed
+  unreachable for a minute, so a folder check does not wait per drawing), or its file cannot be
+  read, the run says so plainly and uses that copy, naming the date it was read. With no copy, it
+  uses this PC's own list of that name, saying so; but if the office folder **has** the list and it
+  cannot be read, nothing is run: Heron never runs another list in place of the office's. Saving
+  on this PC under a name the office folder has is refused (it would never be used).
+- **A project's changes with the project.** `<the drawing's folder>\Heron check list changes.json`
+  holds them for everyone who opens a drawing from that folder; it wins over a PC's own changes
+  (D-64's store, still used when there is no such file), and a run says when they differ. A file
+  there that cannot be read stops the run. Still only severity, target and on/off.
+- **Writing is `autocad_share_checklist`, at Publish** (as D-65): it writes outside Heron's own
+  folder, where the team reads. A file there that holds something different is replaced only with
+  `replace=true`, and the refusal names who saved it (the Windows user), when, and what differs;
+  when replaced, what was there is kept in the same file as `previous` (one step back, never
+  nested). The file is written beside itself and swapped in only if nobody changed it since it was
+  read. **Who may change the office list** is the folder's own Windows permissions: a read-only
+  folder is refused, saying so; Heron adds no roles of its own.
+- **Every run names its files:** `lists.office` / `office_from`, `lists.project_file` /
+  `project_from`, and `file` on every result line.
+
+If Ajmal wants it otherwise (an `.mcp.json` setting for IT to deploy, or roles inside Heron), that
+is a new decision; this one is easy to reverse, as nothing else reads the setting.
+
+**Later the same day (an independent review):** a copy is used only if it was read from the office
+folder set now (a copy from a folder set before is another office's list), and the warning names
+the file it came from; `autocad_check_folder` keeps every run's warning on its line and names the
+list it ran (`list`, `warning`); project changes are not shared while the office list cannot be
+read (they would be checked against a stand-in and stop every teammate's run); the office and
+project folder reads run off the server's main thread.
+
+## D-92 - DXF / DWG files are read with AutoCAD closed (ezdxf, the ODA converter); standards compare with a reference drawing
+
+**Decided:** 2026-11-21, issues #71 and #69. **Status:** in force.
+
+- **`autocad_read_file`** (Read): the summary (DXF version, units, extents, counts, the most
+  placed blocks, layouts, xrefs), the layers with objects per layer, the blocks with how many are
+  placed and inside other blocks and their attribute tags, every text and mtext, every block's
+  attribute values (JSON or CSV), and the text styles, dimension styles and linetypes, of a file on
+  disk. It touches no AutoCAD, so the gate lets it through without the plug-in
+  (`NO_AUTOCAD_TOOLS`, as `autocad_why`, D-67), audited like every call; `autocad_why` no longer
+  says "press Heron" for it. The file is never written; what is read is what was last saved.
+- **DXF with `ezdxf`**, now a dependency of the server: every PC installs it once, by name, with
+  Claude closed (`.venv\Scripts\python.exe -m pip install ezdxf`,
+  [05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)); without it the tool says how,
+  and every other tool works as before. A damaged DXF is read in ezdxf's recover mode and the answer says
+  so. Files over 250 MB are refused.
+- **DWG, DWS and DWT through the ODA File Converter, only when it is installed.** Heron finds it
+  (`HERON_ODA_CONVERTER`, else the newest `Program Files\ODA\ODAFileConverter*`, else PATH) and
+  never downloads it. It converts a copy in a temporary folder to an R2018 DXF, with no window and
+  a 3-minute limit, then reads that. Without it, a DWG is refused saying it needs AutoCAD, the ODA
+  converter, or a DXF of it.
+- **`autocad_check_standards(reference=...)`** compares the open drawing with a `.dws`, `.dwt`,
+  `.dwg` or `.dxf`: layers by colour, linetype, lineweight and plot; text styles by font, big font,
+  height, width and oblique; dimension styles and linetypes **by name only** (COM cannot read a
+  dimension style's settings without making it current, which would change the drawing). Each
+  name is missing, differs (both values said), or not in the standard (`flag_extra=false` leaves
+  those out). Xref and anonymous names are left out; layer 0, Defpoints, Standard and ByLayer are
+  never missing or extra. The reference is read by Heron's reader where it can (a DXF always; a
+  DWG or DWS when the converter is there), else by AutoCAD's own reader (ObjectDBX, not opened on
+  screen, or the open drawing itself); the answer says which in `reference.read_by`. PASS wording
+  is D-64's: the checked values are met against that file, never "complies". Pure compare in
+  `acad/standard_compare.py`.
+
+Known limits: true colours are compared by their colour number; a `.dws` read by ObjectDBX and the
+converter on a real DWG are not proven live (Group AG).
+
+**Later the same day (an independent review):** a reference read in recover mode, or one holding
+nothing beyond what every drawing has, never gives `passed: true` (it is `null`, with
+`reference.warning`); a table AutoCAD cannot read (layers, styles, linetypes) stops the check,
+naming it, instead of counting as empty; the converter gets the copy under a plain name of Heron's
+own (it reads that argument as a wildcard filter); header extents at the origin are used.
+
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
