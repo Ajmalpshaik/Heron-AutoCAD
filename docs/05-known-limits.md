@@ -221,9 +221,10 @@ pieces after it are not sent, so keep each `(command ...)` whole inside one top-
   combined with `diffuse_rgb`. A glowing strip lights little around it; add lights for that.
 - `autocad_save_view(from_screen=true)` types `-VIEW _Save`, so a name with spaces is refused.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group K](NEEDS-CHECKING.md)).
-- **None of the set-up tools renders** (Ajmal's rule): the camera, sun, lights and exposure tools
-  set the render up, and the modeller presses Render. `autocad_render` (Admin) is the one tool that
-  types `-render`; whether it stays is Ajmal's decision ([#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)).
+- **Heron does not render** (Ajmal's rule): the camera, sun, lights and exposure tools set the
+  render up, and the modeller presses Render. `autocad_render`, which typed `-render`, was removed
+  on 2026-11-21 because that command waits on prompts and can stall AutoCAD
+  ([D-87](DECISIONS.md), [#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)).
 - `autocad_add_camera_view`, `autocad_set_sun`, `autocad_list_lights` and `autocad_switch_lights`
   need the plug-in built from [D-86](DECISIONS.md) / [D-87](DECISIONS.md); an older one says it does
   not have the operation. The camera view and the sun work on the **Model tab only**. No camera

@@ -185,7 +185,6 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "checklist_report",  # writes an .xlsx and an .html next to the drawing (D-65)
     ),
     Risk.ADMIN: (
-        "render",
         "send_command",
         "run_lisp",
         "set_variable",

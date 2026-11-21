@@ -8,7 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
+## Latest - 2026-11-21 (`autocad_render` removed, #158)
+
+Ajmal had the parent session decide #158, and it decided: remove `autocad_render`. His rule is that
+Heron never runs the render (`-render` waits on prompts and can stall AutoCAD). Tool, level, preset
+and size tables are gone: **158** tools. Docs: D-87 (an added note) and D-33's status, tools
+reference, known limits §22, ribbon coverage "Render" row; live row F22 marked removed, F23 now uses
+`autocad_run_lisp`; the finder phrase "render this view for the client" now finds
+`autocad_add_camera_view` ("Add A Camera View For A Render"). Server only: restart Claude after
+pulling.
+
+## Earlier - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
 
 Seven new tools (**159** with the block, table and render tools): `autocad_layer_states`, `autocad_isolate_layers`,
 `autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,

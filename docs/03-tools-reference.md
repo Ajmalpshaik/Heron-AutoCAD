@@ -338,13 +338,12 @@ The attribute sync and the Excel table link and update are plug-in operations to
 (`sync_attributes`, `excel_table`, `update_table_links`); their tools are listed with the blocks
 and the tables above.
 
-## Materials and rendering (Change; listing is Read, rendering is Admin)
+## Materials (Change; listing is Read)
 
 | Tool | Level | Purpose |
 |---|---|---|
 | `autocad_list_materials` | Read | The materials in this drawing, and how many objects use each. Run it first: only a material already in the drawing can be applied |
 | `autocad_apply_material` | Change | Apply one to objects or to a whole layer. Refuses an unknown name **and lists what the drawing does have** |
-| `autocad_render` | Admin | Renders the current view to an image, by driving `-render`. Admin, because that is the command line |
 
 Three limits worth knowing before you plan around them ([D-33](DECISIONS.md)):
 
@@ -353,15 +352,18 @@ Three limits worth knowing before you plan around them ([D-33](DECISIONS.md)):
 - **No density.** A material is appearance only. MASSPROP and `autocad_solid_properties` both work
   as if density were 1, so a weight is volume times a density *you* state. Assigning "Steel" does
   not make anything weigh.
-- **No render API.** There is no automation call for rendering at all; `-render` is the only route,
-  its prompts differ between releases, and script rendering has been reported to drop objects. For
-  a picture to look at use `autocad_preview`; for one on a sheet use `autocad_export`.
+- **No render from Heron.** There is no automation call for rendering; `-render` is the only route,
+  it waits on prompts that differ between releases and can stall AutoCAD, and a scripted render has
+  been reported to drop objects. So `autocad_render` was removed ([D-87](DECISIONS.md),
+  [#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)): Heron sets the render up (next
+  section) and the modeller presses Render. For a picture to look at use `autocad_preview`; for one
+  on a sheet use `autocad_export`.
 
 ## Setting a render up (Change; the light list is Read)
 
 These tools set the view, the sun, the lights and the exposure; **none of them renders**: the
-modeller presses Render ([D-86](DECISIONS.md), [D-87](DECISIONS.md)). `autocad_render` (Admin) is
-the one exception ([#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)). The plug-in does the lights, the
+modeller presses Render ([D-86](DECISIONS.md), [D-87](DECISIONS.md)); Heron has no tool that
+renders ([#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)). The plug-in does the lights, the
 camera and the sun's date, which COM has no call for. Not proven in AutoCAD yet:
 [NEEDS-CHECKING groups K and AE](NEEDS-CHECKING.md).
 

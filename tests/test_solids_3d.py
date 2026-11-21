@@ -14,7 +14,7 @@ import pytest
 
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.core.risk import RISK, Risk
-from autocad_mcp.tools.materials import RENDER_PRESETS, RENDER_SIZES, match_name
+from autocad_mcp.tools.materials import match_name
 from autocad_mcp.tools.solids import plane_from
 
 
@@ -107,21 +107,6 @@ class TestMaterialNames:
         assert match_name("Steel", []) is None
 
 
-class TestRenderOptions:
-    def test_the_presets_are_autocads_own(self):
-        assert RENDER_PRESETS == ("Low", "Medium", "High", "Coffee-Break", "Lunch", "Overnight")
-
-    @pytest.mark.parametrize("name", RENDER_SIZES)
-    def test_every_size_is_landscape_and_sane(self, name):
-        width, height = RENDER_SIZES[name]
-        assert width >= height > 0
-        assert width <= 4000
-
-    def test_the_sizes_go_up(self):
-        order = [RENDER_SIZES[n][0] for n in ("small", "medium", "large", "print")]
-        assert order == sorted(order)
-
-
 class TestThePadlocks:
     """A level is a property of the tool. These are the ones that could be wrong."""
 
@@ -139,11 +124,12 @@ class TestThePadlocks:
         assert RISK["autocad_slice_solid"] == Risk.CHANGE
         assert RISK["autocad_transform_3d"] == Risk.CHANGE
 
-    def test_rendering_is_admin_because_it_drives_the_command_line(self):
-        assert RISK["autocad_render"] == Risk.ADMIN
+    def test_there_is_no_render_tool(self):
+        """D-87, #158: -render waits on prompts and can stall AutoCAD; the modeller presses Render."""
+        assert not any("render" in name and "exposure" not in name for name in RISK), sorted(RISK)
 
-    def test_a_sequence_cannot_reach_the_renderer(self):
+    def test_a_sequence_cannot_reach_an_admin_tool(self):
         """autocad_sequence tops out at Changes, so Admin stays out of reach."""
         from autocad_mcp.tools.sequence import ALLOWED
 
-        assert RISK["autocad_render"] not in ALLOWED
+        assert RISK["autocad_run_lisp"] not in ALLOWED
