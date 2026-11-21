@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (sheets by the plug-in: #64-#67, #39, #40; D-90, D-91)
 
-One new tool, `autocad_sheet_set` (**160** with the layers and annotation work), and three new
+One new tool, `autocad_sheet_set` (**170** with the 2D edits and the other sessions' work), and three new
 plug-in operations (`create_layout`, `add_viewport`, `active_sheet`); `publish_pdf` takes a list
 of drawings. `autocad_create_layout` and `autocad_add_viewport` ask the plug-in first and fall back
 to COM; viewports clip (`clip_outline`, `clip_handle`) and take an annotation scale; title blocks go
@@ -21,6 +21,30 @@ version is not bumped here (the parent does it). #39 and #40 stay open until the
 **Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then live
 rows **AF1-AF15**. AF9 decides whether the sheet set really is one undo step; AF6 checks which way a
 viewport twist turns (the same in the old COM path); AF10 is row D33 again.
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+
+Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
+Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /
+extend, fillet / chamfer, break, join, edit a vertex, stretch, explode, draw order, match
+properties, list groups, group. Lineweight and transparency on `autocad_modify_entity`. The geometry is plain Python in `acad/edit2d.py`
+(`tests/test_edit2d_geometry.py`); the tools against fake COM in `tests/test_edit2d_tools.py`.
+No typed commands, no plug-in change. Limits: [05 §29](05-known-limits.md#29-the-everyday-2d-edits-have-their-own-limits).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AA1-AA19 in a scratch
+drawing. AA13 (does COM's Explode leave the original?) and AA14 (draw order in a drawing that has no
+table yet) are the two answers the code could not get from Autodesk's reference. Not built:
+Lengthen, and a fillet between a line and an arc ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
+
+## Earlier - 2026-11-21 (`autocad_render` removed, #158)
+
+Ajmal had the parent session decide #158, and it decided: remove `autocad_render`. His rule is that
+Heron never runs the render (`-render` waits on prompts and can stall AutoCAD). Tool, level, preset
+and size tables are gone: **158** tools. Docs: D-87 (an added note) and D-33's status, tools
+reference, known limits §22, ribbon coverage "Render" row; live row F22 marked removed, F23 now uses
+`autocad_run_lisp`; the finder phrase "render this view for the client" now finds
+`autocad_add_camera_view` ("Add A Camera View For A Render"). Server only: restart Claude after
+pulling.
 
 ## Earlier - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
 
