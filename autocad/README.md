@@ -5,7 +5,7 @@ C# solution [`Heron.AutoCAD.sln`](Heron.AutoCAD.sln). What it looks like to the 
 
 | Project | Job | References AutoCAD? |
 |---|---|---|
-| `Heron.AutoCAD.Bridge` | Pipe server, session token, address file, padlock rules, the padlocks in memory and the Windows policy that can hold one off (`HeronPadlocks.cs`, `HeronPolicy.cs`, [D-59, D-60](../docs/DECISIONS.md)), one-chat hold, the protocol; the list of the plug-in's own operations and their pure rules (edge and face words, the super hatch tile grid) | **No** - tested offline |
+| `Heron.AutoCAD.Bridge` | Pipe server, session token, address file, padlock rules, the padlocks in memory and the Windows policy that can hold one off (`HeronPadlocks.cs`, `HeronPolicy.cs`, [D-59, D-60](../docs/DECISIONS.md)), one-chat hold, the protocol; the drawing events log (`DrawingEvents.cs`, [D-98](../docs/DECISIONS.md)); the list of the plug-in's own operations and their pure rules (edge and face words, the super hatch tile grid) | **No** - tested offline |
 | `Heron.AutoCAD.Bridge.Tests` | xUnit tests, including the real Python client against the real server | No |
 | `Heron.AutoCAD.Addin` | Ribbon, commands, banner, Bridge Status, Keep or Discard, main-thread queue, the plug-in's own operations (3D edits, super hatch) | **Yes - the only one** |
 
@@ -22,16 +22,19 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `AcadJobHost.cs` | Bridge -> AutoCAD: banner, command-line line, select and zoom, Keep box, operations |
 | `PluginRunner.cs` | The plug-in's own operations ([D-40](../docs/DECISIONS.md)): right drawing, document lock, one transaction, refusals that say "Nothing was changed." |
 | `SolidOperations.cs` | Loft, fillet / chamfer edges, shell, press-pull, thicken, and the numbered faces and edges (Brep) |
-| `SuperHatch.cs` | A block tiled in a grid, inserted once and clipped to an outline like XCLIP |
+| `SuperHatch.cs` | A block, an image, an xref or a wipeout tiled in a grid, inserted once and clipped to an outline like XCLIP |
+| `Sections.cs` | Flat views of solids (FLATSHOT) and a section plane with its 2D section, both through AutoCAD's Section object (D-95; maths in `Bridge/SectionMath.cs`) |
+| `Surfaces.cs` | Loft to a surface, planar and network surfaces, MESH primitives and a mesh made from a solid (D-95) |
 | `LayerStates.cs` | Named layer states: save, restore (with every layer it changed), delete, list (D-81) |
 | `DimensionLines.cs` | Where a linear or aligned dimension's line is, and moving it, for even spacing (D-80) |
 | `AnnotationScales.cs` | Annotative objects: the drawing's scale list, an object's scales, adding and removing them (D-81) |
 | `RenderSetup.cs` | Photometric lights and materials made from their settings ([D-42](../docs/DECISIONS.md)) |
 | `IdleQueue.cs` | Gets pipe-thread work onto AutoCAD's main thread through `Application.Idle` |
+| `DrawingWatch.cs` | AutoCAD's document events (opened, came to the front, saved, closed) into the drawing events log, as they happen ([D-98](../docs/DECISIONS.md)) |
 | `UndoSwitch.cs` | Undo recording off while a read runs, back on after, with safety nets (rules: `Bridge/UndoPause.cs`, [D-34](../docs/DECISIONS.md)) |
 | `HeronActivityBanner.cs` | The READING / CHANGING / DONE / STOPPED card, on its own thread |
 | `HeronStatusWindow.cs`, `HeronKeepQuestion.cs`, `HeronUi.cs` | The two windows and their shared look |
-| `HeronPalette.cs` | The docked Heron palette ([D-68](../docs/DECISIONS.md)): Activity (Select, Zoom, Undo) and Saved commands (Run through the server). Rules: `Bridge/ActivityLog.cs`, `Bridge/SavedCommandList.cs`, `Bridge/PaletteServer.cs`, words in `Bridge/PaletteTexts.cs` |
+| `HeronPalette.cs` | The docked Heron palette ([D-68](../docs/DECISIONS.md)): Activity (Select, Zoom, Undo, with the drawing events live, D-98) and Saved commands (Run through the server). Rules: `Bridge/ActivityLog.cs`, `Bridge/PaletteRows.cs`, `Bridge/SavedCommandList.cs`, `Bridge/PaletteServer.cs`, words in `Bridge/PaletteTexts.cs` |
 | `Resources/*.png` | Icons copied from Heron AI for Revit |
 
 ```bash
