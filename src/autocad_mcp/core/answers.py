@@ -14,7 +14,9 @@ no tool has to remember it:
   back to.
 
 The facts come from the plug-in's own count of what the job did (D-50) and
-from whether a write began at all; never from what the tool says it did. The
+from whether a write began at all; never from what the tool says it did. When
+AutoCAD went busy, the line also says which command it is in, from the
+plug-in's command tracker (#47), and what the plug-in counted so far. The
 counts are drawing objects only: a layer, a style or a setting is not an
 object, so a job that wrote and counted nothing is DONE, said with care,
 unless the tool itself lists every value it changed (``before_after``).
@@ -54,6 +56,54 @@ class Facts:
     refused_by_heron: bool = False  # refused before anything was sent
     note: str | None = None  # a sentence the gate adds (a dry run, a discard that could not run)
     word: str | None = None  # the gate already knows the word (a dry run, a failed discard)
+    busy: bool = False  # the job ended on a busy AutoCAD (#47)
+    where: str = ""  # where that busy AutoCAD is, from busy_where(); "" when not known
+
+
+LISP = "AUTOLISP"  # the name the plug-in's command tracker gives a LISP evaluation
+
+
+def busy_where(known: bool, command: str | None) -> str:
+    """Where a busy AutoCAD is, in a few words, from the plug-in's command tracker (#47).
+
+    "" when the plug-in cannot tell (an older plug-in, or not reachable).
+    """
+    if not known:
+        return ""
+    if not command:
+        return "it is in no command now, so a redraw or a box held it"
+    if command.strip().upper() == LISP:
+        return "it is still evaluating AutoLISP"
+    return f"it is still in the {command.strip().upper()} command"
+
+
+def busy_note(known: bool, command: str | None) -> str:
+    """The sentence a read's answer gets when AutoCAD was busy (a change says it in the plain line)."""
+    where = busy_where(known, command)
+    if not where:
+        return ""
+    if not command:
+        return f"AutoCAD was busy: {where}. Close any box open in AutoCAD, then try again."
+    return f"AutoCAD was busy: {where}. Let it finish, or press Esc in AutoCAD, then try again."
+
+
+def _in(facts: Facts) -> str:
+    return f" ({facts.where})" if facts.where else ""
+
+
+def _so_far(facts: Facts, total: int | None, unknown: str) -> str:
+    """What the plug-in counted so far, after a busy or unanswered job; ``unknown`` when it could not count."""
+    if total:
+        return f", after {counts(facts.counted)} so far."
+    if total == 0:
+        return f"; the plug-in counted no drawing object added, changed or erased so far ({NOT_COUNTED_NOTE})."
+    return f", {unknown}"
+
+
+def _timed_out(text: str) -> bool:
+    """The tool answered, but says it never heard how the job ended (autocad_run_lisp's wait)."""
+    payload = _payload(text)
+    return isinstance(payload, dict) and payload.get("timed_out") is True
 
 
 def _total(counted: dict[str, Any] | None) -> int | None:
@@ -112,17 +162,33 @@ def line(facts: Facts) -> str:
         word, why = NOTHING_CHANGED, "the modeller chose Discard, so the drawing is back as it was."
     elif said:
         word = OUTCOME_UNKNOWN
-        why = "AutoCAD did not say how the job ended, so part of it may be in the drawing."
-        if total:
-            why = f"the job did not finish, and {counts(facts.counted)} so far."
+        if facts.busy:
+            why = f"AutoCAD went busy part-way{_in(facts)}" + _so_far(
+                facts, total, "and the plug-in could not count what changed, so part of it may be in the drawing."
+            )
+        else:
+            why = "AutoCAD did not say how the job ended, so part of it may be in the drawing."
+            if total:
+                why = f"the job did not finish, and {counts(facts.counted)} so far."
     elif not facts.ok:
         if total:
-            word, why = OUTCOME_UNKNOWN, f"the job failed part-way, after {counts(facts.counted)}."
+            word, why = OUTCOME_UNKNOWN, f"the job failed part-way{_in(facts)}, after {counts(facts.counted)}."
         elif total is None and facts.wrote:
             word = OUTCOME_UNKNOWN
             why = "the job failed after it began to write, and the plug-in could not count what changed."
+        elif facts.busy:
+            word, why = REFUSED, f"AutoCAD stayed busy{_in(facts)} and never took the request; nothing was changed."
         else:
             word, why = REFUSED, "the tool turned the job down; nothing was changed."
+    elif facts.busy or _timed_out(facts.text):
+        # The tool answered, but never heard how the job ended: not DONE.
+        word = OUTCOME_UNKNOWN
+        opening = (
+            f"AutoCAD stayed busy{_in(facts)} and never let Heron read how the job ended"
+            if facts.busy
+            else "AutoCAD did not answer within the wait, so the job may still have run"
+        )
+        why = opening + _so_far(facts, total, "and the plug-in could not count what changed.")
     elif total:
         word, why = DONE, counts(facts.counted) + "."
         if _part_failed(facts.text):
