@@ -41,6 +41,11 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // MLINE's own Close, a spline by control points, and a spline's fit
+            // points moved, added or taken away: COM has no call for any (D-97).
+            ["close_multiline"] = Risk.Change,
+            ["add_cv_spline"] = Risk.Change,
+            ["edit_spline_fit_points"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

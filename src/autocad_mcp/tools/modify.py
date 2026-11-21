@@ -18,7 +18,38 @@ from ..acad.units import rad
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
-from ._shared import HANDLES_OPT, before_after, point, same_value
+from ..core.variants import apoint
+from ._shared import (
+    COORDS_OPT,
+    HANDLES_OPT,
+    before_after,
+    point,
+    same_value,
+    ucs_for,
+    ucs_used,
+    world_direction,
+    world_turn,
+)
+
+
+def grid_offsets(
+    rows: int, columns: int, row_spacing: float, column_spacing: float, ucs: Any = None
+) -> list[tuple[float, float, float]]:
+    """Where each copy of a rectangular array goes, as a world displacement; the original is left out.
+
+    Row by row, then column by column, as ARRAY counts them. Columns run along
+    X and rows along Y - of the UCS when one is given, so the grid follows a
+    turned grid UCS rather than the world's axes.
+    """
+    out: list[tuple[float, float, float]] = []
+    for r in range(int(rows)):
+        for c in range(int(columns)):
+            if r == 0 and c == 0:
+                continue
+            step = [c * float(column_spacing), r * float(row_spacing), 0.0]
+            x, y, z = world_direction(step, ucs)
+            out.append((x, y, z))
+    return out
 
 
 # Applying one operation across many entities should not abort everything
@@ -88,6 +119,7 @@ async def autocad_move_entities(
             description="Destination point as [x, y], used with from_point.",
         ),
     ] = None,
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Move entities by a displacement, or from one point to another.
 
@@ -96,16 +128,22 @@ async def autocad_move_entities(
         displacement (Optional[list[float]]): [dx, dy] offset.
         from_point (Optional[list[float]]): Base point, with to_point.
         to_point (Optional[list[float]]): Destination, with from_point.
+        coords (str): "world", or "ucs": the displacement (or the two points)
+            is read in the current UCS, so [1000, 0] moves along its X axis.
 
     Returns:
         str: JSON: {"moved": int, "handles": [str], "displacement": [dx, dy, dz]}
              Plus "failed" listing any entity that refused, with the reason.
+             The displacement reported is the world one; with coords="ucs"
+             also "converted_from_ucs".
 
     Examples:
         - Use when: "shift those 3 m to the right" -> displacement=[3000, 0]
           in a millimetre drawing.
         - Use when: "move it from the corner to the centre" -> from_point and
           to_point.
+        - Use when: "slide it 600 along the grid" on a turned UCS ->
+          displacement=[600, 0], coords="ucs".
     """
     if displacement:
         dx = float(displacement[0])
@@ -126,14 +164,17 @@ async def autocad_move_entities(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        # A displacement is a direction, not a place: the UCS turns it but does not move it.
+        wx, wy, wz = world_direction([dx, dy, dz], ucs)
         origin = point([0, 0, 0], "origin")
-        target = point([dx, dy, dz], "displacement")
+        target = apoint(wx, wy, wz)
         with undo_mark(doc):
             result = _apply_each(
                 doc, handles, lambda e: e.Move(origin, target), "moved"
             )
-        result["displacement"] = [round(dx, 6), round(dy, 6), round(dz, 6)]
-        return result
+        result["displacement"] = [round(wx, 6), round(wy, 6), round(wz, 6)]
+        return ucs_used(result, ucs)
 
     return dumps(await run(work))
 
@@ -166,6 +207,7 @@ async def autocad_copy_entities(
             le=500,
         ),
     ] = 1,
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Copy entities to a new position, optionally repeating in a row.
 
@@ -173,10 +215,14 @@ async def autocad_copy_entities(
         handles (list[str]): Handles of entities to copy.
         displacement (list[float]): [dx, dy] offset per copy.
         count (int): Number of copies, 1-500.
+        coords (str): "world", or "ucs": the displacement is read in the
+            current UCS, so a row of copies runs along its axes.
 
     Returns:
         str: JSON: {"copied": int, "source_count": int, "count": int,
              "new_handles": [str]}
+             With coords="ucs" on a UCS that is not the world one: also
+             "converted_from_ucs".
 
     Examples:
         - Use when: "put a copy 600 below" -> displacement=[0, -600].
@@ -185,13 +231,14 @@ async def autocad_copy_entities(
         - Don't use when: you want a grid or a ring — use
           autocad_array_entities.
     """
-    dx = float(displacement[0])
-    dy = float(displacement[1]) if len(displacement) > 1 else 0.0
-    dz = float(displacement[2]) if len(displacement) > 2 else 0.0
+    if not displacement:
+        raise AutocadError("'displacement' must be [dx, dy] or [dx, dy, dz].")
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        dx, dy, dz = world_direction(displacement, ucs)
         new_handles: list[str] = []
         failed: list[dict[str, str]] = []
         origin = point([0, 0, 0], "origin")
@@ -218,7 +265,7 @@ async def autocad_copy_entities(
         }
         if failed:
             result["failed"] = failed
-        return result
+        return ucs_used(result, ucs)
 
     return dumps(await run(work))
 
@@ -243,6 +290,7 @@ async def autocad_rotate_entities(
             )
         ),
     ],
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Rotate entities about a base point.
 
@@ -250,10 +298,14 @@ async def autocad_rotate_entities(
         handles (list[str]): Handles of entities to rotate.
         base_point (list[float]): [x, y] pivot.
         angle (float): Rotation in degrees, counter-clockwise positive.
+        coords (str): "world", or "ucs": the base point is read in the current
+            UCS, and anticlockwise is anticlockwise as seen in it.
 
     Returns:
         str: JSON: {"rotated": int, "handles": [str], "angle_degrees": float,
              "base_point": [x, y]}
+             base_point and angle_degrees are as given; with coords="ucs"
+             also "converted_from_ucs".
 
     Examples:
         - Use when: "turn that 90 degrees about the origin" ->
@@ -263,15 +315,17 @@ async def autocad_rotate_entities(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        pivot = point(base_point, "base_point")
-        radians = rad(angle)
+        ucs = ucs_for(doc, coords)
+        pivot = point(base_point, "base_point", ucs)
+        # A turn is the same amount on any plan UCS; a flipped one runs the other way.
+        radians = rad(world_turn(angle, ucs))
         with undo_mark(doc):
             result = _apply_each(
                 doc, handles, lambda e: e.Rotate(pivot, radians), "rotated"
             )
         result["angle_degrees"] = angle
         result["base_point"] = [float(base_point[0]), float(base_point[1])]
-        return result
+        return ucs_used(result, ucs)
 
     return dumps(await run(work))
 
@@ -302,6 +356,7 @@ async def autocad_scale_entities(
             gt=0,
         ),
     ],
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Scale entities uniformly about a base point.
 
@@ -309,6 +364,8 @@ async def autocad_scale_entities(
         handles (list[str]): Handles of entities to scale.
         base_point (list[float]): [x, y] fixed point.
         factor (float): Uniform scale factor, greater than zero.
+        coords (str): "world", or "ucs" to read the base point in the
+            current UCS.
 
     Returns:
         str: JSON: {"scaled": int, "handles": [str], "factor": float,
@@ -324,14 +381,15 @@ async def autocad_scale_entities(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        anchor = point(base_point, "base_point")
+        ucs = ucs_for(doc, coords)
+        anchor = point(base_point, "base_point", ucs)
         with undo_mark(doc):
             result = _apply_each(
                 doc, handles, lambda e: e.ScaleEntity(anchor, float(factor)), "scaled"
             )
         result["factor"] = float(factor)
         result["base_point"] = [float(base_point[0]), float(base_point[1])]
-        return result
+        return ucs_used(result, ucs)
 
     return dumps(await run(work))
 
@@ -358,6 +416,7 @@ async def autocad_mirror_entities(
             description="Remove the originals, leaving only the mirrored copies.",
         ),
     ] = False,
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Mirror entities across a line defined by two points.
 
@@ -366,6 +425,8 @@ async def autocad_mirror_entities(
         axis_point1 (list[float]): [x, y] first point on the mirror line.
         axis_point2 (list[float]): [x, y] second point on the mirror line.
         delete_original (bool): Delete the source entities afterwards.
+        coords (str): "world", or "ucs" to read the mirror line in the
+            current UCS.
 
     Returns:
         str: JSON: {"mirrored": int, "new_handles": [str],
@@ -379,8 +440,9 @@ async def autocad_mirror_entities(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        p1 = point(axis_point1, "axis_point1")
-        p2 = point(axis_point2, "axis_point2")
+        ucs = ucs_for(doc, coords)
+        p1 = point(axis_point1, "axis_point1", ucs)
+        p2 = point(axis_point2, "axis_point2", ucs)
         new_handles: list[str] = []
         failed: list[dict[str, str]] = []
 
@@ -402,7 +464,7 @@ async def autocad_mirror_entities(
         }
         if failed:
             result["failed"] = failed
-        return result
+        return ucs_used(result, ucs)
 
     return dumps(await run(work))
 
@@ -564,6 +626,7 @@ async def autocad_array_entities(
             ),
         ),
     ] = 360.0,
+    coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
     """Repeat entities in a rectangular grid or a polar ring.
 
@@ -577,16 +640,22 @@ async def autocad_array_entities(
         count (int): Total items, polar only.
         center (Optional[list[float]]): [x, y] centre, polar only.
         fill_angle (float): Degrees the polar array spans.
+        coords (str): "world", or "ucs": rows and columns run along the
+            current UCS's Y and X, and a polar centre is read in it.
 
     Returns:
         str: JSON: {"arrayed": int, "pattern": str, "new_handles": [str],
              "items_per_source": int}
+             With coords="ucs" on a UCS that is not the world one: also
+             "converted_from_ucs".
 
     Examples:
         - Use when: "5 columns of holes 200 apart, 3 rows 150 apart" ->
           rectangular, rows=3, columns=5, row_spacing=150, column_spacing=200.
         - Use when: "8 bolts evenly round that circle" -> polar, count=8,
           center=the circle centre.
+        - Use when: "a grid of lights square to the turned wing" ->
+          rectangular with coords="ucs", so the rows follow the wing.
 
     Error Handling:
         - Rejects a rectangular array of 1x1, and a polar array with no centre,
@@ -614,14 +683,28 @@ async def autocad_array_entities(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        # ArrayRectangular lays its rows along the world's axes. On a UCS that
+        # is turned (or flipped) the grid is made copy by copy instead, each
+        # moved by its own offset worked out in Python.
+        by_copies = pattern == "rectangular" and ucs is not None and (ucs.rotated or ucs.flipped)
+        offsets = grid_offsets(rows, columns, row_spacing, column_spacing, ucs) if by_copies else []
         new_handles: list[str] = []
         failed: list[dict[str, str]] = []
+        origin = point([0, 0, 0], "origin")
 
         with undo_mark(doc):
             for handle in handles:
                 source = resolve_handle(doc, handle)
                 try:
-                    if pattern == "rectangular":
+                    if by_copies:
+                        results = []
+                        for step in offsets:
+                            duplicate = source.Copy()
+                            # Listed before it moves: a copy made is reported even if the move fails.
+                            new_handles.append(str(duplicate.Handle))
+                            duplicate.Move(origin, apoint(*step))
+                    elif pattern == "rectangular":
                         results = source.ArrayRectangular(
                             int(rows),
                             int(columns),
@@ -632,7 +715,7 @@ async def autocad_array_entities(
                         )
                     else:
                         results = source.ArrayPolar(
-                            int(count), rad(fill_angle), point(center, "center")
+                            int(count), rad(world_turn(fill_angle, ucs)), point(center, "center", ucs)
                         )
                     for item in results:
                         new_handles.append(str(item.Handle))
@@ -652,7 +735,7 @@ async def autocad_array_entities(
         }
         if failed:
             result["failed"] = failed
-        return result
+        return ucs_used(result, ucs)
 
     return dumps(await run(work))
 

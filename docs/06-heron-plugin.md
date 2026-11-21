@@ -206,6 +206,9 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `sync_attributes` | `autocad_sync_attributes` | `AttributeReference.SetAttributeFromBlock`, `AttributeCollection.AppendAttribute` (ATTSYNC, [D-82](DECISIONS.md)) |
 | `excel_table` | `autocad_table_from_excel` | `DataLinkManager.AddDataLink`, `Cell.SetDataLink` ([D-83](DECISIONS.md)) |
 | `update_table_links` | `autocad_update_table_links` | `Table.UpdateDataLink(SourceToData, SkipFormat)` |
+| `close_multiline` | `autocad_draw_multiline(closed=true)` | `Mline.IsClosed` (MLINE's Close: the last corner mitred, [D-97](DECISIONS.md)) |
+| `add_cv_spline` | `autocad_draw_spline(method="control_points")` | `new Spline(degree, control points, knots)`; the knots are worked out by the server ([D-97](DECISIONS.md)) |
+| `edit_spline_fit_points` | `autocad_edit_spline` | `Spline.SetFitPointAt`, `InsertFitPointAt`, `RemoveFitPointAt`, then the fit points read back against the plan ([D-97](DECISIONS.md)) |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.

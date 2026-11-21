@@ -4,6 +4,20 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The drawing tools (2026-11-21, #50, #51, #52, #55, #56).** One new tool, **170** in all (with the 2D edits).
+  `coords="ucs"` on every `autocad_draw_*` tool, text, mtext, dimensions and blocks, and move, copy,
+  rotate, scale, mirror and array: points, vertex lists and angles are read in the modeller's own
+  UCS, a rectangle comes out square to it, a horizontal dimension measures along its X. A flipped
+  UCS now turns angles the right way (in the batch too) and refuses text, blocks and dimensions,
+  which would read mirrored ([D-96](docs/DECISIONS.md)). `autocad_batch_draw` gains **mtext**,
+  **hatch** (a solid fill of its own outline, arcs and holes included) and linear **dimension**
+  operations; `section_mark`, `north_arrow`, `scale_bar` and `level_mark` take `filled=true`.
+  `autocad_break_at_blocks` cuts polylines with arcs and keeps each arc. `autocad_draw_multiline`
+  closes with a mitred last corner, by the plug-in. `autocad_draw_spline` draws by control points
+  (`method="control_points"`, `degree`), and the new `autocad_edit_spline` moves, inserts and
+  removes a spline's fit points. Three new plug-in operations ([D-97](docs/DECISIONS.md)). Live rows
+  AI1-AI14 NOT RUN.
+
 - **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
   all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
   `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,

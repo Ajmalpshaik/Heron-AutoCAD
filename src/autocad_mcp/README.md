@@ -35,7 +35,7 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/dimensions.py` | dimension runs (chain, baseline, ordinate, a named style), centre marks |
 | `tools/dimensions_edit.py` | dimensions already drawn: even spacing (DIMSPACE), breaks (DIMBREAK) |
 | `tools/annotation_scales.py` | annotative objects and their annotation scales, done by the plug-in |
-| `tools/drafting.py` | splines, multilines (MLINE), wipeouts |
+| `tools/drafting.py` | splines (through fit points, or by control points through the plug-in), editing a spline's fit points, multilines (MLINE, closed by the plug-in), wipeouts |
 | `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths |
 | `tools/patterns.py` | write custom hatch pattern (.pat) and linetype (.lin) files; the text is `acad/patterns.py` |
 | `tools/annotate.py` | multileaders, tables, revision clouds |

@@ -484,8 +484,10 @@ async def autocad_break_at_blocks(
 ) -> str:
     """Cut the lines and polylines that run through blocks, so a symbol sits in a clean gap.
 
-    Uses each block's extents (square to the drawing), plus 'gap'. Straight
-    segments only: a polyline with arcs is left alone and listed. One undo step.
+    Uses each block's extents (square to the drawing), plus 'gap'. A polyline
+    with arcs is cut too: each arc is cut where it crosses the box and keeps
+    its centre and radius, so a bend stays a bend either side of the gap. A
+    closed polyline cut once comes out as one open run. One undo step.
 
     Returns:
         JSON: {"broken": n, "new_handles", "removed", "skipped": [{handle, reason}]}
@@ -495,6 +497,8 @@ async def autocad_break_at_blocks(
           drawing reads badly: cut a clean gap round every block.
         - Use when: an import has wiring or pipework running straight through
           its devices.
+        - Use when: the run bends through the fitting on an arc - the arc is
+          cut too, and stays an arc.
     """
 
     def work() -> dict[str, Any]:
@@ -528,13 +532,11 @@ async def autocad_break_at_blocks(
                             runs = [[a, b] for a, b in parts]
                         else:
                             path = read_path(c)
-                            if any(abs(b) > 1e-12 for b in path["bulges"]):
-                                skipped.append({"handle": h, "reason": "polyline has arcs"})
+                            pieces, was_cut = geometry.bulged_outside(
+                                path["vertices"], path["bulges"], path["closed"], box)
+                            if not was_cut:
                                 continue
-                            verts = path["vertices"] + ([path["vertices"][0]] if path["closed"] else [])
-                            runs = geometry.path_outside(verts, box)
-                            if len(runs) == 1 and len(runs[0]) == len(verts):
-                                continue
+                            runs = [piece["points"] for piece in pieces]
                         broken.add(h)
                         if not runs:
                             c.Delete()
@@ -549,6 +551,9 @@ async def autocad_break_at_blocks(
                                 if path["closed"]:
                                     target.Closed = False
                                 target.Coordinates = double_array([v for p in run_pts for v in p])
+                                # Every vertex gets its bulge, 0 included: a copy carries the old ones.
+                                for j, bulge in enumerate([*pieces[i]["bulges"], 0.0]):
+                                    target.SetBulge(j, float(bulge))
                             if i:
                                 new_handles.append(str(target.Handle))
         return {"broken": len(broken), "new_handles": new_handles, "removed": removed, "skipped": skipped}
