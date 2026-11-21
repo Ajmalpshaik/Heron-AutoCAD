@@ -137,7 +137,7 @@ groups D, E and F).
 `tools/live_check.py` now also measures the rows of groups M to Z, AA to AP and RV that a script can
 judge: a count, a size, a refusal's words, a value read back with another tool. One file per area
 (`live_check_edits.py` AA, `live_check_layers.py` AB, `live_check_blocks.py` AC and Y,
-`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL, `live_check_ribbon2.py` AQ,
+`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL, `live_check_ribbon2.py` AQ, `live_check_cleanup.py` AD,
 `live_check_heron.py` M to Z, AG, AJ and RV), sharing `live_common.py`.
 - **The padlocks come first, and are only read.** Since D-59 every AutoCAD starts with them off. The
   runner reads them from the plug-in before anything else: Changes off stops it with "Turn Changes on
@@ -780,6 +780,54 @@ replaces D-35's "the style cannot be read back" (D-35's typed VSCURRENT stands).
   `autocad_preview` is the proof. Without the plug-in the field is null with the reason, and the
   tool still works.
 Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
+
+## D-85 - eTransmit is packed by Heron, into one folder, from what AutoCAD itself finds
+
+**Decided:** 2026-11-21, building issue #114. **Status:** in force.
+AutoCAD's transmittal COM library (AcETransmit) needs registering and was never tried here, so
+`autocad_etransmit` packs the drawing itself. The plug-in lists what the drawing needs (a Read
+operation, `list_dependencies`): images, PDF / DWF / DGN underlays and font files of the drawing and
+of each loaded xref, and each layout's plot style, every file found with AutoCAD's own search
+(`HostApplicationServices.FindFile`: the saved path, the drawing's folder, the support path). Xrefs,
+nested too, come from the xref tree the server already reads (D-41's `autocad_xref_tree`). The
+server then puts every file in **one folder** (or one zip) beside the drawing and writes a
+`transmittal report.txt` of what was packed and what was missing. The saved paths are not
+rewritten: AutoCAD finds an xref, image or font by its bare name in the drawing's own folder, as
+eTransmit's "Put all files in one folder" relies on. Two different files with one name: the second
+is listed as a clash, never renamed silently. Plot styles go in `PlotStyles`. The drawing is packed
+as last saved, so a drawing with unsaved changes is refused; nothing is ever written over (a second
+pack gets " (2)"). It writes files, so it needs the Publish padlock. Missing files are listed, never
+guessed.
+
+## D-84 - Overkill is worked out in Python; boundary, underlays and clips by the plug-in
+
+**Decided:** 2026-11-21, building issues #112, #104 and #118. **Status:** in force; keeps D-03 and
+D-50.
+- **Overkill** (`autocad_overkill`) reads lines, arcs, circles and polylines over COM and works out
+  in plain Python (`acad/overkill.py`, tested offline) what is a copy, what lies inside or overlaps
+  on one line or one circle, and what lies on a polyline. The tolerance never adds up from one
+  piece to the next: everything erased or merged lies within it of the kept line (or circle), and
+  the kept one is only stretched along itself (found in review: a pair-by-pair check could turn a
+  curve of short lines into one straight line). The first call lists it by handle with a `plan_id`;
+  only `confirm=true` with that `plan_id` erases and stretches, so the confirm does exactly what was
+  listed or nothing, in one undo step, and then the plug-in's erase question asks the modeller
+  (D-50), as for every erase. The oldest object (lowest handle) is the one kept. A
+  polyline is never broken or changed: Heron cannot do that in one safe step, so overlaps on
+  polylines are listed, not fixed. Typing OVERKILL was not used: its dialog and prompts cannot be
+  shown as a list first.
+- **Boundary** (`autocad_trace_boundary`) is the plug-in's `Editor.TraceBoundary`. -BOUNDARY or
+  BPOLY typed through AutoLISP or a command is **never** used: on a big plan it hung AutoCAD for
+  over 100 s (Ajmal's note). The trace is kept small: with a window AutoCAD zooms there first, the
+  objects crossing it are counted (over `most_objects`, 5,000 by default, it is refused untraced),
+  and the view is put back after. The server waits at most `timeout` seconds (60 by default) for
+  the answer, through a shorter wait on the plug-in call; a trace already running cannot be cut
+  short, which the answer says.
+- **Underlays and clips:** a raster image is attached and clipped over COM (`AddRaster`,
+  `ClipBoundary`); a PDF / DWF / DGN underlay is attached, and an xref, block or underlay clipped,
+  by the plug-in, which COM has no call for. An xref clip is XCLIP's spatial filter with the world
+  outline taken into the block's own coordinates; an underlay clip is taken into the underlay's.
+  Every outline is checked first (`acad/clip.py`): closed, at least three corners, an area, not
+  crossing itself, arcs in short steps (1/10,000 of its size).
 
 ## D-83 - Excel ranges as linked tables, table cells by address, and copying between open drawings
 

@@ -10,7 +10,7 @@ Newest first. Dates are when the change was made.
   (`made_by` says which), and over COM a busy moment after the layout is added is answered from
   the drawing read back instead of "Outcome unknown". `copy_from` copies a sheet with everything on
   it. Viewports can be **clipped** to an outline or a closed shape on the sheet, and get their
-  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**186** in all):
+  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**191** in all):
   a drawing list (number, title, scale, view) into sheets, viewports and filled title blocks, checked
   whole first, one undo step. `autocad_publish_pdf` takes a **folder** or a **list of drawings**,
   refusing an unsaved one or a missing xref by name. Title blocks go into the layout's own block;
@@ -18,6 +18,22 @@ Newest first. Dates are when the change was made.
   falls back to the active layout's block. Three new plug-in operations
   ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). `align_to_ucs` now twists the view the other way (337 for a UCS turned 23; reasoned, AF6). Live rows AF1-AF18 NOT RUN.
 
+
+- **The live-check runner covers group AD too (2026-11-21, D-118).** Overkill's list, a room traced
+  round a column, eTransmit's refusal and list: 3 rows measured, 9 with their reason (the confirm step
+  erases, the rest need files, the big plan or an eye). 197 rows measured in all, 183 with a reason.
+
+- **Cleaning up an import and working with references (2026-11-21, #112, #104, #118, #114).**
+  `autocad_overkill` finds doubled and overlapping lines, arcs and circles, lists them by handle,
+  and only with `confirm=true` erases and stretches them in one undo step, then Heron's erase
+  question asks the modeller; polylines are never broken. `autocad_attach_underlay` attaches an
+  image or a PDF / DWF / DGN underlay; `autocad_clip_reference` clips an xref, image or underlay to
+  two corners or a closed polyline. `autocad_trace_boundary` makes a closed outline round a point
+  with the plug-in's `Editor.TraceBoundary` (never -BOUNDARY or BPOLY typed), inside a window, with
+  an object limit and a timeout. `autocad_etransmit` packs the saved drawing with its xrefs, images,
+  underlays, fonts and plot styles into a zip or folder and lists what was missing (Publish). Five
+  new tools, 190 in all with main. Needs the next plug-in ([D-84](docs/DECISIONS.md), [D-85](docs/DECISIONS.md)). Live rows
+  AD1-AD12 NOT RUN.
 
 - **The live-check runner covers group AQ too (2026-11-21, D-118).** Arrays, tiled viewports,
   hyperlinks and geographic location: 6 rows measured, 8 with their reason (making an array erases

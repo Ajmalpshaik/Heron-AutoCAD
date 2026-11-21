@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (sheets by the plug-in: #64-#67, #39, #40; D-90, D-91)
 
-One new tool, `autocad_sheet_set` (**186** with the other sessions' work), and three new
+One new tool, `autocad_sheet_set` (**191** with the other sessions' work), and three new
 plug-in operations (`create_layout`, `add_viewport`, `active_sheet`); `publish_pdf` takes a list
 of drawings. `autocad_create_layout` and `autocad_add_viewport` ask the plug-in first and fall back
 to COM; viewports clip (`clip_outline`, `clip_handle`) and take an annotation scale; title blocks go
@@ -23,6 +23,18 @@ rows **AF1-AF15, AF17, AF18**. AF9 decides whether the sheet set really is one u
 which this PR flipped from the code (the old COM path too); AF10 is row D33 again.
 
 
+## Earlier - 2026-11-21 (overkill, boundary, eTransmit, underlays and clips: #112, #104, #118, #114)
+
+Five new tools, built and tested offline only: `autocad_overkill` (geometry in `acad/overkill.py`),
+`autocad_trace_boundary` (plug-in `trace_boundary`, `Editor.TraceBoundary`, never the typed
+command), `autocad_etransmit` (Publish; plug-in `list_dependencies`, packing in
+`acad/transmittal.py`), `autocad_attach_underlay` and `autocad_clip_reference` (plug-in
+`attach_underlay`, `clip_reference`; images over COM). The plug-in builds for net48, net8 and net10
+here, but nothing has run in AutoCAD: rows AD1-AD12, all NOT RUN. Versions not bumped (the parent
+does): the plug-in parts need the release after 1.7.0. D-84, D-85; known limits §35. The ribbon
+coverage page (docs/12) still lists Boundary and Overkill as gaps in its Home rows, left for the
+parent so as not to collide with the 2D-edit session's rows.
+
 ## Earlier - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
 
 Follow-up to #48 on branch `claude/plugin-events-165`. Plug-in change: `begin` answers
@@ -31,10 +43,10 @@ when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Ve
 
 ## Earlier - 2026-11-21 (the live-check runner covers the new groups, D-118)
 
-`tools/live_check.py` now measures 194 rows (128 new, in groups M-Z, AA-AP, RV) and names the
-reason for the other 174 of its groups. One file per area: `live_check_edits.py` (AA),
+`tools/live_check.py` now measures 197 rows (131 new, in groups M-Z, AA-AP, RV) and names the
+reason for the other 183 of its groups. One file per area: `live_check_edits.py` (AA),
 `live_check_layers.py` (AB), `live_check_blocks.py` (AC, Y), `live_check_render.py` (AE),
-`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_ribbon2.py` (AQ), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
+`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_ribbon2.py` (AQ), `live_check_cleanup.py` (AD), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
 a bad recorded answer into each check. Nothing has run in AutoCAD: every row is still NOT RUN.
 
 **Next (on this PC):** pull, restart Claude, press Heron, turn Changes on in Settings (Ask to Keep

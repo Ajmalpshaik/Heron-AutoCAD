@@ -17,6 +17,8 @@ namespace Heron.AutoCAD.Bridge
             ["dimension_lines"] = Risk.Read,
             ["annotation_scales"] = Risk.Read,
             ["layer_state_names"] = Risk.Read,
+            // The files a drawing needs, for eTransmit (D-85): reads only.
+            ["list_dependencies"] = Risk.Read,
             // Selects, zooms and isolates what was asked for: on screen only.
             ["show"] = Risk.View,
             ["loft"] = Risk.Change,
@@ -61,6 +63,10 @@ namespace Heron.AutoCAD.Bridge
             ["associative_array"] = Risk.Change,
             ["geo_location"] = Risk.Read,
             ["set_geo_location"] = Risk.Change,
+            // References and clean-up (D-84).
+            ["attach_underlay"] = Risk.Change,
+            ["clip_reference"] = Risk.Change,
+            ["trace_boundary"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 
