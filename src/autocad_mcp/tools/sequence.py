@@ -33,6 +33,8 @@ from pydantic import Field
 from ..core import gate
 from ..core.connection import get_doc, run
 from ..core.errors import AutocadError, com_message
+from ..core.quiet import QUIET_FIELD, quiet_text
+from ..core.quiet import quiet as quieted
 from ..core.registry import GATE_DRY_RUN, dumps, mcp, tool_errors, tool_meta
 from ..core.risk import Risk, risk_of
 
@@ -211,6 +213,7 @@ async def autocad_sequence(
             ),
         ),
     ] = False,
+    quiet: Annotated[bool, QUIET_FIELD] = False,
 ) -> str:
     """Run several AutoCAD tools in one call, in order, checked before any of them starts.
 
@@ -232,6 +235,8 @@ async def autocad_sequence(
         steps (list[dict]): the steps; see the field description.
         stop_on_error (bool): stop at the first failure (default true).
         dry_run (bool): check everything, run nothing.
+        quiet (bool): each step's answer as counts and handles only, without
+            each object's points and measurements; errors stay whole (#44).
 
     Returns:
         str: JSON: {
@@ -249,6 +254,8 @@ async def autocad_sequence(
           overrides, flatten to zero, then check the standard.
         - Use when: the drawing must not be left half-changed if an argument is
           wrong.
+        - Use when: eight dimension runs or a dozen batches in one go —
+          quiet=true, so the answer is counts and handles, not every point.
         - Don't use when: you are drawing hundreds of entities
           (autocad_batch_draw is far faster), or you need a save, an export, a
           command or AutoLISP — those are refused here by design.
@@ -289,7 +296,10 @@ async def autocad_sequence(
             continue
         text = await _call(_tool(step["tool"]), step["args"])
         ok = not str(text).startswith("Error:")
-        rows.append({**_head(step), "ok": ok, "skipped": False, "result": _payload(text)})
+        answer = _payload(text)
+        if quiet:
+            answer = quieted(answer) if isinstance(answer, dict) else quiet_text(answer)
+        rows.append({**_head(step), "ok": ok, "skipped": False, "result": answer})
         if ok:
             ran += 1
         else:

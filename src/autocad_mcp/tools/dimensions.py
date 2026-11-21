@@ -30,6 +30,8 @@ from ..acad.tables import ensure_layer
 from ..acad.units import rad
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message
+from ..core.quiet import QUIET_FIELD
+from ..core.quiet import quiet as quieted
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ._shared import (
     COORDS_OPT,
@@ -408,6 +410,7 @@ async def autocad_dimension_run(
         Field(default=False, description="Report the run it would lay out — every dimension's points, text position and value — and draw nothing."),
     ] = False,
     coords: Annotated[str, COORDS_OPT] = "world",
+    quiet: Annotated[bool, QUIET_FIELD] = False,
 ) -> str:
     """Dimension a whole run of features in one call: a chain, a baseline set, or ordinates.
 
@@ -436,6 +439,8 @@ async def autocad_dimension_run(
         space (str): 'model' or 'paper'.
         dry_run (bool): report the layout, draw nothing.
         coords (str): 'world' or 'ucs'.
+        quiet (bool): counts and handles only; "dimensions" is left out and
+            "left_out" says how many there were (#44).
 
     Returns:
         str: JSON: {
@@ -453,6 +458,8 @@ async def autocad_dimension_run(
           mode='baseline'.
         - Use when: "ordinate dimensions from the setting-out point" —
           mode='ordinate', datum the corner.
+        - Use when: many runs in one autocad_sequence — quiet=true keeps the
+          answer to counts and handles.
         - Don't use when: it is one dimension (autocad_add_dimension), or a
           radius, diameter or angle (same tool).
 
@@ -469,19 +476,22 @@ async def autocad_dimension_run(
     except ValueError as exc:
         raise AutocadError(str(exc)) from exc
 
+    shaped = quieted if quiet else (lambda result: result)
     if dry_run:
         return dumps(
-            {
-                "mode": mode,
-                "axis": axis,
-                "dry_run": True,
-                "count": len(plan),
-                "dimensions": [
-                    {**entry, "expected": round(entry["measurement"], 6)} for entry in plan
-                ],
-                "total": round(sum(e["measurement"] for e in plan if e["kind"] == "chain"), 6),
-                "hint": "Nothing was drawn. Call again with dry_run=false.",
-            }
+            shaped(
+                {
+                    "mode": mode,
+                    "axis": axis,
+                    "dry_run": True,
+                    "count": len(plan),
+                    "dimensions": [
+                        {**entry, "expected": round(entry["measurement"], 6)} for entry in plan
+                    ],
+                    "total": round(sum(e["measurement"] for e in plan if e["kind"] == "chain"), 6),
+                    "hint": "Nothing was drawn. Call again with dry_run=false.",
+                }
+            )
         )
 
     def work() -> dict[str, Any]:
@@ -559,7 +569,7 @@ async def autocad_dimension_run(
             )
         return result
 
-    return dumps(await run(work))
+    return dumps(shaped(await run(work)))
 
 
 @mcp.tool(name="autocad_add_centre_marks", **tool_meta("Add Centre Marks"))
@@ -588,6 +598,7 @@ async def autocad_add_centre_marks(
         Field(default=0.0, ge=0, description="Skip anything smaller than this, so a drawing full of tiny arcs does not fill up with marks."),
     ] = 0.0,
     dry_run: Annotated[bool, Field(default=False, description="Report what would be marked and draw nothing.")] = False,
+    quiet: Annotated[bool, QUIET_FIELD] = False,
 ) -> str:
     """Put a centre mark on every circle and arc: the cross a drawing office expects.
 
@@ -607,6 +618,8 @@ async def autocad_add_centre_marks(
         color (Optional[str | int]): colour for the marks.
         min_radius (float): skip anything smaller than this.
         dry_run (bool): report only.
+        quiet (bool): counts and the marks' handles only; "circles" is left
+            out and "left_out" says how many there were (#44).
 
     Returns:
         str: JSON: {"marked": int, "skipped": int, "created", "handles",
@@ -678,6 +691,7 @@ async def autocad_add_centre_marks(
             }
         )
 
+    shaped = quieted if quiet else (lambda result: result)
     operations: list[dict[str, Any]] = []
     for item in found:
         operations.extend(
@@ -686,14 +700,16 @@ async def autocad_add_centre_marks(
 
     if dry_run:
         return dumps(
-            {
-                "dry_run": True,
-                "marked": len(found),
-                "skipped": len(skipped),
-                "entity_count": len(operations),
-                "circles": found[:50],
-                "hint": "Nothing was drawn. Call again with dry_run=false.",
-            }
+            shaped(
+                {
+                    "dry_run": True,
+                    "marked": len(found),
+                    "skipped": len(skipped),
+                    "entity_count": len(operations),
+                    "circles": found[:50],
+                    "hint": "Nothing was drawn. Call again with dry_run=false.",
+                }
+            )
         )
 
     result = await draw_operations(operations, return_handles=True, coords="world")
@@ -702,4 +718,4 @@ async def autocad_add_centre_marks(
     result["circles"] = found[:50]
     if skipped:
         result["skipped_detail"] = skipped[:25]
-    return dumps(result)
+    return dumps(shaped(result))

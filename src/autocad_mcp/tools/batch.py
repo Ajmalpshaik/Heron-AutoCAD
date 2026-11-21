@@ -34,6 +34,8 @@ from ..acad.units import rad
 from ..core.connection import get_doc, mark_writing, require_idle, run
 from ..core.errors import AutocadError
 from ..core.gate import quiet_sender
+from ..core.quiet import QUIET_FIELD
+from ..core.quiet import quiet as quieted
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta
 from ._shared import COORDS_OPT, ucs_for
 
@@ -373,6 +375,7 @@ async def autocad_batch_draw(
         ),
     ] = True,
     coords: Annotated[str, COORDS_OPT] = "world",
+    quiet: Annotated[bool, QUIET_FIELD] = False,
 ) -> str:
     """Create many entities at once, far faster than one call per entity.
 
@@ -400,6 +403,8 @@ async def autocad_batch_draw(
         coords (str): "world" (default) or "ucs" to read every point and angle
             in the drawing's current UCS. A rectangle given in a turned UCS
             comes out turned, as a drafter would expect.
+        quiet (bool): counts and handles only (#44): the UCS it converted
+            from is named, not described. The answer is short already.
 
     Returns:
         str: JSON: {
@@ -426,7 +431,13 @@ async def autocad_batch_draw(
         - If AutoCAD rejects individual operations (locked layer, degenerate
           geometry), "failed" counts them and "created" reflects what did land.
     """
-    return dumps(await draw_operations(operations, return_handles, coords))
+    result = await draw_operations(operations, return_handles, coords)
+    if quiet:
+        result = quieted(result)
+        ucs = result.get("converted_from_ucs")
+        if isinstance(ucs, dict):
+            result["converted_from_ucs"] = ucs.get("name") or "an unnamed UCS"
+    return dumps(result)
 
 
 async def draw_operations(
