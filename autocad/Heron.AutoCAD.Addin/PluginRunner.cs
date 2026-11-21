@@ -98,6 +98,10 @@ namespace Heron.AutoCAD.Addin
                 case "super_hatch": return SuperHatch.Make(db, tr, args);
                 case "add_light": return RenderSetup.AddLight(db, tr, args);
                 case "create_material": return RenderSetup.CreateMaterial(db, tr, args);
+                case "attach_underlay": return References.AttachUnderlay(db, tr, args);
+                case "clip_reference": return References.Clip(db, tr, args);
+                case "list_dependencies": return References.Dependencies(db, tr, args);
+                case "trace_boundary": return Boundary.Trace(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

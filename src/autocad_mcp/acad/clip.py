@@ -97,9 +97,6 @@ def check(points: Sequence[Sequence[float]]) -> list[Point]:
             "Simplify the polyline, or clip to a rectangle."
         )
     size = _size(pts)
-    area = _area(pts)
-    if abs(area) <= (size * 1e-9) ** 2:
-        raise AutocadError("The clip outline encloses no area.")
     eps = (size * 1e-12) ** 2
     n = len(pts)
     for i in range(n):
@@ -109,6 +106,9 @@ def check(points: Sequence[Sequence[float]]) -> list[Point]:
                 continue
             if _segments_cross(a1, a2, pts[j], pts[(j + 1) % n], eps):
                 raise AutocadError("The clip outline crosses itself. AutoCAD clips only to an outline that does not.")
+    area = _area(pts)
+    if abs(area) <= (size * 1e-9) ** 2:
+        raise AutocadError("The clip outline encloses no area.")
     return pts if area > 0 else pts[::-1]
 
 

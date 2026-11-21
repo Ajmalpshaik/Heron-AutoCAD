@@ -12,6 +12,8 @@ namespace Heron.AutoCAD.Bridge
         private static readonly Dictionary<string, Risk> Levels = new Dictionary<string, Risk>
         {
             ["solid_topology"] = Risk.Read,
+            // The files a drawing needs, for eTransmit (D-85): reads only.
+            ["list_dependencies"] = Risk.Read,
             // Selects, zooms and isolates what was asked for: on screen only.
             ["show"] = Risk.View,
             ["loft"] = Risk.Change,
@@ -23,6 +25,10 @@ namespace Heron.AutoCAD.Bridge
             ["super_hatch"] = Risk.Change,
             ["add_light"] = Risk.Change,
             ["create_material"] = Risk.Change,
+            // References and clean-up (D-84).
+            ["attach_underlay"] = Risk.Change,
+            ["clip_reference"] = Risk.Change,
+            ["trace_boundary"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

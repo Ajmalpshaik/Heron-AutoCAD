@@ -239,7 +239,8 @@ async def autocad_overkill(
                 "handles), and call again with the same options and confirm=true once they agree."
             )
             return result
-        touched = {str(i["layer"]) for i in items if i["handle"] in {r["handle"] for r in found["erase"] + found["change"]}}
+        acting_on = {r["handle"] for r in found["erase"] + found["change"]}
+        touched = {str(i["layer"]) for i in items if i["handle"] in acting_on}
         locked = _locked(doc, touched)
         if locked:
             raise AutocadError(
