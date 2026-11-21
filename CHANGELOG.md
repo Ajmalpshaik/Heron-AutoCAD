@@ -4,6 +4,18 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Cleaning up an import and working with references (2026-11-21, #112, #104, #118, #114).**
+  `autocad_overkill` finds doubled and overlapping lines, arcs and circles, lists them by handle,
+  and only with `confirm=true` erases and stretches them in one undo step, then Heron's erase
+  question asks the modeller; polylines are never broken. `autocad_attach_underlay` attaches an
+  image or a PDF / DWF / DGN underlay; `autocad_clip_reference` clips an xref, image or underlay to
+  two corners or a closed polyline. `autocad_trace_boundary` makes a closed outline round a point
+  with the plug-in's `Editor.TraceBoundary` (never -BOUNDARY or BPOLY typed), inside a window, with
+  an object limit and a timeout. `autocad_etransmit` packs the saved drawing with its xrefs, images,
+  underlays, fonts and plot styles into a zip or folder and lists what was missing (Publish). Five
+  new tools, 190 in all with main. Needs the next plug-in ([D-84](docs/DECISIONS.md), [D-85](docs/DECISIONS.md)). Live rows
+  AD1-AD12 NOT RUN.
+
 - **The live-check runner covers group AQ too (2026-11-21, D-118).** Arrays, tiled viewports,
   hyperlinks and geographic location: 6 rows measured, 8 with their reason (making an array erases
   its sources, so Heron asks). 194 rows measured in all, 174 with a reason.

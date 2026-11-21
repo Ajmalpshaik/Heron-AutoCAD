@@ -8,7 +8,19 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
+## Latest - 2026-11-21 (overkill, boundary, eTransmit, underlays and clips: #112, #104, #118, #114)
+
+Five new tools, built and tested offline only: `autocad_overkill` (geometry in `acad/overkill.py`),
+`autocad_trace_boundary` (plug-in `trace_boundary`, `Editor.TraceBoundary`, never the typed
+command), `autocad_etransmit` (Publish; plug-in `list_dependencies`, packing in
+`acad/transmittal.py`), `autocad_attach_underlay` and `autocad_clip_reference` (plug-in
+`attach_underlay`, `clip_reference`; images over COM). The plug-in builds for net48, net8 and net10
+here, but nothing has run in AutoCAD: rows AD1-AD12, all NOT RUN. Versions not bumped (the parent
+does): the plug-in parts need the release after 1.7.0. D-84, D-85; known limits §35. The ribbon
+coverage page (docs/12) still lists Boundary and Overkill as gaps in its Home rows, left for the
+parent so as not to collide with the 2D-edit session's rows.
+
+## Earlier - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
 
 Follow-up to #48 on branch `claude/plugin-events-165`. Plug-in change: `begin` answers
 `drawingSeq`. `autocad_sequence` checks between steps (`gate.front_changed_in_job`) and stops
