@@ -137,7 +137,7 @@ groups D, E and F).
 `tools/live_check.py` now also measures the rows of groups M to Z, AA to AP and RV that a script can
 judge: a count, a size, a refusal's words, a value read back with another tool. One file per area
 (`live_check_edits.py` AA, `live_check_layers.py` AB, `live_check_blocks.py` AC and Y,
-`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL,
+`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL, `live_check_ribbon2.py` AQ,
 `live_check_heron.py` M to Z, AG, AJ and RV), sharing `live_common.py`.
 - **The padlocks come first, and are only read.** Since D-59 every AutoCAD starts with them off. The
   runner reads them from the plug-in before anything else: Changes off stops it with "Turn Changes on

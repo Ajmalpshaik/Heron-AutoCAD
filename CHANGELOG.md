@@ -4,6 +4,10 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The live-check runner covers group AQ too (2026-11-21, D-118).** Arrays, tiled viewports,
+  hyperlinks and geographic location: 6 rows measured, 8 with their reason (making an array erases
+  its sources, so Heron asks). 194 rows measured in all, 174 with a reason.
+
 - **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
   measures 122 rows of groups M to Z, AA to AP and RV as well as D, E and F (188 in all), and gives
   the other 140 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
