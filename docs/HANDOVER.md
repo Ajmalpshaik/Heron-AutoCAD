@@ -20,7 +20,7 @@ No typed commands, no plug-in change. Limits: [05 §28](05-known-limits.md#28-th
 **Next (on this PC):** pull, restart Claude (server only), then live rows AA1-AA19 in a scratch
 drawing. AA13 (does COM's Explode leave the original?) and AA14 (draw order in a drawing that has no
 table yet) are the two answers the code could not get from Autodesk's reference. Not built:
-Lengthen, and a fillet between a line and an arc.
+Lengthen, and a fillet between a line and an arc ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
 
 ## Earlier - 2026-11-21 (review fixes for the new tools, D-75)
 

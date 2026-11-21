@@ -184,7 +184,7 @@ in AutoCAD yet (NEEDS-CHECKING group AA).
 - **Shape changes for #49**: `autocad_edit_vertex` (move, add, remove a polyline vertex; move a
   line's end) keeps the bulges, as a grip drag does; `autocad_stretch` moves the points inside a
   window, moves a circle, text, block or point whole when its base point is inside, and moves
-  anything else only when it is wholly inside, listing the rest. No `Lengthen` yet.
+  anything else only when it is wholly inside, listing the rest. No `Lengthen` yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
 - **Safety:** an object on a locked layer is refused before anything is written, a failed write
   takes back the copies it made, the same object twice is refused, and a call with nothing to do
   opens no undo step (D-62). Each call is one undo step.
