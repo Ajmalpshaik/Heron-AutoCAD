@@ -86,6 +86,21 @@ def test_extents_saved_in_the_header_are_used():
                                      "from": "the file's header, as AutoCAD last saved it"}  # fmt: skip
 
 
+def test_header_extents_from_the_origin_are_used():
+    doc = ezdxf.new()
+    doc.header["$EXTMIN"], doc.header["$EXTMAX"] = (0, 0, 0), (0, 0, 0)  # a Vec3 of zeros is falsy
+    assert dxf_file.extents(doc)["from"] == "the file's header, as AutoCAD last saved it"
+
+
+def test_an_odd_file_name_never_reaches_the_converter(drawing, tmp_path, monkeypatch):
+    source = tmp_path / "M-101 [Rev A];2.dwg"
+    source.write_bytes(b"x")
+    calls: list = []
+    monkeypatch.setattr(dxf_file, "find_oda_converter", lambda: tmp_path / "oda.exe")
+    dxf_file.open_file(str(source), runner=fake_converter(drawing, calls))
+    assert calls[0][-1] == "heron-copy.dwg"
+
+
 def test_an_empty_drawing_has_no_extents(tmp_path):
     ezdxf.new().saveas(tmp_path / "empty.dxf")
     assert read(tmp_path / "empty.dxf")["extents"] is None
@@ -244,7 +259,7 @@ def test_a_dwg_is_converted_from_a_copy_and_read(drawing, tmp_path, monkeypatch,
     monkeypatch.setattr(dxf_file, "find_oda_converter", lambda: exe)
     opened = dxf_file.open_file(str(source), runner=fake_converter(drawing, calls))
     assert "M-DUCT" in [layer.dxf.name for layer in opened.doc.layers]
-    assert calls[0][0] == str(exe) and calls[0][-1] == "office.dwg"  # a .dws or .dwt goes in as .dwg
+    assert calls[0][0] == str(exe) and calls[0][-1] == "heron-copy.dwg"  # a plain name, as .dwg even for .dws / .dwt
     assert "ODA File Converter" in opened.read_by and source.read_bytes() == b"pretend DWG bytes"
     assert not Path(calls[0][1]).exists()  # the temporary folder is gone
 
@@ -520,6 +535,56 @@ def test_a_failing_converter_hands_the_dwg_to_autocad(drawing, open_drawing, mon
     monkeypatch.setattr(standards, "get_app", lambda: App())
     report = check(reference=str(ref))
     assert "ODA File Converter could not read it" in report["reference"]["note"] and "ObjectDBX" in report["reference"]["read_by"]
+
+
+def test_a_damaged_reference_is_never_a_pass(open_drawing, tmp_path):
+    # Found in review: a reference cut short loses its layers, and "nothing differs" must not be a PASS.
+    open_drawing.Layers = Collection([])
+    doc = ezdxf.new("R2018")
+    doc.layers.add("M-DUCT", color=3)
+    doc.saveas(tmp_path / "std.dxf")
+    broken = tmp_path / "broken.dxf"
+    broken.write_text((tmp_path / "std.dxf").read_text().replace("  0\nEOF\n", ""))
+    report = check(reference=str(broken), flag_extra=False)
+    assert report["findings"] and report["passed"] is False  # M-DUCT is still missing here
+    open_drawing.Layers = Collection([Item(Name="M-DUCT", Color=3, Linetype="Continuous", Lineweight=-3, LayerOn=True,
+                                           Freeze=False, Lock=False, Plottable=True)])  # fmt: skip
+    report = check(reference=str(broken), flag_extra=False)
+    assert report["passed"] is None and "recover mode" in report["reference"]["warning"]
+
+
+def test_a_reference_with_nothing_to_compare_is_not_decided(open_drawing, tmp_path):
+    ezdxf.new("R2018").saveas(tmp_path / "empty.dxf")
+    report = check(reference=str(tmp_path / "empty.dxf"), flag_extra=False)
+    assert report["passed"] is None and "holds no layers, styles or linetypes" in report["reference"]["warning"]
+
+
+def test_a_reference_table_autocad_cannot_read_stops_the_check(open_drawing, monkeypatch, tmp_path):
+    ref = tmp_path / "office.dws"
+    ref.write_bytes(b"pretend")
+    monkeypatch.setattr(standards.dxf_file, "find_oda_converter", lambda: None)
+
+    class Broken:
+        @property
+        def Count(self):
+            raise OSError("the table is damaged")
+
+    class Dbx:
+        Layers, TextStyles, DimStyles, Linetypes = Broken(), Collection([]), Collection([]), Collection([])
+
+        def Open(self, path):
+            pass
+
+    class App:
+        Version = "25.0"
+        Documents = Collection([open_drawing])
+
+        def GetInterfaceObject(self, progid):
+            return Dbx()
+
+    monkeypatch.setattr(standards, "get_app", lambda: App())
+    answer = asyncio.run(standards.autocad_check_standards(reference=str(ref)))
+    assert answer.startswith("Error:") and "could not read the layers" in answer and "Nothing was checked" in answer
 
 
 def test_rules_and_a_reference_together_name_both_sources(drawing, open_drawing):

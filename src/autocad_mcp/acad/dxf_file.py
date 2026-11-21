@@ -156,11 +156,13 @@ def convert_to_dxf(source: Path, exe: Path, work: Path, runner: Runner | None = 
 
     The converter takes folders, not files: the copy goes into work/in (as
     .dwg, which is what a .dws or .dwt is), the DXF comes out in work/out.
+    The copy gets a plain name of Heron's own: the converter reads its last
+    argument as a wildcard filter, which a name with [ ] or ; would not match.
     """
     inbox, outbox = work / "in", work / "out"
     inbox.mkdir(parents=True, exist_ok=True)
     outbox.mkdir(parents=True, exist_ok=True)
-    copy = inbox / f"{source.stem}.dwg"
+    copy = inbox / "heron-copy.dwg"
     try:
         shutil.copyfile(source, copy)
     except OSError as exc:
@@ -250,7 +252,8 @@ def open_file(path_text: str, runner: Runner | None = None) -> Opened:
     exe = find_oda_converter()
     if exe is None:
         raise AutocadError(no_dwg_reader(path))
-    with tempfile.TemporaryDirectory(prefix="heron-oda-") as work:
+    # Windows can hold a file in the folder a moment longer: a cleanup error never hides the answer.
+    with tempfile.TemporaryDirectory(prefix="heron-oda-", ignore_cleanup_errors=True) as work:
         made = convert_to_dxf(path, exe, Path(work), runner)
         _size_ok(made)
         doc, recovered = _read_dxf(made)
@@ -443,7 +446,7 @@ def extents(doc: Any) -> dict[str, Any] | None:
     """The drawing's extents: the file's own header when it holds real values, else worked out."""
     low, high = doc.header.get("$EXTMIN"), doc.header.get("$EXTMAX")
     try:
-        if low and high and all(abs(v) < 1e19 for v in (*low, *high)) and all(a <= b for a, b in zip(low, high, strict=False)):
+        if low is not None and high is not None and all(abs(v) < 1e19 for v in (*low, *high)) and all(a <= b for a, b in zip(low, high, strict=False)):
             return {"min": _point(low), "max": _point(high), "from": "the file's header, as AutoCAD last saved it"}
     except TypeError:
         pass

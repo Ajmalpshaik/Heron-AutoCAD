@@ -164,6 +164,13 @@ overwriting a teammate's file silently"). **Status:** in force. Extends [D-64](#
 If Ajmal wants it otherwise (an `.mcp.json` setting for IT to deploy, or roles inside Heron), that
 is a new decision; this one is easy to reverse, as nothing else reads the setting.
 
+**Later the same day (an independent review):** a copy is used only if it was read from the office
+folder set now (a copy from a folder set before is another office's list), and the warning names
+the file it came from; `autocad_check_folder` keeps every run's warning on its line and names the
+list it ran (`list`, `warning`); project changes are not shared while the office list cannot be
+read (they would be checked against a stand-in and stop every teammate's run); the office and
+project folder reads run off the server's main thread.
+
 ## D-92 - DXF / DWG files are read with AutoCAD closed (ezdxf, the ODA converter); standards compare with a reference drawing
 
 **Decided:** 2026-11-21, issues #71 and #69. **Status:** in force.
@@ -199,6 +206,12 @@ is a new decision; this one is easy to reverse, as nothing else reads the settin
 
 Known limits: true colours are compared by their colour number; a `.dws` read by ObjectDBX and the
 converter on a real DWG are not proven live (Group AG).
+
+**Later the same day (an independent review):** a reference read in recover mode, or one holding
+nothing beyond what every drawing has, never gives `passed: true` (it is `null`, with
+`reference.warning`); a table AutoCAD cannot read (layers, styles, linetypes) stops the check,
+naming it, instead of counting as empty; the converter gets the copy under a plain name of Heron's
+own (it reads that argument as a wildcard filter); header extents at the origin are used.
 
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 

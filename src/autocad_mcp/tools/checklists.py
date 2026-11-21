@@ -172,13 +172,23 @@ def _keep_copy(slug: str, record: dict[str, Any], source: Path) -> None:
         pass  # a copy not kept is no reason to stop a run
 
 
-def _copy(slug: str) -> dict[str, Any] | None:
+def _same_folder(a: Any, b: Any) -> bool:
+    return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
+
+
+def _copy(slug: str, folder: Path) -> dict[str, Any] | None:
+    """This PC's copy of the office list, only if it was read from this office folder.
+
+    A copy kept from an office folder set before is another office's list: never run as this one's.
+    """
     path = copies_dir() / f"{slug}.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         record = data["record"]
         checklist.validate(record["checks"])
     except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not data.get("from") or not _same_folder(os.path.dirname(str(data["from"])), folder):
         return None
     return {"record": record, "where": OFFICE_COPY, "file": str(path), "read": data.get("read", "an unknown date"),
             "from_file": data.get("from")}  # fmt: skip
@@ -211,10 +221,10 @@ def find(name: str) -> dict[str, Any]:
                     _keep_copy(slug, record, shared)
                     return {"record": record, "where": OFFICE_FOLDER, "file": str(shared), "warning": None}
         if trouble:
-            copy = _copy(slug)
+            copy = _copy(slug, folder)
             if copy:
                 copy["warning"] = (f"{trouble} This run used this PC's copy of the office list '{name}', "
-                                   f"read from the office folder on {copy['read']}.")  # fmt: skip
+                                   f"read from {copy['from_file']} on {copy['read']}.")  # fmt: skip
                 return copy
             if office_has_it:
                 # The office has its own list of that name: never run another one in its place.
@@ -277,7 +287,7 @@ def all_lists() -> dict[str, Any]:
         else:
             answer["warning"] = f"The office folder {folder} could not be reached: the office lists below are this PC's copies."
             for path in sorted(copies_dir().glob("*.json")) if copies_dir().is_dir() else []:
-                copy = _copy(path.stem)
+                copy = _copy(path.stem, folder)
                 if copy:
                     rows[path.stem] = {"name": copy["record"]["name"], "checks": len(copy["record"]["checks"]),
                                        "where": OFFICE_COPY, "file": copy["file"], "read": copy["read"]}  # fmt: skip
@@ -696,13 +706,13 @@ async def autocad_checklist(
         return dumps({"deleted": name, "where": THIS_PC})
     if action == "project":
         drawing = await run(lambda: _drawing_of(get_doc()))
-        record = await asyncio.to_thread(load, name)
+        record = await asyncio.to_thread(load, name)  # the office folder and the project folder can be slow
         if changes is None:
-            info = project_changes(drawing, record["name"])
+            info = await asyncio.to_thread(project_changes, drawing, record["name"])
             return dumps({"project": info["project"], "checklist": name, "changes": info["changes"],
                           "file": info["file"], "from": info["from"], **({"warning": info["warning"]} if info.get("warning") else {}),
                           "project_may_change": list(checklist.PROJECT_MAY_CHANGE)})  # fmt: skip
-        return dumps(save_project_changes(drawing, record["name"], changes))
+        return dumps(await asyncio.to_thread(save_project_changes, drawing, record["name"], changes))
 
     report, _drawing = await run_list(name, max_entities)
     report["save_report"] = "autocad_checklist_report saves this run as Excel and HTML next to the drawing (Publish padlock)."

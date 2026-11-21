@@ -135,3 +135,11 @@ def compare(here: dict[str, list[dict]], standard: dict[str, list[dict]], flag_e
 def counted(tables: dict[str, list[dict]]) -> dict[str, int]:
     """How many usable names each table holds: what was compared."""
     return {kind: sum(1 for row in tables.get(kind) or [] if usable(row.get("name"))) for kind in KINDS}
+
+
+def comparable(tables: dict[str, list[dict]]) -> dict[str, int]:
+    """How many names each table holds beyond the ones every drawing has: what a standard really asks."""
+    return {
+        kind: sum(1 for row in tables.get(kind) or [] if usable(row.get("name")) and str(row["name"]).lower() not in ALWAYS_THERE[kind])
+        for kind in KINDS
+    }

@@ -82,8 +82,9 @@ def write_over(path: Path, content: dict[str, Any], before: tuple[int, int] | No
         os.replace(temp, path)
     except PermissionError:
         raise AutocadError(
-            f"{path.parent} is read-only for you, so nothing was written. Whoever keeps the office's lists "
-            "can put it there, or give you write access to that folder."
+            f"{path} could not be written: the folder is read-only for you, or the file is open in another "
+            "program. Nothing was written. Close it there and try again; for a read-only folder, whoever keeps "
+            "the office's lists can put it there, or give you write access."
         ) from None
     except OSError as exc:
         raise AutocadError(f"{path} could not be written ({exc}). Nothing was written.") from None
@@ -178,7 +179,14 @@ def share_project_changes(drawing: str, name: str, changes: list[dict[str, Any]]
     target = store.shared_project_file(drawing)
     if target is None:
         raise AutocadError("This drawing is not saved yet, so it has no project folder. Save it first; nothing was written.")
-    record = store.load(name)
+    found = store.find(name)
+    if found.get("warning"):
+        # Changes checked against a stand-in list would stop every teammate's run ("no longer fit").
+        raise AutocadError(
+            f"{found['warning']} Heron cannot check these changes against the office list now, so nothing was "
+            "written. Try again when the office folder answers."
+        )
+    record = found["record"]
     office = checklist.validate(record.get("checks", []))
     key = store._list_key(record["name"])
     project = project_of(drawing)

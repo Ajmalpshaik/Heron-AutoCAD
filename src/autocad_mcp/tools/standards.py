@@ -155,11 +155,18 @@ def _get(obj: Any, attr: str, default: Any = None) -> Any:
         return default
 
 
-def _items(collection: Any) -> list[Any]:
+def _items(collection: Any, what: str | None = None) -> list[Any]:
+    """Every item; with ``what``, a table that cannot be read stops the check, naming it.
+
+    An empty list for a table that failed to read would turn "nothing could
+    be read" into "nothing is required", a silent pass (D-64).
+    """
     try:
         return [collection.Item(i) for i in range(collection.Count)]
-    except BaseException:  # noqa: BLE001
-        return []
+    except BaseException as exc:  # noqa: BLE001
+        if what is None:
+            return []
+        raise AutocadError(f"AutoCAD could not read the {what} ({com_message(exc)}). Nothing was checked.") from exc
 
 
 def com_tables(doc: Any, layers: list[dict] | None = None) -> dict[str, list[dict]]:
@@ -169,7 +176,7 @@ def com_tables(doc: Any, layers: list[dict] | None = None) -> dict[str, list[dic
     same four collections. Only reads.
     """
     styles = []
-    for style in _items(doc.TextStyles):
+    for style in _items(doc.TextStyles, "text styles"):
         family = ""
         try:
             family = str(style.GetFont()[0] or "")
@@ -186,12 +193,12 @@ def com_tables(doc: Any, layers: list[dict] | None = None) -> dict[str, list[dic
             "oblique": round(math.degrees(float(oblique or 0.0)), 6),
         })  # fmt: skip
     return {
-        "layers": layers if layers is not None else [describe_layer(layer) for layer in _items(doc.Layers)],
+        "layers": layers if layers is not None else [describe_layer(layer) for layer in _items(doc.Layers, "layers")],
         "text_styles": styles,
-        "dim_styles": [{"name": str(_get(style, "Name", "") or "")} for style in _items(doc.DimStyles)],
+        "dim_styles": [{"name": str(_get(style, "Name", "") or "")} for style in _items(doc.DimStyles, "dimension styles")],
         "linetypes": [
             {"name": str(_get(lt, "Name", "") or ""), "description": str(_get(lt, "Description", "") or "")}
-            for lt in _items(doc.Linetypes)
+            for lt in _items(doc.Linetypes, "linetypes")
         ],
     }
 
@@ -222,7 +229,7 @@ async def _reference_from_file(path: str) -> tuple[dict[str, Any] | None, str | 
         if is_dxf:
             raise
         return None, f"The ODA File Converter could not read it ({exc}), so AutoCAD read it."
-    return {"tables": dxf_file.tables(opened.doc), "read_by": opened.read_by}, None
+    return {"tables": dxf_file.tables(opened.doc), "read_by": opened.read_by, "recovered": opened.recovered}, None
 
 
 def _reference_from_autocad(path: str) -> dict[str, Any]:
@@ -380,6 +387,18 @@ async def autocad_check_standards(
                 report["reference"]["note"] = found["note"]
             if found["reference"]:
                 report["reference"]["saved_only"] = dxf_file.SAVED_ONLY
+            # A reference that was damaged, or holds nothing to compare, never gives a PASS (D-64).
+            doubts = []
+            if standard.get("recovered"):
+                doubts.append(f"The reference file has damage: ezdxf's recover mode put {standard['recovered']} "
+                              "problem(s) right while reading it, so part of it may be missing.")  # fmt: skip
+            if not any(standard_compare.comparable(standard["tables"]).values()):
+                doubts.append("The reference holds no layers, styles or linetypes beyond the ones every drawing has.")
+            if doubts:
+                report["reference"]["warning"] = " ".join(doubts)
+                if report["passed"]:
+                    report["passed"] = None
+                    report["reference"]["warning"] += " Nothing was found to differ, but that is not decided."
         if capped:
             report["warning"] = f"Only the first {max_entities} objects were read; raise max_entities to read more."
             if report["passed"]:

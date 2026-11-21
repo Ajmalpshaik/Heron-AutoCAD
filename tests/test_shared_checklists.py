@@ -139,8 +139,65 @@ def test_an_unreachable_office_folder_uses_this_pcs_copy_and_says_so(office, dra
     monkeypatch.setattr(checklists, "reachable", lambda folder, wait=0: False)
     report = json.loads(call(action="run", name="before issue"))
     assert report["lists"]["office_from"] == "this PC's copy of the office list"
-    assert "could not be reached" in report["warning"] and "read from the office folder on" in report["warning"]
+    assert "could not be reached" in report["warning"] and f"read from {office / 'before-issue.json'} on" in report["warning"]
     assert {c["id"] for c in report["checks_used"]} == {"nothing_on_layer_0", "xrefs_found"}
+
+
+def test_a_copy_from_an_office_folder_set_before_is_never_run(office, drawing, monkeypatch, tmp_path):
+    # Found in review: folder A's copy must not stand in for folder B's list.
+    put(office, "mep", OFFICE_CHECKS)
+    call(action="run", name="mep")  # a copy of A's list is kept
+    other = tmp_path / "T-drive" / "Heron"
+    other.mkdir(parents=True)
+    checklists.set_office_folder(str(other))
+    monkeypatch.setattr(checklists, "reachable", lambda folder, wait=0: False)
+    answer = call(action="run", name="mep")
+    assert answer.startswith("Error:") and "no check list called 'mep'" in answer
+
+
+def test_a_folder_check_keeps_each_runs_warning_and_names_the_list():
+    from autocad_mcp.acad import folder_check
+
+    report = {"verdict": "PASS", "coverage": "1 of 1 decided, 0 no data, 0 not run", "results": [],
+              "warning": "The office folder S:\\Heron could not be reached.",
+              "lists": {"project_file": "D:\\Job\\Heron check list changes.json"}}  # fmt: skip
+    line = folder_check.short(report, "M-101.dwg")
+    assert line["warning"] == report["warning"] and line["project_changes"].endswith("changes.json")
+    assert "warning" not in folder_check.short({**report, "warning": None}, "M-101.dwg")
+
+
+def test_the_folder_check_answer_says_which_list_ran(office, monkeypatch, tmp_path):
+    from autocad_mcp.tools import check_folder
+
+    jobs = tmp_path / "issue"
+    jobs.mkdir()
+    (jobs / "A-101.dwg").write_bytes(b"x")
+    monkeypatch.setattr(checklists, "reachable", lambda folder, wait=0: False)
+    warning = "The office folder could not be reached. This PC's own list of that name was used."
+
+    async def run_list(name, most, doc_of=None):
+        return {"verdict": "PASS", "coverage": "1 of 1 decided", "results": [], "warning": warning}, "A-101.dwg"
+
+    async def now(fn):
+        return fn()
+
+    monkeypatch.setattr(check_folder, "run", now)
+    monkeypatch.setattr(check_folder, "_active", lambda: None)
+    monkeypatch.setattr(check_folder, "_open_read_only", lambda path: (object(), False))
+    monkeypatch.setattr(check_folder, "_back_to", lambda original: None)
+    monkeypatch.setattr(checklists, "run_list", run_list)
+    answer = json.loads(asyncio.run(check_folder.autocad_check_folder(folder=str(jobs))))
+    assert answer["worst"] == "PASS" and answer["drawings"][0]["warning"] == warning
+    assert answer["list"] == {"file": "ships with Heron", "from": "ships with Heron"}
+    assert "could not be reached" in answer["warning"]
+
+
+def test_project_changes_are_not_shared_against_a_stand_in_list(office, drawing, monkeypatch):
+    # Found in review: with the office folder unreachable the changes cannot be checked against its list.
+    monkeypatch.setattr(checklists, "reachable", lambda folder, wait=0: False)
+    answer = shared(share="project_changes", name="before issue", changes=[{"id": "xrefs_found", "on": False}])
+    assert answer.startswith("Error:") and "cannot check these changes against the office list" in answer
+    assert not (drawing.parent / checklists.PROJECT_FILE).exists()
 
 
 def test_an_unreachable_office_folder_with_no_copy_says_which_list_ran(office, drawing, monkeypatch):
@@ -256,7 +313,8 @@ def test_a_read_only_office_folder_says_who_can_change_it(office, monkeypatch):
 
     monkeypatch.setattr(share.os, "replace", refuse)
     answer = shared(share="office_list", name="before issue")
-    assert answer.startswith("Error:") and "read-only for you" in answer and not list(office.glob("*.json"))
+    assert answer.startswith("Error:") and "read-only for you, or the file is open in another program" in answer
+    assert not list(office.glob("*.json"))
     assert not list(office.glob(".*heron-tmp"))
 
 
