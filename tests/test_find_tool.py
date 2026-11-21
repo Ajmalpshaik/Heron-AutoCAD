@@ -113,7 +113,8 @@ CASES = [
     ("copy this floor up 12 times at 3600", "autocad_transform_3d"),
     ("what materials does this drawing have", "autocad_list_materials"),
     ("make those beams look like steel", "autocad_apply_material"),
-    ("render this view for the client", "autocad_render"),
+    # autocad_render was removed (D-87, #158): a render is set up, then the modeller presses Render.
+    ("render this view for the client", "autocad_add_camera_view"),
     ("run that duct section along the route I drew", "autocad_extrude_profile"),
     ("a 400 x 200 oval duct standing up", "autocad_add_solid"),
     # The drafting objects added on 2026-10-28.
@@ -153,6 +154,30 @@ CASES = [
     ("I filled in the tags in the Excel, put them back in the drawing", "autocad_apply_attribute_sheet"),
     ("check every drawing in the issue folder before we send it", "autocad_check_folder"),
     ("show me what you are doing in a window beside AutoCAD", "autocad_companion"),
+    # Layers and annotation (D-80, D-81).
+    ("save the layers as they are now as a layer state", "autocad_layer_states"),
+    ("put the layers back to the ISSUE layer state", "autocad_layer_states"),
+    ("isolate the duct layers", "autocad_isolate_layers"),
+    ("bring all the layers back after isolating", "autocad_isolate_layers"),
+    ("merge the old duct layer into M-DUCT", "autocad_merge_layers"),
+    ("space these stacked dimensions evenly", "autocad_space_dimensions"),
+    ("break the dimensions where the pipes cross them", "autocad_break_dimensions"),
+    ("add the 1:100 scale to these notes", "autocad_annotation_scales"),
+    ("which annotation scales does this note have", "autocad_list_annotation_scales"),
+    # Setting a render up (2026-11-21, #59-#63): none of these renders.
+    ("put a camera in the living room corner with a 24 mm lens", "autocad_add_camera_view"),
+    ("set the sun for Doha at 10 in the morning on 21 June", "autocad_set_sun"),
+    ("which lights are on in the villa", "autocad_list_lights"),
+    ("night render: sun off and all the downlights on", "autocad_switch_lights"),
+    ("the render is too dark, change the exposure", "autocad_set_render_exposure"),
+    # Blocks, attributes and tables (D-82, D-83; issues #115, #117, #106).
+    ("make a tag block with a TAG attribute", "autocad_make_block"),
+    ("I added an attribute to the block, update all the inserts", "autocad_sync_attributes"),
+    ("attsync the title block", "autocad_sync_attributes"),
+    ("put the pump schedule from the Excel file on the sheet", "autocad_table_from_excel"),
+    ("the schedule changed in excel, update the table", "autocad_update_table_links"),
+    ("change the value in cell B3 of that table", "autocad_set_table_cells"),
+    ("copy the pump skid from the other open drawing into this one", "autocad_copy_from_drawing"),
 ]
 
 def entries() -> list[Entry]:

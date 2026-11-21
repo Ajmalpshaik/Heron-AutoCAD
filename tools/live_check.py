@@ -1228,12 +1228,13 @@ async def f21_a_material_skips_what_it_cannot_show(ctx: Context) -> str:
     return f"'{name}' on a line was skipped and reported, not silently applied"
 
 
-async def f23_a_sequence_cannot_reach_the_renderer(ctx: Context) -> str:
+async def f23_a_sequence_cannot_reach_an_admin_tool(ctx: Context) -> str:
+    # Was autocad_render, removed on 2026-11-21 (D-87, #158); any Admin tool proves the ceiling.
     message = refusal(await sequence.autocad_sequence(steps=[
-        {"tool": "autocad_render", "args": {"output_path": "C:/Temp/lc.png"}}
+        {"tool": "autocad_run_lisp", "args": {"expression": "(+ 1 2)"}}
     ]))
     expect("admin" in message.lower(), f"refused for the wrong reason: {message[:140]}")
-    return "autocad_render is above the sequence ceiling, as Admin should be"
+    return "autocad_run_lisp is above the sequence ceiling, as Admin should be"
 
 
 # ---------------------------------------------------------------------------
@@ -1319,7 +1320,7 @@ CHECKS: tuple[Check, ...] = (
     Check("F19", "F", "an unknown material is refused with the real list",
           f19_an_unknown_material_is_refused_with_the_real_list),
     Check("F21", "F", "a material skips what it cannot show", f21_a_material_skips_what_it_cannot_show),
-    Check("F23", "F", "a sequence cannot reach the renderer", f23_a_sequence_cannot_reach_the_renderer),
+    Check("F23", "F", "a sequence cannot reach an Admin tool", f23_a_sequence_cannot_reach_an_admin_tool),
 )
 
 # Rows the register holds that only an eye can answer, said plainly rather than
@@ -1350,7 +1351,7 @@ BY_EYE: dict[str, str] = {
     "F7": "a diagonal cut is judged by looking at the face it leaves",
     "F18": "needs a drawing with materials already in it, and a look at the counts",
     "F20": "whether it looks like steel is a judgement, not a measurement",
-    "F22": "a render has to be looked at, and compared with one done by hand",
+    "F22": "autocad_render was removed on 2026-11-21 (D-87, #158), so there is nothing to run",
 }
 
 

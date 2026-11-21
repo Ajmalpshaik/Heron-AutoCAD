@@ -11,16 +11,74 @@
 ## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
-Eleven new tools in `tools/edit2d.py` (**153** tools): trim / extend, fillet / chamfer, break, join,
-edit a vertex, stretch, explode, draw order, match properties, list groups, group. Lineweight and
-transparency on `autocad_modify_entity`. The geometry is plain Python in `acad/edit2d.py`
+Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /
+extend, fillet / chamfer, break, join, edit a vertex, stretch, explode, draw order, match
+properties, list groups, group. Lineweight and transparency on `autocad_modify_entity`. The geometry is plain Python in `acad/edit2d.py`
 (`tests/test_edit2d_geometry.py`); the tools against fake COM in `tests/test_edit2d_tools.py`.
-No typed commands, no plug-in change. Limits: [05 §28](05-known-limits.md#28-the-everyday-2d-edits-have-their-own-limits).
+No typed commands, no plug-in change. Limits: [05 §29](05-known-limits.md#29-the-everyday-2d-edits-have-their-own-limits).
 
 **Next (on this PC):** pull, restart Claude (server only), then live rows AA1-AA19 in a scratch
 drawing. AA13 (does COM's Explode leave the original?) and AA14 (draw order in a drawing that has no
 table yet) are the two answers the code could not get from Autodesk's reference. Not built:
 Lengthen, and a fillet between a line and an arc ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
+
+## Earlier - 2026-11-21 (`autocad_render` removed, #158)
+
+Ajmal had the parent session decide #158, and it decided: remove `autocad_render`. His rule is that
+Heron never runs the render (`-render` waits on prompts and can stall AutoCAD). Tool, level, preset
+and size tables are gone: **158** tools. Docs: D-87 (an added note) and D-33's status, tools
+reference, known limits §22, ribbon coverage "Render" row; live row F22 marked removed, F23 now uses
+`autocad_run_lisp`; the finder phrase "render this view for the client" now finds
+`autocad_add_camera_view` ("Add A Camera View For A Render"). Server only: restart Claude after
+pulling.
+
+## Earlier - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
+
+Seven new tools (**159** with the block, table and render tools): `autocad_layer_states`, `autocad_isolate_layers`,
+`autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,
+`autocad_annotation_scales`, `autocad_list_annotation_scales`; `annotative=true` on `add_text`,
+`add_mtext`, `add_dimension`, `dimension_run`, `add_multileader`; `dim_style` on
+`dimension_run`; `autocad_list_layers` lists the layer states. Six new plug-in operations
+(`layer_state`, `layer_state_names`, `dimension_lines`, `move_dimension_lines`,
+`annotation_scales`, `set_annotation_scales`), checked against Autodesk's reference assemblies and
+compiled for all three builds; the plug-in version is not bumped here (the parent does it).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then
+live rows **AB1-AB11**. AB1 (the 1:5 style size) and AB9 (what height an annotative text gets)
+decide whether the two size rules in D-80 / D-81 hold.
+
+## Earlier - 2026-11-21 (setting a render up from the chat, #59-#63, D-86 / D-87)
+
+Five new tools (**152** with the blocks and tables work merged first) and five new plug-in operations, built and tested offline in one PR:
+`autocad_add_camera_view` (a view record with perspective and a lens, never DVIEW),
+`autocad_set_sun` (date and time on the model viewport's sun through the plug-in; LATITUDE,
+LONGITUDE, TIMEZONE and SUNSTATUS over COM), `autocad_list_lights` and `autocad_switch_lights`
+(lights in model space and in light blocks; the sun and DEFAULTLIGHTING), and
+`autocad_set_render_exposure` (EXPVALUE / EXPWHITEBALANCE). `autocad_set_3d_view` reads the
+visual style back (`visual_style_found`). **None of these tools renders**: Ajmal presses Render;
+whether `autocad_render` (Admin) stays is Ajmal's call, issue **#158**. An independent review found
+six real problems before merging, all fixed with tests (stale sun on / off, a year refused only
+after the place was set, TIMEZONE codes like 9031, a style reading taken as a failure, no warning
+for 2D Wireframe, a layout view replaceable). The
+add-in compiles for all three builds; versions not bumped (the parent does).
+**Next (on this PC, AutoCAD closed):** build and install the plug-in, restart Claude, then live
+rows **AE1-AE14**. AE14 decides the exposure route: if 2027 has no EXPVALUE, the ROADMAP item for
+the viewport's `PhotographicExposureParameters` is next.
+
+## Earlier - 2026-11-21 (blocks, attributes and tables: #115, #117, #106; D-82, D-83)
+
+Branch `claude/blocks-tables`. Five new tools (**147**): `autocad_sync_attributes` (ATTSYNC),
+`autocad_table_from_excel`, `autocad_update_table_links`, `autocad_set_table_cells`,
+`autocad_copy_from_drawing`; `autocad_make_block` takes `attributes`. Three new plug-in operations
+(`BlockAttributes.cs`, `ExcelTables.cs`): `sync_attributes`, `excel_table`, `update_table_links`.
+The .NET calls were checked against Autodesk's reference packages for 2021, 2025 and 2027 and build
+for all three with no warning; none has run in AutoCAD. Planning is offline and tested
+(`acad/block_attributes.py`, `acad/table_cells.py`, `acad/drawing_copy.py`). Versions not bumped
+(the parent session does it).
+
+**Next (on this PC, AutoCAD closed):** pull, `tools/build_plugin.py` + `tools/install_plugin.py`,
+restart Claude; live rows **AC1-AC16**. AC7 first: whether AutoCAD's data link needs Excel
+installed, and whether the connection string `file!sheet!range` is read as hoped.
 
 ## Earlier - 2026-11-21 (server core 2: #42, #44, #46, #47; D-76, D-77)
 

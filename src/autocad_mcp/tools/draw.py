@@ -28,6 +28,7 @@ from ._shared import (
     created_payload,
     point,
 )
+from .annotation_scales import ANNOTATIVE_OPT, make_new_annotative, require_plugin
 
 # ---------------------------------------------------------------------------
 # Linework
@@ -597,6 +598,7 @@ async def autocad_add_text(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """Place a single line of text.
 
@@ -611,10 +613,13 @@ async def autocad_add_text(
         layer (Optional[str]): Target layer, created if missing.
         color (Optional[str | int]): Colour name or ACI number.
         space (str): "model" or "paper".
+        annotative (bool): make it annotative at the current annotation scale.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "text",
              "layer": str, "text": str, "height": float}
+             With annotative: also "annotative", "annotation_scales" and
+             "paper_height" (the height on paper at the current scale).
 
     Examples:
         - Use when: "write GROUND FLOOR at 0,5000, 200 high".
@@ -622,6 +627,9 @@ async def autocad_add_text(
           autocad_add_mtext.
     """
     aci = to_aci(color)
+
+    if annotative:
+        require_plugin("Making text annotative")
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -633,7 +641,8 @@ async def autocad_add_text(
             if rotation:
                 entity.Rotation = rad(rotation)
             notes = apply_properties(doc, entity, layer, aci, None)
-        return created_payload(entity, notes, text=text, height=float(height))
+            extra = make_new_annotative([str(entity.Handle)]) if annotative else {}
+        return created_payload(entity, notes, text=text, height=float(height), **extra)
 
     return dumps(await run(work))
 
@@ -671,6 +680,7 @@ async def autocad_add_mtext(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """Place a wrapping block of multiline text.
 
@@ -686,16 +696,22 @@ async def autocad_add_mtext(
         layer (Optional[str]): Target layer, created if missing.
         color (Optional[str | int]): Colour name or ACI number.
         space (str): "model" or "paper".
+        annotative (bool): make it annotative at the current annotation scale.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "mtext",
              "layer": str, "height": float, "width": float}
+             With annotative: also "annotative", "annotation_scales" and
+             "paper_height".
 
     Examples:
         - Use when: "put these four notes in a 3000 wide block of text".
         - Don't use when: it is one short line - autocad_add_text is lighter.
     """
     aci = to_aci(color)
+
+    if annotative:
+        require_plugin("Making text annotative")
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -708,7 +724,8 @@ async def autocad_add_mtext(
             if rotation:
                 entity.Rotation = rad(rotation)
             notes = apply_properties(doc, entity, layer, aci, None)
-        return created_payload(entity, notes, height=float(height), width=float(width))
+            extra = make_new_annotative([str(entity.Handle)]) if annotative else {}
+        return created_payload(entity, notes, height=float(height), width=float(width), **extra)
 
     return dumps(await run(work))
 
@@ -782,6 +799,7 @@ async def autocad_add_dimension(
     ] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     space: Annotated[str, SPACE_OPT] = "model",
+    annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """Add a dimension annotating a distance, radius, diameter or angle.
 
@@ -798,10 +816,13 @@ async def autocad_add_dimension(
         text_override (Optional[str]): Custom text; "<>" embeds the value.
         layer (Optional[str]): Target layer, created if missing.
         space (str): "model" or "paper".
+        annotative (bool): make it annotative at the current annotation scale;
+            its size then comes from the scale, not from DIMSCALE.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "type": "dimension",
              "layer": str, "measurement": float, "dimension_type": str}
+             With annotative: also "annotative" and "annotation_scales".
 
     Examples:
         - Use when: "dimension the wall from 0,0 to 5000,0" ->
@@ -814,6 +835,9 @@ async def autocad_add_dimension(
         - Names the specific missing argument when a dimension type needs a
           point that was not supplied.
     """
+
+    if annotative:
+        require_plugin("Making a dimension annotative")
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -871,14 +895,25 @@ async def autocad_add_dimension(
                 entity.TextOverride = text_override
             # A dimension made over COM ignores the DIMSCALE override, so its
             # text and arrows come out at plain style size (tiny in a 1:10 mm
-            # detail, seen live 2026-10-26). Give it the drawing's DIMSCALE.
-            try:
-                scale = float(doc.GetVariable("DIMSCALE") or 0.0)
-                if scale > 0:
-                    entity.ScaleFactor = scale
-            except Exception:  # noqa: BLE001 - keep the dimension at its style size
-                pass
+            # detail, seen live 2026-10-26). Give it the drawing's DIMSCALE,
+            # unless it is annotative: its scales size it then (D-81).
+            def give_dimscale() -> bool:
+                try:
+                    scale = float(doc.GetVariable("DIMSCALE") or 0.0)
+                    if scale > 0:
+                        entity.ScaleFactor = scale
+                        return True
+                except Exception:  # noqa: BLE001 - keep the dimension at its style size
+                    pass
+                return False
+
+            if not annotative:
+                give_dimscale()
             notes = apply_properties(doc, entity, layer, None, None)
+            extra = make_new_annotative([str(entity.Handle)]) if annotative else {}
+            if extra.get("not_annotative") and give_dimscale():
+                # Not annotative after all: sized by DIMSCALE as any other, never left tiny.
+                extra["warning"] += " It was given the drawing's DIMSCALE instead."
 
         info = describe(entity)
         return created_payload(
@@ -886,6 +921,7 @@ async def autocad_add_dimension(
             notes,
             measurement=info.get("measurement"),
             dimension_type=dimension_type,
+            **extra,
         )
 
     return dumps(await run(work))

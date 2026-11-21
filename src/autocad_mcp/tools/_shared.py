@@ -177,10 +177,12 @@ def created_payload(
     except Exception:  # noqa: BLE001 - any failure to read back is the finding
         payload["verified"] = False
     if not payload["verified"]:
-        payload["warning"] = (
+        unread = (
             f"The new object {payload['handle']} could not be read back from the "
             "drawing. Check it with autocad_get_entity before building on it."
         )
+        # Beside a warning the tool already gave (one saying it is not annotative), not over it.
+        payload["warning"] = f"{payload['warning']} {unread}" if payload.get("warning") else unread
     return payload
 
 
@@ -205,6 +207,20 @@ def in_plugin(operation: str, args: dict[str, Any], what: str, *, changes: bool 
     if changes:
         mark_writing()
     return runner(operation, {key: value for key, value in args.items() if value is not None})
+
+
+def plugin_read(operation: str, args: dict[str, Any] | None = None) -> tuple[dict[str, Any] | None, str | None]:
+    """A read the plug-in does (D-40), or None and why it could not be had. Never raises.
+
+    For a tool whose own work is done, that only wants to report what it
+    found (the visual style after setting it, D-86).
+    """
+    if plugin_runner() is None:
+        return None, "Heron's plug-in is not in this job (the server runs with --no-bridge)."
+    try:
+        return in_plugin(operation, args or {}, "Reading it", changes=False), None
+    except Exception as exc:  # noqa: BLE001 - the read is extra; its failure is said, not raised
+        return None, str(exc)
 
 
 def plugin_created(doc: Any, report: dict[str, Any]) -> dict[str, Any]:

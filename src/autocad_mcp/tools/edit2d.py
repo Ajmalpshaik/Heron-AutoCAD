@@ -659,7 +659,7 @@ async def autocad_break_curve(
     ] = None,
     coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
-    """Break one object at a point (two pieces, no gap), or take out the part between two points.
+    """Break a line, arc, circle or polyline at a point (two pieces, no gap), or take out the part between two points.
 
     A closed polyline broken at one point opens there; a circle needs two
     points and becomes an arc (the circle is erased, so Heron asks the modeller
@@ -672,10 +672,12 @@ async def autocad_break_curve(
     Examples:
         - Use when: "split that pipe at the tee so I can put it on another
           layer" -> point at the tee.
+        - Use when: "break this line at a point" / "cut the polyline in two here".
         - Use when: "take 300 out of that line either side of the door" ->
           point and second_point.
         - Don't use when: the gap is round blocks sitting on the line - use
-          autocad_break_at_blocks; or you want it shorter at an end - use
+          autocad_break_at_blocks; a dimension crosses it - use
+          autocad_break_dimensions; or you want it shorter at an end - use
           autocad_trim_extend.
     """
 

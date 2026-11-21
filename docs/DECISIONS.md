@@ -130,6 +130,229 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
+
+**Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
+change DEFAULTLIGHTING behind the modeller's back" stands: only `autocad_switch_lights` changes it,
+when asked in words. **None of these tools renders** (Ajmal's rule): they set lights, sun and
+exposure, and Ajmal presses Render. `autocad_render` (Admin, types `-render`) is still on main as
+the one exception; whether it stays is Ajmal's decision (#158).
+- **List** (`autocad_list_lights`, plug-in `list_lights`, Read), like the Lights in Model palette:
+  every light in model space, then in each block definition (not layouts, not xrefs), with handle,
+  name, kind, on or off, intensity and its unit, Kelvin, layer, position, and for a light in a block
+  the block's name and its number of inserts. The same answer gives the sun (on, date, time, place,
+  and azimuth and altitude as AutoCAD gives them, their unit still to be checked), DEFAULTLIGHTING,
+  LIGHTINGUNITS and the exposure, and says why a render may come out dark.
+- **Switch** (`autocad_switch_lights`, plug-in `switch_lights`, Change): a light by handle, else
+  every light of that name (a light inside a block definition repeats in each block), or all of
+  them. One name not found refuses the whole switch and lists the names there are, so nothing is
+  half done. A light in a block definition switches in every insert, which is what a light block is
+  for. The sun (SUNSTATUS) and default lighting (DEFAULTLIGHTING) are plain variables written over
+  COM, default lighting first, so the sun goes on in a viewport that already shows user lighting.
+  If AutoCAD still asks its viewport lighting question, the dialog watch (D-66) closes it and names
+  it; that is a live row.
+- **Exposure** (#62, `autocad_set_render_exposure`, Change): the LOGEXP... variables belonged to
+  the old renderer and are gone in 2027. The current renderer's Exposure (EV, -6 to 21, lower is
+  brighter) and White balance (1000-20000 K) are documented as the variables EXPVALUE and
+  EXPWHITEBALANCE (Autodesk help 2016-2023), so the tool writes those over COM, in the type each
+  already holds, and reads them back. If this AutoCAD does not answer for one, nothing changes and
+  the answer names the Render Environment & Exposure palette (RENDEREXPOSURE): known limit 22. The
+  .NET API also has a per-viewport `PhotographicExposureParameters` (Exposure, WhitePoint), and the
+  palette's own data class holds the current viewport's tone settings: that is the route to try if
+  the variables turn out gone (ROADMAP), not built now, as which of the two the renderer reads is not
+  proven.
+- **Added 2026-11-21, `autocad_render` removed (#158):** Ajmal asked the parent session to decide
+  ("What is the best thing you can decide that one"), and it decided to remove the tool. His rule is
+  that Heron never runs the render; `-render` waits on prompts and can stall AutoCAD, and a scripted
+  render has been reported to drop objects; an Admin-only exception would still let a chat hang
+  AutoCAD with the Admin padlock on. So the tool, its level and its preset and size tables are gone
+  (one tool fewer), and Heron has no tool that renders: it sets the camera, sun, lights and exposure,
+  and the modeller presses Render. `autocad_preview` stays for a picture to look at. Live row F22 is
+  marked removed; F23 proves the sequence ceiling with `autocad_run_lisp` instead. This supersedes
+  D-33's "`autocad_render` drives that".
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
+
+## D-86 - A camera view is a saved view with perspective and a lens; the sun's date is set on the viewport's sun; the visual style is read back
+
+**Decided:** 2026-11-21, for issues #59, #60 and #61. **Status:** in force; extends D-42 and
+replaces D-35's "the style cannot be read back" (D-35's typed VSCURRENT stands).
+- **Camera view** (`autocad_add_camera_view`, plug-in `add_camera_view`, Change): one view record
+  written through the .NET API with perspective on, the lens set, the target, and the direction from
+  the target to the eye (the API's own meaning of ViewDirection), saved under a name and, unless
+  told not to, put on screen with `SetCurrentView` (and warned about when the viewport is in 2D
+  Wireframe, which draws no perspective). A layout's view of the same name is never replaced. The
+  view's width and height are the lens's field at the target, so lens and size agree. The field is
+  worked out across a 36 mm frame, as AutoCAD
+  calls its lens a 35 mm camera's (50 mm: 39.6 degrees, 24 mm: 73.7 degrees); whether AutoCAD's own
+  Field of view reads the same is a live row. No camera glyph is drawn, so CAMERADISPLAY does not
+  matter. Rejected: DVIEW (it hangs), `entmake` of a VIEW record (it came back at 50 mm, 2026-11-09),
+  typing CAMERA (it worked by hand, but its prompts differ between releases), and `-VIEW` (it keeps
+  only what is on screen; `autocad_save_view(from_screen=true)` stays for that).
+- **Sun date and time** (`autocad_set_sun`, plug-in `set_sun`, Change): AutoCAD has no variable for
+  them; they live on the current model viewport's sun (DXF 91 = Julian day, 92 = ms after midnight).
+  The .NET `Sun.DateTime` takes the calendar date and clock time, so the plug-in writes that, only
+  the parts given, and makes the sun when the viewport has none. The sun hangs off the viewport
+  record, which AutoCAD does not keep up to date as the view moves, so for this one operation the
+  plug-in writes the live viewports into the drawing first and gives them back after. The place is
+  three plain variables over COM: LATITUDE, LONGITUDE and TIMEZONE, the last as hours x 1000 plus
+  minutes from a UTC offset (Qatar 3000, India 5030; read back, a last digit naming one place of
+  several, as in 3001 or 9031, keeps its offset). A year outside 1900-2200 is refused before
+  anything is written. The answer reads it all back, with the 91 and 92 values Heron expects, so a
+  live check can compare them with `(entget)`. Model tab only.
+- **Visual style read back** (#59): `autocad_set_3d_view` types VSCURRENT as before, then asks the
+  plug-in (`current_view`, a Read operation, allowed inside its View job) which style the viewport
+  has: the live view's, else the viewport record's, by its name in the drawing's visual style list.
+  A different style from the one asked for is said in `visual_style_warning`, not counted as a
+  failure: the record can be behind the screen (an independent review of PR #152), and
+  `autocad_preview` is the proof. Without the plug-in the field is null with the reason, and the
+  tool still works.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
+
+## D-83 - Excel ranges as linked tables, table cells by address, and copying between open drawings
+
+**Decided:** 2026-11-21, building issues #117 and #106 (ribbon audit, #94). **Status:** in force;
+adds to D-40, D-62, D-63 and D-75, which stand.
+- **A real Data Link, made by the plug-in.** `autocad_table_from_excel` reads the sheet with
+  `acad/xlsx.py` (D-69) first, so the range, the size and the cells Excel only *shows* as a date, a
+  time or a percent are known before anything is made. Then the plug-in operation `excel_table`
+  adds a `DataLink` (adapter `AcExcel`, connection string `file!sheet!range`, `SkipFormat`) to the
+  drawing's Data Link Manager and sets it on a new table with `Cell.SetDataLink`, in one
+  transaction. COM has no data-link call; the .NET names were read from Autodesk's reference
+  packages for 2021 to 2027 and build without a warning, but have never run in AutoCAD (D-33).
+- **When a link cannot be made, the table is filled, and says so.** A `.csv`, `link=false`, no
+  plug-in to ask (`--no-bridge`), an older plug-in, or AutoCAD failing to make or read the link
+  gives a table filled over COM with the sheet as it is now, `"linked": false` and
+  `not_linked_because`. Nothing else falls back: HERONSTOP, a padlock turned off mid-job, or a
+  refusal the modeller has to act on (no sheet tab for `space='paper'`, no such table style) stops
+  the job, and "Outcome unknown" is never followed by a second table: the first may be there. A cell Excel only shows as a date, a time or a percent is left
+  empty in a filled table and listed in `excel_converted` (the D-75 rule), never written as the
+  number behind it. A linked table shows the range exactly: no title row is added to it.
+- **`autocad_update_table_links`** (plug-in operation `update_table_links`) updates linked tables
+  from their sheets in two steps, as DATALINKUPDATE does: each link reads its workbook again
+  (`DataLink.Update`; a link keeps a cached copy), then the table takes the new values
+  (`Table.UpdateDataLink`, `SkipFormat`). All of them or those named, in one transaction: one that
+  cannot be read stops the job and nothing is changed. A table that is not linked is listed.
+- **Cells by address.** `autocad_set_table_cells` counts rows and columns from 1 at the table's
+  top-left cell, title and header rows included, the way an Excel address does ("B3" = row 3,
+  column 2). Only cells whose text really changes are written (a change of case is a change),
+  old -> new in `before_after` (D-62). A cell linked to Excel, content-locked, or inside a merged
+  cell is listed and left alone. A cell past the end is refused unless `grow=true`.
+- **Heron's tables keep their text in the vertical middle of each cell**, keeping the style's
+  left / centre / right: per row type on a new table (`autocad_add_table` too, `SetAlignment`),
+  per cell on a written cell, every cell on a linked one. Never worth failing a table for.
+- **No empty title row.** A new table starts with a merged title row and a header row; with no
+  title (or no headings) asked for, the tool sets `TitleSuppressed` (`HeaderSuppressed`) so the
+  rows below are not written into one merged cell. Done in `autocad_add_table` too, which before
+  wrote its headings into row 0 when there was no title (expected to fail on all but the first
+  cell; not seen live, since every live table had a title). These are AutoCAD's older table flags: whether
+  they still turn those rows into ordinary rows on today's tables is live row AC13.
+- **The copy lands in the drawing Heron checked.** `autocad_copy_from_drawing` copies from
+  another open drawing *into the active one*: the gate's wrong-drawing guard, its UNDO mark, Keep or
+  Discard and the plug-in's change count all belong to the active drawing, so the change must be
+  there. The source is only read; neither drawing is switched by the tool. COM `CopyObjects` with
+  the target's space as owner brings the layers, linetypes, styles and blocks the target lacks; a
+  name the target has is the target's own (listed in `already_here`). One `CopyObjects` per owner
+  (model space, each layout), then a move from the base point. Previews (`dry_run`) write nothing.
+
+## D-82 - Attribute definitions in make_block; ATTSYNC by the plug-in, values kept by tag
+
+**Decided:** 2026-11-21, building issue #115 (ribbon audit, #94). **Status:** in force; adds to
+D-25 rule 2 and D-40, which stand.
+- **`autocad_make_block(attributes=[...])`** adds attribute definitions with COM
+  `AcadBlock.AddAttribute` (height, mode, prompt, point, tag, value). Checked first, the way ATTDEF
+  checks: a tag has no space or `!` and is stored in capitals; a tag only once; a constant
+  attribute needs a default; constant and preset together are refused (pick one). Flags are
+  AutoCAD's AcAttributeMode numbers: invisible 1, constant 2, preset 8. Positions are drawing
+  coordinates, like the objects; one left out is stacked under the base point, 1.5 text heights
+  apart; the height defaults to TEXTSIZE.
+- **ATTSYNC is a plug-in operation** (`sync_attributes`), because COM cannot add an attribute to
+  an insert already placed. The server plans it (`acad/block_attributes.py`, offline) and the
+  plug-in does it in one transaction, by the same rule: a value already typed is **kept, matched
+  by tag** (a tag that appears twice is matched in order); a tag the definition gained comes in
+  with its default; a tag it lost, or made constant, goes. A kept attribute goes back to the
+  definition's place, height and style (`SetAttributeFromBlock`), except one holding a field or a
+  multi-line one, which is left exactly as it was so nothing typed is lost. The attributes kept stay
+  where they are in the insert's list and the new ones follow, in the definition's order: Heron
+  does not reorder them, and the server's plan says it the same way (a different order alone
+  changes no tag).
+- **Which inserts:** every insert of the block by its real name in model space and on every sheet
+  (a dynamic block's `*U` copies included), or the handles given. An insert on a locked layer is
+  left out and listed. Inserts inside other blocks' definitions are not reached yet ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)).
+- `add_attributes` adds new definitions to an existing block first (positions from its base point,
+  as the block is drawn; one with no position is stacked under the lowest attribute the block
+  already has, so it never lands on one), then syncs, in the same transaction. The inserts are
+  found in the shared scratch selection set: a named set of its own would cost an undo step. A `dry_run` writes nothing and says
+  what each insert keeps, gains and loses.
+
+## D-81 - Layer states and annotation scales go through the plug-in; isolate and merge are COM
+
+**Decided:** 2026-11-21, building issues #107 and #108. **Status:** in force.
+- **Layer states** (`autocad_layer_states`; listed by `autocad_list_layers`) are saved, restored
+  and deleted by the plug-in with .NET's `LayerStateManager` (`layer_state`, `layer_state_names`).
+  The issue said COM; COM's manager is reached only through a ProgID with AutoCAD's version in it
+  and has no call that lists the states, and its calls could not be checked here, while the .NET
+  calls (`SaveLayerState`, `RestoreLayerState`, `GetLayerStateNames`, the `LayerStateMasks`
+  numbers) were read out of Autodesk's own reference assemblies for 2021 and 2027 (D-33).
+- **Isolate** (`autocad_isolate_layers`) turns the other layers off, frozen or locked over COM,
+  after saving the layers as they were as the layer state `HERON-ISOLATE` (on, frozen, locked, and
+  the current layer in its description). The kept layers are turned on and thawed first, then one
+  is made current if the current layer would be hidden, then the rest are hidden: AutoCAD will not
+  make a frozen layer current, nor freeze the current one. Isolating again keeps that first state;
+  `unisolate` restores it, puts the current layer back and deletes it; a refused restore puts the
+  current layer back as it was, and a plug-in that cannot read the states is said, not taken for
+  "nothing isolated". `autocad_layer_states` will not restore
+  or save over that name, so the two cannot get mixed up.
+- **Merge** (`autocad_merge_layers`) needs `confirm=true`. It moves objects on the old layers in
+  model space and every layout (one selection per layer, the name escaped so `-`, `#`, `.` are not
+  wildcards, then matched exactly), inside block definitions (not xrefs) and in block attributes.
+  An old layer is deleted only when nothing failed to move off it, and is relocked if it is kept.
+  Layer 0 and xref layers are refused, as old layers and as the target; the target must already
+  exist.
+- **Annotative** (`autocad_annotation_scales`, `autocad_list_annotation_scales`, and
+  `annotative=true` on `add_text`, `add_mtext`, `add_dimension`, `dimension_run`,
+  `add_multileader`): the plug-in uses `DBObject.Annotative`, `AddContext`, `RemoveContext`,
+  `HasContext` and the `ACDB_ANNOTATIONSCALES` collection (`annotation_scales`,
+  `set_annotation_scales`), all in the reference assemblies. A scale is found by name, else by its
+  paper : drawing ratio; a missing 1:N is added to the drawing only when asked, and only after every
+  check has passed (the scales to remove are found first, then each object is checked to keep one),
+  so a refusal never leaves a new scale in the list. An annotative object keeps at least one scale
+  (a removal leaving none is refused, nothing changed). Made annotative
+  with no scale given, an object gets the current one. Heights stay in drawing units at the current
+  scale, and the reply gives the paper height, so a wrong assumption shows at once (live row AB9).
+- **A drawing tool's annotative step never fails the call** once the object is drawn: what did not
+  happen comes back as a warning, so the chat does not draw it twice. A dimension that did not become
+  annotative is given the drawing's DIMSCALE after all (or keeps its `dim_style`'s scale), so it is
+  never left at plain style size. Without the plug-in the tool
+  refuses before drawing anything. The object is drawn over COM and made annotative by the plug-in
+  inside the same undo mark (live row AB10 proves the one Ctrl+Z).
+
+## D-80 - A dimension run takes a named style per dimension; spacing is Heron's maths, the break is typed
+
+**Decided:** 2026-11-21, building issues #37 and #116. **Status:** in force.
+- **`dim_style` on `autocad_dimension_run` (#37).** The name is checked against the drawing's
+  dimension styles before anything is drawn (an unknown one is refused, naming those it has), set as
+  `StyleName` on each dimension, and the drawing's DIMSCALE is then **not** written over it: the
+  style's own scale wins (`scale_to_write`). The style is never made current, because putting the old
+  one back afterwards wipes the DIMSCALE override `autocad_drawing_setup` left on it. A dimension
+  that will not take the style is deleted and listed in `failed`, not left at the wrong size (and if
+  it cannot be deleted either, `failed` says it is still there). An
+  annotative run is not given DIMSCALE either. The scale the first dimension took from the style
+  comes back as `style_scale`, for live row AB1.
+- **Dimension space (#116).** COM has no definition points on a rotated dimension, so it cannot move
+  the dimension line without moving the extension line origins. The plug-in reads each dimension's
+  direction and line point (`dimension_lines`, Read) and sets `DimLinePoint`
+  (`move_dimension_lines`, Change); where each goes is `plan_spacing`, tested offline. The base stays
+  put; every other parallel dimension keeps its side and its order out from the base and goes to
+  1, 2, 3 ... spacings; 0 lines them up; one not parallel is skipped and named, and so is one whose
+  normal is not +Z (its Rotation would be measured from world -X).
+- **Dimension break (#116).** Neither COM nor .NET has a call for a break, so DIMBREAK is typed:
+  Multiple, each dimension as `(handent "...")` (the handle checked as hex first, so nothing else
+  reaches the command line), then Break or Remove. Anything not a dimension, in the other space, or
+  on a locked or frozen layer is refused before anything is typed: DIMBREAK drops what it cannot
+  pick, and with none left the typed `_B` would start BLOCK at the prompt. A prompt still open is
+  cancelled and said. The breaks are not
+  read back: the reply says to look with `autocad_preview`.
+
 ## D-79 - Explode, draw order, match properties, groups: plain COM, checked first
 
 **Decided:** 2026-11-21, building issues #105, #111 and #110 from the ribbon audit (#94).
@@ -1040,7 +1263,8 @@ whole session) and `UNDO _Control _None` (wipes the history). Live row A31.
 ## D-33 - What 3D can and cannot be automated, said out loud
 
 **Decided:** 2026-10-26, on Ajmal's instruction to cover "all kind of 3-D modelling inside
-AutoCAD... including material that for rendering". **Status:** in force.
+AutoCAD... including material that for rendering". **Status:** in force, except rendering:
+`autocad_render` is superseded by [D-87](#d-87---lights-are-listed-and-switched-by-the-plug-in-the-sun-default-lighting-and-exposure-are-variables) (removed 2026-11-21, #158).
 
 Researched before building, because guessing a COM signature wrong can destroy a model. What
 was confirmed and built: `AddEllipticalCone`, `AddEllipticalCylinder`,

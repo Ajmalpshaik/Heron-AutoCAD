@@ -53,11 +53,13 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "solid_properties",
         "list_solid_faces_and_edges",
         "list_materials",
+        "list_lights",
         "xref_tree",
         "drawing_report",
         "why",
         "gaps",
         "list_groups",
+        "list_annotation_scales",
     ),
     Risk.VIEW: (
         "check_folder",
@@ -91,6 +93,12 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "add_label",
         "batch_labels",
         "make_block",
+        # Blocks, attributes and tables (D-82, D-83); ATTSYNC and the Excel link are done by the plug-in.
+        "sync_attributes",
+        "table_from_excel",
+        "update_table_links",
+        "set_table_cells",
+        "copy_from_drawing",
         "set_dynamic_properties",
         "set_attributes",
         "apply_attribute_sheet",
@@ -137,6 +145,11 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "super_hatch",
         "add_light",
         "create_material",
+        # Setting a render up, by the plug-in (D-86, D-87); none of them renders.
+        "add_camera_view",
+        "set_sun",
+        "switch_lights",
+        "set_render_exposure",
         "transform_3d",
         "apply_material",
         "draw_3d_path",
@@ -166,6 +179,13 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "draw_order",
         "match_properties",
         "group",
+        # Layers and annotation (D-80, D-81).
+        "layer_states",
+        "isolate_layers",
+        "merge_layers",
+        "space_dimensions",
+        "break_dimensions",
+        "annotation_scales",
     ),
     Risk.PUBLISH: (
         "export_attribute_sheet",
@@ -177,7 +197,6 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "checklist_report",  # writes an .xlsx and an .html next to the drawing (D-65)
     ),
     Risk.ADMIN: (
-        "render",
         "send_command",
         "run_lisp",
         "set_variable",

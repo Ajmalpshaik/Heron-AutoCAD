@@ -56,6 +56,29 @@ public class RunTests
         Assert.Empty(_host.Runs);
     }
 
+    [Theory]
+    [InlineData("switch_lights")]
+    [InlineData("set_sun")]
+    [InlineData("add_camera_view")]
+    public void A_render_set_up_change_is_refused_inside_a_read_or_view_job(string operation)
+    {
+        Begin("read");
+        Assert.False(Run(operation).GetProperty("ok").GetBoolean());
+        Send(new { op = "end", token = Token, conversation = "chat-a", job = "j1", ok = true, outcome = "done", summary = "List", ms = 5 });
+        Begin("view", job: "j2");
+        Assert.False(Run(operation, job: "j2").GetProperty("ok").GetBoolean());
+        Assert.Empty(_host.Runs);
+    }
+
+    [Fact]
+    public void The_visual_style_can_be_read_inside_a_view_job()
+    {
+        // autocad_set_3d_view is a View tool, and reads the style back after setting it (#59).
+        Begin("view");
+        Assert.True(Run("current_view").GetProperty("ok").GetBoolean());
+        Assert.Equal("current_view", Assert.Single(_host.Runs).Operation);
+    }
+
     [Fact]
     public void A_read_operation_runs_inside_a_read_job()
     {
@@ -152,7 +175,12 @@ public class RunTests
         Assert.Equal(Risk.Read, read);
         Assert.True(PluginOperations.TryLevel("show", out var show));
         Assert.Equal(Risk.View, show);
-        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material" })
+        foreach (var name in new[] { "current_view", "list_lights" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Read, level);
+        }
+        foreach (var name in new[] { "loft", "fillet_edges", "chamfer_edges", "shell", "press_pull", "thicken", "super_hatch", "add_light", "create_material", "switch_lights", "set_sun", "add_camera_view", "sync_attributes", "excel_table", "update_table_links" })
         {
             Assert.True(PluginOperations.TryLevel(name, out var level), name);
             Assert.Equal(Risk.Change, level);
@@ -160,6 +188,23 @@ public class RunTests
         Assert.True(PluginOperations.TryLevel("publish_pdf", out var publish));
         Assert.Equal(Risk.Publish, publish);
         Assert.False(PluginOperations.TryLevel("explode", out _));
+    }
+
+    [Fact]
+    public void Dimension_lines_annotation_scales_and_layer_states_read_as_reads_and_change_as_changes()
+    {
+        // D-80, D-81: reading where dimension lines are, which scales an object has, or the layer states,
+        // must not need the Changes padlock; moving a line or changing a scale must.
+        foreach (var name in new[] { "dimension_lines", "annotation_scales", "layer_state_names" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Read, level);
+        }
+        foreach (var name in new[] { "move_dimension_lines", "set_annotation_scales", "layer_state" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Change, level);
+        }
     }
 
     [Fact]

@@ -25,12 +25,14 @@ from pydantic import Field, StrictInt
 
 from ..acad import geometry
 from ..acad.entities import bounding_box, resolve_handle, short_type
+from ..acad.table_cells import middle_rows
 from ..acad.tables import apply_properties, ensure_layer
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
 from ._shared import COLOR_OPT, COORDS_OPT, LAYER_OPT, point, ucs_for, world_coords
+from .annotation_scales import ANNOTATIVE_OPT, make_new_annotative, require_plugin
 from .batch import draw_operations
 
 Point = tuple[float, float]
@@ -181,6 +183,7 @@ async def autocad_add_multileader(
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
     coords: Annotated[str, COORDS_OPT] = "world",
+    annotative: Annotated[bool, ANNOTATIVE_OPT] = False,
 ) -> str:
     """One note with as many arrows as it needs: a real MULTILEADER.
 
@@ -205,10 +208,12 @@ async def autocad_add_multileader(
         layer (Optional[str]): target layer, created if missing.
         color (Optional[str | int]): colour.
         coords (str): 'world' or 'ucs'.
+        annotative (bool): make it annotative at the current annotation scale.
 
     Returns:
         str: JSON: {"created": true, "handle": str, "leader_lines": int,
              "arrows": [[x, y]], "landing": [x, y], "not_set": [str]}
+             With annotative: also "annotative" and "annotation_scales".
 
     Examples:
         - Use when: "label these four holes with one note".
@@ -230,6 +235,8 @@ async def autocad_add_multileader(
     if len(landing) < 2:
         raise AutocadError("landing needs [x, y].")
     aci = to_aci(color)
+    if annotative:
+        require_plugin("Making a multileader annotative")
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -296,6 +303,7 @@ async def autocad_add_multileader(
                     extra += 1
                 except BaseException as exc:  # noqa: BLE001 - report, keep what worked
                     not_set.append(f"leader line to {list(arrow)} ({com_message(exc)})")
+            scaled = make_new_annotative([str(mleader.Handle)]) if annotative else {}
 
         result: dict[str, Any] = {
             "created": True,
@@ -307,6 +315,7 @@ async def autocad_add_multileader(
             "content": "block" if block else "text",
         }
         result.update(notes)
+        result.update(scaled)
         if not_set:
             result["not_set"] = not_set
         return result
@@ -377,7 +386,8 @@ async def autocad_add_table(
     """Put a schedule on the drawing as a real AutoCAD table, not a grid of loose text.
 
     A table the modeller can edit, sort and restyle, with a title and headings.
-    Pair it with autocad_extract_attributes: read the blocks, then put the rows
+    Text sits in the vertical middle of each cell, keeping the style's left /
+    centre / right. Pair it with autocad_extract_attributes: read the blocks, then put the rows
     on the sheet.
 
     One undo step.
@@ -475,6 +485,19 @@ async def autocad_add_table(
                         "Make it in AutoCAD, or copy it in with autocad_import_from_drawing."
                     ) from exc
 
+            # A new table starts with a title row (merged across) and a header
+            # row. With no title (or no headings) asked for, those rows would
+            # hold the rows below as one merged cell: they become ordinary rows
+            # (D-83). A table that refuses keeps them, as before.
+            suppressed = []
+            for flag, wanted in (("TitleSuppressed", bool(title)), ("HeaderSuppressed", bool(head))):
+                if not wanted:
+                    try:
+                        setattr(table, flag, True)
+                        suppressed.append(flag)
+                    except BaseException:  # noqa: BLE001 - the style's own rows stay
+                        pass
+
             for index, width in enumerate(widths):
                 try:
                     table.SetColumnWidth(index, width)
@@ -518,6 +541,8 @@ async def autocad_add_table(
                     table.SetTextHeight(TABLE_ALL_ROWS, height)
                 except BaseException as exc:  # noqa: BLE001 - the style keeps its own
                     not_set.append(f"text_height ({com_message(exc)})")
+            # Heron's tables keep their text in the vertical middle of each cell (D-83).
+            aligned = middle_rows(table)
             if height or text_style:
                 try:
                     table.RegenerateTableSuppressed = False
@@ -536,7 +561,10 @@ async def autocad_add_table(
             "cells_written": written,
             "has_title": bool(title),
             "has_header": bool(head),
+            "rows_aligned_middle": aligned,
         }
+        if suppressed:
+            result["suppressed"] = suppressed
         result.update(notes)
         if not_set:
             result["not_set"] = not_set[:30]

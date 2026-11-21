@@ -33,12 +33,21 @@ namespace Heron.AutoCAD.Addin
             {
                 using (var args = RunArgs.Parse(request.Args))
                 using (doc.LockDocument())
-                using (var tr = doc.Database.TransactionManager.StartTransaction())
                 {
-                    var result = Dispatch(request.Operation, doc.Database, tr, args);
-                    // A read leaves nothing behind, not even an empty undo step.
-                    if (level == Risk.Read) tr.Abort();
-                    else tr.Commit();
+                    // The sun hangs off the model viewport's record, which AutoCAD
+                    // does not keep up to date as the view moves: write the live
+                    // view into it first, and give the screen the new sun after.
+                    var viewports = request.Operation == "set_sun";
+                    if (viewports) doc.Editor.UpdateTiledViewportsInDatabase();
+                    RunResult result;
+                    using (var tr = doc.Database.TransactionManager.StartTransaction())
+                    {
+                        result = Dispatch(request.Operation, doc, tr, args);
+                        // A read leaves nothing behind, not even an empty undo step.
+                        if (level == Risk.Read) tr.Abort();
+                        else tr.Commit();
+                    }
+                    if (viewports) doc.Editor.UpdateTiledViewportsFromDatabase();
                     return result;
                 }
             }
@@ -84,8 +93,9 @@ namespace Heron.AutoCAD.Addin
             }
         }
 
-        private static RunResult Dispatch(string operation, Database db, Transaction tr, RunArgs args)
+        private static RunResult Dispatch(string operation, Document doc, Transaction tr, RunArgs args)
         {
+            var db = doc.Database;
             switch (operation)
             {
                 case "solid_topology": return SolidOperations.Topology(db, tr, args);
@@ -98,6 +108,20 @@ namespace Heron.AutoCAD.Addin
                 case "super_hatch": return SuperHatch.Make(db, tr, args);
                 case "add_light": return RenderSetup.AddLight(db, tr, args);
                 case "create_material": return RenderSetup.CreateMaterial(db, tr, args);
+                case "dimension_lines": return DimensionLines.Read(db, tr, args);
+                case "move_dimension_lines": return DimensionLines.Move(db, tr, args);
+                case "annotation_scales": return AnnotationScales.Read(db, tr, args);
+                case "set_annotation_scales": return AnnotationScales.Set(db, tr, args);
+                case "layer_state_names": return LayerStates.Names(db, tr, args);
+                case "layer_state": return LayerStates.Change(db, tr, args);
+                case "current_view": return RenderView.CurrentView(doc, tr);
+                case "list_lights": return RenderView.ListLights(doc, tr);
+                case "switch_lights": return RenderView.SwitchLights(db, tr, args);
+                case "set_sun": return RenderView.SetSun(doc, tr, args);
+                case "add_camera_view": return RenderView.AddCameraView(doc, tr, args);
+                case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
+                case "excel_table": return ExcelTables.Make(db, tr, args);
+                case "update_table_links": return ExcelTables.Update(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }
