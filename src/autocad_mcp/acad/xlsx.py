@@ -9,6 +9,11 @@ as it was unless the modeller types over it.
 Reading is careful with a file that came from outside: a size limit on the
 file and on each part, shared strings and inline strings, rich text runs,
 numbers given back the way Excel shows them ("100", not "100.0").
+
+Excel turns some typing into numbers: "1:100" into a time, "05.01" or "1/50"
+into a date, "50%" into 0.5. The cell then holds a number Excel only *shows*
+as the text typed. Such a cell is read back as a ``Converted`` text, which
+says what Excel made of it, so a caller never writes 0.0694 for a scale.
 """
 
 from __future__ import annotations
@@ -31,8 +36,59 @@ _BAD_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 _SHEET_NAME = re.compile(r"[\[\]:*?/\\]")
 
 
+MOST_COLUMNS = 16384  # Excel's own limit (XFD)
+# Built-in number formats that show a number as something else: percent 9-10,
+# fraction 12-13, date and time 14-22, 27-36, 45-47, 50-58.
+_SHOWN_AS = {9: "percent", 10: "percent", 12: "fraction", 13: "fraction"}
+_SHOWN_AS.update({n: "date or time" for n in (*range(14, 23), *range(27, 37), 45, 46, 47, *range(50, 59))})
+
+
 class SheetError(ValueError):
     """The workbook cannot be read; the message says why in plain words."""
+
+
+class Converted(str):
+    """A cell Excel turned into a number it only shows as text: a date, a time, a percent, a fraction."""
+
+    shown_as = "a number"
+
+    def __new__(cls, text: str, shown_as: str) -> Converted:
+        made = super().__new__(cls, text)
+        made.shown_as = shown_as
+        return made
+
+
+def _shown_as(code: str) -> str | None:
+    """What a custom number format shows a number as, or None for a plain number."""
+    plain = re.sub(r'"[^"]*"|\\.|\[[^\]]*\]', "", code)  # quoted text, escapes, [colour] / [h] parts
+    if "%" in plain:
+        return "percent"
+    if re.search(r"[dmyhs]", plain, re.IGNORECASE):
+        return "date or time"
+    if "?/" in plain or "#/" in plain:
+        return "fraction"
+    return None
+
+
+def _styles(archive: zipfile.ZipFile) -> list[str | None]:
+    """For each cell style (s="n"): what it shows a number as, or None."""
+    if "xl/styles.xml" not in archive.namelist():
+        return []
+    root = _xml(archive, "xl/styles.xml")
+    custom = {}
+    for fmt in root.findall("m:numFmts/m:numFmt", _NS):
+        try:
+            custom[int(fmt.get("numFmtId", "0"))] = _shown_as(fmt.get("formatCode", ""))
+        except ValueError:
+            continue
+    kinds: list[str | None] = []
+    for xf in root.findall("m:cellXfs/m:xf", _NS):
+        try:
+            number = int(xf.get("numFmtId", "0"))
+        except ValueError:
+            number = 0
+        kinds.append(custom[number] if number in custom else _SHOWN_AS.get(number))
+    return kinds
 
 
 def column(index: int) -> str:
@@ -214,6 +270,7 @@ def read(content: bytes) -> dict[str, list[list[str]]]:
         book = _xml(archive, "xl/workbook.xml")
         rels = _xml(archive, "xl/_rels/workbook.xml.rels")
         targets = {rel.get("Id"): rel.get("Target", "") for rel in rels}
+        styles = _styles(archive)
         shared: list[str] = []
         if "xl/sharedStrings.xml" in archive.namelist():
             strings = _xml(archive, "xl/sharedStrings.xml")
@@ -233,12 +290,16 @@ def read(content: bytes) -> dict[str, list[list[str]]]:
                     number = int(row.get("r", len(rows) + 1))
                 except ValueError:
                     number = len(rows) + 1
+                if number > MOST_ROWS:
+                    raise SheetError(f"sheet '{name}' has a row numbered {number}, more than {MOST_ROWS}")
                 while len(rows) < number - 1:
                     rows.append([])  # an empty row Excel left out
                 cells: list[str] = []
                 for position, cell in enumerate(row.findall("m:c", _NS)):
-                    ref = cell.get("r")
-                    index = column_index(re.match(r"[A-Za-z]+", ref).group(0)) if ref else position
+                    letters = re.match(r"[A-Za-z]+", cell.get("r") or "")
+                    index = column_index(letters.group(0)) if letters else position
+                    if index >= MOST_COLUMNS:
+                        raise SheetError(f"sheet '{name}' has a cell beyond Excel's last column")
                     kind = cell.get("t", "n")
                     value_node = cell.find("m:v", _NS)
                     raw = value_node.text if value_node is not None and value_node.text is not None else ""
@@ -253,6 +314,12 @@ def read(content: bytes) -> dict[str, list[list[str]]]:
                         text = raw
                     else:
                         text = number_text(raw) if raw else ""
+                        try:
+                            style = styles[int(cell.get("s", "0"))]
+                        except (ValueError, IndexError):
+                            style = None
+                        if text and style:
+                            text = Converted(text, style)
                     while len(cells) < index:
                         cells.append("")
                     if index < len(cells):

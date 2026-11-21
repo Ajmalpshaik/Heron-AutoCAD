@@ -33,16 +33,29 @@ def _full_name(doc: Any) -> str:
 
 
 def _open_read_only(path: Path) -> tuple[Any, bool]:
-    """(the drawing, whether this call opened it). An open drawing is used where it is."""
+    """(the drawing, whether this call opened it). An open drawing is used where it is.
+
+    "Opened it" is decided by what AutoCAD has open before and after, never by
+    the path alone: the same file can be named two ways (a mapped drive and its
+    UNC path), and a drawing the modeller had open must never be closed unsaved.
+    """
     app = get_app()
     documents = app.Documents
-    wanted = str(path).lower()
+    wanted = os.path.normcase(os.path.abspath(str(path)))
+    before: list[str] = []
     for index in range(int(documents.Count)):
         doc = documents.Item(index)
-        if _full_name(doc).lower() == wanted:
+        name = _full_name(doc)
+        before.append(os.path.normcase(os.path.abspath(name)) if name else "")
+        if name and before[-1] == wanted:
             doc.Activate()
             return doc, False
-    return documents.Open(str(path), True), True  # True: read only
+    count = int(documents.Count)
+    doc = documents.Open(str(path), True)  # True: read only
+    returned = os.path.normcase(os.path.abspath(_full_name(doc))) if _full_name(doc) else ""
+    # AutoCAD handed back a drawing it already had open: the modeller's, never closed by Heron.
+    ours = int(documents.Count) > count and returned not in before
+    return doc, ours
 
 
 def _close(doc: Any) -> None:

@@ -142,3 +142,20 @@ def test_it_is_a_view_tool_that_writes_nothing():
     from autocad_mcp.core.risk import Risk, risk_of
 
     assert risk_of("autocad_check_folder") is Risk.VIEW
+
+
+def test_a_drawing_autocad_already_had_open_under_another_name_is_never_closed(folder, monkeypatch):
+    """Found in review: a mapped drive and its UNC path name the same file; Open hands back the open one."""
+    app, mine, where, seen = folder
+    other = Doc(r"\\server\share\Working.dwg", app)
+    app.open.append(other)
+
+    def open_returns_the_open_one(path, read_only):
+        if path.endswith("Working.dwg"):
+            return other  # AutoCAD hands back the drawing it already has open
+        return Documents.Open(app.Documents, path, read_only)
+
+    monkeypatch.setattr(app.Documents, "Open", open_returns_the_open_one)
+    monkeypatch.setattr(check_folder, "_full_name", lambda doc: "" if doc is other else doc.FullName)
+    asyncio.run(check_folder.autocad_check_folder(folder=str(where)))
+    assert other in app.open and not other.closed

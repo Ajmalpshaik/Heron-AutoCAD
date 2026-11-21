@@ -233,3 +233,120 @@ def test_levels():
 
     assert risk_of("autocad_export_attribute_sheet") is Risk.PUBLISH
     assert risk_of("autocad_apply_attribute_sheet") is Risk.CHANGE
+
+
+# --- found in review (2026-11-21) -------------------------------------------------------
+
+
+def _excel_edit(refs, edits):
+    """The exported workbook re-saved by a spreadsheet program after these typed edits."""
+    openpyxl = pytest.importorskip("openpyxl")
+    book = openpyxl.load_workbook(io.BytesIO(attribute_sheet.workbook(refs)))
+    sheet = book["Attributes"]
+    for cell, value, number_format in edits:
+        sheet[cell] = value
+        if number_format:
+            sheet[cell].number_format = number_format
+    out = io.BytesIO()
+    book.save(out)
+    return out.getvalue()
+
+
+def test_a_value_excel_turned_into_a_date_time_or_percent_is_never_written():
+    import datetime
+
+    refs = [{"handle": "2A", "block": "TB", "layout": "E-101", "attributes": {"SCALE": "1:50", "DATE": "05.01.2026", "FILL": "x"}}]
+    content = _excel_edit(refs, [("D2", datetime.time(1, 0), "h:mm"), ("E2", datetime.date(2026, 3, 15), None),
+                                 ("F2", 0.5, "0%")])  # fmt: skip
+    edited, exported = attribute_sheet.read_workbook(content)
+    planned = attribute_sheet.plan(edited, exported, refs)
+    assert planned["changes"] == []
+    assert {c["tag"]: c["excel_made_it"] for c in planned["excel_converted"]} == {
+        "SCALE": "date or time", "DATE": "date or time", "FILL": "percent"}
+
+
+def test_a_plain_typed_number_is_still_written():
+    refs = [{"handle": "2A", "block": "PUMP", "layout": "Model", "attributes": {"FLOW": "10"}}]
+    edited, exported = attribute_sheet.read_workbook(_excel_edit(refs, [("D2", 12, None)]))
+    assert attribute_sheet.plan(edited, exported, refs)["changes"][0]["new"] == "12"
+
+
+def test_a_tag_named_handle_block_or_layout_keeps_its_own_column():
+    refs = [{"handle": "2A", "block": "TB", "layout": "E-101", "attributes": {"BLOCK": "A", "HANDLE": "H1"}},
+            {"handle": "2B", "block": "TB", "layout": "E-102", "attributes": {"BLOCK": "B"}}]  # fmt: skip
+    rows = attribute_sheet.table(refs)
+    assert rows[0] == ["Handle", "Block", "Layout", "BLOCK (tag)", "HANDLE (tag)"]
+    sheets = xlsx.read(attribute_sheet.workbook(refs))
+    sheets["Attributes"][1][3] = "C"  # 2A's BLOCK tag
+    edited, exported = attribute_sheet.read_workbook(
+        xlsx.write([("Attributes", sheets["Attributes"], None), ("As exported", sheets["As exported"], None)])
+    )
+    planned = attribute_sheet.plan(edited, exported, refs)
+    assert planned["changes"] == [{"handle": "2A", "block": "TB", "layout": "E-101", "tag": "BLOCK", "old": "A", "new": "C"}]
+    assert planned["missing_handles"] == [] and planned["rows_without_handle"] == []
+
+
+def test_a_row_whose_block_is_another_block_here_is_not_used():
+    sheet = edited({("2A", "TAG"): "CAM-11"})
+    sheet[0]["Block"] = "VALVE"
+    planned = attribute_sheet.plan(sheet, None, REFS)
+    assert planned["changes"] == []
+    assert planned["other_block"] == [{"handle": "2A", "sheet": "VALVE", "drawing": "CAMERA"}]
+
+
+def test_a_row_with_values_but_no_handle_is_said():
+    sheet = edited({})
+    sheet.append({"Handle": "", "Block": "CAMERA", "TAG": "CAM-77"})
+    assert attribute_sheet.plan(sheet, None, REFS)["rows_without_handle"] == [5]
+
+
+def test_the_workbook_names_its_drawing_and_a_cell_without_a_column_letter_is_read():
+    content = attribute_sheet.workbook(REFS, r"C:\Jobs\M-101.dwg")
+    assert attribute_sheet.source_of(content) == r"C:\Jobs\M-101.dwg"
+    assert attribute_sheet.source_of(attribute_sheet.workbook(REFS)) == ""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("xl/workbook.xml", '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+                         '<sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>')  # fmt: skip
+        archive.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                         '<Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/></Relationships>')  # fmt: skip
+        archive.writestr("xl/worksheets/sheet1.xml", '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                         '<sheetData><row r="1"><c r="1" t="inlineStr"><is><t>x</t></is></c></row>'
+                         '<row r="999999999"><c r="A999999999"><v>1</v></c></row></sheetData></worksheet>')  # fmt: skip
+    with pytest.raises(xlsx.SheetError, match="more than"):
+        xlsx.read(buffer.getvalue())
+
+
+def test_apply_warns_when_the_sheet_came_from_another_drawing(drawing):
+    doc, objects, folder = drawing
+    rows = attribute_sheet.table(REFS)
+    rows[1][3] = "CAM-11"
+    book = xlsx.write([("Attributes", rows, None), ("As exported", attribute_sheet.table(REFS), None),
+                       ("Read me", [["Exported from", r"C:\Other\X-200.dwg"]], None)])  # fmt: skip
+    (folder / "other.xlsx").write_bytes(book)
+    done = json.loads(asyncio.run(tool.autocad_apply_attribute_sheet(path="other.xlsx", dry_run=True)))
+    assert "X-200.dwg" in done["warning"]
+
+
+def test_excel_number_formats_are_read_without_any_package():
+    main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    styles = (f'<styleSheet xmlns="{main}"><numFmts count="2"><numFmt numFmtId="164" formatCode="h:mm"/>'
+              '<numFmt numFmtId="165" formatCode="0.00 &quot;mm&quot;"/></numFmts>'
+              '<cellXfs count="5"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/><xf numFmtId="9"/>'
+              '<xf numFmtId="165"/></cellXfs></styleSheet>')  # fmt: skip
+    sheet = (f'<worksheet xmlns="{main}"><sheetData><row r="1">'
+             '<c r="A1"><v>12</v></c><c r="B1" s="1"><v>46096</v></c><c r="C1" s="2"><v>0.0416666666666667</v></c>'
+             '<c r="D1" s="3"><v>0.5</v></c><c r="E1" s="4"><v>25</v></c></row></sheetData></worksheet>')  # fmt: skip
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("xl/workbook.xml", f'<workbook xmlns="{main}" xmlns:r="http://schemas.openxmlformats.org/'
+                         'officeDocument/2006/relationships"><sheets><sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>')  # fmt: skip
+        archive.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/'
+                         'relationships"><Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/></Relationships>')  # fmt: skip
+        archive.writestr("xl/styles.xml", styles)
+        archive.writestr("xl/worksheets/sheet1.xml", sheet)
+    plain, date, time, percent, millimetres = xlsx.read(buffer.getvalue())["S"][0]
+    assert not isinstance(plain, xlsx.Converted) and plain == "12"
+    assert date.shown_as == "date or time" and time.shown_as == "date or time" and percent.shown_as == "percent"
+    assert not isinstance(millimetres, xlsx.Converted)  # "mm" in quotes is a label, not minutes

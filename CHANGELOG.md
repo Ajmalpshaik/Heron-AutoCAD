@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
+  fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,
+  BLOCK or LAYOUT keeps its own column; a row whose Block is another block here is not used, and a
+  sheet from another drawing is warned about. The folder check never closes a drawing that was
+  already open under another name. A dry run puts no UNDO mark down mid-command, sends no UNDO Back
+  when it wrote nothing, and goes back even when cancelled ([D-75](docs/DECISIONS.md)).
+
 - **Release scripts get Windows line endings on every machine (2026-11-21).** The `.bat`, `.ps1`
   and read-me files in `tools/release_files` were stored with Linux line endings and only got CRLF
   in a Windows checkout, so a release made on Linux or a Mac would ship them broken for `cmd`.

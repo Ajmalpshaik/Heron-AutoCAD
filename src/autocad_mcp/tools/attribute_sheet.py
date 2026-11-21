@@ -59,7 +59,7 @@ def sheet_path(path: str, drawing: str) -> Path:
     return given
 
 
-def read_sheet(path: Path) -> tuple[list[dict[str, str]], list[dict[str, str]] | None]:
+def read_sheet(path: Path) -> tuple[list[dict[str, str]], list[dict[str, str]] | None, str]:
     try:
         content = path.read_bytes()
     except OSError as exc:
@@ -74,8 +74,9 @@ def read_sheet(path: Path) -> tuple[list[dict[str, str]], list[dict[str, str]] |
                 text = content.decode("utf-8-sig")
             except UnicodeDecodeError:
                 text = content.decode("cp1252", errors="replace")  # Excel's "CSV" on a Western PC
-            return attribute_sheet.read_csv(text), None
-        return attribute_sheet.read_workbook(content)
+            return attribute_sheet.read_csv(text), None, ""
+        edited, exported = attribute_sheet.read_workbook(content)
+        return edited, exported, attribute_sheet.source_of(content)
     except (ValueError, xlsx.SheetError) as exc:
         raise AutocadError(f"{path.name} cannot be used: {exc}. Nothing was changed.") from None
 
@@ -129,7 +130,7 @@ async def autocad_export_attribute_sheet(
     path = free_name(folder, f"{Path(drawing).stem} - attributes - {datetime.now():%Y-%m-%d}")
     try:
         with open(path, "xb") as handle:
-            handle.write(attribute_sheet.workbook(refs))
+            handle.write(attribute_sheet.workbook(refs, drawing))
     except FileExistsError:
         raise AutocadError(f"{path.name} appeared while the sheet was written; it was not replaced. Run it again.") from None
     except OSError as exc:
@@ -186,7 +187,7 @@ async def autocad_apply_attribute_sheet(
     """
 
     drawing = await run(lambda: _drawing_path(get_doc()))
-    edited, exported = read_sheet(sheet_path(path, drawing))
+    edited, exported, source = read_sheet(sheet_path(path, drawing))
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -220,11 +221,33 @@ async def autocad_apply_attribute_sheet(
     done = await run(work)
     planned = done["planned"]
     shown = {key: (value[:MOST_LISTED] if isinstance(value, list) else value) for key, value in planned.items()}
-    if dry_run:
-        return dumps({"dry_run": True, "changed": 0, "would_change": len(planned["changes"]), **shown})
     rows = [{"handle": c["handle"], "property": f"attribute {c['tag']}", "from": c["old"], "to": c["new"]}
             for c in done["written"]]  # fmt: skip
-    answer = {"dry_run": False, "changed": len(done["written"]), **shown, "failed": done["failed"], **before_after(rows)}
+    if dry_run:
+        answer: dict[str, Any] = {"dry_run": True, "changed": 0, "would_change": len(planned["changes"]), **shown}
+    else:
+        answer = {"dry_run": False, "changed": len(done["written"]), **shown, "failed": done["failed"], **before_after(rows)}
+    if source and drawing and source.casefold() != drawing.casefold():
+        answer["warning"] = (
+            f"This sheet was exported from {source}, not from this drawing ({drawing}). Only rows whose "
+            "Block still matches were used; check the changes before keeping them."
+        )
+    if planned["excel_converted"]:
+        answer["excel_converted_note"] = (
+            "Excel turned these typed values into numbers (a scale such as 1:100 becomes a time, a date "
+            "a day number, 50% becomes 0.5), so they were not written. Type them again in Excel with a "
+            "leading ' (for example '1:100), save, and apply the sheet again."
+        )
+    if planned["other_block"]:
+        answer["other_block_note"] = (
+            "On these rows the Block column names a different block from the one with that handle in "
+            "this drawing, so the rows were not used. Was the sheet exported from another drawing?"
+        )
+    if planned["rows_without_handle"]:
+        answer["rows_without_handle_note"] = (
+            "These sheet rows have values but no handle, so Heron cannot tell which block they are for; "
+            "they were not used. Rows are numbered as in Excel."
+        )
     if planned["conflicts"]:
         answer["conflicts_note"] = (
             "These cells were changed both in the sheet and in the drawing since the export, so neither was "
