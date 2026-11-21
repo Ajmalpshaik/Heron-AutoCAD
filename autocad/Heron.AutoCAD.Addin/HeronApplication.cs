@@ -73,11 +73,14 @@ namespace Heron.AutoCAD.Addin
                     BlockedBy = AcadJobHost.Activity.Blocking,
                     // A busy answer from the server names the command AutoCAD is in (#47).
                     CurrentCommand = () => CommandWatch.Current,
+                    // The drawings opened, switched, saved and closed, as they happen (#48).
+                    Drawings = AcadJobHost.Drawings,
                 };
                 IdleQueue.Hook();
                 CommandWatch.Hook();
                 PublishVeto.Hook();
                 ChangeWatch.Hook();
+                DrawingWatch.Hook();
                 HeronRibbon.Init();
                 AcApp.QuitWillStart += (s, e) => Server?.Stop();
 
@@ -107,6 +110,7 @@ namespace Heron.AutoCAD.Addin
                 CommandWatch.Unhook();
                 PublishVeto.Unhook();
                 ChangeWatch.Unhook();
+                DrawingWatch.Unhook();
             }
             catch (System.Exception ex)
             {

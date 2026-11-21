@@ -87,6 +87,7 @@ def explain(
     bridge_on: bool,
     chosen_pid: int | None,
     drawing_checked: bool,
+    no_autocad: frozenset[str] | set[str] = frozenset(),
 ) -> dict[str, Any]:
     """The reasons one job cannot run, worst first, each with what to do.
 
@@ -126,7 +127,8 @@ def explain(
         ))  # fmt: skip
 
     level = level_of(best.tool) if best else None
-    needs_autocad = best is not None
+    # A tool that reads only files (autocad_read_file, D-92) runs with AutoCAD closed.
+    needs_autocad = best is not None and best.tool not in no_autocad
     connected = report.get("autocads_connected") or []
 
     if needs_autocad and bridge_on:
