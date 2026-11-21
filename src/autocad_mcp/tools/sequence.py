@@ -32,6 +32,7 @@ from pydantic import Field
 
 from ..core import gate
 from ..core.connection import get_doc, run
+from ..core.drawing_events import switched_in_job
 from ..core.errors import AutocadError, com_message
 from ..core.quiet import QUIET_FIELD, quiet_text
 from ..core.quiet import quiet as quieted
@@ -304,10 +305,15 @@ async def autocad_sequence(
     rows: list[dict[str, Any]] = []
     ran = failed = 0
     stopped = halted = False
+    switched: tuple[str, str] | None = None
     for step in planned:
         if not stopped and rows and await asyncio.to_thread(gate.stopped_by_modeller):
             # The modeller pressed HERONSTOP (D-51): not one more step.
             stopped = halted = True
+        if not stopped and rows:
+            # Another drawing came to the front: the next step's COM work would land in it (#165).
+            switched = await asyncio.to_thread(gate.front_changed_in_job)
+            stopped = switched is not None
         if stopped:
             rows.append({**_head(step), "ok": None, "skipped": True})
             continue
@@ -339,6 +345,9 @@ async def autocad_sequence(
             f"The modeller stopped Heron in AutoCAD (HERONSTOP) after step {done}. The steps before "
             "it are in the drawing; the rest were not run. Do nothing more until the modeller says so."
         )
+    elif switched is not None:
+        done = sum(1 for row in rows if row.get("ok") is not None)
+        result["hint"] = switched_in_job(switched[0], switched[1], done)
     elif failed and stop_on_error and result["skipped"]:
         stopped_at = next(row["index"] for row in rows if row.get("ok") is False)
         result["hint"] = (

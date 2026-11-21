@@ -19,7 +19,7 @@ from ..acad.entities import resolve_handle
 from ..acad.tables import apply_properties, validate_name
 from ..acad.units import rad
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
 from ._shared import (
@@ -40,7 +40,8 @@ from .draw import dwg_path
 def _try(getter, default=None):
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 
@@ -123,6 +124,7 @@ async def autocad_attach_xref(
                     float(scale), float(scale), float(scale), rad(world_angle(rotation, ucs)), bool(overlay),
                 )
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"AutoCAD would not reference '{resolved}' ({com_message(exc)}). Check the file "
                     "opens in AutoCAD and is not this drawing itself."
@@ -216,6 +218,7 @@ async def autocad_manage_xref(
             try:
                 getattr(block, method)(*args)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(f"AutoCAD would not {action} '{name}' ({com_message(exc)}).") from exc
         result["confirmed"] = True
         result["note"] = f"'{result['name']}' {action} done."
@@ -443,6 +446,7 @@ async def autocad_attach_underlay(
                         resolved, point(insertion, "insertion", ucs), float(scale), rad(world_angle(rotation, ucs))
                     )
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(f"AutoCAD would not attach '{resolved}' ({com_message(exc)}).") from exc
                 if width is not None:
                     drawn = float(_try(lambda: image.ImageWidth, 0.0) or 0.0)
@@ -571,6 +575,7 @@ async def autocad_clip_reference(
                         entity.ClipBoundary(double_array(clip_outline.closed_ring(points)))
                         entity.ClippingEnabled = True
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(f"AutoCAD would not clip the image ({com_message(exc)}).") from exc
             return result
         args = {"handle": str(entity.Handle), "points": [[x, y] for x, y in points], "remove": bool(remove)}

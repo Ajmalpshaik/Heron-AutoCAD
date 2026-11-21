@@ -237,7 +237,14 @@ namespace Heron.AutoCAD.Bridge
                 // The banner is something to see, not a gate: a drawing glitch
                 // must not stop a job the padlocks allowed.
             }
-            return Ok(w => w.WriteBoolean("askToKeep", askToKeep));
+            var seq = Drawings?.Seq;
+            return Ok(w =>
+            {
+                w.WriteBoolean("askToKeep", askToKeep);
+                // Where the drawing log stood at begin, so a long job can ask later
+                // whether another drawing came to the front since (#165).
+                if (seq.HasValue) w.WriteNumber("drawingSeq", seq.Value);
+            });
         }
 
         private string End(JsonElement root, string conversation)

@@ -27,7 +27,7 @@ from ..acad.lisp_forms import (
 )
 from ..core import gate
 from ..core.connection import get_doc, mark_writing, note_busy, require_idle, run
-from ..core.errors import AutocadError, com_message, is_retryable
+from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 
 # Commands whose plain form opens a modal dialog. Each maps to the advice that
@@ -376,7 +376,8 @@ async def autocad_send_command(
 
         try:
             still_active = int(doc.GetVariable("CMDACTIVE")) != 0
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             still_active = False
 
         result = {
@@ -505,7 +506,8 @@ async def autocad_run_lisp(
         for var in (LISP_RESULT_VAR, LISP_CANCELLED_VAR):
             try:
                 previous[var] = str(doc.GetVariable(var))
-            except BaseException:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 previous[var] = ""
 
         # Before the undo mark: a refusal here is still asked again, nothing sent.

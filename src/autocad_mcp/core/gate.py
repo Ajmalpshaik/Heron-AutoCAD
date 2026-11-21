@@ -43,8 +43,8 @@ from .bridge import (
     bridge_enabled,
 )
 from .connection import get_app, run
-from .drawing_events import Mark, Verdict, judge
-from .errors import AutocadError
+from .drawing_events import Mark, Verdict, front_moved, judge
+from .errors import AutocadError, raise_if_busy
 from .risk import Risk, risk_of
 
 DISCARDED = "Discarded: nothing was kept."
@@ -184,6 +184,24 @@ def stopped_by_modeller() -> bool:
     return job.bridge.stopped()
 
 
+def front_changed_in_job() -> tuple[str, str] | None:
+    """(the job's drawing, the drawing in front now) when another came to the front during this job (#165).
+
+    For long tools, between their steps: from the plug-in's drawing events
+    since begin. None when nothing moved, outside a job, or when the plug-in
+    cannot tell (an older one). Any thread; one pipe call.
+    """
+    job = _current
+    if job is None or job.bridge is None or job.id is None:
+        return None
+    seq = getattr(job.bridge, "drawing_seq_at_begin", None)
+    ask = getattr(job.bridge, "drawing_events", None)
+    if seq is None or ask is None:
+        return None
+    front = front_moved(job.drawing, ask(seq))
+    return None if front is None else (job.drawing, front)
+
+
 def reset(looked_at: str | None = None, mark: Mark | None = None) -> None:
     """Forget which drawing Heron checked (tests, and a fresh server start)."""
     global _last_drawing, _checked_mark
@@ -253,7 +271,8 @@ async def _mark() -> bool:
             control = int(doc.GetVariable("UNDOCTL"))
             if int(doc.GetVariable("CMDACTIVE")) != 0:
                 return False
-        except Exception:  # noqa: BLE001 - cannot tell: treat as off, never guess
+        except Exception as exc:  # noqa: BLE001 - cannot tell: treat as off, never guess
+            raise_if_busy(exc)
             return False
         # Bit 1: undo on. Bit 2: only one step kept, so a mark means nothing.
         if not control & 1 or control & 2:
@@ -287,8 +306,8 @@ async def _still_there(handles: list[str]) -> list[str]:
             try:
                 doc.HandleToObject(handle)
                 left.append(handle)
-            except Exception:  # noqa: BLE001 - gone is what we hope for
-                pass
+            except Exception as exc:  # noqa: BLE001 - gone is what we hope for
+                raise_if_busy(exc)  # busy is not gone: never a false "Discard took"
         return left
 
     return await run(look)
@@ -503,7 +522,13 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                         result = answers.with_line(result, answers.line(facts))
                     return result
             elif job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES:
-                marked = await _mark()
+                try:
+                    marked = await _mark()
+                except AutocadError as exc:
+                    # AutoCAD stayed busy before the job began: nothing was sent (D-100).
+                    result = f"Error: {exc}"
+                    facts = answers.Facts(result, ok=False, outcome="failed", busy=True)
+                    return answers.with_line(result, answers.line(facts))
 
             writes_before = connection.write_count()
             busy_before = connection.busy_count()

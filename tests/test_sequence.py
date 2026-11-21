@@ -281,3 +281,28 @@ class TestEmergencyStop:
         monkeypatch.setattr(sequence.gate, "stopped_by_modeller", lambda: False)
         out = _run(steps=TestRunning.STEPS[:2])
         assert out["ran"] == 2 and "hint" not in out
+
+
+class TestDrawingSwitch:
+    """Another drawing to the front between steps: not one more step runs (#165, D-98)."""
+
+    def test_a_switch_after_the_first_step_skips_the_rest(self, offline, monkeypatch):
+        monkeypatch.setattr(sequence.gate, "stopped_by_modeller", lambda: False)
+        monkeypatch.setattr(sequence.gate, "front_changed_in_job", lambda: (r"C:\a.dwg", r"C:\b.dwg"))
+        out = _run(steps=TestRunning.STEPS[:3])
+        assert (out["ran"], out["skipped"]) == (1, 2)
+        assert len(offline.drawn) == 1
+        assert "after step 1" in out["hint"] and "b.dwg is in front now" in out["hint"]
+        assert "nothing landed in the other drawing" in out["hint"]
+
+    def test_no_switch_runs_them_all(self, offline, monkeypatch):
+        monkeypatch.setattr(sequence.gate, "stopped_by_modeller", lambda: False)
+        monkeypatch.setattr(sequence.gate, "front_changed_in_job", lambda: None)
+        out = _run(steps=TestRunning.STEPS[:2])
+        assert out["ran"] == 2 and "hint" not in out
+
+    def test_the_stop_wins_over_a_switch(self, offline, monkeypatch):
+        monkeypatch.setattr(sequence.gate, "stopped_by_modeller", lambda: True)
+        monkeypatch.setattr(sequence.gate, "front_changed_in_job", lambda: (r"C:\a.dwg", ""))
+        out = _run(steps=TestRunning.STEPS[:2])
+        assert "HERONSTOP" in out["hint"]

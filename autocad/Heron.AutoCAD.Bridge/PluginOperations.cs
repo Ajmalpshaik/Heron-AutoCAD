@@ -50,6 +50,14 @@ namespace Heron.AutoCAD.Bridge
             ["planar_surface"] = Risk.Change,
             ["network_surface"] = Risk.Change,
             ["add_mesh"] = Risk.Change,
+            // Multileader and table styles: COM can make neither (D-104).
+            ["multileader_style"] = Risk.Change,
+            ["table_style"] = Risk.Change,
+            // An associative array (ARRAY) and the drawing's geographic location
+            // (GEOGRAPHICLOCATION): COM has a call for neither (D-110, D-111).
+            ["associative_array"] = Risk.Change,
+            ["geo_location"] = Risk.Read,
+            ["set_geo_location"] = Risk.Change,
             // References and clean-up (D-84).
             ["attach_underlay"] = Risk.Change,
             ["clip_reference"] = Risk.Change,

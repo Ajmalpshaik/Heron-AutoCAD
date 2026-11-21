@@ -23,7 +23,7 @@ from ..acad import overkill as overkill_geometry
 from ..acad import transmittal
 from ..acad.entities import resolve_handle
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import group_coordinates
 from ._shared import (
@@ -58,7 +58,8 @@ CURVE_KINDS = {
 def _try(getter, default=None):
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - an absent property is expected here
+    except BaseException as exc:  # noqa: BLE001 - an absent property is expected here
+        raise_if_busy(exc)
         return default
 
 
