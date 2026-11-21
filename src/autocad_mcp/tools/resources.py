@@ -104,7 +104,7 @@ async def diagnose_heron() -> str:
 async def tool_index() -> str:
     """The whole toolbox in one place, so the right tool is quick to find.
 
-    101 tools is more than anyone holds in their head. This lists every one
+    Over a hundred tools is more than anyone holds in their head. This lists every one
     with its padlock, its one-line summary and its "Use when" lines, grouped
     by padlock so what a job needs is obvious before it is tried.
 
@@ -162,8 +162,9 @@ async def find_tool(phrase: str) -> str:
     weighted so a rare word (DIMSCALE, flange) beats a common one (layer, set)
     and so a "Don't use when" mention counts against rather than for.
 
-    Measured on 55 phrases a modeller would really say: the right tool came
-    first 45 times and was in the top three all 55 times. Those phrases are
+    Measured on 97 phrases a modeller would really say (tests/test_find_tool.py,
+    2026-11-21): the right tool came first 84 times and was in the top three
+    all 97 times. Those phrases are
     our own, so treat it as a floor on a sample, not a promise - and when it
     puts the wrong tool first, the fix is usually that tool's own "Use when"
     line, not the scoring.

@@ -203,6 +203,12 @@ its question mode; the code is this project's own.
   full path, it is `~/AppData/Local/Heron/autocad/audit`, where Windows normally points it.
   `bridges_dir()` has the same pattern and is left for its own change.
 
+- **Changed the same day by D-59** (the padlocks moved into AutoCAD's memory): `autocad_why`
+  can no longer read them, so it names the padlocks a job needs (`needs_changes`, ...) as
+  reasons that do not block, says it cannot see whether they are on, and never claims one is
+  off. The refusal itself still names the padlock, and `autocad_gaps` counts it. A `dry_run`
+  refusal (D-63) is logged with the reason word `no_dry_run`.
+
 Pinned by `tests/test_why_and_gaps.py` and `tests/test_find_tool.py`. Live rows: Group W.
 
 ## D-66 - A box AutoCAD opens during a Heron job is closed with Cancel and named
