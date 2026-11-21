@@ -23,6 +23,17 @@ live rows **AI1-AI14**. AI4 decides whether an entmade solid hatch lands (if it 
 become the default on the symbol shapes); AI11 says how AutoCAD shows a closed control-point
 spline; AI12 says whether `insert` at the count adds after the last fit point.
 
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
+
+Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
+only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
+pixels for the sheet (most likely), or extents stretched by something far off. `autocad_preview`
+now reports `plotted`, `pixels`, `smallest_clear_text` and a `tip`, and `detail=2` / `3` adds
+window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-known-limits.md#33-one-preview-picture-cannot-show-a-whole-big-sheets-small-text).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
+AM1 names the cause; close #41 only after AM1 and AM2 pass.
+
 ## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
 
 Five issues built offline in one PR. `autocad_make_shape` has a 3D group: `duct_run` and
