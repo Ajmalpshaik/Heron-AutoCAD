@@ -8,7 +8,7 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `palette.py` | The Heron palette's Run (D-68): one saved command through the gate, and `server.json` so the palette finds the server | `tools`, `core` |
 | `tools/` | The MCP tools, resources and prompts, one file per subject (`--list-tools` counts them) | MCP, `acad`, `core` |
 | `acad/` | AutoCAD domain: entities, selections, tables, AutoLISP, units, the UCS transform, sheet arithmetic, the shape library | `core` only |
-| `core/` | COM worker thread and its busy-call message filter, VARIANTs, errors, the FastMCP instance, undo groups, and the Heron gate (`gate.py`, `bridge.py`, `risk.py`, `audit.py`) | pywin32 only |
+| `core/` | COM worker thread and its busy-call message filter, VARIANTs, errors, the FastMCP instance, undo groups, the Heron gate (`gate.py`, `bridge.py`, `risk.py`, `audit.py`), and where Heron keeps its files (`folders.py`) | pywin32 only |
 
 **The one rule:** imports point down only, `tools` -> `acad` -> `core`.
 

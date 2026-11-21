@@ -39,10 +39,11 @@ async def autocad_why(
     in the way, worst first: no tool for it, a server started read-only, the
     plug-in not installed, AutoCAD not connected (Heron not pressed), two
     AutoCADs and none picked, server and plug-in from different releases, a
-    plug-in older than the tool needs, a padlock off (Changes, Publish, Admin),
-    an update this chat has not loaded. Each reason says what to do. It cannot
-    see an open command, a locked layer or another chat holding AutoCAD, and
-    says so.
+    plug-in older than the tool needs, an update this chat has not loaded. It
+    names the padlocks the job needs (Changes, Publish, Admin) but cannot see
+    whether they are on: they live inside AutoCAD. Each reason says what to do.
+    It cannot see an open command, a locked layer or another chat holding
+    AutoCAD either, and says so.
 
     Returns:
         str: JSON: {"job", "can_run": bool, "verdict", "tool": {...},

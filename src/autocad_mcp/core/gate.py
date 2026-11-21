@@ -320,7 +320,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 else "writes a file, or runs a command or AutoLISP"
             )
             refused = "Error: " + NO_DRY_RUN.format(what=_title(tool), why=why)
-            _record(tool, risk, drawing, False, "refused", started)
+            _record(tool, risk, drawing, False, "refused", started, refused)
             if risk in WATCHED and bridge_enabled():
                 facts = answers.Facts(refused, ok=False, outcome="refused", refused_by_heron=True)
                 return answers.with_line(refused, answers.line(facts))
