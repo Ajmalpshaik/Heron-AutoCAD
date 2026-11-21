@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Server 1.8.0 and plug-in 1.6.0 (2026-11-21).** One version for the whole batch of ideas from
+  Heron AI for Revit merged today: padlocks in memory (#121), dialog watch (#100), the docked
+  palette (#123) change the plug-in; server answers (#124), why / gaps (#120) and check lists
+  (#122) change the server. The review check works again (#126). 138 tools.
+
 - **Check lists for QA (2026-11-21, PR #122).** A check that cannot decide (no such title block,
   xrefs unreadable, no text to compare, or only part of the drawing read) now says **NO DATA** and
   never counts as a PASS; every run ends with a coverage line, "2 of 4 decided, 1 no data, 1 not
