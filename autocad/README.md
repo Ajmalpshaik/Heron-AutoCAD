@@ -22,6 +22,8 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `AcadJobHost.cs` | Bridge -> AutoCAD: banner, command-line line, select and zoom, Keep box, operations |
 | `PluginRunner.cs` | The plug-in's own operations ([D-40](../docs/DECISIONS.md)): right drawing, document lock, one transaction, refusals that say "Nothing was changed." |
 | `SolidOperations.cs` | Loft, fillet / chamfer edges, shell, press-pull, thicken, and the numbered faces and edges (Brep) |
+| `SolidPrimitives.cs` | Pyramid (read back by its corners, turned and placed) and polysolid (the path offset, closed and raised), D-112; maths in `Bridge/SolidShapeMath.cs` |
+| `SolidFaceEdits.cs` | Offset, taper, move and delete faces, imprint and separate (SOLIDEDIT), D-113 |
 | `SuperHatch.cs` | A block, an image, an xref or a wipeout tiled in a grid, inserted once and clipped to an outline like XCLIP |
 | `Sections.cs` | Flat views of solids (FLATSHOT) and a section plane with its 2D section, both through AutoCAD's Section object (D-95; maths in `Bridge/SectionMath.cs`) |
 | `Surfaces.cs` | Loft to a surface, planar and network surfaces, MESH primitives and a mesh made from a solid (D-95) |

@@ -93,8 +93,11 @@ async def autocad_add_pyramid(
         str: JSON: {"created": true, "handle": str, "type": "3dsolid",
              "sides": int, "base": [x, y, z], "height": float, "radius": float,
              "corner_radius": float, "top_radius": float,
-             "top_corner_radius": float, "rotation": float,
-             "volume": float, "expected_volume": float, "verified": bool}
+             "top_corner_radius": float, "rotation": float, "turned": bool,
+             "remade_to_size": bool, "volume": float,
+             "expected_volume": float, "verified": bool}
+             ``turned`` false means AutoCAD's corners could not be read, so
+             no side was put to the front (a ``note`` says so).
 
     Examples:
         - Use when: "a 600 x 600 pyramid 900 high on the roof" — radius=300,

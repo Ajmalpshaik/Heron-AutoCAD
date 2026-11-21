@@ -364,6 +364,11 @@ until the solid changes.
 | `autocad_shell_solid` | Change | SOLIDEDIT Shell: hollow to a wall thickness, leaving faces open (`remove_faces="top"` for a tank); inside unless `outward` |
 | `autocad_press_pull_faces` | Change | Push or pull flat faces by a distance, with an optional taper |
 | `autocad_thicken_surface` | Change | THICKEN: a solid from a surface; the surface is kept |
+| `autocad_add_pyramid` | Change | PYRAMID: 3 to 32 sides, a point or a flat top, or a hopper; stands on the centre of its base, one side to the front. By the plug-in ([D-112](DECISIONS.md)) |
+| `autocad_add_polysolid` | Change | POLYSOLID: a wall of a width and height along a flat path (a curve or points), centred, left, right, inside or outside; the path is kept ([D-112](DECISIONS.md)) |
+| `autocad_edit_solid_faces` | Change | SOLIDEDIT faces: offset, taper, move or delete, picked by a word or by number; volume before and after ([D-113](DECISIONS.md)) |
+| `autocad_imprint_solid` | Change | SOLIDEDIT Imprint: split a solid's faces along lines or shapes that touch them; the objects are kept, the faces counted after |
+| `autocad_separate_solid` | Change | SOLIDEDIT Separate: a solid of pieces that do not touch becomes one solid per piece |
 | `autocad_super_hatch` | Change | Express Tools' SUPERHATCH: a block, an **image** (with `image_size`), an **xref** (attached from its .dwg if need be) or a **wipeout** as the tile, in a grid (spacing, origin, angle, scale) inside a closed outline drawn flat in plan, clipped as XCLIP clips. One object; at most 10,000 tiles, 2,000 for images ([D-95](DECISIONS.md)) |
 | `autocad_flatten_views` | Change | FLATSHOT / SOLPROF: plan, front and side views (any of front, top, right, left, back, bottom) of solids as 2D linework, hidden lines removed, one block per view, set out third or first angle so they line up. `join` lets a part hide what is behind it. The model is not touched |
 | `autocad_section_plane` | Change | SECTIONPLANE and Generate Section: a section plane through two points (a vertical cut) or three (any plane; a level cut looks down), kept in the model, and its 2D section (cut outlines, hatch, what is seen beyond) as one block at `insert_at`. `look_towards` picks the side |

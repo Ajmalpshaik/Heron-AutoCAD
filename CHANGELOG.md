@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Pyramid, polysolid and the rest of SOLIDEDIT (2026-11-21, #182, #183, #184; part 3 of #119).**
+  Five new tools done by the plug-in (**180** in all): `autocad_add_pyramid` (PYRAMID: 3 to 32
+  sides, a point or a flat top, or a hopper; on the centre of its base, one side to the front),
+  `autocad_add_polysolid` (POLYSOLID: a wall of a width and height along a flat path, centred,
+  left, right, inside or outside), `autocad_edit_solid_faces` (offset, taper, move or delete faces,
+  picked by a word or by number), `autocad_imprint_solid` and `autocad_separate_solid`. Eight new
+  plug-in operations in their own files; the API has no polysolid call, so Heron builds the same
+  wall from the path ([D-112](docs/DECISIONS.md), [D-113](docs/DECISIONS.md)). Live rows AR1-AR14
+  NOT RUN.
+
 - **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
   (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,
   elbows, flanges with bolt holes, and each pipe's cut length) as solids, each piece checked against

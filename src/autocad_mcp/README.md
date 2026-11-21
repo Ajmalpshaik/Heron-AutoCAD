@@ -48,6 +48,8 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/between_drawings.py` | `autocad_copy_from_drawing`: objects from another open drawing into this one |
 | `tools/solids.py` | 3D solids, extrude and revolve, booleans, mass properties, 3D views |
 | `tools/solid_edits.py` | loft, fillet and chamfer solid edges, shell, press-pull, thicken, and the face and edge list: done by the plug-in (`run`, D-40) |
+| `tools/solid_faces.py` | offset, taper, move and delete a solid's faces, imprint, separate: done by the plug-in (D-113) |
+| `tools/primitives.py` | a pyramid and a polysolid (a wall along a path): done by the plug-in (D-112) |
 | `tools/superhatch.py` | super hatch with a block, an image, an xref or a wipeout, done by the plug-in |
 | `tools/sections.py` | flat views of solids (FLATSHOT) and a section plane with its 2D section: done by the plug-in (D-95) |
 | `tools/surfaces.py` | planar and network surfaces, meshes: done by the plug-in (D-95) |

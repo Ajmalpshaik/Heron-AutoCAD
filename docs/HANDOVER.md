@@ -8,7 +8,25 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
+## Latest - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
+
+Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**180** in all):
+`autocad_add_pyramid`, `autocad_add_polysolid`, `autocad_edit_solid_faces` (offset, taper, move,
+delete), `autocad_imprint_solid`, `autocad_separate_solid`. Plug-in: `SolidPrimitives.cs` and
+`SolidFaceEdits.cs`, eight new operations; pure maths in `Bridge/SolidShapeMath.cs`. Every .NET
+call was checked in the AutoCAD.NET package's own reference file, and the add-in compiles for all
+three builds. Faces are picked from the Brep built from the solid's own path, as the D-40 fix
+found. The pyramid reads back the corners AutoCAD made and turns itself so a side faces the front;
+the polysolid is built (offset path, region, extrude) because the API has none. Limits:
+[05 §19](05-known-limits.md#19-the-plug-in-operations-3d-edits-super-hatch-have-their-own-limits).
+None of it has run in AutoCAD. Versions not bumped (the parent does).
+
+**Next (on this PC):** pull, build and install the plug-in, restart Claude, then live rows AR1-AR13
+([NEEDS-CHECKING group AR](NEEDS-CHECKING.md)). The answers the reference could not give: whether
+AutoCAD reads the pyramid's radius as its reference says (`remade_to_size`, AR1), and which way a
+positive taper leans (AR9).
+
+## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
 
 Five issues built offline in one PR. `autocad_make_shape` has a 3D group: `duct_run` and
 `pipe_spool`, solids along a route, a bend at every corner, flanges with bolt holes, each pipe's cut

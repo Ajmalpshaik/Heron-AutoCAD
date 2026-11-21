@@ -48,6 +48,7 @@ namespace Heron.AutoCAD.Addin
             var wide = Math.Max(bottom, top);
             var narrow = Math.Min(bottom, top);
             var solid = MakePyramid(height, sides, wide, narrow, flip);
+            var remade = false;
             try
             {
                 var read = PyramidMath.WideEnd(Corners(solid), out var centre, out var angle, out var cornerRadius, out var low, out _);
@@ -61,6 +62,7 @@ namespace Heron.AutoCAD.Addin
                     {
                         solid.Dispose();
                         solid = MakePyramid(height, sides, wide * ratio, narrow * ratio, flip);
+                        remade = true;
                         read = PyramidMath.WideEnd(Corners(solid), out centre, out angle, out cornerRadius, out low, out _);
                     }
                 }
@@ -94,6 +96,8 @@ namespace Heron.AutoCAD.Addin
                     w.WriteNumber("top_radius", Math.Round(top, 9));
                     w.WriteNumber("top_corner_radius", Math.Round(PyramidMath.CornerRadius(top, sides), 9));
                     w.WriteBoolean("turned", read);
+                    // True only when AutoCAD read the radius otherwise than its reference says (row AR1).
+                    w.WriteBoolean("remade_to_size", remade);
                     if (!read)
                         w.WriteString("note", "Heron could not read the corners AutoCAD made, so the pyramid is turned the way AutoCAD made it, "
                             + "not with a side to the front. Look at it in plan.");

@@ -130,6 +130,70 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-113 - Offset, taper, move and delete faces, imprint and separate are plug-in operations; one face tool with an action
+
+**Decided:** 2026-11-21, for issue #184 (part 3 of #119). **Status:** in force (built and tested
+offline; live rows in [NEEDS-CHECKING group AR](NEEDS-CHECKING.md), NOT RUN); extends D-40. COM has
+none of SOLIDEDIT's face or body options, so each is a listed plug-in operation, Change level, one
+transaction: `offset_faces` (`Solid3d.OffsetFaces`), `taper_faces` (`TaperFaces`), `move_faces`
+(`TransformFaces` with a plain move), `delete_faces` (`RemoveFaces`), `imprint_solid`
+(`ImprintEntity`) and `separate_solid` (`SeparateBody`). Every call was checked in Autodesk's AutoCAD
+.NET reference (the AutoCAD.NET package's own documentation file) before it was written, and the
+plug-in compiles for all three builds.
+
+- **Faces are picked as the other solid edits pick them**, from the Brep built from the solid's
+  FullSubentityPath (the D-40 fix): a word that goes by the solid's box, or the numbers
+  `autocad_list_solid_faces_and_edges` gives. The four face edits are **one tool**,
+  `autocad_edit_solid_faces`, with an `action`: they take the same solid and the same faces, and
+  four more tools of nearly one shape would make the list harder to search. An option the action
+  does not take is refused, never quietly ignored.
+- **Taper pivots at the bottom of the picked faces** unless a base point is given: the plane square
+  to the draft direction (up by default) through their lowest point, so the bottom edges stay where
+  they are, as SOLIDEDIT Taper does from a base point at the bottom. Which way a positive angle
+  leans is SOLIDEDIT's (in) by intent but not proven for the API: the answer carries the volume
+  before and after, and row AR8 settles it. Rotating faces (SOLIDEDIT Face Rotate) is not built:
+  it was not in #119; `TransformFaces` takes a rotation, so it is a small step later.
+- **Imprint keeps the objects**, as SOLIDEDIT does by default; erasing them goes through Heron's
+  own erase, which asks. The tool counts the faces after (a second, read-only call), because an
+  object that does not touch the solid imprints nothing and AutoCAD does not say so.
+- **Separate** leaves the solid holding one piece and adds the others as new solids with its
+  properties (`SetPropertiesFrom`). A solid that is one piece already is refused, nothing changed.
+
+Rejected: typing SOLIDEDIT (it waits for picks on screen, as D-40 found for FILLETEDGE); one
+operation that takes any face edit by name (each is listed and checked on its own, as D-40 asks).
+
+## D-112 - A pyramid is AutoCAD's CreatePyramid, turned and placed; a polysolid is built, because the API has none
+
+**Decided:** 2026-11-21, for issues #182 and #183 (part 3 of #119). **Status:** in force (built and
+tested offline; live rows in [NEEDS-CHECKING group AR](NEEDS-CHECKING.md), NOT RUN); extends D-40.
+Neither PYRAMID nor POLYSOLID has an ActiveX call, so both are plug-in operations (`add_pyramid`,
+`add_polysolid`), Change level, one transaction, in their own add-in file (`SolidPrimitives.cs`).
+
+- **Pyramid.** `Solid3d.CreatePyramid(height, sides, radius, topRadius)`. Autodesk's reference says
+  the radii are of the circle **inside** the polygon (to the middle of a side) and that the solid is
+  made about the origin, half way up. Heron does not lean on the rest: it reads the corners AutoCAD
+  made (a Brep of the solid before it is in the drawing: only points are needed), turns the solid
+  so one side faces the front (as a box sits, as `autocad_add_solid` places its shapes), and moves
+  it so the base point is the centre of its base. If the corners say the radius was read another
+  way, it is made again to the size asked for. A hopper (top wider than the base) is made the usual
+  way up and turned over. `radius_to='corner'` takes a size across the corners. 3 to 32 sides, as
+  PYRAMID allows. The answer gives the volume AutoCAD measured and the one the sizes should give.
+- **Polysolid.** Checked in the reference: `Solid3d` has no polysolid call. So Heron builds the
+  same solid: the path offset to each face of the wall (`GetOffsetCurvesGivenPlaneNormal`), the two
+  joined at the ends (an open path) or one ring inside the other (a closed one), made a region and
+  extruded straight up. The path must be flat in plan and is kept (as DELOBJ off). Which way
+  AutoCAD's offset goes is read off the path, never assumed: the offset point nearest the middle of
+  the first stretch is on the left or the right of it. `side` is center, left or right (looking
+  along the path from its start), or inside / outside of a closed path, worked out from which way
+  the path runs. A path that turns tighter than the wall is wide, or crosses itself, is refused.
+  Points can stand in for a path; they make a temporary polyline that is never added.
+- The sums (pyramid turn and volume, left of a path, inside of a ring) are pure, in
+  `Bridge/SolidShapeMath.cs`, and tested offline.
+
+Rejected: typing POLYSOLID (it waits for points or an object picked on screen); a sweep of a
+rectangle along the path (corners and arcs come out less predictable than an offset outline, and a
+closed path needs its own case anyway).
+
 ## D-98 - The plug-in reports drawing events as they happen; a batch goes through it in pieces up to 1,500 characters
 
 **Decided:** 2026-11-21, issues #48 and #45. **Status:** in force (built and tested offline; live
