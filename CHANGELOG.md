@@ -6,7 +6,12 @@ Newest first. Dates are when the change was made.
 
 - **AutoCAD always starts disconnected (2026-11-21, #141).** `bridge.autoConnect` in the config
   file is ignored: only the modeller's press of Heron connects AutoCAD, so no file can let a chat
-  read a drawing without a click ([D-72](docs/DECISIONS.md)). Live row R10 NOT RUN.
+  read a drawing without a click ([D-73](docs/DECISIONS.md)). Live row R10 NOT RUN.
+- **The offline gates run on Linux (2026-11-21, #102).** pywin32 stand-ins in `tests/winstubs`,
+  used only where pywin32 is not installed, let the offline suite and `tools/check_structure.py`
+  run in a Linux cloud session; tests that need Windows itself (named pipes, the COM message filter,
+  Windows paths) are skipped there with the reason, and so is the bridge's named-pipe C# test.
+  Windows CI is unchanged ([D-72](docs/DECISIONS.md)).
 
 - **Attributes to Excel and back, a folder of drawings checked, the Companion page (2026-11-21).**
   `autocad_export_attribute_sheet` (Publish) writes every block's attributes to a new `.xlsx` next

@@ -130,7 +130,7 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
-## D-72 - AutoCAD always starts disconnected; no file can make it connect
+## D-73 - AutoCAD always starts disconnected; no file can make it connect
 
 **Decided:** 2026-11-21 by Ajmal PS, issue #141 (option 2 of three). **Status:** in force. Replaces
 the "`autoConnect` stays a file setting" line of D-59.
@@ -144,6 +144,17 @@ that file (an AI chat too) could switch it on.
   administrator's policy key (option 3). It was off on the owner's PC, so nothing changes for him;
   an office that wants it can ask for option 3 later.
 - **Live row:** R10 (NOT RUN).
+## D-72 - The offline gates run on Linux with pywin32 stand-ins; Windows-only tests skip, saying why
+
+**Decided:** 2026-11-21 (issue #102). **Status:** in force. Cloud sessions run on Linux, where
+pywin32 does not install, so three of the four gates could only say NOT RUN. `tests/winstubs/`
+holds stand-ins (`pythoncom.com_error` and the `VT_*` numbers, a `VARIANT` that keeps its type and
+value, `pywintypes.error`, the `ctypes` names `message_filter.py` needs); `tests/conftest.py` and
+`tools/check_structure.py` put them on the path **only** when `pythoncom` cannot be found, so on
+Windows and in Windows CI nothing changes. They talk to nothing. The tests that need Windows itself
+are marked to skip off Windows with the reason: real named pipes (8 in `test_bridge.py`, and the C#
+`[WindowsFact]` server test), the COM message filter on a real thread (5), Windows path rules (5),
+CRLF in a Windows checkout (1). The stand-ins are test code, never a dependency of the server.
 
 ## D-71 - The Companion page is a file per chat, not a server
 
@@ -456,7 +467,7 @@ modeller's click, skipping "turning a padlock on asks first".
 - **The file keeps** `bridge.autoConnect` and `ui.activityBanner` only. The old padlock lines are
   ignored, never read, and the plug-in no longer writes the file. `autoConnect` stays a file
   setting: it only connects, and with every padlock off a chat can then read but change nothing.
-  Since D-72 `autoConnect` is ignored too.
+  Since D-73 `autoConnect` is ignored too.
 - **`autocad://diagnose`** no longer reads padlocks from the file: it would have reported stale
   lines as on.
 - **Added 2026-11-21, after the merge:** `autocad_why` (D-67) still read the padlocks from that

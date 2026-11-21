@@ -85,7 +85,7 @@ namespace Heron.AutoCAD.Addin
                 _refresh.Start();
 
                 // AutoCAD always starts disconnected: only the modeller's press of
-                // Heron connects it. No file can make it connect at start (D-72).
+                // Heron connects it. No file can make it connect at start (D-73).
                 HeronLog.Write("Heron for AutoCAD " + AddinVersion + " loaded in AutoCAD " + AcadVersion + ".");
             }
             catch (System.Exception ex)

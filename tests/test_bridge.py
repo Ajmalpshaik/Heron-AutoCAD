@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 import time
 import uuid
@@ -24,6 +25,8 @@ from autocad_mcp.core.bridge import (
     Bridge,
     BridgeRefused,
 )
+
+needs_pipes = pytest.mark.skipif(sys.platform != "win32", reason="a real Windows named pipe to a fake plug-in")
 
 
 @pytest.fixture
@@ -113,6 +116,7 @@ def test_dead_pid_file_is_deleted(home):
     assert not (home / "Heron" / "autocad" / "bridges" / f"{dead}.json").exists()
 
 
+@needs_pipes
 def test_begin_sends_token_client_conversation(home):
     with FakePlugin({"ok": True}) as plugin:
         write_address(home, os.getpid(), plugin.name, token="secret")
@@ -128,6 +132,7 @@ def test_begin_sends_token_client_conversation(home):
     assert ask is False
 
 
+@needs_pipes
 def test_begin_reports_when_the_plugin_will_ask(home):
     with FakePlugin({"ok": True, "askToKeep": True}) as plugin:
         write_address(home, os.getpid(), plugin.name)
@@ -135,6 +140,7 @@ def test_begin_reports_when_the_plugin_will_ask(home):
     assert ask is True
 
 
+@needs_pipes
 def test_refusal_message_passed_through(home):
     reply = {"ok": False, "refusedBy": "Changes", "message": "Changes is off. Turn it on with the Changes padlock."}
     with FakePlugin(reply) as plugin:
@@ -145,6 +151,7 @@ def test_refusal_message_passed_through(home):
     assert str(err.value).endswith(NOTHING_SENT)
 
 
+@needs_pipes
 def test_hung_pipe_times_out(home):
     with FakePlugin(None, answer=False) as plugin:
         write_address(home, os.getpid(), plugin.name)
@@ -255,6 +262,7 @@ def test_the_protocol_check_never_speaks_for_the_chat_it_runs_in():
     assert '!= "CLAUDE_CODE_SESSION_ID"' in text
 
 
+@needs_pipes
 def test_send_quiet_sends_the_lines_for_the_job(home):
     with FakePlugin({"ok": True}) as plugin:
         write_address(home, os.getpid(), plugin.name)
@@ -263,6 +271,7 @@ def test_send_quiet_sends_the_lines_for_the_job(home):
     assert (request["op"], request["job"], request["lines"]) == ("send_quiet", "j1", ["(progn 1)", "(progn 2)"])
 
 
+@needs_pipes
 def test_send_quiet_refused_or_unreachable_is_false_not_an_error(home):
     with FakePlugin({"ok": False, "message": "no job"}) as plugin:
         write_address(home, os.getpid(), plugin.name)
@@ -270,6 +279,7 @@ def test_send_quiet_refused_or_unreachable_is_false_not_an_error(home):
     assert Bridge(os.getpid()).send_quiet("j1", ["x"]) is False  # no plug-in at all
 
 
+@needs_pipes
 def test_a_stopped_plug_in_ends_a_batch_instead_of_letting_com_type_it(home):
     words = "The modeller stopped Heron in AutoCAD (HERONSTOP). Nothing more is done until they type HERONSTOP again."
     with FakePlugin({"ok": False, "refusedBy": "Stopped", "message": words}) as plugin:
@@ -279,6 +289,7 @@ def test_a_stopped_plug_in_ends_a_batch_instead_of_letting_com_type_it(home):
     assert "HERONSTOP" in str(caught.value) and str(caught.value).endswith(bridge.NOTHING_SENT)
 
 
+@needs_pipes
 def test_stopped_reads_the_ping(home):
     with FakePlugin({"ok": True, "protocolVersion": 1, "stopped": True}) as plugin:
         write_address(home, os.getpid(), plugin.name)

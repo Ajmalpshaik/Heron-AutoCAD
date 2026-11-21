@@ -8,7 +8,15 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (attribute sheets #96, folder check #97, Companion page #91; server 1.9.0)
+## Latest - 2026-11-21 (the offline gates run on Linux, #102)
+
+`tests/winstubs` stands in for pywin32 where it is not installed (D-72). On Linux:
+`PYTHONPATH=src python -m pytest -m "not live"` gives 2931 passed, 19 skipped (each with its
+Windows reason); `tools/check_structure.py` passes; `dotnet test` gives 297 passed, 1 skipped (the
+named pipe). A cloud session can now run all four gates instead of saying NOT RUN. Windows CI
+still runs every test.
+
+## Earlier - 2026-11-21 (attribute sheets #96, folder check #97, Companion page #91; server 1.9.0)
 
 Built offline in one PR, from Heron AI for Revit's ideas; design in
 [docs/13](13-sheets-folders-companion.md). Server **1.9.0** (four new tools, **142**), plug-in

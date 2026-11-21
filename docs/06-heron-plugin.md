@@ -25,7 +25,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
 
 - AutoCAD starts **disconnected** every time; only your press of **Heron** connects it
-  ([D-72](DECISIONS.md)). Until you
+  ([D-73](DECISIONS.md)). Until you
   connect, a chat can learn only that AutoCAD is running and not connected: `autocad_status` returns
   no drawing name, path or contents, and every other tool is refused.
 - **Turning a padlock on asks first; turning it off never asks.** Ask to Keep is the other way round:

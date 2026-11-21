@@ -7,7 +7,29 @@ plug-in to ask. tests/test_gate.py turns it on with a fake bridge.
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
+import os
+import sys
+from pathlib import Path
+
 import pytest
+
+# pywin32 installs only on Windows. Off Windows, stand-ins let the offline
+# suite collect and run (tests/winstubs/README.md, issue #102); on Windows
+# they are never used.
+WINSTUBS = Path(__file__).resolve().parent / "winstubs"
+if importlib.util.find_spec("pythoncom") is None:
+    sys.path.insert(0, str(WINSTUBS))
+    importlib.import_module("_ctypes_names")  # the ctypes names message_filter.py needs
+
+
+def script_env() -> dict[str, str]:
+    """The environment for a script a test starts: the stand-ins too, where pywin32 is missing."""
+    env = dict(os.environ)
+    if str(WINSTUBS) in sys.path:
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(WINSTUBS), env.get("PYTHONPATH", "")]))
+    return env
 
 
 @pytest.fixture(autouse=True)

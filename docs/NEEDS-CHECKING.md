@@ -420,7 +420,7 @@ tested offline (bridge `PadlockTests`, `ConfigTests`; `tests/test_padlock_guard.
 | R6 | Changes ON; then run the R5 `reg add` while AutoCAD stays open; ask the chat to draw; then `reg delete HKLM\SOFTWARE\Policies\Heron /f` and press Settings | The draw is refused with the policy words; after the delete Changes shows OFF (not ON) until clicked | NOT RUN |
 | R7 | `AllowAdmin` and `AllowPublish` set to 0, Changes on | Admin and Publish show HELD; `autocad_run_lisp` and a save are refused with the policy words; drawing still works | NOT RUN |
 | R8 | In Claude Code in this folder on this PC, ask it to set `"write.enabled": true` in the config file (and, separately, to `reg add` the policy key to 1) | Each step is refused "Heron's padlock guard refused this step"; nothing written | NOT RUN |
-| R10 | Put `"bridge.autoConnect": true` in `%APPDATA%\Heron\autocad\heron-autocad.config`, then start AutoCAD | Heron is **not** connected until you press Heron; `autocad_status` from a chat says not connected (D-72) | NOT RUN |
+| R10 | Put `"bridge.autoConnect": true` in `%APPDATA%\Heron\autocad\heron-autocad.config`, then start AutoCAD | Heron is **not** connected until you press Heron; `autocad_status` from a chat says not connected (D-73) | NOT RUN |
 ## Group T - How a change job answers and what it keeps (this PC)
 
 Added on 2026-11-21 ([D-61](DECISIONS.md), [D-62](DECISIONS.md), [D-63](DECISIONS.md)), from Heron

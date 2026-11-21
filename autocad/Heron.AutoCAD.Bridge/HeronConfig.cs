@@ -26,7 +26,7 @@ namespace Heron.AutoCAD.Bridge
 
         /// <summary>
         /// The file's own setting: ui.activityBanner. bridge.autoConnect is
-        /// ignored, so no file can make AutoCAD connect at start (D-72).
+        /// ignored, so no file can make AutoCAD connect at start (D-73).
         /// The padlock lines an older plug-in wrote (write.enabled,
         /// publish.enabled, admin.enabled, write.askBeforeKeeping) are ignored,
         /// so a file can never turn a padlock on (D-59). A file that cannot be

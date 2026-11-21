@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import ctypes
 import json
+import sys
 import threading
 
 import pytest
@@ -35,6 +36,8 @@ from autocad_mcp.tools.advanced import LISP_CANCELLED_VAR, LISP_RESULT_VAR
 BUSY = pythoncom.com_error(-2147418111, "Call was rejected by callee.", None, None)
 RETRY_LATER = pythoncom.com_error(-2147417846, "The message filter indicated that the application is busy.", None, None)
 KEY_NOT_FOUND = pythoncom.com_error(-2147352567, "Exception occurred.", (0, "AutoCAD", "Key not found", None, 0, -2145386476), None)
+
+needs_com_thread = pytest.mark.skipif(sys.platform != "win32", reason="registers the COM message filter on a real Windows thread")
 
 
 class FakeTime:
@@ -313,6 +316,7 @@ def _registered_filter() -> int | None:
     return previous.value
 
 
+@needs_com_thread
 class TestFilterPlumbing:
     def test_windows_accepts_the_filter_on_an_apartment_thread(self):
         def job():

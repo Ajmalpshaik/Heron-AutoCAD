@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from conftest import script_env
 
 from autocad_mcp.core.risk import RISK, Risk
 
@@ -140,7 +141,7 @@ class TestItRunsWithoutAutocad:
     def test_list_works_and_reports_the_whole_register(self):
         done = subprocess.run(
             [sys.executable, str(SOURCE), "--list"],
-            capture_output=True, text=True, timeout=120, cwd=str(ROOT),
+            capture_output=True, text=True, timeout=120, cwd=str(ROOT), env=script_env(),
         )
         assert done.returncode == 0, done.stderr
         measured = len(live_check.CHECKS)
@@ -151,7 +152,7 @@ class TestItRunsWithoutAutocad:
     def test_an_unknown_row_is_turned_away(self):
         done = subprocess.run(
             [sys.executable, str(SOURCE), "--row", "Z99"],
-            capture_output=True, text=True, timeout=120, cwd=str(ROOT),
+            capture_output=True, text=True, timeout=120, cwd=str(ROOT), env=script_env(),
         )
         assert done.returncode == 1
         assert "No rows match" in done.stdout
