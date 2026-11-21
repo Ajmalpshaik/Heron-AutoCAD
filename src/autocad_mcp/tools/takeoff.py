@@ -20,7 +20,7 @@ from ..acad.curves import curve_length
 from ..acad.entities import resolve_handle
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import before_after, same_value
 
@@ -134,7 +134,8 @@ def _children(doc: Any) -> dict[str, list[tuple[str, str]]]:
                 item = block.Item(j)
                 if str(item.ObjectName) == "AcDbBlockReference":
                     out.setdefault(name, []).append((str(getattr(item, "EffectiveName", None) or item.Name), str(item.Layer)))
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             continue
     return out
 
@@ -148,7 +149,8 @@ def _area(entity: Any) -> float | None:
         if str(entity.ObjectName) not in _ALWAYS_CLOSED and not bool(getattr(entity, "Closed", False)):
             return None
         return float(entity.Area)
-    except BaseException:  # noqa: BLE001
+    except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         return None
 
 
@@ -157,7 +159,8 @@ def _dynamic_properties(ref: Any) -> list[Any]:
         if not ref.IsDynamicBlock:
             return []
         return list(ref.GetDynamicBlockProperties())
-    except BaseException:  # noqa: BLE001 - not a block reference
+    except BaseException as exc:  # noqa: BLE001 - not a block reference
+        raise_if_busy(exc)
         return []
 
 
@@ -218,7 +221,8 @@ async def autocad_count_blocks(
             for ref in iter_selection(sel):
                 try:
                     row = _describe_ref(ref)
-                except BaseException:  # noqa: BLE001 - not a block reference after all
+                except BaseException as exc:  # noqa: BLE001 - not a block reference after all
+                    raise_if_busy(exc)
                     continue
                 refs.append(row)
         finally:
@@ -365,6 +369,7 @@ async def autocad_set_dynamic_properties(
                 old = _plain(prop.Value)
                 value = coerce_value(prop.Value, new, _plain(list(prop.AllowedValues or ())))
             except BaseException as exc:  # noqa: BLE001 - report and carry on
+                raise_if_busy(exc)
                 failed[label] = str(exc)
                 continue
             if same_value(old, _plain(value)):
@@ -379,6 +384,7 @@ async def autocad_set_dynamic_properties(
                         changed[label] = value
                         rows.append({"handle": str(ref.Handle), "property": label, "from": old, "to": _plain(value)})
                     except BaseException as exc:  # noqa: BLE001 - report and carry on
+                        raise_if_busy(exc)
                         failed[label] = str(exc)
         result = {"handle": str(ref.Handle), "changed": changed, "failed": failed, **before_after(rows)}
         if already:

@@ -150,8 +150,8 @@ async def autocad_associative_array(
           pattern='polar', count=8, center=the flange centre.
         - Don't use when: plain loose copies are wanted (each one moved or
           edited on its own) — autocad_array_entities.
-        - Don't use when: blocks should sit at even steps along a run and stay
-          separate blocks with their own attributes — autocad_place_along.
+        - Don't use when: each copy along a run must stay separate, with its
+          own tag — autocad_place_along.
 
     Error Handling:
         - A pattern given without its numbers (a path with neither count nor

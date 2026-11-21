@@ -41,6 +41,13 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // A model cut and looked at in 2D, surfaces and meshes (D-95).
+            ["flat_views"] = Risk.Change,
+            ["section_plane"] = Risk.Change,
+            ["loft_surface"] = Risk.Change,
+            ["planar_surface"] = Risk.Change,
+            ["network_surface"] = Risk.Change,
+            ["add_mesh"] = Risk.Change,
             // An associative array (ARRAY) and the drawing's geographic location
             // (GEOGRAPHICLOCATION): COM has a call for neither (D-110, D-111).
             ["associative_array"] = Risk.Change,

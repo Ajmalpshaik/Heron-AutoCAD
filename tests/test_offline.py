@@ -115,6 +115,13 @@ COLOR_TOOLS = (
     "autocad_loft",
     "autocad_thicken_surface",
     "autocad_super_hatch",
+    "autocad_add_construction_line",
+    "autocad_add_region",
+    "autocad_add_donut",
+    "autocad_flatten_views",
+    "autocad_section_plane",
+    "autocad_add_surface",
+    "autocad_add_mesh",
 )
 
 
@@ -311,7 +318,7 @@ class TestToolSurface:
     asserted rather than assumed."""
 
     async def test_all_tools_registered(self, tools):
-        assert len(tools) == 175
+        assert len(tools) == 185
 
     async def test_every_name_is_namespaced(self, tools):
         assert all(tool.name.startswith("autocad_") for tool in tools)

@@ -44,7 +44,7 @@ class TestLevels:
         ("autocad_list_hyperlinks", Risk.READ),
         ("autocad_get_geo_location", Risk.READ),
         # The screen, not the drawing: no Changes padlock.
-        ("autocad_model_viewports", Risk.VIEW),
+        ("autocad_tiled_viewports", Risk.VIEW),
     ])
     def test_each_tool_has_its_level(self, tool, level):
         assert risk_of(tool) is level
@@ -297,7 +297,7 @@ def tile_doc(monkeypatch):
 
 class TestModelViewports:
     def test_two_side_by_side(self, tile_doc):
-        out = call(model_viewports.autocad_model_viewports(layout="two_vertical"))
+        out = call(model_viewports.autocad_tiled_viewports(layout="two_vertical"))
         added = tile_doc.Viewports.added[0]
         assert added.Name == "Heron" and added.splits == [1]
         assert tile_doc.Viewports.deleted == ["Heron"]
@@ -307,33 +307,33 @@ class TestModelViewports:
     def test_the_view_on_screen_is_carried_into_the_new_viewport(self, tile_doc):
         tile_doc._active.Center = (777.0, 888.0)
         tile_doc._active.Height = 4321.0
-        call(model_viewports.autocad_model_viewports(layout="four"))
+        call(model_viewports.autocad_tiled_viewports(layout="four"))
         added = tile_doc.Viewports.added[0]
         assert tuple(added.Center.value) == (777.0, 888.0) and added.Height == 4321.0
 
     def test_back_to_one_is_not_split(self, tile_doc):
-        out = call(model_viewports.autocad_model_viewports(layout="one"))
+        out = call(model_viewports.autocad_tiled_viewports(layout="one"))
         assert tile_doc.Viewports.added[0].splits == []
         assert out["tiles"] == 1 and out["arrangement"] == "one viewport"
 
     def test_without_a_layout_it_only_reads(self, tile_doc):
-        out = call(model_viewports.autocad_model_viewports())
+        out = call(model_viewports.autocad_tiled_viewports())
         assert tile_doc.Viewports.added == [] and tile_doc.Viewports.deleted == []
         assert out["tiles"] == 1 and out["layout"] is None
 
     def test_a_split_that_came_out_another_way_is_a_warning(self, tile_doc):
         tile_doc.Viewports.split_as[1] = tile_doc.Viewports.split_as[0]
-        out = call(model_viewports.autocad_model_viewports(layout="two_vertical"))
+        out = call(model_viewports.autocad_tiled_viewports(layout="two_vertical"))
         assert "side by side" in out["warning"] and "one above the other" in out["warning"]
 
     def test_a_layout_is_refused_and_nothing_changes(self, tile_doc):
         tile_doc.vars["TILEMODE"] = 0
-        text = error(model_viewports.autocad_model_viewports(layout="four"))
+        text = error(model_viewports.autocad_tiled_viewports(layout="four"))
         assert "Model tab" in text and "autocad_add_viewport" in text
         assert tile_doc.Viewports.added == []
 
     def test_an_unknown_layout_is_refused_by_name(self, tile_doc):
-        assert "Error" in asyncio.run(model_viewports.autocad_model_viewports(layout="five"))
+        assert "Error" in asyncio.run(model_viewports.autocad_tiled_viewports(layout="five"))
 
 
 # ---------------------------------------------------------------------------

@@ -23,7 +23,7 @@ from ..acad.entities import resolve_handle, resolve_handles
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import apply_properties
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, group_coordinates
 from ._shared import LAYER_OPT, point
@@ -135,7 +135,8 @@ def grow(box: tuple[float, float, float, float], gap: float) -> tuple[float, flo
 def _object_id(doc: Any, entity: Any) -> str:
     try:
         return str(doc.Utility.GetObjectIdString(entity, False))
-    except BaseException:  # noqa: BLE001 - older releases
+    except BaseException as exc:  # noqa: BLE001 - older releases
+        raise_if_busy(exc)
         return str(entity.ObjectID)
 
 
@@ -164,7 +165,8 @@ async def autocad_polyline_info(
         info = describe_path(read_path(e))
         try:
             info["area"] = float(e.Area) if info["closed"] else None
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             info["area"] = None
         info["handle"] = str(e.Handle)
         return info
@@ -328,7 +330,8 @@ async def autocad_label_segment_lengths(
                         continue
                     try:
                         hits = e.IntersectWith(other, AC_EXTEND_NONE)
-                    except BaseException:  # noqa: BLE001
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         continue
                     cuts += [(p[0], p[1]) for p in group_coordinates(hits, 3)]
                 for lab in segment_labels(read_path(e), gap, precision, prefix, suffix, cuts):
@@ -394,7 +397,8 @@ async def autocad_place_along(
         require_idle(doc)
         try:
             doc.Blocks.Item(block_name)
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(f"No block named '{block_name}' in this drawing; see autocad_list_blocks.") from None
         path = read_path(resolve_handle(doc, path_handle))
         spots = places_along(path, spacing, count, align)
@@ -459,7 +463,8 @@ async def autocad_place_from_csv(
         for name in {p["block"] for p in places}:
             try:
                 doc.Blocks.Item(name)
-            except BaseException:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(f"No block named '{name}' in this drawing; see autocad_list_blocks.") from None
         space = get_space(doc, "model")
         handles, missing = [], set()
@@ -515,7 +520,8 @@ async def autocad_break_at_blocks(
                     for c in curves:
                         try:
                             clo, chi = c.GetBoundingBox()
-                        except BaseException:  # noqa: BLE001
+                        except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                             continue
                         if clo[0] > box[2] or chi[0] < box[0] or clo[1] > box[3] or chi[1] < box[1]:
                             continue

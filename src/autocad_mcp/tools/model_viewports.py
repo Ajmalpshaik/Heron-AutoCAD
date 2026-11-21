@@ -13,7 +13,7 @@ from pydantic import Field
 
 from ..acad import tiles as tile_plan
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from ..core.variants import apoint, double_array, point_to_list
 
@@ -28,7 +28,8 @@ def _tiles(doc: Any) -> list[dict[str, Any]]:
     try:
         active = doc.ActiveViewport
         current = (point_to_list(active.LowerLeftCorner), point_to_list(active.UpperRightCorner))
-    except BaseException:  # noqa: BLE001 - which one is current is extra
+    except BaseException as exc:  # noqa: BLE001 - which one is current is extra
+        raise_if_busy(exc)
         pass
     found: list[dict[str, Any]] = []
     viewports = doc.Viewports
@@ -56,14 +57,15 @@ def _copy_view(source: Any, target: Any) -> list[str]:
     for name, step in steps:
         try:
             step()
-        except BaseException:  # noqa: BLE001 - the split still works, from AutoCAD's default view
+        except BaseException as exc:  # noqa: BLE001 - the split still works, from AutoCAD's default view
+            raise_if_busy(exc)
             not_copied.append(name.lower())
     return not_copied
 
 
-@mcp.tool(name="autocad_model_viewports", **tool_meta("Tiled Model Viewports", idempotent=True))
+@mcp.tool(name="autocad_tiled_viewports", **tool_meta("Tiled Viewports (VPORTS)", idempotent=True))
 @tool_errors
-async def autocad_model_viewports(
+async def autocad_tiled_viewports(
     layout: Annotated[
         str | None,
         Field(
@@ -78,11 +80,10 @@ async def autocad_model_viewports(
         ),
     ] = None,
 ) -> str:
-    """Tile the Model tab into 2, 3 or 4 viewports (VPORTS), back to one, or read the tiles as they are.
+    """Tile the screen into 2, 3 or 4 viewports (VPORTS), back to one, or read the tiles as they are.
 
-    Each new viewport starts from the view on screen now; zoom or turn each
-    one by clicking in it (or autocad_zoom / autocad_set_3d_view work on the
-    one that is current). The answer reads the tiles back from AutoCAD, with
+    Each new viewport starts from the view on screen now; click in one to
+    make it current, then zoom or turn it. The answer reads the tiles back from AutoCAD, with
     their corners as fractions of the drawing area, and says if AutoCAD split
     it another way than asked.
 
@@ -100,12 +101,11 @@ async def autocad_model_viewports(
              "current": bool}], "view_not_copied"?: [str], "warning"?: str}
 
     Examples:
-        - Use when: "split the screen in two so I can see the plan and the
-          section side by side" — layout='two_vertical'.
-        - Use when: "four viewports: top, front, side and 3D" —
-          layout='four', then set each view.
+        - Use when: "split the screen in two viewports side by side" —
+          layout='two_vertical'.
+        - Use when: "four tiled viewports" — layout='four'.
         - Use when: "back to one viewport" — layout='one'.
-        - Use when: "how is the model view split?" — no layout.
+        - Use when: "how are the viewports tiled?" — no layout.
         - Don't use when: the viewport is on a sheet — autocad_add_viewport.
         - Don't use when: you only want to look somewhere else —
           autocad_zoom or autocad_set_3d_view.
@@ -121,7 +121,8 @@ async def autocad_model_viewports(
         require_idle(doc)
         try:
             tilemode = int(doc.GetVariable("TILEMODE"))
-        except BaseException:  # noqa: BLE001 - unreadable: let the split itself say
+        except BaseException as exc:  # noqa: BLE001 - unreadable: let the split itself say
+            raise_if_busy(exc)
             tilemode = 1
         if tilemode == 0:
             raise AutocadError(
@@ -134,7 +135,8 @@ async def autocad_model_viewports(
             current = doc.ActiveViewport
             try:
                 doc.Viewports.DeleteConfiguration(CONFIGURATION)
-            except BaseException:  # noqa: BLE001 - none left from an earlier split
+            except BaseException as exc:  # noqa: BLE001 - none left from an earlier split
+                raise_if_busy(exc)
                 pass
             try:
                 viewport = doc.Viewports.Add(CONFIGURATION)
@@ -147,6 +149,7 @@ async def autocad_model_viewports(
             except AutocadError:
                 raise
             except BaseException as exc:  # noqa: BLE001 - say what AutoCAD said
+                raise_if_busy(exc)
                 raise AutocadError(f"AutoCAD would not split the Model tab ({com_message(exc)}).") from exc
             if not_copied:
                 result["view_not_copied"] = not_copied

@@ -17,7 +17,13 @@ from ..acad.entities import describe, resolve_handle
 from ..acad.tables import apply_properties
 from ..acad.units import rad
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message, is_dispatch_failure, is_retryable
+from ..core.errors import (
+    AutocadError,
+    com_message,
+    is_dispatch_failure,
+    is_retryable,
+    raise_if_busy,
+)
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, object_array
 from ._shared import (
@@ -903,8 +909,8 @@ async def autocad_add_dimension(
                     if scale > 0:
                         entity.ScaleFactor = scale
                         return True
-                except Exception:  # noqa: BLE001 - keep the dimension at its style size
-                    pass
+                except Exception as exc:  # noqa: BLE001 - keep the dimension at its style size
+                    raise_if_busy(exc)
                 return False
 
             if not annotative:
@@ -1024,7 +1030,8 @@ async def autocad_insert_block(
         else:
             try:
                 doc.Blocks.Item(name)
-            except BaseException:  # noqa: BLE001 - report what does exist
+            except BaseException as exc:  # noqa: BLE001 - report what does exist
+                raise_if_busy(exc)
                 available = []
                 for i in range(doc.Blocks.Count):
                     block = doc.Blocks.Item(i)
@@ -1175,8 +1182,8 @@ async def autocad_add_hatch(
             try:
                 if str(obj.ObjectName) in {"AcDbPolyline", "AcDb2dPolyline"}:
                     is_closed = bool(obj.Closed)
-            except BaseException:  # noqa: BLE001 - circles/ellipses are always closed
-                pass
+            except BaseException as exc:  # noqa: BLE001 - circles/ellipses are always closed
+                raise_if_busy(exc)
             if not is_closed:
                 raise AutocadError(
                     f"Entity {handle} is an open polyline, so it cannot bound a "
@@ -1198,7 +1205,8 @@ async def autocad_add_hatch(
                     raise  # busy or disconnected, not a missing pattern
                 try:
                     entity = target.AddHatch(AC_HATCH_CUSTOM, pattern_name, associative)
-                except BaseException:  # noqa: BLE001
+                except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(
                         f"There is no hatch pattern called '{pattern_name}' in acad.pat, nor a "
                         f"{pattern_name}.pat on the support path ({com_message(first)}). Check the "

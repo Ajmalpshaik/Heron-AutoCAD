@@ -16,7 +16,7 @@ from pydantic import Field
 from ..acad.entities import resolve_handle, short_type
 from ..acad.selection import discard_selection_set, iter_selection, make_selection_set
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import int_array, variant_array
 from ._shared import HANDLES_OPT
@@ -83,7 +83,7 @@ async def autocad_hyperlinks(
     """Link objects to a file, a data sheet or a web page with a hyperlink, or take the link off (HYPERLINK).
 
     In AutoCAD, Ctrl+click on the object opens the link: a supplier's data
-    sheet on an equipment block, the O&M manual, a detail drawing, a web page.
+    sheet on a piece of equipment, the O&M manual, a detail drawing, a web page.
     One link per object, as AutoCAD's own HYPERLINK command keeps: 'set'
     replaces the link an object had. The answer gives each object's link
     before and after.
@@ -110,8 +110,7 @@ async def autocad_hyperlinks(
           units" — the FCU handles, url='https://...'.
         - Use when: "take the old links off these" — action='remove'.
         - Don't use when: you only want to see the links — autocad_list_hyperlinks.
-        - Don't use when: the text should show on the drawing — autocad_add_label
-          or autocad_set_attributes.
+        - Don't use when: the text should show on the drawing — autocad_add_label.
 
     Error Handling:
         - 'set' with neither a url nor a location is refused before anything changes.
@@ -141,6 +140,7 @@ async def autocad_hyperlinks(
                         entity.Hyperlinks.Add(target, (description or "").strip(), place)
                     after = _links(entity)
                 except BaseException as exc:  # noqa: BLE001 - report it, go on with the rest
+                    raise_if_busy(exc)
                     failed.append({"handle": handle, "reason": com_message(exc)})
                     continue
                 rows.append({"handle": handle, "type": short_type(entity), "before": before, "after": after})
@@ -174,7 +174,7 @@ async def autocad_list_hyperlinks(
 
     Each object's handle, type and layer, with its link: the address or file
     it opens, the hover text and the named view. Use it to check the links
-    before an issue, or to find which blocks still have no data sheet.
+    before an issue, or to find which equipment still has no data sheet.
 
     Reads only.
 
@@ -188,13 +188,13 @@ async def autocad_list_hyperlinks(
 
     Examples:
         - Use when: "which objects have hyperlinks in this drawing?" — no handles.
-        - Use when: "what does this block link to?" — handles=[the block].
+        - Use when: "what does this fan link to?" — handles=[the fan].
         - Don't use when: you want to add or remove one — autocad_hyperlinks.
 
     Error Handling:
         - A handle that is not in the drawing points at autocad_list_entities.
         - The whole-drawing search covers model space and every layout, not
-          objects inside block definitions.
+          objects nested inside other objects.
     """
     wanted = list(dict.fromkeys(handles or []))
 
@@ -221,6 +221,7 @@ async def autocad_list_hyperlinks(
                 try:
                     sel.Select(SELECT_ALL, None, None, int_array([DXF_XDATA_APP]), variant_array([XDATA_APP]))
                 except BaseException as exc:  # noqa: BLE001 - say why, do not guess
+                    raise_if_busy(exc)
                     raise AutocadError(
                         f"AutoCAD would not search the drawing for linked objects ({com_message(exc)}). "
                         "Give the handles to read instead."
