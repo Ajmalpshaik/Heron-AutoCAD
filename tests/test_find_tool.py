@@ -3,8 +3,8 @@
 Ajmal's doubt, in his words: *"still, I have doubt that it will find
 everything fast."* He was right to doubt it - the first version put the right
 tool first on 36 of 55 phrases and missed six altogether. This file is how
-that stopped being an opinion. It now stands at 88 of 101 first and 101 of 101
-in the top three, over all 138 tools, scored the way autocad://tools/find
+that stopped being an opinion. It now stands at 113 of 126 first and 125 of 126
+in the top three, over all 169 tools, scored the way autocad://tools/find
 ranks them: a plain question gets the tools that only read first (D-67).
 
 **These phrases are our own**, so the score is a floor on a sample, not a
@@ -32,13 +32,14 @@ from autocad_mcp.tools import register_all, resources
 
 register_all()
 
-# The floors. Current, over 138 tools: 88 of these put the right tool first
-# and all 101 find it in the top three. Set a little under, so ordinary
+# The floors. Current, over 169 tools: 113 of these put the right tool first
+# and 125 of 126 find it in the top three (the miss: "make a tag block with
+# a TAG attribute", issue to follow). Set a little under, so ordinary
 # rewording does not fail the build but a real loss does. The top-three floor
 # is deliberately the full count minus one: a phrase that stops finding its
 # tool at all is the failure that costs someone time at the machine.
-FIRST_PLACE_FLOOR = 83
-TOP_THREE_FLOOR = 100
+FIRST_PLACE_FLOOR = 108
+TOP_THREE_FLOOR = 125
 
 
 CASES = [
