@@ -57,6 +57,9 @@ namespace Heron.AutoCAD.Bridge
 
         /// <summary>Handed to every protocol this server starts: see <see cref="BridgeProtocol.BlockedBy"/>.</summary>
         public Func<string?>? BlockedBy { get; set; }
+
+        /// <summary>Handed to every protocol this server starts: see <see cref="BridgeProtocol.CurrentCommand"/>.</summary>
+        public Func<string?>? CurrentCommand { get; set; }
         public DateTime StartedAt { get; private set; }
 
         public bool IsRunning
@@ -75,6 +78,7 @@ namespace Heron.AutoCAD.Bridge
                 Protocol.Info["acadVersion"] = _acadVersion;
                 Protocol.Info["addinVersion"] = _addinVersion;
                 Protocol.BlockedBy = BlockedBy;
+                Protocol.CurrentCommand = CurrentCommand;
                 _stop = new CancellationTokenSource();
                 for (var i = 0; i < Listeners; i++)
                 {

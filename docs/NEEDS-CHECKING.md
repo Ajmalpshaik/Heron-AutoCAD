@@ -538,6 +538,27 @@ pulling. **Every row below is NOT RUN.**
 | Y6 | `autocad_companion`, open the page in a browser; select 3 objects, ask the chat to draw a line, then to refresh the companion page | The page shows the drawing, units, layout, view; within 5 s of the draw a new row "Draw Line ... done +1"; after the refresh the selection reads 3 objects; the browser's dev tools show no script and no request | NOT RUN |
 | Y7 | After Y1, type `1:100` in a SCALE cell and a date in a DATE cell in Excel (no leading '), and a value in a row's Block column that is not that block; apply with `dry_run=true` | Those cells are in `excel_converted` and that row in `other_block`; none of them is in `changes`; with `'1:100` typed instead it is written as `1:100` | NOT RUN |
 
+## Group Z - Undo commands, long AutoLISP, quiet answers, busy answers (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-76](DECISIONS.md), [D-77](DECISIONS.md); issues #42, #44, #46, #47). Built
+and tested offline only (`tests/test_undo_command_retry.py`, `tests/test_lisp_split.py`,
+`tests/test_quiet.py`, `tests/test_busy_answers.py`, `BusyCommandTests.cs`). Z5-Z8 need the plug-in
+built from this change (its ping says `command`); restart the server after pulling. **Every row
+below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| Z1 | Draw 3 lines with Heron, then `autocad_send_command("_U")` while a heavy regen or a tab switch keeps AutoCAD busy | Either one line is undone, or the answer is OUTCOME UNKNOWN naming U ("sent twice, it would undo or redo one step more"); never two lines undone. `autocad_undo_last` straight after refuses (a raw command came in between) | NOT RUN |
+| Z2 | `autocad_run_lisp` with six `defun`s of about 600 characters each (3,600+ in all, with comments and line breaks), then a call of the last one, in one expression | `chunks: 6`, `chunks_finished: 6`, the last form's value back; each function exists afterwards (`(type f0)` is USUBR); the command history shows six pieces, none over about 1,000 characters | NOT RUN |
+| Z3 | Z2 again with a typing mistake in the third defun (an undefined function call at top level of that form) | Stops at piece 3: `timed_out` true, "piece 3 of 6", "3 more were not sent"; f0 and f1 exist, f3-f5 do not; one Ctrl+Z takes back the whole call | NOT RUN |
+| Z4 | `(command "_LINE" "0,0")` and `(command "100,0" "")` as two top-level forms, padded so they land in two pieces | The first piece is named in `cancelled_command` (LINE), the second is not sent, AutoCAD is back at Command: | NOT RUN |
+| Z5 | `autocad_sequence` of eight `autocad_dimension_run` steps (a 5-point grid each, `include_overall`), once without and once with `quiet=true` | Quiet: every step has `count`, `handles`, `left_out: {"dimensions": 5}` and no points; the answer is well under half the size; the dimensions in the drawing are the same both times | NOT RUN |
+| Z6 | Start `_HATCH` by hand and leave it at its prompt; ask Heron to draw a line | The answer's first line names the HATCH command ("it is still in the HATCH command") and says nothing was changed, or counts what changed | NOT RUN |
+| Z7 | Open a dialog by hand (e.g. OPTIONS) and leave it; ask Heron to read an entity | The answer ends "AutoCAD was busy: it is in no command now, so a redraw or a box held it" (or names OPTIONS, if AutoCAD reports it as a command) | NOT RUN |
+| Z8 | `autocad_run_lisp` with `(command "_.DELAY" 15000)` (longer than its 10 s wait) | If it answers `timed_out: true`, the first line is OUTCOME UNKNOWN (not DONE) with what the plug-in counted so far, naming DELAY or AutoLISP when AutoCAD kept the reads away; if the value came back, DONE. Note which one AutoCAD 2027 gives | NOT RUN |
+| Z9 | Z6 with a plug-in built before this change | The answer reads as before (no command named) and nothing fails | NOT RUN |
+| Z10 | Ask to Keep on; draw a line; while the Keep or Discard box is up, start a heavy regen in another viewport, then press Discard | The line is gone and nothing older is undone; or the answer says "Outcome unknown ... UNDO Back" and the modeller's earlier work is still there. Never two Backs | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
@@ -560,5 +581,5 @@ AssemblyResolve fallback), so a missing-DLL error would show there, in the add-i
 | S6 | `autocad_purge(target="text_styles")` on a drawing with an unused text style | The style is gone and AutoCAD is back at `Command:`. The answer is now `_ST` (the capitals of "textSTyles"); it was `_STyles` | NOT RUN |
 | S8 | A sheet where `(vla-get-PaperSpace (vla-get-ActiveDocument (vlax-get-acad-object)))` throws (seen 2026-11-09 after a viewport hung on a sheet made with Layouts.Add); `autocad_status` | Status answers, `paper_space_entities` from the layout's block (or null), instead of "Exception occurred" | NOT RUN |
 | S9 | Same sheet; `autocad_add_viewport(scale='1:25', centre=[...], paper_centre=[338,300], paper_width=560, paper_height=420)` | A viewport is made through MVIEW, aimed and scaled 1:25 and locked, and its handle comes back | NOT RUN |
-| S10 | `autocad_run_lisp` with a 2,100-character expression | Refused at once with "split it", nothing sent to AutoCAD | NOT RUN |
+| S10 | `autocad_run_lisp` with a 2,100-character expression that is one form | Refused at once with "split it", nothing sent to AutoCAD (several forms are cut and sent since D-76: Z2) | NOT RUN |
 | S7 | On a UCS turned 23 degrees, with `coords="ucs"`: `autocad_transform_3d` move `[1000,0,0]`, `autocad_slice_solid` `plane="vertical_x"`, `autocad_extrude_profile` revolve about `[1,0,0]`, `autocad_dimension_run` horizontal, `autocad_add_solid` box 1000 x 600 | Each follows the **UCS** X axis (the box's 1000 side runs along it), not the world one. Before 2026-10-28 the points were turned into the world but the directions and the dimension angle were not | NOT RUN |

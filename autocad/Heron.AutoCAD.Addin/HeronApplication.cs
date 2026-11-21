@@ -71,6 +71,8 @@ namespace Heron.AutoCAD.Addin
                 {
                     // No job begins while the palette's Undo waits for AutoCAD (D-68, #138).
                     BlockedBy = AcadJobHost.Activity.Blocking,
+                    // A busy answer from the server names the command AutoCAD is in (#47).
+                    CurrentCommand = () => CommandWatch.Current,
                 };
                 IdleQueue.Hook();
                 CommandWatch.Hook();

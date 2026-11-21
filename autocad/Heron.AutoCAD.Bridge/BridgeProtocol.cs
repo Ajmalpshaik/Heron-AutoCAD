@@ -63,6 +63,15 @@ namespace Heron.AutoCAD.Bridge
         /// </summary>
         public Func<string?>? BlockedBy { get; set; }
 
+        /// <summary>
+        /// The command the active drawing is in, from the add-in's command
+        /// tracker (<see cref="CommandTracker"/>), or null when it is in none.
+        /// Read on the pipe thread, never waits for AutoCAD; ping reports it,
+        /// so a busy answer from the server can name it (#47). Not set: ping
+        /// leaves it out, as an older plug-in does.
+        /// </summary>
+        public Func<string?>? CurrentCommand { get; set; }
+
         public void Resume() => _stopped = false;
 
         /// <summary>Set by the server so info can report it.</summary>
@@ -115,6 +124,7 @@ namespace Heron.AutoCAD.Bridge
                                 w.WriteNumber("protocolVersion", Version);
                                 w.WriteBoolean("stopped", _stopped);
                                 WritePadlocks(w, _config());
+                                if (CurrentCommand != null) w.WriteString("command", RunningCommand());
                             });
                         case "info":
                             return Ok(w =>
@@ -153,6 +163,19 @@ namespace Heron.AutoCAD.Bridge
                 {
                     return Refuse("Error", "Heron in AutoCAD hit an error: " + ex.Message + " " + Texts.NothingSent);
                 }
+            }
+        }
+
+        private string? RunningCommand()
+        {
+            try
+            {
+                var command = CurrentCommand?.Invoke();
+                return string.IsNullOrWhiteSpace(command) ? null : command;
+            }
+            catch (Exception)
+            {
+                return null; // a ping always answers; the command is a nicety
             }
         }
 
