@@ -459,6 +459,29 @@ class TestHyperlinks:
         assert out["handles"] == ["2A"] and out["failed"][0]["handle"] == "2C"
         assert "locked" in out["hint"]
 
+    def test_a_set_that_fails_half_way_puts_the_old_link_back(self, link_doc):
+        links = link_doc.objects["2C"].Hyperlinks
+        links.items.append(Link(links, "https://old.example", "old", ""))
+        out = call(hyperlinks.autocad_hyperlinks(handles=["2C"], url="https://new.example"))
+        assert out["failed"][0]["handle"] == "2C"
+        # Add refuses on 2C, so the old link goes back through the same refusal: said, and Ctrl+Z.
+        assert "Ctrl+Z" in out["failed"][0]["reason"]
+
+    def test_the_old_link_is_put_back_when_only_the_new_one_is_refused(self, link_doc):
+        links = link_doc.objects["2A"].Hyperlinks
+        links.Add("https://old.example", "old", "")
+        real_add = links.Add
+
+        def add_once_refused(name, description, location):
+            if name == "https://new.example":
+                raise OSError("bad address")
+            return real_add(name, description, location)
+
+        links.Add = add_once_refused
+        out = call(hyperlinks.autocad_hyperlinks(handles=["2A"], url="https://new.example"))
+        assert [link.URL for link in links.items] == ["https://old.example"]
+        assert "Ctrl+Z" not in out["failed"][0]["reason"]
+
     def test_set_without_a_target_is_refused_before_anything_changes(self, link_doc):
         assert "url" in error(hyperlinks.autocad_hyperlinks(handles=["2A"], description="no target"))
         assert link_doc.marks == 0

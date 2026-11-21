@@ -53,6 +53,18 @@ def _clear(entity: Any) -> int:
     return removed
 
 
+def _restore(entity: Any, links: list[dict[str, str]]) -> bool:
+    """Put an object's links back as they were, after a set that failed half way; True when they are."""
+    try:
+        _clear(entity)
+        for link in links:
+            entity.Hyperlinks.Add(link["url"], link["description"], link["location"])
+        return _links(entity) == links
+    except BaseException as exc:  # noqa: BLE001 - the caller says it could not, and Ctrl+Z can
+        raise_if_busy(exc)
+        return False
+
+
 @mcp.tool(name="autocad_hyperlinks", **tool_meta("Hyperlink Objects To A File, Data Sheet Or Web Page"))
 @tool_errors
 async def autocad_hyperlinks(
@@ -135,13 +147,21 @@ async def autocad_hyperlinks(
                 entity = resolve_handle(doc, handle)
                 try:
                     before = _links(entity)
+                except BaseException as exc:  # noqa: BLE001 - report it, go on with the rest
+                    raise_if_busy(exc)
+                    failed.append({"handle": handle, "reason": com_message(exc)})
+                    continue
+                try:
                     _clear(entity)
                     if action == "set":
                         entity.Hyperlinks.Add(target, (description or "").strip(), place)
                     after = _links(entity)
-                except BaseException as exc:  # noqa: BLE001 - report it, go on with the rest
+                except BaseException as exc:  # noqa: BLE001 - report it, put the old link back, go on
                     raise_if_busy(exc)
-                    failed.append({"handle": handle, "reason": com_message(exc)})
+                    reason = com_message(exc)
+                    if not _restore(entity, before):
+                        reason += " Its old link could not be put back: one Ctrl+Z does."
+                    failed.append({"handle": handle, "reason": reason})
                     continue
                 rows.append({"handle": handle, "type": short_type(entity), "before": before, "after": after})
         changed = [row for row in rows if row["before"] != row["after"]]
