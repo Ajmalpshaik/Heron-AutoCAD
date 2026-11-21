@@ -38,9 +38,9 @@ done looks like here.
 
 ## Found in the first live checks (2026-10-26)
 
-- [ ] A batch still leaves one `Command:` prompt per piece in the history (about 27 for 41 objects).
-  Harmless; fewer, larger pieces may be possible through the plug-in (the 600-character limit was
-  measured for COM SendCommand). ([#45](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/45))
+- [x] A batch still leaves one `Command:` prompt per piece in the history (about 27 for 41 objects).
+  Through the plug-in it now goes in pieces up to its `quietLimit` (1,500): 9 pieces instead of 25
+  for that batch, offline ([D-98](DECISIONS.md), 2026-11-21; live rows AJ6, AJ7 NOT RUN). ([#45](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/45))
 - [ ] `autocad_preview`: the picture comes out portrait with the drawing at the left edge; fit and
   centre it, landscape when the drawing is wide. Probably fixed with J6 (the preview now plots
   centred at 0 degrees); look at one live before ticking it.
@@ -163,7 +163,7 @@ done looks like here.
 - [x] A section plane and a 2D section from a 3D model: `autocad_section_plane`, by the plug-in
   (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
 - [ ] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines: not in
-  D-95's first build (limit 31). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
+  D-95's first build (limit 32). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
 - [ ] Multileader, table and dimension **style** creation from `autocad_create_styles`: no
   Automation API for the first two, and a dimension style already works, so this is really
   "bring the office styles in" - `autocad_import_from_drawing` does it today. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
@@ -190,7 +190,7 @@ done looks like here.
   DWGs; each must be checked for unsaved changes and xrefs first). ([#67](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/67))
 - [x] Use the add-in's command tracker for the server's own busy answers too (D-77, 2026-11-21: ping says `command`; live rows Z6-Z9 NOT RUN), not only plug-in
   operations ("Outcome unknown: AutoCAD went busy", rows D8, D33). ([#47](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/47))
-- [ ] Document events to feed the wrong-drawing guard and a Companion activity list. ([#48](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/48))
+- [x] Document events to feed the wrong-drawing guard and a live activity list ([D-98](DECISIONS.md), 2026-11-21: the plug-in records them, the guard and `send_quiet` use them, the docked palette shows them live; the Companion page stays a file written after each job; live rows AJ1-AJ10 NOT RUN). ([#48](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/48))
 - [ ] `core/audit.py`: with `%LOCALAPPDATA%` unset, `audit_dir()` resolves to a relative
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway. ([#43](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/43))

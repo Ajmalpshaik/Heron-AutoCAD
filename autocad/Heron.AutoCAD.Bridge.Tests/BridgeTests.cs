@@ -208,7 +208,14 @@ public class FakeHost : IJobHost
     }
 
     public List<string[]> Quiet { get; } = new();
-    public void SendQuiet(string[] lines) => Quiet.Add(lines);
+    public List<string> QuietDrawings { get; } = new();
+    public QuietAnswer QuietReply { get; set; } = QuietAnswer.Typed;
+    public QuietAnswer SendQuiet(string[] lines, string drawing)
+    {
+        Quiet.Add(lines);
+        QuietDrawings.Add(drawing);
+        return QuietReply;
+    }
 
     public List<RunRequest> Runs { get; } = new();
     public RunResult RunAnswer { get; set; } = RunResult.Done(null);
@@ -801,7 +808,7 @@ public class ReadLeavesNoUndoStepTests
         public void Begin(JobInfo job) => _pause.Begin(job);
         public void End(JobEnd end) => _pause.End(end.Job);
         public string AskKeep(KeepRequest request) => "keep";
-        public void SendQuiet(string[] lines) { }
+        public QuietAnswer SendQuiet(string[] lines, string drawing) => QuietAnswer.Typed;
         public RunResult Run(RunRequest request) => RunResult.Done(null);
         public ChangeReport? Changes(string job) => null;
         public EraseAnswer AskErase(EraseRequest request) => new();
