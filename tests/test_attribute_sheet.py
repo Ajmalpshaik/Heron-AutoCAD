@@ -300,10 +300,7 @@ def test_a_row_with_values_but_no_handle_is_said():
     assert attribute_sheet.plan(sheet, None, REFS)["rows_without_handle"] == [5]
 
 
-def test_the_workbook_names_its_drawing_and_a_cell_without_a_column_letter_is_read():
-    content = attribute_sheet.workbook(REFS, r"C:\Jobs\M-101.dwg")
-    assert attribute_sheet.source_of(content) == r"C:\Jobs\M-101.dwg"
-    assert attribute_sheet.source_of(attribute_sheet.workbook(REFS)) == ""
+def _one_sheet(cells_xml: str) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("xl/workbook.xml", '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
@@ -312,10 +309,49 @@ def test_the_workbook_names_its_drawing_and_a_cell_without_a_column_letter_is_re
         archive.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
                          '<Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/></Relationships>')  # fmt: skip
         archive.writestr("xl/worksheets/sheet1.xml", '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                         '<sheetData><row r="1"><c r="1" t="inlineStr"><is><t>x</t></is></c></row>'
-                         '<row r="999999999"><c r="A999999999"><v>1</v></c></row></sheetData></worksheet>')  # fmt: skip
+                         f"<sheetData>{cells_xml}</sheetData></worksheet>")  # fmt: skip
+    return buffer.getvalue()
+
+
+def test_the_workbook_names_its_drawing():
+    content = attribute_sheet.workbook(REFS, r"C:\Jobs\M-101.dwg")
+    assert attribute_sheet.source_of(content) == r"C:\Jobs\M-101.dwg"
+    assert attribute_sheet.source_of(attribute_sheet.workbook(REFS)) == ""
+
+
+def test_a_cell_without_a_column_letter_is_refused():
+    # D-75: it cannot say which column it is, so a value could land under the wrong tag.
+    with pytest.raises(xlsx.SheetError, match="no column letter"):
+        xlsx.read(_one_sheet('<row r="1"><c r="1" t="inlineStr"><is><t>x</t></is></c></row>'))
+    # A cell with no reference at all is placed by its position, as Excel's own format allows.
+    assert xlsx.read(_one_sheet('<row r="1"><c t="inlineStr"><is><t>x</t></is></c></row>'))["S"] == [["x"]]
+
+
+def test_a_row_past_the_limit_is_refused():
     with pytest.raises(xlsx.SheetError, match="more than"):
-        xlsx.read(buffer.getvalue())
+        xlsx.read(_one_sheet('<row r="999999999"><c r="A999999999"><v>1</v></c></row>'))
+
+
+def test_an_error_cell_is_never_a_value_to_write():
+    rows = xlsx.read(_one_sheet('<row r="1"><c r="A1" t="e"><v>#N/A</v></c></row>'))["S"]
+    assert isinstance(rows[0][0], xlsx.Converted) and rows[0][0].shown_as == "an error"
+
+
+def test_exported_cells_are_formatted_as_text_so_excel_keeps_what_is_typed():
+    content = attribute_sheet.workbook(REFS)
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        styles = archive.read("xl/styles.xml").decode()
+        sheet = archive.read("xl/worksheets/sheet1.xml").decode()
+    assert '<xf numFmtId="49"' in styles
+    assert '<c r="A2" t="inlineStr" s="2">' in sheet and '<c r="A1" t="inlineStr" s="1">' in sheet
+
+
+def test_a_row_without_a_handle_is_named_by_its_excel_row_after_a_blank_row():
+    rows = attribute_sheet.table(REFS)
+    rows.insert(2, [])  # Excel row 3 left blank
+    rows.append(["", "CAMERA", "", "CAM-77"])
+    records = attribute_sheet._records(rows, "The sheet")
+    assert attribute_sheet.plan(records, None, REFS)["rows_without_handle"] == [len(rows)]
 
 
 def test_apply_warns_when_the_sheet_came_from_another_drawing(drawing):
