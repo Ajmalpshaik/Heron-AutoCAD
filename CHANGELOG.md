@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A sequence stops when another drawing comes to the front (2026-11-21, #165).** Between its
+  steps `autocad_sequence` asks the plug-in whether a drawing switch happened during the job; if
+  so it stops, like HERONSTOP, so no later step lands in the other drawing ([D-98](docs/DECISIONS.md)).
+  Live row AJ8 NOT RUN.
+
 - **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
   measures 122 rows of groups M to Z, AA to AP and RV as well as D, E and F (188 in all), and gives
   the other 140 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off

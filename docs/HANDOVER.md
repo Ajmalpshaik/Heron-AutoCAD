@@ -8,7 +8,13 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the live-check runner covers the new groups, D-118)
+## Latest - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
+
+Follow-up to #48 on branch `claude/plugin-events-165`. Plug-in change: `begin` answers
+`drawingSeq`. `autocad_sequence` checks between steps (`gate.front_changed_in_job`) and stops
+when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Versions not bumped.
+
+## Earlier - 2026-11-21 (the live-check runner covers the new groups, D-118)
 
 `tools/live_check.py` now measures 188 rows (122 new, in groups M-Z, AA-AP, RV) and names the
 reason for the other 166 of its groups. One file per area: `live_check_edits.py` (AA),
