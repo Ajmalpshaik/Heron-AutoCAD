@@ -806,6 +806,14 @@ Heron and is **not** an administrator. **Every row below is NOT RUN.**
 | AK10 | After AK1, SECURELOAD left at 1 (check with SECURELOAD at the command line): start AutoCAD 2027 | Heron is **unsigned by decision** (#164). Record whether AutoCAD shows a security box for Heron in `%APPDATA%\Autodesk\ApplicationPlugins`, its exact words and buttons; choose to load it always. The Heron tab appears | NOT RUN |
 | AK11 | After AK10: close AutoCAD and start it again; then install the next version over it (AK5) and start AutoCAD | No box on the restart: the modeller trusts Heron **once**. After an update, record whether AutoCAD asks again | NOT RUN |
 
+## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| RV1 | Admin on. `autocad_send_command` with `expect_box` / `press` on a box that never comes; close the chat (stop the server) before the command ends; then, with no Heron job running, open a box yourself (e.g. OPTIONS) | Heron leaves your box alone; `addin-*.log` shows no "dialog watch" line for it | NOT RUN |
+| RV2 | `autocad_export_attribute_sheet`, then in Excel type `0051` and `1:100` over two values, save, `autocad_apply_attribute_sheet` | The attributes read `0051` and `1:100` exactly; nothing listed in `excel_converted` | NOT RUN |
+| RV3 | `autocad_sequence` with steps `[autocad_switch_drawing, autocad_draw_line]` | Refused naming step 1; nothing drawn in either drawing | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
