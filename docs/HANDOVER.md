@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
 
-Seven new tools (**149**): `autocad_layer_states`, `autocad_isolate_layers`,
+Seven new tools (**154** with the block and table tools): `autocad_layer_states`, `autocad_isolate_layers`,
 `autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,
 `autocad_annotation_scales`, `autocad_list_annotation_scales`; `annotative=true` on `add_text`,
 `add_mtext`, `add_dimension`, `dimension_run`, `add_multileader`; `dim_style` on
@@ -22,6 +22,21 @@ compiled for all three builds; the plug-in version is not bumped here (the paren
 **Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then
 live rows **AB1-AB11**. AB1 (the 1:5 style size) and AB9 (what height an annotative text gets)
 decide whether the two size rules in D-80 / D-81 hold.
+
+## Earlier - 2026-11-21 (blocks, attributes and tables: #115, #117, #106; D-82, D-83)
+
+Branch `claude/blocks-tables`. Five new tools (**147**): `autocad_sync_attributes` (ATTSYNC),
+`autocad_table_from_excel`, `autocad_update_table_links`, `autocad_set_table_cells`,
+`autocad_copy_from_drawing`; `autocad_make_block` takes `attributes`. Three new plug-in operations
+(`BlockAttributes.cs`, `ExcelTables.cs`): `sync_attributes`, `excel_table`, `update_table_links`.
+The .NET calls were checked against Autodesk's reference packages for 2021, 2025 and 2027 and build
+for all three with no warning; none has run in AutoCAD. Planning is offline and tested
+(`acad/block_attributes.py`, `acad/table_cells.py`, `acad/drawing_copy.py`). Versions not bumped
+(the parent session does it).
+
+**Next (on this PC, AutoCAD closed):** pull, `tools/build_plugin.py` + `tools/install_plugin.py`,
+restart Claude; live rows **AC1-AC16**. AC7 first: whether AutoCAD's data link needs Excel
+installed, and whether the connection string `file!sheet!range` is read as hoped.
 
 ## Earlier - 2026-11-21 (server core 2: #42, #44, #46, #47; D-76, D-77)
 

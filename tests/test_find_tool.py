@@ -163,6 +163,14 @@ CASES = [
     ("break the dimensions where the pipes cross them", "autocad_break_dimensions"),
     ("add the 1:100 scale to these notes", "autocad_annotation_scales"),
     ("which annotation scales does this note have", "autocad_list_annotation_scales"),
+    # Blocks, attributes and tables (D-82, D-83; issues #115, #117, #106).
+    ("make a tag block with a TAG attribute", "autocad_make_block"),
+    ("I added an attribute to the block, update all the inserts", "autocad_sync_attributes"),
+    ("attsync the title block", "autocad_sync_attributes"),
+    ("put the pump schedule from the Excel file on the sheet", "autocad_table_from_excel"),
+    ("the schedule changed in excel, update the table", "autocad_update_table_links"),
+    ("change the value in cell B3 of that table", "autocad_set_table_cells"),
+    ("copy the pump skid from the other open drawing into this one", "autocad_copy_from_drawing"),
 ]
 
 def entries() -> list[Entry]:

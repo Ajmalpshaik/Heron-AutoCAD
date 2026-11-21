@@ -203,6 +203,9 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `move_dimension_lines` | `autocad_space_dimensions` | `DimLinePoint`, then `RecomputeDimensionBlock` |
 | `annotation_scales` (Read) | `autocad_list_annotation_scales` | the `ACDB_ANNOTATIONSCALES` collection, `Database.Cannoscale`, `DBObject.HasContext` |
 | `set_annotation_scales` | `autocad_annotation_scales` and `annotative=true` on the text, dimension and multileader tools | `DBObject.Annotative`, `AddContext`, `RemoveContext` |
+| `sync_attributes` | `autocad_sync_attributes` | `AttributeReference.SetAttributeFromBlock`, `AttributeCollection.AppendAttribute` (ATTSYNC, [D-82](DECISIONS.md)) |
+| `excel_table` | `autocad_table_from_excel` | `DataLinkManager.AddDataLink`, `Cell.SetDataLink` ([D-83](DECISIONS.md)) |
+| `update_table_links` | `autocad_update_table_links` | `Table.UpdateDataLink(SourceToData, SkipFormat)` |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.

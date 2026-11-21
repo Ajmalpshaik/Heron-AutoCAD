@@ -91,6 +91,12 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "add_label",
         "batch_labels",
         "make_block",
+        # Blocks, attributes and tables (D-82, D-83); ATTSYNC and the Excel link are done by the plug-in.
+        "sync_attributes",
+        "table_from_excel",
+        "update_table_links",
+        "set_table_cells",
+        "copy_from_drawing",
         "set_dynamic_properties",
         "set_attributes",
         "apply_attribute_sheet",

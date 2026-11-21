@@ -31,6 +31,10 @@ namespace Heron.AutoCAD.Bridge
             ["move_dimension_lines"] = Risk.Change,
             ["set_annotation_scales"] = Risk.Change,
             ["layer_state"] = Risk.Change,
+            // ATTSYNC and the Excel data link: COM can add neither (D-82, D-83).
+            ["sync_attributes"] = Risk.Change,
+            ["excel_table"] = Risk.Change,
+            ["update_table_links"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

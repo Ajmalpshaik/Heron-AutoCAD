@@ -321,3 +321,31 @@ From [docs/13](13-sheets-folders-companion.md); all NOT RUN live (NEEDS-CHECKING
 - **The Companion page's view and selection are as of the last `autocad_companion` call**, not
   live: the page says when they were read. The activity list is updated after every job.
 
+
+## 28. Attributes, Excel tables and the copy between drawings have their own limits
+
+From [D-82](DECISIONS.md) and [D-83](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AC).
+- **ATTSYNC, the Excel link and its update are done by the plug-in.** A plug-in built before them
+  answers that it does not have the operation: rebuild and reinstall it. The Excel table then
+  falls back to a filled table and says so; ATTSYNC stops with nothing changed.
+- **ATTSYNC reaches inserts in model space and on the sheets,** not inserts nested inside other
+  blocks' definitions ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)). An insert on a locked layer is skipped and listed. An attribute holding a
+  field, or a multi-line one, keeps its own text, place and size (`kept_as_they_were`).
+- **A tag that appears twice in one block is matched in order**: the first definition of it takes
+  the first value of it on each insert.
+- **ATTSYNC does not reorder an insert's attributes**: the ones kept stay where they were in its
+  list, and new ones follow in the definition's order.
+- **AutoCAD's data link may need Microsoft Excel on the PC.** Not known until tried (AC7). When the
+  link reads nothing, the plug-in refuses it and the tool fills the table from the sheet instead,
+  with the reason in `not_linked_because`.
+- **A linked table shows the Excel range exactly:** no title row is added (put the title in the
+  sheet), and its cells cannot be changed with `autocad_set_table_cells` (change the sheet, then
+  `autocad_update_table_links`). A filled table does not update by itself.
+- **A filled table leaves out what Excel only shows** as a date, a time, a fraction or a percent
+  (listed in `excel_converted`), as the attribute sheet does ([D-75](DECISIONS.md)). Merged cells in
+  Excel come in as their top-left value only.
+- **A table is at most 500 rows, 40 columns and 5,000 cells** in one call: give a smaller range.
+- **Copy from another open drawing lands in the active drawing** (the one checked with
+  `autocad_status`). To copy the other way, switch to the target first. A block, layer or style
+  name that both drawings have is the target's own: the copies show the target's version.
+  Coordinates are world coordinates in each drawing; the copies are moved, not turned or scaled.

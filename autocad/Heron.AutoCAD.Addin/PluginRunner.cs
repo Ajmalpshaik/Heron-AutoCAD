@@ -104,6 +104,9 @@ namespace Heron.AutoCAD.Addin
                 case "set_annotation_scales": return AnnotationScales.Set(db, tr, args);
                 case "layer_state_names": return LayerStates.Names(db, tr, args);
                 case "layer_state": return LayerStates.Change(db, tr, args);
+                case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
+                case "excel_table": return ExcelTables.Make(db, tr, args);
+                case "update_table_links": return ExcelTables.Update(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }
