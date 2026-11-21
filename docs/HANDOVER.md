@@ -47,8 +47,8 @@ failed as on every PR, #34). Server only, no plug-in change; restart the server 
 - **#80 stays open:** the tools above leave no undo step when nothing differs; taking back an
   empty job afterwards waits for live row T7 ([05 §26](05-known-limits.md)).
 
-**Next:** in AutoCAD 2027, run group T rows T1-T7 (all NOT RUN). T7 decides #80. Server version
-bump (suggested 1.8.0) is still to do.
+**Next:** in AutoCAD 2027, run group T rows T1-T7 (all NOT RUN). T7 decides #80. The server is
+now **1.8.0** (plug-in still 1.5.0): on this PC, restart Claude after pulling so the new server runs.
 
 ## Earlier - 2026-11-21 (every open item is a GitHub issue; seven cloud sessions build the Revit ideas)
 
