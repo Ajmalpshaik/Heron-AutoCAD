@@ -8,7 +8,22 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (setting a render up from the chat, #59-#63, D-86 / D-87)
+## Latest - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
+
+Seven new tools (**159** with the block, table and render tools): `autocad_layer_states`, `autocad_isolate_layers`,
+`autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,
+`autocad_annotation_scales`, `autocad_list_annotation_scales`; `annotative=true` on `add_text`,
+`add_mtext`, `add_dimension`, `dimension_run`, `add_multileader`; `dim_style` on
+`dimension_run`; `autocad_list_layers` lists the layer states. Six new plug-in operations
+(`layer_state`, `layer_state_names`, `dimension_lines`, `move_dimension_lines`,
+`annotation_scales`, `set_annotation_scales`), checked against Autodesk's reference assemblies and
+compiled for all three builds; the plug-in version is not bumped here (the parent does it).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then
+live rows **AB1-AB11**. AB1 (the 1:5 style size) and AB9 (what height an annotative text gets)
+decide whether the two size rules in D-80 / D-81 hold.
+
+## Earlier - 2026-11-21 (setting a render up from the chat, #59-#63, D-86 / D-87)
 
 Five new tools (**152** with the blocks and tables work merged first) and five new plug-in operations, built and tested offline in one PR:
 `autocad_add_camera_view` (a view record with perspective and a lens, never DVIEW),

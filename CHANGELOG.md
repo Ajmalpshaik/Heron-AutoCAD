@@ -8,6 +8,18 @@ Newest first. Dates are when the change was made.
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
 
+- **Layers and annotation (2026-11-21, #37, #107, #108, #116).** Seven new tools (**159** in all, with the block, table and render tools):
+  `autocad_layer_states` saves, restores and deletes named layer states (listed by
+  `autocad_list_layers`); `autocad_isolate_layers` isolates the layers of picked objects and puts
+  them all back; `autocad_merge_layers` moves everything off old layers, inside blocks too, and
+  removes them once empty (`confirm=true`); `autocad_space_dimensions` spaces a stack of dimensions
+  evenly; `autocad_break_dimensions` breaks dimensions where other objects cross them;
+  `autocad_annotation_scales` and `autocad_list_annotation_scales` make objects annotative and add,
+  remove and read their scales. `annotative=true` on the text, mtext, dimension, dimension run and
+  multileader tools. `autocad_dimension_run` takes `dim_style`, set on each dimension with the
+  style's own scale. Six new plug-in operations ([D-80](docs/DECISIONS.md),
+  [D-81](docs/DECISIONS.md)). Live rows AB1-AB11 NOT RUN.
+
 - **Setting a render up from the chat (2026-11-21, #59-#63).** Five new tools (152 with the blocks and tables tools): a named
   perspective **camera view** with an eye, a target and a lens (`autocad_add_camera_view`, 24 mm
   inside a room), the **sun's date, time and place** (`autocad_set_sun`), the **lights listed**
