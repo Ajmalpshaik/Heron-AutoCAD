@@ -9,6 +9,11 @@ Newest first. Dates are when the change was made.
   with exactly that title, once, in that call; every other box is still cancelled. Admin only.
   Plug-in **1.7.0**, server **1.10.0** ([D-74](docs/DECISIONS.md)). Live rows V7-V8 NOT RUN.
 
+- **Check lists: a cut-off read is never a PASS (2026-11-21).** Found in review after PR #122:
+  title blocks read from only part of a drawing (the `max_entities` cut-off) could still say PASS,
+  and `autocad_check_standards` said `passed: true` after a cut-off read. Both now say not decided
+  (NO DATA, `passed: null`); a failure found in the part read is still a failure
+  ([D-64](docs/DECISIONS.md)). Four more phrases in the tool-finding test find the check list tools.
 - **AutoCAD always starts disconnected (2026-11-21, #141).** `bridge.autoConnect` in the config
   file is ignored: only the modeller's press of Heron connects AutoCAD, so no file can let a chat
   read a drawing without a click ([D-73](docs/DECISIONS.md)). Live row R10 NOT RUN.

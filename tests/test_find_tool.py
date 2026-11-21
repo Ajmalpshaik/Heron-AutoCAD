@@ -3,8 +3,8 @@
 Ajmal's doubt, in his words: *"still, I have doubt that it will find
 everything fast."* He was right to doubt it - the first version put the right
 tool first on 36 of 55 phrases and missed six altogether. This file is how
-that stopped being an opinion. It now stands at 84 of 97 first and 97 of 97
-in the top three, over all 137 tools, scored the way autocad://tools/find
+that stopped being an opinion. It now stands at 88 of 101 first and 101 of 101
+in the top three, over all 138 tools, scored the way autocad://tools/find
 ranks them: a plain question gets the tools that only read first (D-67).
 
 **These phrases are our own**, so the score is a floor on a sample, not a
@@ -32,13 +32,13 @@ from autocad_mcp.tools import register_all, resources
 
 register_all()
 
-# The floors. Current, over 128 tools: 79 of these put the right tool first
-# and all 96 find it in the top three. Set a little under, so ordinary
+# The floors. Current, over 138 tools: 88 of these put the right tool first
+# and all 101 find it in the top three. Set a little under, so ordinary
 # rewording does not fail the build but a real loss does. The top-three floor
 # is deliberately the full count minus one: a phrase that stops finding its
 # tool at all is the failure that costs someone time at the machine.
-FIRST_PLACE_FLOOR = 74
-TOP_THREE_FLOOR = 95
+FIRST_PLACE_FLOOR = 83
+TOP_THREE_FLOOR = 100
 
 
 CASES = [
@@ -53,6 +53,10 @@ CASES = [
     ("convert this IFC import to proper layers", "autocad_remap_layers"),
     ("everything is on layer 0 and hard colours, tidy it", "autocad_tidy_entities"),
     ("does this drawing follow our layer standard", "autocad_check_standards"),
+    ("check this drawing before I issue it", "autocad_checklist"),
+    ("run our office check list", "autocad_checklist"),
+    ("save the check results as excel to send with the drawings", "autocad_checklist_report"),
+    ("make an excel report of the checks", "autocad_checklist_report"),
     ("make an A1 sheet at 1 to 100", "autocad_create_layout"),
     ("put the title block on every sheet", "autocad_place_title_block"),
     ("add a viewport showing the plan at 1 to 50", "autocad_add_viewport"),

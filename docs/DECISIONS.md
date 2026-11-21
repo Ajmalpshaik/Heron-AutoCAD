@@ -351,7 +351,8 @@ text. Known limit: one sheet, text and numbers only, no colours in Excel (the HT
   of the objects read when nothing wrong was found in that part) and NOT RUN (switched off for this
   project). NO DATA is never counted as a PASS: the verdict is FAIL if anything failed, else NO DATA
   if anything could not be decided, else PASS. Before this, a missing title block was NOT RUN and a
-  run capped at `max_entities` could still say PASS.
+  run capped at `max_entities` could still say PASS. The same holds for title blocks, and for
+  `autocad_check_standards`: after a capped read with nothing found, `passed` is `null`, not `true`.
 - **Coverage line on every run:** "2 of 4 decided, 1 no data, 1 not run" (decided = PASS + FAIL).
 - **Office and project.** The office list is the saved list,
   `%LOCALAPPDATA%\Heron\autocad\checklists\<name>.json`, as in D-52 ('before issue' ships with
