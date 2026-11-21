@@ -22,6 +22,15 @@ namespace Heron.AutoCAD.Bridge
         public const string AdminOff =
             "Admin is off, so Heron may not run AutoCAD commands, AutoLISP or system-variable changes. To allow it, press Settings on the Heron tab in AutoCAD and turn Admin on (or type HERONADMIN). " + NothingSent;
 
+        public const string ChangesHeld =
+            "Changes is held off by a Windows policy on this PC, so Heron may not change this drawing. Only the PC's administrator can lift it. " + NothingSent;
+
+        public const string PublishHeld =
+            "Publish is held off by a Windows policy on this PC, so Heron may not save, export or plot drawings. Only the PC's administrator can lift it. " + NothingSent;
+
+        public const string AdminHeld =
+            "Admin is held off by a Windows policy on this PC, so Heron may not run AutoCAD commands, AutoLISP or system-variable changes. Only the PC's administrator can lift it. " + NothingSent;
+
         public const string UnknownRisk =
             "Heron in AutoCAD did not recognise this tool's level, so it refused it. " + NothingSent;
 

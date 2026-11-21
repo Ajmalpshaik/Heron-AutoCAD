@@ -1,4 +1,5 @@
 using Autodesk.AutoCAD.Runtime;
+using Heron.AutoCAD.Bridge;
 
 [assembly: CommandClass(typeof(Heron.AutoCAD.Addin.HeronCommands))]
 

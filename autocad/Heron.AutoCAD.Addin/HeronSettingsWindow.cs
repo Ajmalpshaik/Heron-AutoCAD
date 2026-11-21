@@ -16,8 +16,10 @@ namespace Heron.AutoCAD.Addin
     ///
     /// It decides nothing. Pressing a state runs the switch's own toggle
     /// (HeronActions.TogglePadlock): the same question on the way to the risky
-    /// side, the same file. Then every row is drawn again from the settings
-    /// read back, because one answer can change another switch's line.
+    /// side, the same padlocks in memory (D-59). Then every row is drawn again
+    /// from the settings read back, because one answer can change another
+    /// switch's line. A padlock a Windows policy holds (D-60) shows HELD and
+    /// cannot be pressed.
     /// </summary>
     internal static class HeronSettingsWindow
     {
@@ -128,6 +130,7 @@ namespace Heron.AutoCAD.Addin
                 Padlock.Admin => config.AdminEnabled,
                 _ => config.AskBeforeKeeping,
             };
+            var held = config.Held.Holds(setting.Padlock);
 
             var picture = new Image { Width = 32, Height = 32, Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
             var icon = IconLoader.Large(on ? setting.OnIcon : setting.OffIcon);
@@ -141,7 +144,7 @@ namespace Heron.AutoCAD.Addin
                 FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(S.TextPrimary),
             };
-            var line = S.Body(Line(setting.Padlock, on), S.TextSecondary, 12);
+            var line = S.Body(held ? HeronActions.HeldLine : Line(setting.Padlock, on), S.TextSecondary, 12);
             line.Margin = new Thickness(0, 2, 0, 0);
             var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             words.Children.Add(name);
@@ -149,12 +152,22 @@ namespace Heron.AutoCAD.Addin
 
             // THE STATE IS THE BUTTON. Lit when on - Error for a padlock,
             // Success for Ask to Keep - and quiet when off.
-            var state = on ? S.PrimaryButton("ON", setting.OnIsSafe ? S.SafeColour : S.DangerColour) : S.GhostButton("OFF");
+            var state = held ? S.GhostButton("HELD") : on ? S.PrimaryButton("ON", setting.OnIsSafe ? S.SafeColour : S.DangerColour) : S.GhostButton("OFF");
             state.Width = 64;
             state.Margin = new Thickness(12, 0, 0, 0);
             state.VerticalAlignment = VerticalAlignment.Center;
-            state.ToolTip = "Click to turn " + setting.Name + (on ? " off" : " on");
-            state.Click += (s, e) => press(setting);
+            if (held)
+            {
+                state.IsEnabled = false;
+                state.Opacity = 0.6;
+                state.ToolTip = "A Windows policy on this PC holds " + setting.Name + " off. Only the PC's administrator can lift it.";
+                ToolTipService.SetShowOnDisabled(state, true);
+            }
+            else
+            {
+                state.ToolTip = "Click to turn " + setting.Name + (on ? " off" : " on");
+                state.Click += (s, e) => press(setting);
+            }
 
             var row = new Grid { Margin = new Thickness(0, 10, 0, 10) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
