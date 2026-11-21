@@ -171,12 +171,12 @@ numbers already, so the whole tab is low.
 
 | Panel | Main commands | Heron | Missing | Can be done | Priority |
 |---|---|---|---|---|---|
-| Named Views / Visual Styles | Views, visual style, X-ray, shadows | **Part**: `save_view`, `set_3d_view` | Read the visual style back; X-ray and shadows | COM (system variables) | low ([#59](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/59)) |
-| Lights | Point, Spot, Distant, Web light; Default lighting; Exposure | **Part**: `add_light` (point, spot, web, distant) | List and switch lights, default lighting, exposure | COM / .NET | low ([#62](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/62), [#63](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/63)) |
-| Sun & Location | Sun status, date, time, location | **No** | All | COM (system variables) / .NET | low ([#61](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/61)) |
+| Named Views / Visual Styles | Views, visual style, X-ray, shadows | **Part**: `save_view`, `set_3d_view` (reads the style back, [D-86](DECISIONS.md)) | X-ray and shadows | COM (system variables) | low |
+| Lights | Point, Spot, Distant, Web light; Default lighting; Exposure | **Yes**: `add_light`, `list_lights`, `switch_lights` (lights, sun, default lighting), `set_render_exposure` ([D-87](DECISIONS.md)) | Exposure if 2027 has no EXPVALUE (AE14) | COM / .NET | low |
+| Sun & Location | Sun status, date, time, location | **Yes**: `set_sun` (date, time, place, on), `list_lights` reads it ([D-86](DECISIONS.md)) | Sky and shadow settings | COM (system variables) / .NET | low |
 | Materials | Materials Browser, Material Editor, Mapping | **Part**: `list_materials`, `apply_material`, `create_material` | Autodesk's material library ([03](03-tools-reference.md#materials-and-rendering-change-listing-is-read-rendering-is-admin)); mapping | Library: No. Mapping: .NET (unsure) | low |
-| Camera | Create Camera, Show Cameras | **No** | All | Typed (`CAMERA`) | low ([#60](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/60)) |
-| Render | Render, Render presets, Environment | **Part**: `render` (Admin, by typing `-render`) | Presets and environment | Typed only ([03](03-tools-reference.md#materials-and-rendering-change-listing-is-read-rendering-is-admin)) | low |
+| Camera | Create Camera, Show Cameras | **Yes**: `add_camera_view` (a perspective view with a lens, [D-86](DECISIONS.md)) | The camera glyph (not drawn) | .NET | low |
+| Render | Render, Render presets, Environment | **Part**: `render` (Admin, by typing `-render`); Heron sets the render up and the modeller presses Render ([D-87](DECISIONS.md)) | Presets and environment | Typed only ([03](03-tools-reference.md#materials-and-rendering-change-listing-is-read-rendering-is-admin)) | low |
 
 ---
 

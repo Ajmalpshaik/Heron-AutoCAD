@@ -450,10 +450,12 @@ async def autocad_add_camera_view(
           renders" — one call each, then the modeller renders each.
         - Use when: "move LIVING-CAM-1 a bit to the left" — the new eye with
           replace=true.
-        - Don't use when: the angle you want is already on screen —
-          autocad_save_view(from_screen=true) keeps exactly that.
+        - Don't use when: you want to save this 3D angle just as it is on
+          screen — autocad_save_view(from_screen=true) keeps exactly that.
         - Don't use when: you only want an isometric look —
           autocad_set_3d_view(direction='sw_iso').
+        - Don't use when: it is a CCTV camera symbol or camera block to
+          place at a point — autocad_insert_block; this is a view, not a block.
 
     Error Handling:
         - The same eye and target, or a lens outside 10-600 mm, is refused.

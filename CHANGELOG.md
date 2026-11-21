@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Setting a render up from the chat (2026-11-21, #59-#63).** Five new tools (147): a named
+  perspective **camera view** with an eye, a target and a lens (`autocad_add_camera_view`, 24 mm
+  inside a room), the **sun's date, time and place** (`autocad_set_sun`), the **lights listed**
+  with on / off and brightness, plus the sun, default lighting and exposure
+  (`autocad_list_lights`), lights, the sun and **default lighting switched**
+  (`autocad_switch_lights`), and the render **exposure and white balance**
+  (`autocad_set_render_exposure`). `autocad_set_3d_view` now reads back the visual style the
+  viewport really has (`visual_style_found`). Five new plug-in operations. **Heron never renders**:
+  the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md)). Live rows
+  AE1-AE15 NOT RUN.
+
 - **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
   fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,
   BLOCK or LAYOUT keeps its own column; a row whose Block is another block here is not used, and a
