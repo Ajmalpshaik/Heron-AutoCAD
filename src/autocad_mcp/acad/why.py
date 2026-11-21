@@ -3,7 +3,8 @@
 The idea is Heron AI for Revit's heron_why: for one job, the real reason it
 cannot run and what the modeller does about it. Everything here comes from
 Heron's own files - the tool index, the install and connection report of
-core/diagnose.py, the padlock file - never from AutoCAD, so it answers with
+core/diagnose.py - and, when an AutoCAD is connected, the padlocks its plug-in
+holds in memory (D-59), asked over the pipe, never COM; so it answers with
 AutoCAD closed.
 
 What it cannot see from here, it says so: an open command or dialog box, a
@@ -162,10 +163,21 @@ def explain(
             reasons.append(_reason("restart_autocad", check["detail"], "Close and restart AutoCAD.", blocks=False))
 
     if level is not None and bridge_on:
+        # From the connected AutoCAD's memory (D-59); None when it cannot tell,
+        # which reads as off, as every padlock is when AutoCAD starts.
         locks = report.get("padlocks") or {}
+        held = set(locks.get("held") or ())
         for padlock in PADLOCKS[level]:
             if not locks.get(padlock):
                 name, command = _PADLOCK_NAME[padlock]
+                if padlock in held:
+                    reasons.append(_reason(
+                        f"{padlock}_held",
+                        f"{best.tool} needs the {name} padlock, and a Windows policy on this PC holds it off.",
+                        "Only the PC's administrator can lift it (HKLM\\SOFTWARE\\Policies\\Heron\\AutoCAD): "
+                        "ask whoever looks after this PC.",
+                    ))  # fmt: skip
+                    continue
                 reasons.append(_reason(
                     f"{padlock}_off",
                     f"{best.tool} needs the {name} padlock, and it is off.",

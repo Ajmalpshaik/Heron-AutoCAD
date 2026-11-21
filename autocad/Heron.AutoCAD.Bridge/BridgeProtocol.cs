@@ -107,6 +107,7 @@ namespace Heron.AutoCAD.Bridge
                             {
                                 w.WriteNumber("protocolVersion", Version);
                                 w.WriteBoolean("stopped", _stopped);
+                                WritePadlocks(w, _config());
                             });
                         case "info":
                             return Ok(w =>
@@ -441,6 +442,26 @@ namespace Heron.AutoCAD.Bridge
             w.WriteString("refusedBy", refusedBy);
             w.WriteString("message", message);
         });
+
+        /// <summary>
+        /// Which padlocks are on and which a Windows policy holds (D-59, D-60),
+        /// so a chat can say why a job would be refused before trying it. Read
+        /// only: no request can change them.
+        /// </summary>
+        private static void WritePadlocks(Utf8JsonWriter w, HeronConfig config)
+        {
+            w.WriteStartObject("padlocks");
+            w.WriteBoolean("changes", config.WriteEnabled);
+            w.WriteBoolean("publish", config.PublishEnabled);
+            w.WriteBoolean("admin", config.AdminEnabled);
+            w.WriteBoolean("askToKeep", config.AskBeforeKeeping);
+            w.WriteEndObject();
+            w.WriteStartObject("held");
+            w.WriteBoolean("changes", config.Held.Changes);
+            w.WriteBoolean("publish", config.Held.Publish);
+            w.WriteBoolean("admin", config.Held.Admin);
+            w.WriteEndObject();
+        }
 
         private static string Ok(Action<Utf8JsonWriter>? more) => Write(w =>
         {

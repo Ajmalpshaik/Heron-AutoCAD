@@ -390,6 +390,13 @@ modeller's click, skipping "turning a padlock on asks first".
   setting: it only connects, and with every padlock off a chat can then read but change nothing.
 - **`autocad://diagnose`** no longer reads padlocks from the file: it would have reported stale
   lines as on.
+- **Added 2026-11-21, after the merge:** `autocad_why` (D-67) still read the padlocks from that
+  report, so it said every padlock was off even with Changes on. Now the plug-in's `ping` answer
+  carries `padlocks` (changes, publish, admin, askToKeep) and `held` (what a D-60 policy holds),
+  read-only; `autocad_why` asks the AutoCAD this chat works in, and a held padlock gets its own
+  reason (`admin_held`: ask the PC's administrator) instead of "type HERONADMIN". No answer, or a
+  plug-in older than 1.6.0, reads as off, as every padlock is at start. Pinned by
+  `tests/test_padlocks_from_plugin.py` and the bridge `PadlockTests`.
 - **A guard for Claude Code in this repository:** `.claude/settings.json` runs
   `.claude/hooks/guard_padlocks.py` before every Edit, Write and shell command, and refuses one that
   would write `heron-autocad.config` or the D-60 policy key (exit 2). It catches the plain ways, not

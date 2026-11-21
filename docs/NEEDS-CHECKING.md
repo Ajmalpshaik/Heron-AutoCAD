@@ -412,7 +412,8 @@ tested offline (bridge `PadlockTests`, `ConfigTests`; `tests/test_padlock_guard.
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
 | R1 | Turn Changes, Admin, Publish and Ask to Keep on in Settings. Close AutoCAD, start it again, press Settings | Changes, Admin, Publish and Ask to Keep all **OFF** | NOT RUN |
-| R2 | AutoCAD closed: edit `%APPDATA%\Heron\autocad\heron-autocad.config` to `{"write.enabled": true, "admin.enabled": true, "publish.enabled": true, "write.askBeforeKeeping": false}`. Start AutoCAD, press Heron, ask the chat to draw a line | Settings shows all three OFF, Ask to Keep ON; the chat is refused "Changes is off" | NOT RUN |
+| R2 | AutoCAD closed: edit `%APPDATA%\Heron\autocad\heron-autocad.config` to `{"write.enabled": true, "admin.enabled": true, "publish.enabled": true, "write.askBeforeKeeping": true}`. Start AutoCAD, press Heron, ask the chat to draw a line | Settings shows all four OFF (the file turned none on, Ask to Keep included); the chat is refused "Changes is off" | NOT RUN |
+| R9 | Changes ON, Admin OFF; ask the chat "why can't you run this AutoLISP?" (`autocad_why`). Then set `AllowAdmin` 0 (R7) and ask again | First: Changes is not named, Admin is off with HERONADMIN. Second: "a Windows policy on this PC holds it off", ask the administrator | NOT RUN |
 | R3 | With AutoCAD open and Changes off, write `"write.enabled": true` into the same file, then ask the chat to draw a line | Still refused "Changes is off"; Settings still OFF | NOT RUN |
 | R4 | Two AutoCADs open. Turn Changes on in the first only | The second's Settings still shows Changes OFF, and a chat on it is refused | NOT RUN |
 | R5 | `reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AllowChanges /t REG_DWORD /d 0 /f`, then press Settings | Changes shows **HELD** with "A Windows policy on this PC holds this off." and cannot be pressed; `HERONCHANGES` says it stays off; a chat is told "Changes is held off by a Windows policy" | NOT RUN |

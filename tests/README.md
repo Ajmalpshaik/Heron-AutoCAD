@@ -13,6 +13,8 @@
 | `test_checklists_qa.py` | No | Check lists: NO DATA, coverage, office and project lists, reports never overwriting, PASS wording (D-64, D-65) |
 | `test_plugin_bundle.py` | No | Bundle layout, PackageContents.xml, installer refusing while AutoCAD runs |
 | `test_why_and_gaps.py` | No | `autocad_why`, `autocad_gaps`, the audit reason words, the audit folder fallback ([D-67](../docs/DECISIONS.md)) |
+| `test_padlock_guard.py` | No | The Claude Code guard hook in `.claude/`: refuses writing `heron-autocad.config` or the Heron policy key ([D-59](../docs/DECISIONS.md)) |
+| `test_padlocks_from_plugin.py` | No (faked bridge) | The padlocks read from the connected AutoCAD's ping, not a file; `autocad_why` naming a Windows policy hold ([D-59, D-60](../docs/DECISIONS.md)) |
 | `test_structure.py` | No | `tools/check_structure.py` |
 | `test_live.py` | **Yes**, marked `live` | Real drawing round trips |
 | `conftest.py` | | Switches the bridge off and moves `%LOCALAPPDATA%` to a temp folder for every test |
