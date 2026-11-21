@@ -42,6 +42,12 @@ namespace Heron.AutoCAD.Bridge
         public const string NoRunJob =
             "Heron in AutoCAD only does its own operations inside a running job of this chat, at a level that covers them. " + NothingSent;
 
+        public const string ExpectNeedsAdmin =
+            "Only a job that holds the Admin padlock (a command or AutoLISP) may name a button for a box: it can press Yes or OK. " + NothingSent;
+
+        public const string ExpectNotTaken =
+            "Heron in AutoCAD would not take that answer: give the box's exact title and one button, once per job. " + NothingSent;
+
         public static string UnknownOperation(string operation) =>
             "Heron in AutoCAD does not have the operation '" + operation + "'. Update Heron so both sides match. " + NothingSent;
 

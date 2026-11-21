@@ -638,8 +638,8 @@ def test_bridge_dialogs_reads_the_plug_ins_answer(monkeypatch):
     }
     monkeypatch.setattr(Bridge, "call", lambda self, op, **fields: reply if op == "dialogs" else {})
     assert Bridge(1).dialogs("j1") == [
-        {"title": "Select File", "pressed": "Cancel", "closed": True},
-        {"title": "a box with no title", "pressed": "No", "closed": None},
+        {"title": "Select File", "pressed": "Cancel", "closed": True, "asked": False},
+        {"title": "a box with no title", "pressed": "No", "closed": None, "asked": False},
     ]
 
 

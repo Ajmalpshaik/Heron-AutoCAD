@@ -219,6 +219,14 @@ public class FakeHost : IJobHost
     public List<DialogNote> Boxes { get; } = new();
     public IReadOnlyList<DialogNote> Dialogs(string job) => Boxes;
 
+    public List<(string Job, string Title, string Button)> Expected { get; } = new();
+    public bool ExpectAnswer { get; set; } = true;
+    public bool ExpectDialog(string job, string title, string button)
+    {
+        Expected.Add((job, title, button));
+        return ExpectAnswer;
+    }
+
     public List<EraseRequest> EraseAsked { get; } = new();
     public EraseAnswer EraseReply { get; set; } = new() { Answer = "restored", Restored = 0 };
     public EraseAnswer AskErase(EraseRequest request)
@@ -790,6 +798,7 @@ public class ReadLeavesNoUndoStepTests
         public EraseAnswer AskErase(EraseRequest request) => new();
         public bool? ChangedBefore(string job) => null;
         public IReadOnlyList<DialogNote> Dialogs(string job) => new List<DialogNote>();
+        public bool ExpectDialog(string job, string title, string button) => false;
     }
 
     public ReadLeavesNoUndoStepTests() =>

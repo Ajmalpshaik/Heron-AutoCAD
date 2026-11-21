@@ -100,7 +100,7 @@ namespace Heron.AutoCAD.Addin
         private static void Press(DialogPlan plan)
         {
             var box = new IntPtr(plan.Handle);
-            HeronLog.Write("dialog watch: '" + plan.Title + "' -> " + DialogWatch.Name(plan.Press));
+            HeronLog.Write("dialog watch: '" + plan.Title + "' -> " + DialogWatch.Label(plan));
             bool posted;
             if (plan.Press == DialogPress.Escape && !plan.StandardBox)
             {

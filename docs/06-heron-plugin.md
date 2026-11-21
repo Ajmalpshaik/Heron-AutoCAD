@@ -110,6 +110,13 @@ before the job began, a Heron window, or anything outside a job. A box you open 
 the banner shows a job is closed too, so wait for the banner to go
 ([05 §25](05-known-limits.md#25-the-dialog-watch-closes-every-new-box-in-a-job)).
 
+**One named answer (plug-in 1.7.0, [D-73](DECISIONS.md)).** When the modeller has said the answer
+to a box a command will ask ("yes, purge them"), `autocad_send_command` or `autocad_run_lisp` can
+name it: `expect_box="Purge - Confirm Purge", press="Yes"`. The plug-in presses that button only
+on a box with exactly that title, only once, and only in that call; every other box is still
+cancelled. The chat is told "Heron pressed Yes on it, as this call asked". Only an Admin job may
+do this, because the button may be Yes or OK.
+
 ## 4. Keep or Discard
 
 With Ask to Keep on, the plug-in says so when the job begins, and the server puts an **UNDO mark**
@@ -142,7 +149,7 @@ AutoCAD."* The hold frees itself after 3 quiet minutes, or when you disconnect.
 | Address file | `%LOCALAPPDATA%\Heron\autocad\bridges\<pid>.json`: pid, pipe, versions, token, start time. Written on connect, deleted on disconnect; a file whose AutoCAD is gone is deleted by the server |
 | Token | 24 random bytes, new on every connect, compared in constant time |
 | Message | one JSON line each way: `{op, token, client, conversation, ...}` |
-| Ops | `ping` (also says which padlocks are on and which a Windows policy holds, read-only, [D-59](DECISIONS.md)), `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)) |
+| Ops | `ping` (also says which padlocks are on and which a Windows policy holds, read-only, [D-59](DECISIONS.md)), `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)), `expect_dialog` (an Admin job names one button for one box it expects, [D-73](DECISIONS.md)) |
 
 **Units first ([D-19](DECISIONS.md)).** Nothing is changed in a drawing until Heron has run
 `autocad_status` on it, which reports its units. A switch to another drawing needs a new status check

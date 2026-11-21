@@ -18,6 +18,7 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
+from ..core import gate
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
@@ -186,6 +187,42 @@ def _get_patiently(doc: Any, name: str) -> str | None:
     return None
 
 
+# One box a command or expression is expected to open, and the button to press
+# on it (#101). Every other box is still cancelled by the dialog watch (D-66).
+EXPECT_BOX = Field(description=(
+    "The exact title of ONE box this is expected to open, e.g. 'Purge - Confirm Purge'. Heron "
+    "presses 'press' on that box, once; every other box is still cancelled. Give both or neither."
+))
+PRESS = Field(description="The button to press on that box, as it reads, e.g. 'Yes' or 'OK'.")
+
+
+def expectation(expect_box: str | None, press: str | None) -> tuple[str, str] | None:
+    """(title, button), None for neither; refused when only one is given."""
+    box, button = (expect_box or "").strip(), (press or "").strip()
+    if not box and not button:
+        return None
+    if not box or not button:
+        raise AutocadError(
+            "Give both expect_box (the box's exact title) and press (the button), or neither. Nothing was sent."
+        )
+    return box, button
+
+
+def expect(wanted: tuple[str, str] | None) -> None:
+    """Before anything is sent: have the plug-in press that button on that box. Raises when it will not."""
+    if wanted is None:
+        return
+    expecter = gate.dialog_expecter()
+    if expecter is None:
+        raise AutocadError(
+            "Naming a button for a box needs Heron's plug-in, which is not in use for this call. "
+            "Call without expect_box (the box would be cancelled). Nothing was sent."
+        )
+    refusal = expecter(*wanted)
+    if refusal:
+        raise AutocadError(refusal)
+
+
 @mcp.tool(
     name="autocad_send_command",
     **tool_meta("Send AutoCAD Command", destructive=True),
@@ -216,6 +253,8 @@ async def autocad_send_command(
             ),
         ),
     ] = True,
+    expect_box: Annotated[str | None, EXPECT_BOX] = None,
+    press: Annotated[str | None, PRESS] = None,
 ) -> str:
     """Run any AutoCAD command by sending it to the command line.
 
@@ -249,12 +288,16 @@ async def autocad_send_command(
         - Use when: "fillet those two lines with a 50 radius" ->
           '_FILLET\\n_R\\n50\\n' then select.
         - Use when: running a custom LISP command the office has loaded.
+        - Use when: a command asks a question in a box and the modeller has
+          said the answer - expect_box='Purge - Confirm Purge', press='Yes'.
         - Don't use when: a typed tool exists — autocad_draw_circle beats
           sending '_CIRCLE'.
 
     Error Handling:
         - Refuses commands known to open a modal dialog and names the
           command-line alternative, since a dialog would hang the connection.
+        - expect_box without press (or the reverse), or a plug-in older than
+          1.7.0, is refused before anything is sent.
     """
     text = command.strip()
     # Look at the first token only; arguments after it are data, not commands.
@@ -270,10 +313,12 @@ async def autocad_send_command(
         raise AutocadError(PUBLISH_REFUSED.format(what=named))
 
     payload = text if text.endswith("\n") else text + "\n"
+    wanted = expectation(expect_box, press)
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        expect(wanted)
 
         manages_undo = first in UNDO_STACK_COMMANDS
 
@@ -352,6 +397,8 @@ async def autocad_run_lisp(
             max_length=LISP_MAX_CHARS,
         ),
     ],
+    expect_box: Annotated[str | None, EXPECT_BOX] = None,
+    press: Annotated[str | None, PRESS] = None,
 ) -> str:
     """Evaluate an AutoLISP expression and return its result.
 
@@ -396,6 +443,9 @@ async def autocad_run_lisp(
           since AutoCAD would otherwise sit waiting for the closing bracket.
         - An expression over LISP_MAX_CHARS (2,000) characters is refused:
           AutoCAD drops longer command-line text without a word.
+        - expect_box without press (or the reverse), or a plug-in older than
+          1.7.0, is refused before anything is sent. Every box but the one
+          named is still cancelled (D-66).
     """
     text = expression.strip()
     if len(text) > LISP_MAX_CHARS:
@@ -422,10 +472,12 @@ async def autocad_run_lisp(
     named = publish_call_in_lisp(text)
     if named:
         raise AutocadError(PUBLISH_REFUSED.format(what=named))
+    wanted = expectation(expect_box, press)
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        expect(wanted)
 
         previous: dict[str, str] = {}
         for var in (LISP_RESULT_VAR, LISP_CANCELLED_VAR):

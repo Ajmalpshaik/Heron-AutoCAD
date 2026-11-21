@@ -27,7 +27,7 @@ namespace Heron.AutoCAD.Bridge
         public DialogButton[] Buttons { get; set; } = new DialogButton[0];
     }
 
-    /// <summary>How a box is closed. Never OK, never Yes.</summary>
+    /// <summary>How a box is closed. Never OK or Yes, unless the job named that button for that box (#101).</summary>
     public enum DialogPress
     {
         /// <summary>Its Cancel button.</summary>
@@ -36,6 +36,8 @@ namespace Heron.AutoCAD.Bridge
         No,
         /// <summary>No Cancel or No: what Esc does (for a standard box) or its ✕ (for any other).</summary>
         Escape,
+        /// <summary>The one button an Admin job named for a box with exactly this title (#101).</summary>
+        Named,
     }
 
     /// <summary>What the add-in is to press, on which box.</summary>
@@ -48,6 +50,8 @@ namespace Heron.AutoCAD.Bridge
         public int ButtonId { get; set; }
         /// <summary>A standard Windows box (#32770): Esc is sent as its Cancel command, not as ✕.</summary>
         public bool StandardBox { get; set; }
+        /// <summary>For <see cref="DialogPress.Named"/>: the button's text, as the box shows it.</summary>
+        public string ButtonText { get; set; } = "";
     }
 
     /// <summary>One box Heron answered during a job, for the chat.</summary>
@@ -58,6 +62,8 @@ namespace Heron.AutoCAD.Bridge
         public string Pressed { get; set; } = "";
         /// <summary>True: gone after the press. False: still open. Null: not known yet.</summary>
         public bool? Closed { get; set; }
+        /// <summary>The job named this button for this box (#101); every other press is Heron's default.</summary>
+        public bool Asked { get; set; }
     }
 
     /// <summary>
@@ -74,6 +80,11 @@ namespace Heron.AutoCAD.Bridge
     /// it has stood for <see cref="Settle"/> so its buttons exist. Cancel,
     /// else No, else Esc - never OK or Yes. One press per box; after
     /// <see cref="MostPresses"/> boxes in one job Heron stops answering them.
+    ///
+    /// One exception (#101): an Admin job may name one button for one box it
+    /// expects (<see cref="Expect"/>). That button is pressed only on a box
+    /// whose title is exactly the one named, only once, only while that job
+    /// runs; every other box is still cancelled.
     /// </summary>
     public sealed class DialogWatch
     {
@@ -87,6 +98,7 @@ namespace Heron.AutoCAD.Bridge
         private readonly Dictionary<string, List<DialogNote>> _notes = new Dictionary<string, List<DialogNote>>();
         private readonly HashSet<long> _before = new HashSet<long>();
         private readonly Dictionary<long, Pressed> _pressed = new Dictionary<long, Pressed>();
+        private readonly Dictionary<string, Expected> _expected = new Dictionary<string, Expected>();
         private long _seen;
         private DateTime _seenSince;
         private int _paused;
@@ -125,12 +137,33 @@ namespace Heron.AutoCAD.Bridge
             lock (_gate)
             {
                 _notes.Remove(job ?? "");
+                _expected.Remove(job ?? "");
                 if (_notes.Count == 0)
                 {
                     _before.Clear();
                     _pressed.Clear();
                     _seen = 0;
                 }
+            }
+        }
+
+        /// <summary>
+        /// The running job expects one box (#101): press <paramref name="button"/>
+        /// on a box whose title is exactly <paramref name="title"/>, once. False
+        /// for a job that is not running, a blank title or button, or a second
+        /// expectation in the same job (one answer per job). Whether the job may
+        /// ask at all (Admin only) is decided by the protocol, not here.
+        /// </summary>
+        public bool Expect(string job, string title, string button)
+        {
+            var wanted = (title ?? "").Trim();
+            var word = Word(button);
+            lock (_gate)
+            {
+                if (!_notes.ContainsKey(job ?? "") || wanted.Length == 0 || word.Length == 0) return false;
+                if (_expected.ContainsKey(job ?? "")) return false;
+                _expected[job ?? ""] = new Expected(wanted, word);
+                return true;
             }
         }
 
@@ -155,7 +188,7 @@ namespace Heron.AutoCAD.Bridge
             lock (_gate)
             {
                 return _notes.TryGetValue(job ?? "", out var list)
-                    ? list.Select(n => new DialogNote { Title = n.Title, Pressed = n.Pressed, Closed = n.Closed }).ToList()
+                    ? list.Select(n => new DialogNote { Title = n.Title, Pressed = n.Pressed, Closed = n.Closed, Asked = n.Asked }).ToList()
                     : new List<DialogNote>();
             }
         }
@@ -197,8 +230,9 @@ namespace Heron.AutoCAD.Bridge
                     return null;
                 }
 
-                var plan = Choose(front);
-                var note = new DialogNote { Title = Clean(front.Title), Pressed = Name(plan.Press) };
+                var plan = Answer(front) ?? Choose(front);
+                var asked = plan.Press == DialogPress.Named;
+                var note = new DialogNote { Title = Clean(front.Title), Pressed = asked ? plan.ButtonText : Name(plan.Press), Asked = asked };
                 Note(note);
                 _pressed[front.Handle] = new Pressed(now, note);
                 _presses++;
@@ -239,7 +273,34 @@ namespace Heron.AutoCAD.Bridge
         }
 
         public static string Name(DialogPress press) =>
-            press == DialogPress.Cancel ? "Cancel" : press == DialogPress.No ? "No" : "Esc";
+            press == DialogPress.Cancel ? "Cancel" : press == DialogPress.No ? "No" : press == DialogPress.Named ? "the named button" : "Esc";
+
+        /// <summary>What the log and the chat call this press: the button's own text for a named one.</summary>
+        public static string Label(DialogPlan plan) => plan.Press == DialogPress.Named ? plan.ButtonText : Name(plan.Press);
+
+        /// <summary>
+        /// A job's named answer for this box, or null: the title must be exactly
+        /// the one named, the button must be on the box and enabled, and each
+        /// expectation is used once.
+        /// </summary>
+        private DialogPlan? Answer(DialogSeen box)
+        {
+            var title = (box.Title ?? "").Trim();
+            foreach (var expected in _expected.Values)
+            {
+                if (expected.Used || !string.Equals(expected.Title, title, StringComparison.Ordinal)) continue;
+                var button = (box.Buttons ?? new DialogButton[0]).FirstOrDefault(b => b != null && b.Enabled && Word(b.Text) == expected.Button);
+                if (button == null) return null; // not the box it expected after all: Heron's default
+                expected.Used = true;
+                return new DialogPlan
+                {
+                    Handle = box.Handle, Title = Clean(box.Title), Press = DialogPress.Named, ButtonId = button.Id,
+                    StandardBox = string.Equals(box.ClassName, "#32770", StringComparison.Ordinal),
+                    ButtonText = (button.Text ?? "").Replace("&", "").Trim(),
+                };
+            }
+            return null;
+        }
 
         private void Resolve(Func<long, bool> isOpen, DateTime now)
         {
@@ -275,6 +336,19 @@ namespace Heron.AutoCAD.Bridge
             var text = (title ?? "").Trim();
             if (text.Length == 0) return "a box with no title";
             return text.Length > 120 ? text.Substring(0, 120) : text;
+        }
+
+        private sealed class Expected
+        {
+            public Expected(string title, string button)
+            {
+                Title = title;
+                Button = button;
+            }
+
+            public string Title { get; }
+            public string Button { get; }
+            public bool Used { get; set; }
         }
 
         private sealed class Pressed

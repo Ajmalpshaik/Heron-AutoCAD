@@ -247,3 +247,132 @@ public class DialogsOpTests
         Assert.False(Send(new { op = "dialogs", token = Token, conversation = "chat-a", job = "j1" }).GetProperty("ok").GetBoolean());
     }
 }
+
+/// <summary>A job names one button for one box it expects (#101).</summary>
+public class DialogAnswerTests
+{
+    private static readonly DateTime T0 = new(2026, 11, 21, 9, 0, 0, DateTimeKind.Utc);
+    private readonly DialogWatch _watch = new();
+    private readonly HashSet<long> _open = new();
+
+    private bool IsOpen(long handle) => _open.Contains(handle);
+
+    private static DialogButton B(int id, string text) => new() { Id = id, Text = text };
+
+    private DialogSeen Box(long handle, string title, params DialogButton[] buttons)
+    {
+        _open.Add(handle);
+        return new DialogSeen { Handle = handle, Title = title, ClassName = "#32770", OwnerDisabled = true, Enabled = true, Buttons = buttons };
+    }
+
+    private DialogPlan? StandsFor(DialogSeen box, DateTime from)
+    {
+        Assert.Null(_watch.Look(box, IsOpen, from));
+        return _watch.Look(box, IsOpen, from + DialogWatch.Settle);
+    }
+
+    [Fact]
+    public void The_named_button_is_pressed_on_the_box_with_exactly_that_title_and_said()
+    {
+        _watch.Begin("j1", new long[0]);
+        Assert.True(_watch.Expect("j1", "Purge - Confirm Purge", "Yes"));
+        var plan = StandsFor(Box(10, "Purge - Confirm Purge", B(6, "&Yes"), B(7, "&No")), T0);
+        Assert.Equal(DialogPress.Named, plan!.Press);
+        Assert.Equal(6, plan.ButtonId);
+        Assert.Equal("Yes", DialogWatch.Label(plan));
+        var note = Assert.Single(_watch.Notes("j1"));
+        Assert.Equal("Yes", note.Pressed);
+        Assert.True(note.Asked);
+    }
+
+    [Fact]
+    public void Only_once_a_second_box_with_the_same_title_gets_the_default()
+    {
+        _watch.Begin("j1", new long[0]);
+        _watch.Expect("j1", "Purge - Confirm Purge", "Yes");
+        Assert.Equal(DialogPress.Named, StandsFor(Box(10, "Purge - Confirm Purge", B(6, "Yes"), B(7, "No")), T0)!.Press);
+        var second = StandsFor(Box(11, "Purge - Confirm Purge", B(6, "Yes"), B(7, "No")), T0.AddSeconds(3));
+        Assert.Equal(DialogPress.No, second!.Press);
+        Assert.False(_watch.Notes("j1")[1].Asked);
+    }
+
+    [Fact]
+    public void Every_other_box_is_still_cancelled_and_a_near_title_is_not_enough()
+    {
+        _watch.Begin("j1", new long[0]);
+        _watch.Expect("j1", "Purge - Confirm Purge", "Yes");
+        Assert.Equal(DialogPress.Cancel, StandsFor(Box(10, "Select File", B(1, "Open"), B(2, "Cancel")), T0)!.Press);
+        Assert.Equal(DialogPress.No, StandsFor(Box(11, "purge - confirm purge", B(6, "Yes"), B(7, "No")), T0.AddSeconds(3))!.Press);
+    }
+
+    [Fact]
+    public void A_box_without_the_named_button_gets_the_default()
+    {
+        _watch.Begin("j1", new long[0]);
+        _watch.Expect("j1", "AutoCAD Message", "Yes");
+        Assert.Equal(DialogPress.Escape, StandsFor(Box(10, "AutoCAD Message", B(1, "OK")), T0)!.Press);
+    }
+
+    [Fact]
+    public void The_answer_ends_with_its_job_and_is_taken_once_per_job()
+    {
+        Assert.False(_watch.Expect("j1", "Purge - Confirm Purge", "Yes")); // no such job
+        _watch.Begin("j1", new long[0]);
+        Assert.False(_watch.Expect("j1", " ", "Yes"));
+        Assert.True(_watch.Expect("j1", "Purge - Confirm Purge", "Yes"));
+        Assert.False(_watch.Expect("j1", "Other", "OK")); // one answer per job
+        _watch.End("j1");
+        _watch.Begin("j2", new long[0]);
+        Assert.Equal(DialogPress.No, StandsFor(Box(10, "Purge - Confirm Purge", B(6, "Yes"), B(7, "No")), T0)!.Press);
+    }
+}
+
+public class ExpectDialogOpTests
+{
+    private const string Token = "tok";
+    private readonly FakeHost _host = new();
+    private readonly BridgeProtocol _protocol;
+
+    public ExpectDialogOpTests() =>
+        _protocol = new BridgeProtocol(_host, () => new HeronConfig { WriteEnabled = true, AdminEnabled = true }, Token, new HeronHold(), () => DateTime.UtcNow);
+
+    private JsonElement Send(object request) =>
+        JsonDocument.Parse(_protocol.Handle(JsonSerializer.Serialize(request))).RootElement;
+
+    private void Begin(string job, string tool, string risk) =>
+        Assert.True(Send(new { op = "begin", token = Token, conversation = "chat-a", job, tool, risk, summary = tool, drawing = "a.dwg" }).GetProperty("ok").GetBoolean());
+
+    [Fact]
+    public void An_admin_job_of_this_chat_may_name_one_button()
+    {
+        Begin("j1", "autocad_send_command", "admin");
+        var reply = Send(new { op = "expect_dialog", token = Token, conversation = "chat-a", job = "j1", title = "Purge - Confirm Purge", button = "Yes" });
+        Assert.True(reply.GetProperty("ok").GetBoolean());
+        Assert.Equal(("j1", "Purge - Confirm Purge", "Yes"), Assert.Single(_host.Expected));
+    }
+
+    [Fact]
+    public void A_change_job_another_chat_or_a_blank_answer_is_refused()
+    {
+        Begin("j1", "autocad_draw_line", "change");
+        var change = Send(new { op = "expect_dialog", token = Token, conversation = "chat-a", job = "j1", title = "X", button = "Yes" });
+        Assert.False(change.GetProperty("ok").GetBoolean());
+        Assert.Contains("Admin", change.GetProperty("message").GetString());
+        Send(new { op = "end", token = Token, conversation = "chat-a", job = "j1", ok = true, outcome = "done", summary = "x", ms = 1 });
+
+        Begin("j2", "autocad_run_lisp", "admin");
+        Assert.False(Send(new { op = "expect_dialog", token = Token, conversation = "chat-b", job = "j2", title = "X", button = "Yes" }).GetProperty("ok").GetBoolean());
+        Assert.False(Send(new { op = "expect_dialog", token = Token, conversation = "chat-a", job = "j2", title = "X", button = " " }).GetProperty("ok").GetBoolean());
+        Assert.Empty(_host.Expected);
+    }
+
+    [Fact]
+    public void A_named_press_is_reported_as_asked()
+    {
+        _host.Boxes.Add(new DialogNote { Title = "Purge - Confirm Purge", Pressed = "Yes", Closed = true, Asked = true });
+        Begin("j1", "autocad_send_command", "admin");
+        var box = Send(new { op = "dialogs", token = Token, conversation = "chat-a", job = "j1" }).GetProperty("dialogs")[0];
+        Assert.True(box.GetProperty("asked").GetBoolean());
+        Assert.Equal("Yes", box.GetProperty("pressed").GetString());
+    }
+}
