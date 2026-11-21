@@ -75,6 +75,10 @@ DRY_RUN_NEEDS_UNDO = (
     "UNDO on (UNDO > All) if it is off, or call it without dry_run."
 )
 DRY_RUN_HANDLES = "A dry run: the handles above were taken back with it and no longer exist."
+BACK_UNKNOWN = (
+    "Outcome unknown: AutoCAD went busy as UNDO Back was sent, so the drawing may or may not be back at "
+    "Heron's mark. Heron did not send it again: a second Back would go past the mark, into earlier work."
+)
 COULD_NOT_ASK = (
     "Heron could not ask whether to keep this change, so it was kept. "
     "One Ctrl+Z in AutoCAD reverses it."
@@ -210,7 +214,11 @@ async def _discard() -> None:
     """Undo back to the mark put down before the job."""
 
     def back() -> None:
-        get_app().ActiveDocument.SendCommand("_.UNDO _Back ")
+        doc = get_app().ActiveDocument
+        # A second Back would go past Heron's mark into the modeller's own work, so a
+        # busy AutoCAD after this is Outcome unknown, never a second send (D-76).
+        connection.mark_writing(BACK_UNKNOWN)
+        doc.SendCommand("_.UNDO _Back ")
 
     await run(back)
 

@@ -489,7 +489,9 @@ async def autocad_run_lisp(
     """
     text = expression.strip()
     chunks = lisp_chunks(text)
-    named = publish_call_in_lisp(text)
+    # On what is sent, not the text as typed: a '"' inside a comment would shift
+    # every string after it and hide a "_.QSAVE" from the check.
+    named = publish_call_in_lisp(" ".join(chunks))
     if named:
         raise AutocadError(PUBLISH_REFUSED.format(what=named))
     wanted = expectation(expect_box, press)
@@ -662,8 +664,13 @@ def _refused(exc: BaseException, number: int, total: int) -> str:
             f"Outcome unknown: AutoCAD was busy as the expression was sent ({com_message(exc)}), "
             f"so it may or may not have run.{ran} Look at the drawing before sending it again."
         )
-    tail = f"{ran} Look at the drawing before sending the code again." if ran else ""
-    return f"AutoCAD refused the expression: {com_message(exc)}. Check the LISP syntax.{tail}"
+    if ran:
+        # Part of the code is in the drawing already: never "nothing was changed".
+        return (
+            f"Outcome unknown: AutoCAD refused piece {number} of {total}: {com_message(exc)}. Check the "
+            f"LISP syntax.{ran} Look at the drawing before sending the code again."
+        )
+    return f"AutoCAD refused the expression: {com_message(exc)}. Check the LISP syntax."
 
 
 def _where(number: int, total: int) -> str:

@@ -20,7 +20,9 @@ Built with offline tests, nothing proven in AutoCAD (NEEDS-CHECKING group Z, all
   ending and names the command and the count so far in the plain line. **Plug-in change**: the
   parent session bumps the plug-in version; until it is installed the answers read as before.
 
-Next: run Z1-Z9 on AutoCAD 2027. Ideas left: catch a LISP error at once with `vl-catch-all-apply`
+An independent review of the diff found five problems, all fixed with tests (a comment hiding a
+save, a busy step mis-read in a sequence, `new_handles` dropped by quiet, a part-way LISP run read
+as DONE, and Discard's UNDO Back re-sendable by a busy retry). Next: run Z1-Z10 on AutoCAD 2027. Ideas left: catch a LISP error at once with `vl-catch-all-apply`
 instead of waiting out 10 s (D-76 "left out").
 
 ## Earlier - 2026-11-21 (review fixes for the new tools, D-75)

@@ -202,3 +202,11 @@ def test_the_long_answer_tools_offer_quiet(tool):
 
     props = mcp._tool_manager.get_tool(tool).fn_metadata.arg_model.model_json_schema()["properties"]
     assert "quiet" in props and props["quiet"]["default"] is False
+
+
+def test_every_list_of_handles_stays_whatever_it_is_called():
+    # A copy or an array answers with new_handles (review of PR #149).
+    copies = [f"C{i}" for i in range(12)]
+    out = quiet({"copied": 12, "handles": ["A"], "new_handles": copies, "missing_handles": ["Z"]})
+    assert out["new_handles"] == copies and out["missing_handles"] == ["Z"]
+    assert LEFT_OUT not in out

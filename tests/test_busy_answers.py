@@ -283,3 +283,42 @@ def test_a_lisp_answer_autocad_never_let_heron_read_counts_as_busy(monkeypatch):
     answer = json.loads(asyncio.run(advanced.autocad_run_lisp(expression="(+ 1 2)")))
     assert answer["timed_out"] is True
     assert connection.busy_count() == before + 1
+
+
+class TestReviewFindings:
+    """Found by an independent review of PR #149."""
+
+    def test_a_sequence_with_one_busy_step_is_not_outcome_unknown(self):
+        # One step was turned away (nothing written); the others drew. The sequence answered.
+        text = json.dumps({"ran": 2, "failed": [1], "steps": [{"ok": False, "result": "Error: AutoCAD stayed busy"}]})
+        line = answers.line(answers.Facts(text, ok=True, outcome="done", counted={"added": 3, "modified": 0, "erased": 0},
+                                          wrote=True, busy=True, where=HATCH))
+        assert line.startswith("DONE - 3 added, 0 changed, 0 erased; some parts failed")
+
+    def test_busy_counted_but_another_error_keeps_its_own_line(self):
+        text = "Error: Layer 'X' is locked."
+        line = answers.line(answers.Facts(text, ok=False, outcome="failed", counted={"added": 0, "modified": 0, "erased": 0},
+                                          busy=True, where=HATCH))
+        assert line == "REFUSED - the tool turned the job down; nothing was changed."
+
+
+def test_discard_never_sends_undo_back_twice(monkeypatch):
+    sent: list[str] = []
+
+    class Doc:
+        def SendCommand(self, text):
+            sent.append(text)
+            raise BUSY
+
+    class App:
+        ActiveDocument = Doc()
+
+    async def run(fn):
+        return connection._with_retry(fn)
+
+    monkeypatch.setattr(connection, "RETRY_DELAY", 0)
+    monkeypatch.setattr(gate, "get_app", lambda: App())
+    monkeypatch.setattr(gate, "run", run)
+    with pytest.raises(OutcomeUnknown, match="second Back would go past the mark"):
+        asyncio.run(gate._discard())
+    assert sent == ["_.UNDO _Back "]

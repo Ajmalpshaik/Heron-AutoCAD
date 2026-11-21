@@ -136,7 +136,7 @@ banner on, because the banner is what shows the modeller that Heron is working.
 D-41, D-57 and D-62, which stand.
 - **`quiet=true`** on `autocad_sequence`, `autocad_batch_draw`, `autocad_dimension_run` and
   `autocad_add_centre_marks` answers with counts and handles only (`core/quiet.py`). Numbers, words,
-  `handle` and `handles` stay; the first 5 of what failed stay; every other list of objects goes and
+  `handle`, `handles` and every `..._handles` list (`new_handles` of a copy or an array) stay; the first 5 of what failed stay; every other list of objects goes and
   `left_out` says how many there were. Its handles are kept as `handles` when the answer had none,
   but never mixed into a `handles` already there (centre marks: the marks, not the circles). An object
   the call created keeps `{"created": true, "handle"}`, so Keep or Discard still finds what to take
@@ -151,7 +151,9 @@ D-41, D-57 and D-62, which stand.
   still in the HATCH command", "evaluating AutoLISP", "in no command now, so a redraw or a box held
   it") and what the plug-in counted so far ("after 2 added..." or "counted no drawing object ... so
   far"). Busy before anything was taken is REFUSED, "nothing was changed". A read gets one sentence
-  in its answer instead, since a read has no plain line.
+  in its answer instead, since a read has no plain line. The busy wording is used only when the
+  answer itself says AutoCAD was busy: a sequence whose one step was turned away while the others
+  drew is still DONE, "some parts failed".
 - **An answer that never heard how the job ended is not DONE.** `autocad_run_lisp` with
   `timed_out: true` now reads OUTCOME UNKNOWN with the count so far; before, its line said DONE.
 - **Left out:** a plug-in version bump (the parent session does it) and naming the command in the
@@ -167,7 +169,9 @@ several forms.
   mark, but the write is marked just before the send. A busy AutoCAD after that is OUTCOME UNKNOWN
   in its own words ("sent twice, it would undo or redo one step more than asked"), never a second
   send. Busy before the send is still asked again: nothing reached AutoCAD. It also counts as a
-  write for the gate, so `autocad_undo_last` no longer undoes past a raw UNDO.
+  write for the gate, so `autocad_undo_last` no longer undoes past a raw UNDO. **The gate's own
+  `UNDO _Back`** (Discard, and the end of a dry run) is marked the same way: a second Back would go
+  past Heron's mark into the modeller's earlier work.
 - **`autocad_run_lisp` cuts long code between its top-level forms** (`acad/lisp_forms.py`), never
   inside one, into pieces of at most 700 characters; several forms in one piece go inside
   `(progn ...)`. The pieces run in order inside **one undo mark**, each with the wrapper of known
@@ -175,14 +179,17 @@ several forms.
   and how it starts. At most 12,000 characters and 20 pieces a call.
 - **A piece that times out, leaves a command open or is refused stops the rest**, and the answer
   says which piece and what ran before it: a command split over two top-level forms is cancelled
-  at the end of its piece, so the next piece would act on a half-done command.
+  at the end of its piece, so the next piece would act on a half-done command. Stopped after a
+  piece ran, the first line is OUTCOME UNKNOWN, never DONE or "nothing was changed".
+- **The save, plot and export check reads the code as it is sent** (no comments), so a `"` inside a
+  comment can no longer hide a `(command "_.QSAVE")` after it.
 - **What is sent is compact**: comments go and spaces close up, outside strings only, so a `;`
   comment can never swallow the closing brackets on the command line, and the length counted is the
   code AutoCAD reads. Brackets and quotes are checked by reading the code, so `(princ "(")` is no
   longer refused. A busy AutoCAD as a piece is sent is now "Outcome unknown", not "check the LISP
   syntax". `USERS1` and `USERS2` are put back even when AutoCAD refuses the expression.
 - **Left out:** catching a LISP error at once (`vl-catch-all-apply`) instead of waiting out the
-  10 s; the wrapper stays as it was proven. Live rows Z1-Z4 NOT RUN.
+  10 s; the wrapper stays as it was proven. Live rows Z1-Z4 and Z10 NOT RUN.
 
 ## D-75 - What a review of the new tools found, and the rules added
 

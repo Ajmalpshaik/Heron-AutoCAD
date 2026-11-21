@@ -219,7 +219,8 @@ class TestRunLispInPieces:
 
     def test_a_refused_piece_says_what_had_already_run(self, lisp):
         text, doc = lisp(LONG, Doc(refuse_at=4))
-        assert text.startswith("Error: AutoCAD refused the expression")
+        # Part of the code ran, so it is never "refused, nothing changed" (review of PR #149).
+        assert text.startswith("Error: Outcome unknown: AutoCAD refused piece 4 of 6")
         assert "Pieces 1 to 3 of 6 had already run" in text
         assert len(doc.sent) == 4
         assert doc.variables["OSMODE"] == 675
@@ -258,3 +259,27 @@ class TestRunLispInPieces:
         assert json.loads(text)["expression"] == "(* 6 7)"
         assert doc.sent == [advanced.lisp_wrapper("(* 6 7)")]
         assert LISP_SENTINEL not in doc.variables.values()
+
+
+class TestReviewFindings:
+    """Found by an independent review of PR #149."""
+
+    @pytest.mark.parametrize("comment", ['; say "hi', ';| don\'t "x |;'])
+    def test_a_quote_inside_a_comment_cannot_hide_a_save(self, lisp, comment):
+        text, doc = lisp(f'(princ) {comment}\n(command "_.QSAVE")')
+        assert text.startswith("Error") and "Publish padlock" in text
+        assert doc.sent == []
+
+    def test_the_first_piece_refused_is_still_a_plain_refusal(self, lisp):
+        text, doc = lisp(LONG, Doc(refuse_at=1))
+        assert text.startswith("Error: AutoCAD refused the expression")
+        assert "had already run" not in text
+
+    def test_a_run_stopped_part_way_never_reads_done(self, lisp):
+        from autocad_mcp.core import answers
+
+        text, _ = lisp(LONG, Doc(cancel_at=2))
+        facts = answers.Facts(text, ok=True, outcome="done", counted={"added": 0, "modified": 0, "erased": 0},
+                              wrote=True, can_count=False)
+        line = answers.line(facts)
+        assert line.startswith("OUTCOME UNKNOWN - the code stopped at piece 3 of 6; the pieces before it ran")

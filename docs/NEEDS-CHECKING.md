@@ -557,6 +557,7 @@ below is NOT RUN.**
 | Z7 | Open a dialog by hand (e.g. OPTIONS) and leave it; ask Heron to read an entity | The answer ends "AutoCAD was busy: it is in no command now, so a redraw or a box held it" (or names OPTIONS, if AutoCAD reports it as a command) | NOT RUN |
 | Z8 | `autocad_run_lisp` with `(command "_.DELAY" 15000)` (longer than its 10 s wait) | If it answers `timed_out: true`, the first line is OUTCOME UNKNOWN (not DONE) with what the plug-in counted so far, naming DELAY or AutoLISP when AutoCAD kept the reads away; if the value came back, DONE. Note which one AutoCAD 2027 gives | NOT RUN |
 | Z9 | Z6 with a plug-in built before this change | The answer reads as before (no command named) and nothing fails | NOT RUN |
+| Z10 | Ask to Keep on; draw a line; while the Keep or Discard box is up, start a heavy regen in another viewport, then press Discard | The line is gone and nothing older is undone; or the answer says "Outcome unknown ... UNDO Back" and the modeller's earlier work is still there. Never two Backs | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

@@ -80,7 +80,8 @@ The padlocks stop Heron; they do not stop another program that drives AutoCAD ov
 `send_command` and `run_lisp` paths that manage their own undo did not mark "write started", so a busy
 retry could repeat them ([D-15](DECISIONS.md)). **Closed on 2026-11-21 ([D-76](DECISIONS.md)):** an
 UNDO, U, REDO, MREDO or OOPS is marked as a write just before it is sent, so a busy signal after it
-is OUTCOME UNKNOWN, never a second send. Not proven in AutoCAD yet (NEEDS-CHECKING Z1).
+is OUTCOME UNKNOWN, never a second send; so is the gate's own UNDO Back for Discard. Not proven in
+AutoCAD yet (NEEDS-CHECKING Z1, Z10).
 
 ## 13. Proven live on AutoCAD 2027 only
 

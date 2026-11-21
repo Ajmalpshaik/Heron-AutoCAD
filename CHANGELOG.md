@@ -13,8 +13,10 @@ Newest first. Dates are when the change was made.
   `autocad_batch_draw`, `autocad_dimension_run` and `autocad_add_centre_marks` answers with counts
   and handles only. When AutoCAD was busy, the first line names the command it is in, from the
   plug-in's command tracker (its ping now says `command`), and what the plug-in counted so far; a
-  run_lisp wait that ran out reads OUTCOME UNKNOWN, not DONE ([D-77](docs/DECISIONS.md)). Live rows
-  Z1-Z9 NOT RUN; the plug-in part needs a version bump before release.
+  run_lisp wait that ran out reads OUTCOME UNKNOWN, not DONE ([D-77](docs/DECISIONS.md)). From a
+  review of the change: Discard's own `UNDO _Back` is never sent twice either, a `"` in a comment
+  can no longer hide a save from the run_lisp check, and `quiet` keeps `new_handles`. Live rows
+  Z1-Z10 NOT RUN; the plug-in part needs a version bump before release.
 
 - **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
   fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,

@@ -7,7 +7,8 @@ the long-answer tools keeps exactly that:
 
 - numbers, true / false and short words stay: the counts, ``completed``,
   ``mode``, a ``hint`` or a ``warning``;
-- ``handle`` and ``handles`` stay whole, so the next call can use them;
+- ``handle``, ``handles`` and any ``..._handles`` (``new_handles`` of a copy
+  or an array) stay whole, so the next call can use them;
 - what failed stays, its first few entries, so the chat knows what to fix;
 - every other list of objects goes, and ``left_out`` says how many of each
   there were. Their handles are kept as ``handles`` when the answer had none,
@@ -32,7 +33,7 @@ QUIET_FIELD = Field(
     )
 )
 
-HANDLE_KEYS = ("handle", "handles")
+HANDLE_KEYS = ("handle", "handles")  # the gate's own names; any "..._handles" list is kept too
 FAILURE_KEYS = ("failed", "failures", "errors", "skipped_detail")
 MOST_FAILURES = 5
 # A list of plain values this short (layers made, a point) costs less than saying it was left out.
@@ -56,7 +57,7 @@ def quiet(result: Any) -> Any:
             kept[key] = quiet(value)
         elif not isinstance(value, list):
             kept[key] = value
-        elif key in HANDLE_KEYS:
+        elif _is_handles(key):
             kept[key] = value
         elif key in FAILURE_KEYS:
             kept[key] = [quiet(item) for item in value[:MOST_FAILURES]]
@@ -76,6 +77,11 @@ def quiet(result: Any) -> Any:
     if left_out:
         kept[LEFT_OUT] = left_out
     return kept
+
+
+def _is_handles(key: str) -> bool:
+    """handle, handles, new_handles, missing_handles...: what the next call needs is never left out."""
+    return key in HANDLE_KEYS or key.endswith(("_handle", "_handles"))
 
 
 def quiet_text(text: Any) -> Any:

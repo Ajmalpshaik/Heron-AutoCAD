@@ -106,6 +106,22 @@ def _timed_out(text: str) -> bool:
     return isinstance(payload, dict) and payload.get("timed_out") is True
 
 
+def _stopped_part_way(text: str) -> str:
+    """For code sent in pieces (autocad_run_lisp, D-76): "piece 2 of 5" when it stopped early, else ""."""
+    payload = _payload(text)
+    if not isinstance(payload, dict):
+        return ""
+    total, finished = payload.get("chunks"), payload.get("chunks_finished")
+    if not isinstance(total, int) or not isinstance(finished, int) or finished >= total:
+        return ""
+    return f"piece {min(finished + 1, total)} of {total}"
+
+
+def _says_busy(facts: Facts) -> bool:
+    """A busy spell ended this job, and the answer itself says so (not one step of many that went on)."""
+    return facts.busy and "busy" in facts.text
+
+
 def _total(counted: dict[str, Any] | None) -> int | None:
     if counted is None:
         return None
@@ -162,7 +178,7 @@ def line(facts: Facts) -> str:
         word, why = NOTHING_CHANGED, "the modeller chose Discard, so the drawing is back as it was."
     elif said:
         word = OUTCOME_UNKNOWN
-        if facts.busy:
+        if _says_busy(facts):
             why = f"AutoCAD went busy part-way{_in(facts)}" + _so_far(
                 facts, total, "and the plug-in could not count what changed, so part of it may be in the drawing."
             )
@@ -176,11 +192,11 @@ def line(facts: Facts) -> str:
         elif total is None and facts.wrote:
             word = OUTCOME_UNKNOWN
             why = "the job failed after it began to write, and the plug-in could not count what changed."
-        elif facts.busy:
+        elif _says_busy(facts) and "stayed busy" in facts.text:
             word, why = REFUSED, f"AutoCAD stayed busy{_in(facts)} and never took the request; nothing was changed."
         else:
             word, why = REFUSED, "the tool turned the job down; nothing was changed."
-    elif facts.busy or _timed_out(facts.text):
+    elif _timed_out(facts.text):
         # The tool answered, but never heard how the job ended: not DONE.
         word = OUTCOME_UNKNOWN
         opening = (
@@ -189,6 +205,12 @@ def line(facts: Facts) -> str:
             else "AutoCAD did not answer within the wait, so the job may still have run"
         )
         why = opening + _so_far(facts, total, "and the plug-in could not count what changed.")
+    elif _stopped_part_way(facts.text):
+        # Code sent in pieces that stopped early: the pieces before it ran, the rest never did.
+        word = OUTCOME_UNKNOWN
+        why = f"the code stopped at {_stopped_part_way(facts.text)}; the pieces before it ran" + _so_far(
+            facts, total, "and the plug-in could not count what changed."
+        )
     elif total:
         word, why = DONE, counts(facts.counted) + "."
         if _part_failed(facts.text):
