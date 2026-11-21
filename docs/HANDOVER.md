@@ -22,6 +22,20 @@ AutoCAD. Versions not bumped (the parent does).
 rows **AJ1-AJ10**. AJ6 first (count the `Command:` prompts for the 41-object batch), then AJ7
 (every 1,500-character piece arrives); if one is lost, lower `QUIET_CHUNK_LIMIT`.
 
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+
+Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
+Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /
+extend, fillet / chamfer, break, join, edit a vertex, stretch, explode, draw order, match
+properties, list groups, group. Lineweight and transparency on `autocad_modify_entity`. The geometry is plain Python in `acad/edit2d.py`
+(`tests/test_edit2d_geometry.py`); the tools against fake COM in `tests/test_edit2d_tools.py`.
+No typed commands, no plug-in change. Limits: [05 §29](05-known-limits.md#29-the-everyday-2d-edits-have-their-own-limits).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AA1-AA19 in a scratch
+drawing. AA13 (does COM's Explode leave the original?) and AA14 (draw order in a drawing that has no
+table yet) are the two answers the code could not get from Autodesk's reference. Not built:
+Lengthen, and a fillet between a line and an arc ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
+
 ## Earlier - 2026-11-21 (`autocad_render` removed, #158)
 
 Ajmal had the parent session decide #158, and it decided: remove `autocad_render`. His rule is that

@@ -609,6 +609,37 @@ below is NOT RUN.**
 | Z9 | Z6 with a plug-in built before this change | The answer reads as before (no command named) and nothing fails | NOT RUN |
 | Z10 | Ask to Keep on; draw a line; while the Keep or Discard box is up, start a heavy regen in another viewport, then press Discard | The line is gone and nothing older is undone; or the answer says "Outcome unknown ... UNDO Back" and the modeller's earlier work is still there. Never two Backs | NOT RUN |
 
+## Group AA - The everyday 2D edits (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-78](DECISIONS.md), [D-79](DECISIONS.md); issues #103, #49, #105, #111,
+#110). Built and tested offline only (`tests/test_edit2d_geometry.py`, `tests/test_edit2d_tools.py`).
+Server only, no plug-in change: restart the server after pulling. Draw the test objects by hand in
+a scratch drawing, `autocad_status` first. After each row press **Ctrl+Z once** and check the drawing
+is back as it was (one undo step). **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AA1 | A line 0,0 to 1000,0 and a "wall" line 400,-100 to 400,100. `autocad_trim_extend` trim, edges=[wall], points=[[200, 0]] | The line now runs 400,0 to 1000,0 (same handle, same layer); one Ctrl+Z brings back the full line | NOT RUN |
+| AA2 | The same line, two walls at x=300 and x=700, point [500, 0] | Two lines 0-300 and 700-1000; the second has a new handle and the first's layer, colour, linetype and lineweight | NOT RUN |
+| AA3 | A closed rectangle 1000 x 500 and a line across it at x=600; trim with a point on its right side. Then a circle r=100 with a line through its centre, trim one half | The rectangle is one open polyline round the left part; the circle is replaced by a half arc with its look, and Heron asks to keep the circle erased (D-50) | NOT RUN |
+| AA4 | Three short lines below a long "main" line; `autocad_trim_extend` extend, no points. Then an arc 0 to 90 degrees and a line beyond its end | Each short line now ends on the main; the arc runs on round its circle to the line; nothing else moved | NOT RUN |
+| AA5 | A polyline with a constant width of 20, trimmed; then one whose width tapers (start 0, end 20), trimmed | The first keeps width 20 on every piece; the second is refused ("width changes along it") and nothing changes | NOT RUN |
+| AA6 | Two lines meeting at a square corner (not touching). `autocad_fillet_chamfer` fillet, radius=150; then two more with radius=0 | An arc r=150, tangent to both (AutoCAD's own FILLET with the same radius gives the same arc), on the first line's layer; radius 0 gives a sharp corner and no arc | NOT RUN |
+| AA7 | Chamfer two lines distance=50, distance2=30; then distance=50, angle=30 | Measured with `autocad_measure`: 50 and 30 back from the corner; the angle method gives 50 and 28.87 on a square corner, matching AutoCAD's CHAMFER Angle | NOT RUN |
+| AA8 | A closed polyline 1000 x 500: fillet with radius=50, no vertices | One polyline, 8 vertices; `autocad_polyline_info` area = 500000 - (4 - pi) x 50^2 = 497853.98 | NOT RUN |
+| AA9 | `autocad_break_curve` on a line at a point; on a line with second_point; on a circle with two points | Two touching lines; two lines with the gap; the circle is an arc missing the part from the first point anticlockwise to the second | NOT RUN |
+| AA10 | Two lines and an arc drawn end to end (the arc in the middle, drawn in any direction): `autocad_join_curves`. Then two lines in one straight line | One polyline with the arc kept as an arc (a bulge), on the first object's layer; the others erased after the modeller's yes. The two straight lines become one line | NOT RUN |
+| AA11 | A 4-vertex polyline: `autocad_edit_vertex` move vertex 2 by [0, -200]; add a vertex after 0; remove it again. A line: move its end with `near` | Each change as asked, the arcs next to a moved vertex still arcs; a line end goes exactly to to_point | NOT RUN |
+| AA12 | A rectangle, a door block on its right side, a hatch half over the right side, a circle far away: `autocad_stretch` with a window round the right side, displacement [600, 0] | Right side of the rectangle 600 longer; the door moved whole; the hatch listed in `skipped` and unmoved; the circle `untouched`. A polyline with different widths per segment, stretched: record whether its widths stay | NOT RUN |
+| AA13 | `autocad_explode` on a plain block, then on a block with attributes, then the same with allow_attribute_loss=true | The plain block: its lines are separate objects and the block reference is gone (check it is not left under the pieces), Heron asks to keep it erased; the attributed one skipped with its values; then exploded with the values listed | NOT RUN |
+| AA14 | A new drawing (no draw order set): a hatch drawn over lines, `autocad_draw_order` back; then a line above / under the hatch; then the same on a layout | The hatch shows behind the lines at once (or after a regen); AutoCAD's own DRAWORDER agrees afterwards; above / under put the line where asked; on a layout too | NOT RUN |
+| AA15 | A line with a true colour (RGB 200,100,50), lineweight 0.35, transparency 40 on layer M-PIPE: `autocad_match_properties` to two lines and a text; then a text's text_style to another text; then a dimension's dim_style | The lines take all six (Properties palette shows the true colour); the text takes the general six, its text style untouched and listed in `skipped`; text and dimension styles copy when asked | NOT RUN |
+| AA16 | `autocad_modify_entity` lineweight=0.35, transparency=50 on a line; then lineweight=0.33 | The Properties palette shows 0.35 mm and 50; 0.33 is refused with the list | NOT RUN |
+| AA17 | `autocad_group` make PUMP-01 from three objects; `autocad_list_groups` (also a group made by hand with GROUP, and one unnamed); add one, remove one, then ungroup | The GROUP command's list shows PUMP-01 with its members; the list shows all three groups with the unnamed one marked; after ungroup the objects stay and are no longer grouped; Ctrl+Z brings the group back | NOT RUN |
+| AA18 | Lock a line's layer and trim it; then trim with dry_run=true | Locked: refused naming the layer, no copy made. Dry run: the answer says what it would cut and the drawing is unchanged after | NOT RUN |
+| AA19 | Set a UCS turned 30 degrees; trim with coords='ucs' and the point read off the screen | The part cut is the one at that UCS point | NOT RUN |
+| AA20 | AutoCAD 2025 / 2026 and 2021-2024 builds: AA1, AA6, AA10, AA14 | As in AutoCAD 2027 | NO MACHINE |
+
 ## Group AC - Blocks, attributes and tables: ATTDEF, ATTSYNC, Excel tables, cell edits, copy between drawings (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-82](DECISIONS.md), [D-83](DECISIONS.md); issues #115, #117, #106). Built
