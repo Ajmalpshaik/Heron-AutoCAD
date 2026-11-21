@@ -76,8 +76,11 @@ for all three with no warning; none has run in AutoCAD. Planning is offline and 
 (`acad/block_attributes.py`, `acad/table_cells.py`, `acad/drawing_copy.py`). Versions not bumped
 (the parent session does it).
 
+Merged as PR #155. Follow-up #156 (ATTSYNC for nested inserts, `nested=true`) on the same branch,
+restarted from `main`.
+
 **Next (on this PC, AutoCAD closed):** pull, `tools/build_plugin.py` + `tools/install_plugin.py`,
-restart Claude; live rows **AC1-AC16**. AC7 first: whether AutoCAD's data link needs Excel
+restart Claude; live rows **AC1-AC17**. AC7 first: whether AutoCAD's data link needs Excel
 installed, and whether the connection string `file!sheet!range` is read as hoped.
 
 ## Earlier - 2026-11-21 (server core 2: #42, #44, #46, #47; D-76, D-77)
