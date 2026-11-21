@@ -8,7 +8,15 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
+## Latest - 2026-11-21 (the offline gates run on Linux, #102)
+
+`tests/winstubs` stands in for pywin32 where it is not installed (D-72). On Linux:
+`PYTHONPATH=src python -m pytest -m "not live"` gives 2854 passed, 19 skipped (each with its
+Windows reason); `tools/check_structure.py` passes; `dotnet test` gives 289 passed, 1 skipped (the
+named pipe). A cloud session can now run all four gates instead of saying NOT RUN. Windows CI
+still runs every test.
+
+## Earlier - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
 
 A review of the docked palette (D-68) after plug-in 1.6.0 merged found one safety gap and three
 robustness gaps, all fixed in PR #137. Plug-in **1.6.0** already carries them if it is

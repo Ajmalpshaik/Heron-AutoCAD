@@ -4,6 +4,12 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The offline gates run on Linux (2026-11-21, #102).** pywin32 stand-ins in `tests/winstubs`,
+  used only where pywin32 is not installed, let the offline suite and `tools/check_structure.py`
+  run in a Linux cloud session; tests that need Windows itself (named pipes, the COM message filter,
+  Windows paths) are skipped there with the reason, and so is the bridge's named-pipe C# test.
+  Windows CI is unchanged ([D-72](docs/DECISIONS.md)).
+
 - **The palette's Run can never skip the plug-in's checks (2026-11-21).** If AutoCAD was started
   with `HERON_AUTOCAD_BRIDGE=off` or a chat id in its environment, the palette's run used to inherit
   them. It now always runs with the checks on and as its own chat, and the server refuses a palette

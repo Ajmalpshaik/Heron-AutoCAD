@@ -130,6 +130,18 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-72 - The offline gates run on Linux with pywin32 stand-ins; Windows-only tests skip, saying why
+
+**Decided:** 2026-11-21 (issue #102). **Status:** in force. Cloud sessions run on Linux, where
+pywin32 does not install, so three of the four gates could only say NOT RUN. `tests/winstubs/`
+holds stand-ins (`pythoncom.com_error` and the `VT_*` numbers, a `VARIANT` that keeps its type and
+value, `pywintypes.error`, the `ctypes` names `message_filter.py` needs); `tests/conftest.py` and
+`tools/check_structure.py` put them on the path **only** when `pythoncom` cannot be found, so on
+Windows and in Windows CI nothing changes. They talk to nothing. The tests that need Windows itself
+are marked to skip off Windows with the reason: real named pipes (8 in `test_bridge.py`, and the C#
+`[WindowsFact]` server test), the COM message filter on a real thread (5), Windows path rules (5),
+CRLF in a Windows checkout (1). The stand-ins are test code, never a dependency of the server.
+
 ## D-68 - One docked Heron palette: Activity with Undo by D-54's rule, saved commands run by a copy of the server
 
 **Decided:** 2026-11-21, from Heron AI for Revit's Activity and Commands panes (issues #92, #93).
