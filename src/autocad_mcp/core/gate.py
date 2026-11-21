@@ -75,6 +75,10 @@ DRY_RUN_NEEDS_UNDO = (
     "UNDO on (UNDO > All) if it is off, or call it without dry_run."
 )
 DRY_RUN_HANDLES = "A dry run: the handles above were taken back with it and no longer exist."
+BACK_UNKNOWN = (
+    "Outcome unknown: AutoCAD went busy as UNDO Back was sent, so the drawing may or may not be back at "
+    "Heron's mark. Heron did not send it again: a second Back would go past the mark, into earlier work."
+)
 COULD_NOT_ASK = (
     "Heron could not ask whether to keep this change, so it was kept. "
     "One Ctrl+Z in AutoCAD reverses it."
@@ -210,7 +214,11 @@ async def _discard() -> None:
     """Undo back to the mark put down before the job."""
 
     def back() -> None:
-        get_app().ActiveDocument.SendCommand("_.UNDO _Back ")
+        doc = get_app().ActiveDocument
+        # A second Back would go past Heron's mark into the modeller's own work, so a
+        # busy AutoCAD after this is Outcome unknown, never a second send (D-76).
+        connection.mark_writing(BACK_UNKNOWN)
+        doc.SendCommand("_.UNDO _Back ")
 
     await run(back)
 
@@ -433,6 +441,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 marked = await _mark()
 
             writes_before = connection.write_count()
+            busy_before = connection.busy_count()
             _current = job
             what = job.title if job else _title(tool)
             beat = progress.start(lambda seconds: progress.note(what, seconds))
@@ -455,6 +464,15 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
             ok = not text.startswith("Error:")
             outcome = "done" if ok else ("unknown" if "Outcome unknown" in text else "failed")
             wrote = connection.write_count() > writes_before
+            busy = connection.busy_count() > busy_before
+            where = ""
+            if busy and job and job.bridge:
+                # Which command AutoCAD is in, from the plug-in's tracker, asked on its
+                # pipe thread, so it answers while AutoCAD is busy (#47).
+                known, command = await asyncio.to_thread(_command_of, job.bridge)
+                where = answers.busy_where(known, command)
+                if where and risk not in WATCHED:
+                    result = _with_note(result, answers.busy_note(known, command)) if isinstance(result, str) else result
 
             if tool == STATUS_TOOL and ok:
                 state: dict[str, Any] = (
@@ -496,6 +514,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                     text, ok=ok, outcome=outcome, counted=counted, wrote=wrote, marked=marked,
                     can_count=risk is Risk.CHANGE,
                     word=said[0] if said else None, note=said[1] if said else None,
+                    busy=busy, where=where,
                 )  # fmt: skip
                 result = answers.with_line(result, answers.line(facts))
 
@@ -516,6 +535,17 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
             _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked, dry_run)
             if companion.enabled():
                 companion.write(companion_state())  # the Companion page, once the chat asked for it (D-71)
+
+
+def _command_of(bridge: Bridge) -> tuple[bool, str | None]:
+    """(known, command) from the plug-in's command tracker; (False, None) when it cannot tell (#47)."""
+    ask = getattr(bridge, "current_command", None)
+    if ask is None:
+        return False, None
+    try:
+        return ask()
+    except Exception:  # noqa: BLE001 - the busy answer stands without it
+        return False, None
 
 
 async def _roll_back(

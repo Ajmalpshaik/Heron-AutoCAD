@@ -18,9 +18,16 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
+from ..acad.lisp_forms import (
+    CHUNK_CHARS,
+    FORM_MAX_CHARS,
+    LispTextError,
+    chunk_forms,
+    split_forms,
+)
 from ..core import gate
-from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.connection import get_doc, mark_writing, note_busy, require_idle, run
+from ..core.errors import AutocadError, com_message, is_retryable
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 
 # Commands whose plain form opens a modal dialog. Each maps to the advice that
@@ -111,6 +118,13 @@ def publish_call_in_lisp(expression: str) -> str | None:
 # reliably, and leaves AutoCAD in a state where the next call fails. These are
 # sent unwrapped.
 UNDO_STACK_COMMANDS = {"UNDO", "U", "REDO", "MREDO", "OOPS"}
+# What a busy AutoCAD after one of those was sent answers (#42). Not "one Ctrl+Z
+# reverses it": after an undo, Ctrl+Z takes back one step more.
+UNDO_SENT_UNKNOWN = (
+    "Outcome unknown: AutoCAD went busy as {command} was sent, so it may already have run. "
+    "Heron did not send it again: sent twice, it would undo or redo one step more than asked. "
+    "Look at the drawing before sending it again."
+)
 
 # System variables used to smuggle a LISP result back across the COM boundary.
 # USERS1-5 are string variables AutoCAD reserves for exactly this purpose.
@@ -147,12 +161,17 @@ def lisp_wrapper(expression: str) -> str:
         f'(setvar "{LISP_RESULT_VAR}" heron:r)'
         "(princ)\n"
     )
-# Longest expression autocad_run_lisp accepts. The wrapper adds about 300
+# Longest piece autocad_run_lisp sends at once. The wrapper adds about 300
 # characters, and AutoCAD's command line drops longer text: a ~3,000-character
 # defun block arrived as nothing at all (Luxury Suite 2, 2026-11-09), while
-# calls under 2,000 worked all day. Refused here, with a plain message, rather
-# than failing silently in AutoCAD.
-LISP_MAX_CHARS = 2000
+# calls under 2,000 worked all day. Longer code is cut between its top-level
+# forms into pieces under about 700 characters (#46, acad/lisp_forms.py); one
+# form longer than this is refused, with a plain message, rather than failing
+# silently in AutoCAD.
+LISP_MAX_CHARS = FORM_MAX_CHARS
+# The most code one call takes, and the most pieces it sends.
+LISP_MAX_TOTAL = 12000
+LISP_MAX_CHUNKS = 20
 # The wait for the result: at most LISP_POLL_ATTEMPTS reads and
 # LISP_POLL_ATTEMPTS x LISP_POLL_DELAY seconds. A read AutoCAD refuses while it
 # redraws does not end the wait: one refused read after a layer-off or a view
@@ -274,7 +293,9 @@ async def autocad_send_command(
 
     The command is wrapped in an undo mark so one call is one Ctrl+Z. UNDO,
     REDO, U, MREDO and OOPS are sent unwrapped, since running those inside an
-    open undo group does not roll back reliably.
+    open undo group does not roll back reliably. They still count as a write:
+    if AutoCAD goes busy once one is sent, the answer is OUTCOME UNKNOWN and it
+    is never sent a second time.
 
     Args:
         command (str): Command string with \\n between arguments.
@@ -339,6 +360,10 @@ async def autocad_send_command(
 
         try:
             if manages_undo:
+                # No undo mark round these (see UNDO_STACK_COMMANDS), but the
+                # write is still marked: a busy signal from here on is OUTCOME
+                # UNKNOWN, never a second UNDO (#42, D-15).
+                mark_writing(UNDO_SENT_UNKNOWN.format(command=first))
                 doc.SendCommand(payload)
             else:
                 with undo_mark(doc):
@@ -387,22 +412,24 @@ async def autocad_run_lisp(
         str,
         Field(
             description=(
-                "One AutoLISP expression to evaluate, e.g. "
+                "AutoLISP to evaluate, e.g. "
                 "'(getvar \"DIMSCALE\")' or "
                 "'(length (vlax-safearray->list (vla-get-coordinates obj)))'. "
-                "Its value is returned as text. At most "
-                f"{LISP_MAX_CHARS} characters: split longer code into several "
-                "calls (define helpers with defun in one call, use them in the "
-                "next)."
+                "The value of the last form is returned as text. Several "
+                "top-level forms may follow one another; code longer than about "
+                f"{CHUNK_CHARS} characters is cut between its top-level forms and "
+                "sent in pieces, in order, as one undo step. A single form over "
+                f"{LISP_MAX_CHARS} characters is refused: make helpers with defun "
+                f"as separate forms. At most {LISP_MAX_TOTAL} characters in all."
             ),
             min_length=1,
-            max_length=LISP_MAX_CHARS,
+            max_length=LISP_MAX_TOTAL,
         ),
     ],
     expect_box: Annotated[str | None, EXPECT_BOX] = None,
     press: Annotated[str | None, PRESS] = None,
 ) -> str:
-    """Evaluate an AutoLISP expression and return its result.
+    """Evaluate AutoLISP and return the value of its last form.
 
     Unlike autocad_send_command, this gets a value back. AutoCAD's COM
     interface has no LISP eval, so the expression's result is stashed in the
@@ -415,13 +442,21 @@ async def autocad_run_lisp(
     entity data, dictionaries, xrecords, layer filters, custom object
     properties, and anything a loaded office LISP routine defines.
 
+    Long code is cut for you (#46): AutoCAD's command line drops text near
+    3,600 characters without a word, so code over about 700 characters, or
+    several top-level forms, is sent in pieces cut only between top-level
+    forms, run in order inside one undo step. A piece that fails, times out or
+    leaves a command open stops the rest, and the answer says which piece.
+    Comments are left out and spaces closed up, outside strings only.
+
     Args:
-        expression (str): A single AutoLISP expression.
+        expression (str): AutoLISP: one form, or several top-level forms.
 
     Returns:
         str: JSON: {"expression": str, "result": str, "timed_out": bool,
-             "cancelled_command": str (only when one was left open), "note": str}
-             "result" is the expression's value rendered as a string; "nil" is
+             "cancelled_command": str (only when one was left open), "note": str,
+             "chunks": int and "chunks_finished": int (only when it was cut)}
+             "result" is the last form's value rendered as a string; "nil" is
              LISP's empty/false value, not an error.
 
     Running object snaps are off while the expression runs (and put back
@@ -435,46 +470,32 @@ async def autocad_run_lisp(
           '(getvar "DIMSCALE")'.
         - Use when: "how many entities are on layer X?" ->
           '(sslength (ssget "_X" (list (cons 8 "X"))))'.
+        - Use when: loading a routine of several defuns and calling it — send
+          them together; they are cut between the defuns.
         - Don't use when: a typed tool covers it — those return structured
           data instead of a string.
 
     Error Handling:
         - Reports timed_out=true if AutoCAD never wrote a result, which usually
           means the expression raised a LISP error or is waiting for input.
-        - Unbalanced parentheses are rejected before the expression is sent,
-          since AutoCAD would otherwise sit waiting for the closing bracket.
-        - An expression over LISP_MAX_CHARS (2,000) characters is refused:
-          AutoCAD drops longer command-line text without a word.
+        - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are
+          rejected before anything is sent, since AutoCAD would otherwise sit
+          waiting for the closing bracket.
+        - One top-level form over LISP_MAX_CHARS (2,000) characters is refused,
+          never cut: AutoCAD drops longer command-line text without a word.
         - expect_box without press (or the reverse), or a plug-in older than
           1.7.0, is refused before anything is sent. Every box but the one
           named is still cancelled (D-66).
     """
     text = expression.strip()
-    if len(text) > LISP_MAX_CHARS:
-        raise AutocadError(
-            f"The expression is {len(text)} characters; AutoCAD drops command-line "
-            f"text much past {LISP_MAX_CHARS} without a word. Split it into several "
-            "calls: define helpers with defun in one call, then use them in the next."
-        )
-    if not text.startswith("("):
-        raise AutocadError(
-            f"An AutoLISP expression must start with '('. Got: {text[:60]}"
-        )
-    if text.count("(") != text.count(")"):
-        raise AutocadError(
-            f"Unbalanced parentheses: {text.count('(')} opening, "
-            f"{text.count(')')} closing. AutoCAD would wait for the rest of the "
-            "expression and block the connection."
-        )
-    if '"' in text and text.count('"') % 2:
-        raise AutocadError(
-            "Unbalanced double quotes in the expression. AutoCAD would wait for "
-            "the closing quote and block the connection."
-        )
-    named = publish_call_in_lisp(text)
+    chunks = lisp_chunks(text)
+    # On what is sent, not the text as typed: a '"' inside a comment would shift
+    # every string after it and hide a "_.QSAVE" from the check.
+    named = publish_call_in_lisp(" ".join(chunks))
     if named:
         raise AutocadError(PUBLISH_REFUSED.format(what=named))
     wanted = expectation(expect_box, press)
+    total = len(chunks)
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -488,6 +509,7 @@ async def autocad_run_lisp(
             except BaseException:  # noqa: BLE001
                 previous[var] = ""
 
+        # Before the undo mark: a refusal here is still asked again, nothing sent.
         doc.SetVariable(LISP_RESULT_VAR, LISP_SENTINEL)
         try:
             doc.SetVariable(LISP_CANCELLED_VAR, "")
@@ -503,46 +525,51 @@ async def autocad_run_lisp(
             doc.SetVariable("OSMODE", 0)
         except BaseException:  # noqa: BLE001
             osmode = None
+        runs: list[dict[str, Any]] = []
         try:
+            # One undo mark round every piece: one Ctrl+Z for the whole call.
             with undo_mark(doc):
-                doc.SendCommand(lisp_wrapper(text))
-        except BaseException as exc:  # noqa: BLE001
-            raise AutocadError(
-                f"AutoCAD refused the expression: {com_message(exc)}. Check the "
-                "LISP syntax."
-            ) from exc
+                for number, chunk in enumerate(chunks, start=1):
+                    if number > 1 and not _set_patiently(doc, LISP_RESULT_VAR, LISP_SENTINEL):
+                        note_busy()
+                        runs.append({"number": number, "value": LISP_SENTINEL, "answered": False,
+                                     "cancelled": "", "sent": False})
+                        break
+                    if number > 1:
+                        _set_patiently(doc, LISP_CANCELLED_VAR, "")
+                    try:
+                        doc.SendCommand(lisp_wrapper(chunk))
+                    except BaseException as exc:  # noqa: BLE001
+                        raise AutocadError(_refused(exc, number, total)) from exc
+                    value, answered = _wait_for_result(doc)
+                    cancelled = _get_patiently(doc, LISP_CANCELLED_VAR) or ""
+                    runs.append({"number": number, "value": value, "answered": answered,
+                                 "cancelled": cancelled, "sent": True})
+                    if value == LISP_SENTINEL or cancelled:
+                        break
         finally:
             if osmode is not None and not _set_patiently(doc, "OSMODE", osmode):
                 not_put_back.append(f"OSMODE (it was {osmode})")
+            for var, old in previous.items():
+                if not _set_patiently(doc, var, old):
+                    not_put_back.append(var)
 
-        # SendCommand usually blocks until the expression finishes, but polling
-        # covers the versions where it does not. A refused read is AutoCAD busy
-        # redrawing, not an answer: the wait goes on to its bound.
-        value = LISP_SENTINEL
-        answered = False
-        deadline = time.monotonic() + LISP_POLL_ATTEMPTS * LISP_POLL_DELAY
-        for _ in range(LISP_POLL_ATTEMPTS):
-            try:
-                value = str(doc.GetVariable(LISP_RESULT_VAR))
-                answered = True
-            except BaseException:  # noqa: BLE001 - busy for a moment: keep waiting
-                pass
-            if value != LISP_SENTINEL or time.monotonic() >= deadline:
-                break
-            time.sleep(LISP_POLL_DELAY)
-
-        timed_out = value == LISP_SENTINEL
-        cancelled = _get_patiently(doc, LISP_CANCELLED_VAR) or ""
-        for var, old in previous.items():
-            if not _set_patiently(doc, var, old):
-                not_put_back.append(var)
         restore_note = (
             f" AutoCAD stayed too busy to put back {', '.join(not_put_back)}: "
             "check them with autocad_get_variable." if not_put_back else ""
         )
+        last = runs[-1]
+        finished = sum(1 for r in runs if r["value"] != LISP_SENTINEL)
+        answer: dict[str, Any] = {"expression": text if total == 1 else _shortened(text)}
 
-        if timed_out:
-            if not answered:
+        if last["value"] == LISP_SENTINEL:
+            if not last["sent"]:
+                note = (
+                    f"AutoCAD stayed busy before piece {last['number']} could be sent, so it and the "
+                    "pieces after it were not sent."
+                )
+            elif not last["answered"]:
+                note_busy()
                 note = (
                     "AutoCAD stayed busy (redrawing, or a dialog open) for the "
                     "whole wait and never let Heron read the answer. The "
@@ -559,26 +586,110 @@ async def autocad_run_lisp(
                     "twice. Check AutoCAD's command line, and press Esc there if "
                     "a prompt is showing."
                 )
-            return {
-                "expression": text,
-                "result": None,
-                "timed_out": True,
-                "note": note + restore_note,
-            }
-        answer: dict[str, Any] = {"expression": text, "result": value, "timed_out": False}
-        if cancelled:
-            answer["cancelled_command"] = cancelled
-            answer["note"] = (
-                f"The expression left AutoCAD inside {cancelled}, waiting at a "
-                "prompt; it was cancelled so the drawing is free again. Answer "
-                "every prompt of a (command ...) call, including the last one, "
-                "in the same expression."
-            )
-        if restore_note:
-            answer["note"] = (answer.get("note", "") + restore_note).strip()
+            answer.update({"result": None, "timed_out": True, "note": note + _where(last["number"], total) + restore_note})
+        else:
+            answer.update({"result": last["value"], "timed_out": False})
+            if last["cancelled"]:
+                answer["cancelled_command"] = last["cancelled"]
+                answer["note"] = (
+                    f"The expression left AutoCAD inside {last['cancelled']}, waiting at a "
+                    "prompt; it was cancelled so the drawing is free again. Answer "
+                    "every prompt of a (command ...) call, including the last one, "
+                    "in the same expression." + _where(last["number"], total)
+                )
+            elif total > 1:
+                answer["note"] = (
+                    f"The code was cut between its top-level forms into {total} pieces, run in "
+                    "order as one undo step; the result is the value of the last form."
+                )
+            if restore_note:
+                answer["note"] = (answer.get("note", "") + restore_note).strip()
+        if total > 1:
+            answer["chunks"] = total
+            answer["chunks_finished"] = finished
         return answer
 
     return dumps(await run(work))
+
+
+def lisp_chunks(text: str) -> list[str]:
+    """The pieces autocad_run_lisp sends for ``text``, in order (#46). Raises AutocadError, nothing sent."""
+    if len(text) > LISP_MAX_TOTAL:
+        raise AutocadError(
+            f"The code is {len(text)} characters; one call takes at most {LISP_MAX_TOTAL}. "
+            "Split it into several calls: define helpers with defun in one call, then use them "
+            "in the next. Nothing was sent."
+        )
+    try:
+        chunks = chunk_forms(split_forms(text))
+    except LispTextError as exc:
+        raise AutocadError(f"{exc} Nothing was sent.") from None
+    if len(chunks) > LISP_MAX_CHUNKS:
+        raise AutocadError(
+            f"The code makes {len(chunks)} pieces of about {CHUNK_CHARS} characters; one call "
+            f"sends at most {LISP_MAX_CHUNKS}. Split it into several calls. Nothing was sent."
+        )
+    return chunks
+
+
+def _wait_for_result(doc: Any) -> tuple[str, bool]:
+    """(the value written, whether a read was ever let through), within the bound.
+
+    SendCommand usually blocks until the expression finishes, but polling
+    covers the versions where it does not. A refused read is AutoCAD busy
+    redrawing, not an answer: the wait goes on to its bound.
+    """
+    value = LISP_SENTINEL
+    answered = False
+    deadline = time.monotonic() + LISP_POLL_ATTEMPTS * LISP_POLL_DELAY
+    for _ in range(LISP_POLL_ATTEMPTS):
+        try:
+            value = str(doc.GetVariable(LISP_RESULT_VAR))
+            answered = True
+        except BaseException:  # noqa: BLE001 - busy for a moment: keep waiting
+            pass
+        if value != LISP_SENTINEL or time.monotonic() >= deadline:
+            break
+        time.sleep(LISP_POLL_DELAY)
+    return value, answered
+
+
+def _refused(exc: BaseException, number: int, total: int) -> str:
+    """Why sending piece ``number`` failed, and what of the code had already run."""
+    ran = f" {_pieces(number - 1)} of {total} had already run." if number > 1 else ""
+    if is_retryable(exc):
+        # A busy AutoCAD, after the undo mark began: never sent again (D-15).
+        note_busy()
+        return (
+            f"Outcome unknown: AutoCAD was busy as the expression was sent ({com_message(exc)}), "
+            f"so it may or may not have run.{ran} Look at the drawing before sending it again."
+        )
+    if ran:
+        # Part of the code is in the drawing already: never "nothing was changed".
+        return (
+            f"Outcome unknown: AutoCAD refused piece {number} of {total}: {com_message(exc)}. Check the "
+            f"LISP syntax.{ran} Look at the drawing before sending the code again."
+        )
+    return f"AutoCAD refused the expression: {com_message(exc)}. Check the LISP syntax."
+
+
+def _where(number: int, total: int) -> str:
+    """For code sent in pieces: which piece stopped, and what ran before it."""
+    if total == 1:
+        return ""
+    before = f"{_pieces(number - 1).lower()} ran" if number > 1 else "nothing before it ran"
+    after = total - number
+    if not after:
+        return f" It was the last of {total} pieces: {before}."
+    return f" It was piece {number} of {total}: {before}, and {after} more were not sent."
+
+
+def _pieces(upto: int) -> str:
+    return "Piece 1" if upto == 1 else f"Pieces 1 to {upto}"
+
+
+def _shortened(text: str, most: int = 200) -> str:
+    return text if len(text) <= most else f"{text[:most]}... ({len(text)} characters)"
 
 
 # What to answer -PURGE's "Enter type of unused objects to purge" with. The

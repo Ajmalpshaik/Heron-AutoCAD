@@ -135,7 +135,7 @@ done looks like here.
 - [ ] If AE14 shows EXPVALUE / EXPWHITEBALANCE are gone in 2027: set the exposure on the current
   viewport's `PhotographicExposureParameters` (Exposure, WhitePoint) through the plug-in instead,
   after a live check that the renderer reads it (D-87).
-- [ ] **Quiet results**: an `autocad_sequence` of eight `autocad_dimension_run` steps returned about
+- [x] **Quiet results** (D-77, 2026-11-21: `quiet=true`): an `autocad_sequence` of eight `autocad_dimension_run` steps returned about
   15,000 characters of per-dimension detail. A `quiet` option that returns counts and handles only. ([#44](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/44))
 - [ ] **Sheets by the plug-in**: make layouts and viewports in .NET (Layout + Viewport in the layout's
   block), so neither depends on `doc.PaperSpace`, which threw on 2026-11-09 (known limit 23). ([#64](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/64))
@@ -173,19 +173,19 @@ done looks like here.
 - [ ] `autocad_add_viewport`: clip a viewport to a polyline, and annotative viewport scales. ([#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65))
 - [ ] A sheet-set tool: one call per drawing list (sheet number, title, scale, view) across a whole
   package, on top of `autocad_sequence`. ([#66](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/66))
-- [ ] Split long `autocad_run_lisp` expressions instead of failing silently. ([#46](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/46))
+- [x] Split long `autocad_run_lisp` expressions instead of failing silently (D-76, 2026-11-21: cut between top-level forms; live rows Z2-Z4 NOT RUN). ([#46](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/46))
 - [x] From the ADN-DevTech study ([11](11-adn-repos-study.md), D-41, 2026-11-04): multi-sheet PDF
   (`autocad_publish_pdf`), xref tree, drawing report, the command name in the busy message,
   `tools/memory_check.py`, the Plant 3D known limit. Built; group I NOT RUN.
 - [ ] Multi-sheet PDF of **a folder of drawings**, not only the open one (the publisher takes other
   DWGs; each must be checked for unsaved changes and xrefs first). ([#67](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/67))
-- [ ] Use the add-in's command tracker for the server's own busy answers too, not only plug-in
+- [x] Use the add-in's command tracker for the server's own busy answers too (D-77, 2026-11-21: ping says `command`; live rows Z6-Z9 NOT RUN), not only plug-in
   operations ("Outcome unknown: AutoCAD went busy", rows D8, D33). ([#47](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/47))
 - [ ] Document events to feed the wrong-drawing guard and a Companion activity list. ([#48](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/48))
 - [ ] `core/audit.py`: with `%LOCALAPPDATA%` unset, `audit_dir()` resolves to a relative
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway. ([#43](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/43))
-- [ ] `send_command` with an undo-stack command (UNDO, U, REDO, MREDO, OOPS) is sent outside an undo mark, so it does not mark "write started" and a busy retry can still re-run it ([D-15](DECISIONS.md)). Every other `send_command` and every `run_lisp` now runs inside `undo_mark`. ([#42](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/42))
+- [x] `send_command` with an undo-stack command (UNDO, U, REDO, MREDO, OOPS) is sent outside an undo mark (D-76, 2026-11-21: now marked as a write; live row Z1 NOT RUN), so it does not mark "write started" and a busy retry can still re-run it ([D-15](DECISIONS.md)). Every other `send_command` and every `run_lisp` now runs inside `undo_mark`. ([#42](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/42))
 - [ ] `autocad_dimension_run`: an optional `dim_style` (an existing style name), so a 1:5 detail
   does not have to change DIMSCALE through `autocad_drawing_setup` mid-run (asked 2026-11-18). Not
   built in D-57 because it cannot be proved offline. Traps found: the tool sets every dimension's

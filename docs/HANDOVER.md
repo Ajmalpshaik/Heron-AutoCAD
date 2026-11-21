@@ -26,6 +26,23 @@ add-in compiles for all three builds; versions not bumped (the parent does).
 rows **AE1-AE14**. AE14 decides the exposure route: if 2027 has no EXPVALUE, the ROADMAP item for
 the viewport's `PhotographicExposureParameters` is next.
 
+## Earlier - 2026-11-21 (server core 2: #42, #44, #46, #47; D-76, D-77)
+
+Built with offline tests, nothing proven in AutoCAD (NEEDS-CHECKING group Z, all NOT RUN):
+- **#42** an UNDO / U / REDO / MREDO / OOPS through `autocad_send_command` is marked as a write
+  before it is sent, so a busy retry never sends it twice (OUTCOME UNKNOWN in its own words).
+- **#46** `autocad_run_lisp` cuts long code between top-level forms (`acad/lisp_forms.py`) into
+  pieces under 700 characters, one undo mark round all of them; a piece that fails stops the rest.
+- **#44** `quiet=true` (`core/quiet.py`) on the sequence, batch, dimension-run and centre-mark tools.
+- **#47** the plug-in's ping says `command` (its command tracker); the gate asks only after a busy
+  ending and names the command and the count so far in the plain line. **Plug-in change**: the
+  parent session bumps the plug-in version; until it is installed the answers read as before.
+
+An independent review of the diff found five problems, all fixed with tests (a comment hiding a
+save, a busy step mis-read in a sequence, `new_handles` dropped by quiet, a part-way LISP run read
+as DONE, and Discard's UNDO Back re-sendable by a busy retry). Next: run Z1-Z10 on AutoCAD 2027. Ideas left: catch a LISP error at once with `vl-catch-all-apply`
+instead of waiting out 10 s (D-76 "left out").
+
 ## Earlier - 2026-11-21 (review fixes for the new tools, D-75)
 
 An independent review of PRs #124, #143 and #146 found six real problems; all fixed with tests:
