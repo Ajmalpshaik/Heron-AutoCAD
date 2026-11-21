@@ -18,6 +18,13 @@ namespace Heron.AutoCAD.Bridge
             return bare && string.Equals(FileName(active), FileName(job), StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>The file name alone, for a sentence: "Plan.dwg"; "no drawing" for none.</summary>
+        public static string Short(string? drawing)
+        {
+            var name = FileName(drawing ?? "");
+            return name.Length == 0 ? "no drawing" : name;
+        }
+
         private static readonly char[] Slashes = { '\\', '/' };
 
         private static bool HasFolder(string name) => (name ?? "").IndexOfAny(Slashes) >= 0;

@@ -60,6 +60,9 @@ namespace Heron.AutoCAD.Bridge
 
         /// <summary>Handed to every protocol this server starts: see <see cref="BridgeProtocol.CurrentCommand"/>.</summary>
         public Func<string?>? CurrentCommand { get; set; }
+
+        /// <summary>Handed to every protocol this server starts: see <see cref="BridgeProtocol.Drawings"/>.</summary>
+        public DrawingEvents? Drawings { get; set; }
         public DateTime StartedAt { get; private set; }
 
         public bool IsRunning
@@ -79,6 +82,7 @@ namespace Heron.AutoCAD.Bridge
                 Protocol.Info["addinVersion"] = _addinVersion;
                 Protocol.BlockedBy = BlockedBy;
                 Protocol.CurrentCommand = CurrentCommand;
+                Protocol.Drawings = Drawings;
                 _stop = new CancellationTokenSource();
                 for (var i = 0; i < Listeners; i++)
                 {

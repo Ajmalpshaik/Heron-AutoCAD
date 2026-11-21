@@ -20,9 +20,12 @@ namespace Heron.AutoCAD.Bridge
 
         /// <summary>
         /// Hand lines of AutoLISP to AutoCAD as command input with echo off, in
-        /// order. Only ever called inside a running job that may change the drawing.
+        /// order. Only ever called inside a running job that may change the
+        /// drawing. <paramref name="drawing"/> is the drawing the job began on:
+        /// when AutoCAD gets to the lines and another drawing is in front, none
+        /// is typed (#48).
         /// </summary>
-        void SendQuiet(string[] lines);
+        void SendQuiet(string[] lines, string drawing);
 
         /// <summary>
         /// Do one of the plug-in's own operations (<see cref="PluginOperations"/>)

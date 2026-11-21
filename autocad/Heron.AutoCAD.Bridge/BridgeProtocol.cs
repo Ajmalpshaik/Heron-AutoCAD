@@ -11,13 +11,21 @@ namespace Heron.AutoCAD.Bridge
     /// so every rule the bridge enforces is tested offline.
     ///
     /// Ops: ping, info, release, begin, end, ask_keep, send_quiet, run, changes,
-    /// ask_erase, since_last, dialogs, expect_dialog. Every
+    /// ask_erase, since_last, dialogs, expect_dialog, drawings. Every
     /// op needs the session token. begin is where the hold and the padlocks are
     /// checked; send_quiet and run only work inside the job begin allowed.
     /// </summary>
     public sealed class BridgeProtocol
     {
         public const int Version = 1;
+
+        /// <summary>
+        /// The longest line of drawing input send_quiet types (#45, D-98). Ping
+        /// says it, so the server sends a batch in fewer, longer pieces than
+        /// over COM (600); a longer line is refused and nothing is typed. Below
+        /// the 2,000 characters that worked all day over COM (known limits §3).
+        /// </summary>
+        public const int QuietLineLimit = 1500;
         public static readonly TimeSpan KeepGrantIdle = TimeSpan.FromMinutes(10);
 
         private readonly IJobHost _host;
@@ -74,6 +82,14 @@ namespace Heron.AutoCAD.Bridge
 
         public void Resume() => _stopped = false;
 
+        /// <summary>
+        /// What happened to the drawings in this AutoCAD, from the add-in's
+        /// document events (#48): the drawings op reports it, and send_quiet
+        /// refuses input once another drawing came to the front during the job.
+        /// Not set: the drawings op says it does not know, as before.
+        /// </summary>
+        public DrawingEvents? Drawings { get; set; }
+
         /// <summary>Set by the server so info can report it.</summary>
         public Dictionary<string, object> Info { get; } = new Dictionary<string, object>();
 
@@ -125,6 +141,7 @@ namespace Heron.AutoCAD.Bridge
                                 w.WriteBoolean("stopped", _stopped);
                                 WritePadlocks(w, _config());
                                 if (CurrentCommand != null) w.WriteString("command", RunningCommand());
+                                w.WriteNumber("quietLimit", QuietLineLimit);
                             });
                         case "info":
                             return Ok(w =>
@@ -155,6 +172,8 @@ namespace Heron.AutoCAD.Bridge
                             return Dialogs(root, conversation);
                         case "expect_dialog":
                             return ExpectDialog(root, conversation);
+                        case "drawings":
+                            return DrawingsSince(root);
                         default:
                             return Refuse("BadRequest", Texts.UnknownOp(op));
                     }
@@ -208,7 +227,7 @@ namespace Heron.AutoCAD.Bridge
                 Conversation = conversation,
                 AskToKeep = askToKeep,
             };
-            lock (_running) _running[job.Job] = new RunningJob(conversation, risk, job.Drawing);
+            lock (_running) _running[job.Job] = new RunningJob(conversation, risk, job.Drawing, Drawings?.Seq ?? 0);
             try
             {
                 _host.Begin(job);
@@ -290,12 +309,57 @@ namespace Heron.AutoCAD.Bridge
             var running = Running(root, conversation);
             if (running == null || running.Risk == Risk.Read || running.Risk == Risk.View)
                 return Refuse("Job", Texts.NoJob);
+            // Another drawing came to the front during the job (#48): typing on
+            // would put the input in the wrong drawing. Only an event AutoCAD
+            // reported since begin counts, so a missed event never refuses.
+            var front = Drawings?.FrontChangedSince(running.FrontSeq);
+            if (front != null && !DrawingNames.Same(front, running.Drawing))
+                return Refuse("Drawing", Texts.DrawingChangedInJob(running.Drawing, front));
             var lines = new List<string>();
             if (root.TryGetProperty("lines", out var list) && list.ValueKind == JsonValueKind.Array)
                 foreach (var item in list.EnumerateArray())
                     if (item.ValueKind == JsonValueKind.String) lines.Add(item.GetString() ?? "");
-            _host.SendQuiet(lines.ToArray());
+            foreach (var line in lines)
+                if (line.Length > QuietLineLimit) return Refuse("TooLong", Texts.QuietTooLong(QuietLineLimit));
+            _host.SendQuiet(lines.ToArray(), running.Drawing);
             return Ok(null);
+        }
+
+        /// <summary>
+        /// The drawing events after number <c>since</c> (#48), for the server's
+        /// wrong-drawing guard. Read only, answered on the pipe thread. Any chat
+        /// with this session's token may ask: a connected chat can already list
+        /// the open drawings over COM.
+        /// </summary>
+        private string DrawingsSince(JsonElement root)
+        {
+            var log = Drawings;
+            if (log == null) return Ok(w => w.WriteBoolean("known", false));
+            long since = 0;
+            if (root.TryGetProperty("since", out var given) && given.ValueKind == JsonValueKind.Number && given.TryGetInt64(out var number))
+                since = Math.Max(0, number);
+            var history = log.Since(since);
+            return Ok(w =>
+            {
+                w.WriteBoolean("known", true);
+                w.WriteString("epoch", history.Epoch);
+                w.WriteNumber("seq", history.Seq);
+                if (history.Active == null) w.WriteNull("active");
+                else w.WriteString("active", history.Active);
+                w.WriteBoolean("lost", history.Lost);
+                w.WriteStartArray("events");
+                foreach (var e in history.Events)
+                {
+                    w.WriteStartObject();
+                    w.WriteNumber("seq", e.Seq);
+                    w.WriteString("kind", e.Kind);
+                    w.WriteString("drawing", e.Drawing);
+                    if (e.Was.Length > 0) w.WriteString("was", e.Was);
+                    w.WriteString("at", e.At.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
+            });
         }
 
         /// <summary>
@@ -444,7 +508,6 @@ namespace Heron.AutoCAD.Bridge
             });
         }
 
-        /// <summary>This chat's running job named in the request, or null.</summary>
         /// <summary>
         /// An Admin job of this chat names one button for one box it expects
         /// (#101). Any other level is refused: a named button may be Yes or OK.
@@ -469,6 +532,7 @@ namespace Heron.AutoCAD.Bridge
             return taken ? Ok(null) : Refuse("Expect", Texts.ExpectNotTaken);
         }
 
+        /// <summary>This chat's running job named in the request, or null.</summary>
         private RunningJob? Running(JsonElement root, string conversation)
         {
             RunningJob? running;
@@ -478,16 +542,19 @@ namespace Heron.AutoCAD.Bridge
 
         private sealed class RunningJob
         {
-            public RunningJob(string conversation, Risk risk, string drawing)
+            public RunningJob(string conversation, Risk risk, string drawing, long frontSeq)
             {
                 Conversation = conversation;
                 Risk = risk;
                 Drawing = drawing;
+                FrontSeq = frontSeq;
             }
 
             public string Conversation { get; }
             public Risk Risk { get; }
             public string Drawing { get; }
+            /// <summary>The newest drawing event when the job began: only what came after counts.</summary>
+            public long FrontSeq { get; }
         }
 
         private static string Str(JsonElement root, string name) =>
