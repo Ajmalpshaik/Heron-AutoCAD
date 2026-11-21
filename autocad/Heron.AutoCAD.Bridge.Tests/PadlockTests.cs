@@ -64,14 +64,13 @@ public class PadlockTests
         var fromFile = new HeronConfig
         {
             WriteEnabled = true, PublishEnabled = true, AdminEnabled = true, AskBeforeKeeping = true,
-            AutoConnect = true, ActivityBanner = false,
+            ActivityBanner = false,
         };
         var config = _padlocks.Snapshot(fromFile);
         Assert.False(config.WriteEnabled);
         Assert.False(config.PublishEnabled);
         Assert.False(config.AdminEnabled);
         Assert.False(config.AskBeforeKeeping);
-        Assert.True(config.AutoConnect);
         Assert.False(config.ActivityBanner);
     }
 

@@ -4,6 +4,10 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **AutoCAD always starts disconnected (2026-11-21, #141).** `bridge.autoConnect` in the config
+  file is ignored: only the modeller's press of Heron connects AutoCAD, so no file can let a chat
+  read a drawing without a click ([D-72](docs/DECISIONS.md)). Live row R10 NOT RUN.
+
 - **Attributes to Excel and back, a folder of drawings checked, the Companion page (2026-11-21).**
   `autocad_export_attribute_sheet` (Publish) writes every block's attributes to a new `.xlsx` next
   to the drawing; `autocad_apply_attribute_sheet` reads the edited sheet back and writes only the

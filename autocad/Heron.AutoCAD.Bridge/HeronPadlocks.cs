@@ -60,7 +60,6 @@ namespace Heron.AutoCAD.Bridge
                     PublishEnabled = _publish,
                     AdminEnabled = _admin,
                     AskBeforeKeeping = _askToKeep,
-                    AutoConnect = fileSettings.AutoConnect,
                     ActivityBanner = fileSettings.ActivityBanner,
                     Held = held,
                 };
