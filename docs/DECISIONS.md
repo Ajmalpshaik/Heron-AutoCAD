@@ -397,6 +397,11 @@ modeller's click, skipping "turning a padlock on asks first".
   reason (`admin_held`: ask the PC's administrator) instead of "type HERONADMIN". No answer, or a
   plug-in older than 1.6.0, reads as off, as every padlock is at start. Pinned by
   `tests/test_padlocks_from_plugin.py` and the bridge `PadlockTests`.
+- **Added 2026-11-21, the guard's two gaps (issue #142):** it now also refuses an Edit or Write of
+  a script (`.ps1`, `.bat`, `.cmd`, `.py`, ...) whose content would write either target when run
+  later, except in this repository's own `tests/` and `.claude/hooks/`. For `gh` and `git`
+  commands it no longer looks inside quoted text (an issue body, a commit message), so mentioning
+  the file is not taken for writing it; a redirect outside the quotes is still refused.
 - **A guard for Claude Code in this repository:** `.claude/settings.json` runs
   `.claude/hooks/guard_padlocks.py` before every Edit, Write and shell command, and refuses one that
   would write `heron-autocad.config` or the D-60 policy key (exit 2). It catches the plain ways, not

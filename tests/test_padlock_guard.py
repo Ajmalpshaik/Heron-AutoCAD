@@ -107,6 +107,48 @@ def test_reading_and_everything_else_goes_ahead(command):
     assert not refused("Bash", command=command)
 
 
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        ("x.ps1", r"Set-ItemProperty -Path HKLM:\SOFTWARE\Policies\Heron\AutoCAD -Name AllowChanges -Value 1"),
+        ("x.bat", r"reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AllowAdmin /d 1 /f"),
+        ("x.py", 'open(r"C:\\Users\\a\\AppData\\Roaming\\Heron\\autocad\\heron-autocad.config", "w").write("{}")'),
+        ("x.cmd", 'echo {"write.enabled": true} > "%APPDATA%\\Heron\\autocad\\heron-autocad.config"'),
+    ],
+)
+def test_a_script_that_would_write_a_target_when_run_is_refused(name, content):
+    # Issue #142: written now, run later by a command that names neither target.
+    assert refused("Write", file_path=rf"C:\temp\{name}", content=content)
+    assert refused("Edit", file_path=f"/tmp/{name}", old_string="x", new_string=content)
+
+
+def test_a_script_that_only_reads_or_this_repositorys_tests_go_ahead():
+    assert not refused("Write", file_path=r"C:\temp\look.ps1",
+                       content=r"Get-ItemProperty HKLM:\SOFTWARE\Policies\Heron\AutoCAD")  # fmt: skip
+    script = r"reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AllowAdmin /d 1"
+    assert not refused("Write", file_path=str(ROOT / "tests" / "test_x.py"), content=script)
+    assert not refused("Edit", file_path=str(ROOT / ".claude" / "hooks" / "guard_padlocks.py"),
+                       old_string="a", new_string=script)  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh api repos/o/r/issues -f title='x' -f body='writing heron-autocad.config: cp, > and Set-Content no more'",
+        'git commit -m "heron-autocad.config -> ignored; rm the old lines"',
+        "gh pr create --body \"reg add HKLM\\SOFTWARE\\Policies\\Heron\\AutoCAD is the admin's\"",
+    ],
+)
+def test_a_message_that_only_mentions_a_target_goes_ahead(command):
+    # Issue #142: the words are inside the message, not a write.
+    assert not refused("Bash", command=command)
+
+
+def test_a_message_command_that_really_writes_is_still_refused():
+    assert refused("Bash", command="gh api repos/o/r/contents/x --jq .content > heron-autocad.config")
+    assert refused("Bash", command="git show HEAD:x > ~/AppData/Roaming/Heron/autocad/heron-autocad.config")
+
+
 def test_other_tools_and_bad_input_go_ahead():
     assert not refused("Read", file_path=CONFIG)
     result = subprocess.run([sys.executable, str(HOOK)], input="not json", capture_output=True, text=True, timeout=30)
