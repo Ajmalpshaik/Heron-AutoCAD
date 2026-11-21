@@ -177,10 +177,12 @@ def created_payload(
     except Exception:  # noqa: BLE001 - any failure to read back is the finding
         payload["verified"] = False
     if not payload["verified"]:
-        payload["warning"] = (
+        unread = (
             f"The new object {payload['handle']} could not be read back from the "
             "drawing. Check it with autocad_get_entity before building on it."
         )
+        # Beside a warning the tool already gave (one saying it is not annotative), not over it.
+        payload["warning"] = f"{payload['warning']} {unread}" if payload.get("warning") else unread
     return payload
 
 

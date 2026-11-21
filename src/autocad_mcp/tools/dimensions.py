@@ -40,6 +40,7 @@ from ._shared import (
     world_angle,
     world_coords,
 )
+from .annotation_scales import make_new_annotative, require_plugin
 from .batch import draw_operations
 
 Point = tuple[float, float]
@@ -446,6 +447,17 @@ async def autocad_dimension_run(
         Field(default=False, description="Report the run it would lay out — every dimension's points, text position and value — and draw nothing."),
     ] = False,
     coords: Annotated[str, COORDS_OPT] = "world",
+    annotative: Annotated[
+        bool,
+        Field(
+            default=False,
+            description=(
+                "Make every dimension in the run annotative, at the drawing's current annotation "
+                "scale (CANNOSCALE); its size then comes from the scale, not DIMSCALE. Done by "
+                "Heron's plug-in."
+            ),
+        ),
+    ] = False,
     dim_style: Annotated[
         str | None,
         Field(
@@ -487,6 +499,7 @@ async def autocad_dimension_run(
         dry_run (bool): report the layout, draw nothing.
         coords (str): 'world' or 'ucs'.
         dim_style (Optional[str]): a dimension style in the drawing, for this run.
+        annotative (bool): make the run annotative at the current annotation scale.
 
     Returns:
         str: JSON: {
@@ -496,7 +509,8 @@ async def autocad_dimension_run(
           "total": float,          # the run end to end
           "failed": [{"index", "reason"}],
           "dim_style": str,        # with dim_style: the style, as the drawing names it
-          "style_scale": float     # with dim_style: the scale the first dimension took from it
+          "style_scale": float,    # with dim_style: the scale the first dimension took from it
+          "annotative": bool, "annotation_scales": [str]   # with annotative
         }
 
     Examples:
@@ -525,6 +539,8 @@ async def autocad_dimension_run(
         plan = plan_run(points, mode, axis, offset, spacing, include_overall, sort, datum)
     except ValueError as exc:
         raise AutocadError(str(exc)) from exc
+    if annotative and not dry_run:
+        require_plugin("Making dimensions annotative")
 
     if dry_run:
         return dumps(
@@ -555,7 +571,7 @@ async def autocad_dimension_run(
         style_name = find_dim_style(doc, dim_style) if dim_style else None
         target = get_space(doc, space)
         drawing_scale = _dim_scale(doc)
-        scale = scale_to_write(style_name, False, drawing_scale)
+        scale = scale_to_write(style_name, annotative, drawing_scale)
         style_scale: float | None = None
         rows: list[dict[str, Any]] = []
         failed: list[dict[str, Any]] = []
@@ -621,6 +637,7 @@ async def autocad_dimension_run(
                         "handle": str(dim.Handle),
                     }
                 )
+            scaled = make_new_annotative([r["handle"] for r in rows]) if annotative and rows else {}
 
         result: dict[str, Any] = {
             "mode": mode,
@@ -636,12 +653,15 @@ async def autocad_dimension_run(
         if style_name:
             result["dim_style"] = style_name
             result["style_scale"] = style_scale
+        result.update(scaled)
         off = [r for r in rows if r["measured"] is not None and abs(r["measured"] - r["expected"]) > 1e-6]
         if off:
-            result["warning"] = (
+            measured_off = (
                 f"{len(off)} dimension(s) measure something other than the span asked for. "
                 "The usual cause is a UCS or an elevation difference; check them before issuing."
             )
+            # Kept beside a warning already there (one that says the run is not annotative).
+            result["warning"] = f"{result['warning']} {measured_off}" if result.get("warning") else measured_off
         return result
 
     return dumps(await run(work))

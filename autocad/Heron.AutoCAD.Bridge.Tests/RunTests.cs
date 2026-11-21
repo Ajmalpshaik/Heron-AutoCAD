@@ -163,6 +163,23 @@ public class RunTests
     }
 
     [Fact]
+    public void Dimension_lines_annotation_scales_and_layer_states_read_as_reads_and_change_as_changes()
+    {
+        // D-80, D-81: reading where dimension lines are, which scales an object has, or the layer states,
+        // must not need the Changes padlock; moving a line or changing a scale must.
+        foreach (var name in new[] { "dimension_lines", "annotation_scales", "layer_state_names" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Read, level);
+        }
+        foreach (var name in new[] { "move_dimension_lines", "set_annotation_scales", "layer_state" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Change, level);
+        }
+    }
+
+    [Fact]
     public void Publishing_needs_the_Publish_padlock_even_inside_a_publish_job()
     {
         _config.PublishEnabled = true;

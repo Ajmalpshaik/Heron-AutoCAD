@@ -153,6 +153,16 @@ CASES = [
     ("I filled in the tags in the Excel, put them back in the drawing", "autocad_apply_attribute_sheet"),
     ("check every drawing in the issue folder before we send it", "autocad_check_folder"),
     ("show me what you are doing in a window beside AutoCAD", "autocad_companion"),
+    # Layers and annotation (D-80, D-81).
+    ("save the layers as they are now as a layer state", "autocad_layer_states"),
+    ("put the layers back to the ISSUE layer state", "autocad_layer_states"),
+    ("isolate the duct layers", "autocad_isolate_layers"),
+    ("bring all the layers back after isolating", "autocad_isolate_layers"),
+    ("merge the old duct layer into M-DUCT", "autocad_merge_layers"),
+    ("space these stacked dimensions evenly", "autocad_space_dimensions"),
+    ("break the dimensions where the pipes cross them", "autocad_break_dimensions"),
+    ("add the 1:100 scale to these notes", "autocad_annotation_scales"),
+    ("which annotation scales does this note have", "autocad_list_annotation_scales"),
 ]
 
 def entries() -> list[Entry]:
