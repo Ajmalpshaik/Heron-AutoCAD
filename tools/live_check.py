@@ -1303,7 +1303,10 @@ OWN_BY_EYE: dict[str, str] = {
 
 # The later groups, one file per area. Run in this order; the Heron file goes
 # last because its V4 row types CLOSE in the scratch drawing.
-MODULES = (live_check_edits, live_check_layers, live_check_blocks, live_check_render, live_check_heron)
+MODULES = (
+    live_check_edits, live_check_layers, live_check_blocks, live_check_render,
+    live_check_heron,
+)
 
 CHECKS: tuple[Check, ...] = OWN_CHECKS + tuple(c for m in MODULES for c in m.CHECKS)
 BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, why in m.BY_EYE.items()}}
@@ -1314,6 +1317,7 @@ BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, wh
 # S were written before the runner covered them.
 RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
+    "AG", "AJ", "RV",
 )
 
 CHANGES_OFF = (

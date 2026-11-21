@@ -3,8 +3,9 @@ a row needs, and the few things the runner does in AutoCAD itself.
 
 The checks themselves live in ``live_check.py`` (groups D, E, F) and in one file
 per later area: ``live_check_edits.py`` (AA), ``live_check_layers.py`` (AB),
-``live_check_blocks.py`` (AC, Y), ``live_check_render.py`` (AE) and
-``live_check_heron.py`` (M to Z: Heron's own behaviour). Every check calls Heron's
+``live_check_blocks.py`` (AC, Y), ``live_check_render.py`` (AE), ``live_check_drawing.py`` (AP, AM),
+``live_check_mep3d.py`` (AH) and ``live_check_heron.py`` (M to Z, AG, AJ, RV:
+Heron's own behaviour). Every check calls Heron's
 tools the way a chat does, through the gate, and **measures** the answer: a
 count, a size, a refusal's words, a value read back.
 
@@ -271,6 +272,83 @@ async def other_drawing(ctx: Context, folder: str, name: str = "other.dwg") -> P
     ctx.extra.append(made)
     await recheck()
     return target
+
+
+async def new_drawing(ctx: Context) -> str:
+    """Another new drawing, never saved, made active and checked. Its name (Drawing2.dwg ...)."""
+    from autocad_mcp.core.connection import get_app, run
+
+    def make() -> str:
+        doc = get_app().Documents.Add()
+        doc.Activate()
+        return str(doc.Name)
+
+    made = await run(make)
+    ctx.extra.append(made)
+    await recheck()
+    return made
+
+
+async def save_active(ctx: Context) -> None:
+    """Save the active drawing where it is: only ever one of the runner's own, already saved in its folder."""
+    from autocad_mcp.core.connection import get_doc, run
+
+    def save() -> None:
+        doc = get_doc()
+        if str(doc.Name) not in [ctx.scratch, *ctx.extra] or ctx.folder is None or not str(doc.FullName).startswith(str(ctx.folder)):
+            raise Failed(f"the runner saves only its own drawings, not {doc.Name}")
+        doc.Save()
+
+    await run(save)
+
+
+async def save_as(ctx: Context, target: Path) -> str:
+    """Save As the active drawing, as the modeller does by hand (not through Heron). Its new name. No status check."""
+    from autocad_mcp.core.connection import get_doc, run
+
+    def save() -> tuple[str, str]:
+        doc = get_doc()
+        was = str(doc.Name)
+        if was not in [ctx.scratch, *ctx.extra]:
+            raise Failed(f"the runner saves only its own drawings, not {was}")
+        doc.SaveAs(str(target))
+        return was, str(doc.Name)
+
+    was, now = await run(save)
+    ctx.extra = [now if n == was else n for n in ctx.extra]
+    if ctx.scratch == was:
+        ctx.scratch = now
+    return now
+
+
+async def close_drawing(ctx: Context, name: str) -> None:
+    """Close one of the runner's own drawings without saving, as the modeller does by hand. No status check."""
+    from autocad_mcp.core.connection import get_app, run
+
+    if name not in ctx.extra:
+        raise Failed(f"the runner closes only its own drawings, not {name}")
+
+    def close() -> None:
+        doc = _doc_named(get_app(), name)
+        if doc is not None:
+            doc.Close(False)
+
+    await run(close)
+    ctx.extra.remove(name)
+
+
+async def open_drawing(ctx: Context, path: Path) -> str:
+    """Open a drawing from the runner's own folder, as the modeller does by hand, and leave it in front. No status check."""
+    from autocad_mcp.core.connection import get_app, run
+
+    def open_it() -> str:
+        doc = get_app().Documents.Open(str(path))
+        doc.Activate()
+        return str(doc.Name)
+
+    opened = await run(open_it)
+    ctx.extra.append(opened)
+    return opened
 
 
 async def activate(ctx: Context, name: str | None = None) -> None:

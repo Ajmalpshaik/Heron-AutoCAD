@@ -39,6 +39,7 @@ from autocad_mcp.tools import (
     resources,
     saved_commands,
     sequence,
+    settings,
     solid_edits,
     solids,
     standards,
@@ -665,6 +666,156 @@ async def z8_a_long_delay_says_how_it_ended(ctx: Context) -> str:
     return f"AutoCAD 2027 gave: {which} ({head[:90]})"
 
 
+# ---------------------------------------------------------------------------
+# Group AG - standards against a reference drawing
+# ---------------------------------------------------------------------------
+
+
+async def _against_a_reference(ctx: Context, row: str, keep_open: bool) -> tuple[Path, dict[str, Any]]:
+    """An office drawing the runner makes (a red wall layer, an Arial and a romans.shx style), and the
+    scratch drawing made to differ (the wall blue, the note style in simplex.shx), checked against it."""
+    tag = f"LC-{row}"
+    office = await lc.other_drawing(ctx, f"{row.lower()}-office", "office.dwg")
+    parse(await layers.autocad_create_layer(name=f"{tag}-WALL", color="red"))
+    parse(await settings.autocad_create_styles(text_styles=[
+        {"name": f"{tag}-ARIAL", "font": "Arial"}, {"name": f"{tag}-NOTE", "font": "romans.shx"}]))
+    await lc.save_active(ctx)
+    if not keep_open:
+        await lc.close_drawing(ctx, office.name)
+    await lc.activate(ctx)
+    parse(await layers.autocad_create_layer(name=f"{tag}-WALL", color="blue"))
+    parse(await settings.autocad_create_styles(text_styles=[
+        {"name": f"{tag}-ARIAL", "font": "Arial"}, {"name": f"{tag}-NOTE", "font": "simplex.shx"}], replace=True))
+    out = parse(await standards.autocad_check_standards(reference=str(office)))
+    return office, out
+
+
+def _finding(out: dict[str, Any], rule: str, name: str) -> dict[str, Any] | None:
+    return next((f for f in out.get("findings") or [] if f.get("rule") == rule and str(f.get("name")).upper() == name), None)
+
+
+async def ag5_a_reference_drawing_names_what_really_differs(ctx: Context) -> str:
+    office, out = await _against_a_reference(ctx, "AG5", keep_open=False)
+    read_by = str((out.get("reference") or {}).get("read_by"))
+    wall = _finding(out, "layer_differs_from_standard", "LC-AG5-WALL")
+    expect(wall and "colour" in str(wall.get("detail")).lower(), f"the blue wall layer was not named as differing: {wall}")
+    note = _finding(out, "text_style_differs_from_standard", "LC-AG5-NOTE")
+    expect(note and "font" in str(note.get("detail")).lower(), f"the note style's font was not named: {note}")
+    expect(office.name not in await lc.drawing_names(), "the reference drawing was opened on screen")
+    return (f"read by: {read_by}; the wall layer named for its colour and LC-AG5-NOTE for its font; the reference "
+            "did not open on screen. AutoCAD's CHECKSTANDARDS was not compared, and the reference was a .dwg the "
+            "runner made, not the office .dws")
+
+
+async def ag6_a_reference_open_in_autocad_is_read_there(ctx: Context) -> str:
+    _, out = await _against_a_reference(ctx, "AG6", keep_open=True)
+    read_by = str((out.get("reference") or {}).get("read_by"))
+    expect("open there" in read_by, f"read_by says {read_by!r}, not that the drawing is open there")
+    expect(_finding(out, "layer_differs_from_standard", "LC-AG6-WALL"), "the same wall layer finding as AG5 is missing")
+    return f"read by: {read_by}; the same wall layer finding as AG5"
+
+
+async def ag8_a_truetype_pair_is_quiet_an_shx_pair_is_said(ctx: Context) -> str:
+    _, out = await _against_a_reference(ctx, "AG8", keep_open=False)
+    arial = [f for f in out.get("findings") or [] if str(f.get("name")).upper() == "LC-AG8-ARIAL"]
+    expect(not arial, f"Arial in both drawings was reported: {arial}")
+    note = _finding(out, "text_style_differs_from_standard", "LC-AG8-NOTE")
+    detail = str((note or {}).get("detail"))
+    expect(note and "here" in detail and "in the standard" in detail, f"romans.shx against simplex.shx gave {note}")
+    return f"Arial in both is not reported; the SHX pair is: '{detail[:90]}'"
+
+
+# ---------------------------------------------------------------------------
+# Group AJ - drawing events from the plug-in
+# ---------------------------------------------------------------------------
+
+
+async def aj3_a_drawing_closed_and_opened_again_is_checked_again(ctx: Context) -> str:
+    path = await lc.other_drawing(ctx, "aj3", "a.dwg")
+    await lc.close_drawing(ctx, path.name)
+    await lc.open_drawing(ctx, path)
+    o = lc.origin("AJ3")
+    said = refusal(await draw.autocad_draw_line(start=_at(o, 0, 0), end=_at(o, 1000, 0), layer="LC-AJ3"))
+    expect("was closed" in said and "opened again since Heron checked it" in said and "autocad_status" in said,
+           f"the draw was refused for another reason: {said[:160]}")
+    await lc.recheck()
+    made = parse(await draw.autocad_draw_line(start=_at(o, 0, 0), end=_at(o, 1000, 0), layer="LC-AJ3"))
+    expect(await lc.exists(made["handle"]), "after autocad_status the line is not in the drawing")
+    return f"refused: '{said[:80]}...'; after autocad_status the line was drawn"
+
+
+async def aj4_a_save_as_by_hand_is_followed(ctx: Context) -> str:
+    await lc.new_drawing(ctx)
+    folder = _own_folder(ctx) / "aj4"
+    folder.mkdir(parents=True, exist_ok=True)
+    now = await lc.save_as(ctx, folder / "plan.dwg")
+    o = lc.origin("AJ4")
+    made = parse(await draw.autocad_draw_line(start=_at(o, 0, 0), end=_at(o, 1000, 0), layer="LC-AJ4"))
+    expect(await lc.exists(made["handle"]), "the line is not in the drawing")
+    status = await lc.recheck()
+    name = (status.get("active_drawing") or {}).get("name")
+    expect(str(name).lower() == now.lower(), f"the line went into {name}, not {now}")
+    return f"after a Save As to {now} by hand, the line was drawn there with no new status check. The older plug-in was not tried"
+
+
+async def aj5b_the_old_file_opened_again_is_checked_again(ctx: Context) -> str:
+    path = await lc.other_drawing(ctx, "aj5b", "a.dwg")
+    await lc.save_as(ctx, path.with_name("a-rev2.dwg"))
+    await lc.open_drawing(ctx, path)
+    o = lc.origin("AJ5")
+    said = refusal(await draw.autocad_draw_line(start=_at(o, 0, 5000), end=_at(o, 1000, 5000), layer="LC-AJ5B"))
+    expect("a.dwg was opened" in said and "after Heron checked a drawing" in said, f"refused for another reason: {said[:160]}")
+    await lc.recheck()
+    made = parse(await draw.autocad_draw_line(start=_at(o, 0, 5000), end=_at(o, 1000, 5000), layer="LC-AJ5B"))
+    expect(await lc.exists(made["handle"]), "after autocad_status the line is not in the drawing")
+    return f"refused: '{said[:80]}...'; after autocad_status the line was drawn"
+
+
+def _batch_ok(out: dict[str, Any], want: int, what: str) -> None:
+    expect(out.get("created") == out.get("requested") == want, f"{what}: created {out.get('created')} of {out.get('requested')}, not {want}")
+    expect(not out.get("missing") and out.get("completed") is True, f"{what}: missing {out.get('missing')}, completed {out.get('completed')}")
+
+
+async def aj6_the_a22_batch_is_made_whole(ctx: Context) -> str:
+    o = lc.origin("AJ6")
+    ops = [{"type": "circle", "center": _at(o, 300 * (i % 10), 300 * (i // 10)), "radius": 100, "layer": "LC-AJ6"}
+           for i in range(40)]
+    ops.append({"type": "polyline", "points": [_at(o, 20 * i, 2000 + (i % 2) * 50) for i in range(150)], "layer": "LC-AJ6"})
+    out = parse(await batch.autocad_batch_draw(operations=ops))
+    _batch_ok(out, 41, "the 41-object batch")
+    return f"all 41 made, nothing missing, completed, in {out.get('elapsed_seconds')} s. The Command: prompts in F2 were not counted"
+
+
+async def aj7_big_batches_arrive_whole(ctx: Context) -> str:
+    o = lc.origin("AJ7")
+    lines = [{"type": "line", "start": _at(o, 0, 10 * i), "end": _at(o, 1000, 10 * i), "layer": "LC-AJ7"} for i in range(2000)]
+    first = parse(await batch.autocad_batch_draw(operations=lines, return_handles=False))
+    _batch_ok(first, 2000, "2,000 lines")
+    mixed = [{"type": "polyline", "points": [_at(o, 2000 + 5 * i, (i % 2) * 40) for i in range(800)], "layer": "LC-AJ7"}]
+    mixed += [{"type": "text", "position": _at(o, 2000, 200 + 100 * i), "text": f"LC-AJ7 TEXT {i}", "height": 50, "layer": "LC-AJ7"}
+              for i in range(50)]
+    second = parse(await batch.autocad_batch_draw(operations=mixed, return_handles=False))
+    _batch_ok(second, 51, "the 800-vertex polyline and 50 texts")
+    return "2,000 lines and then an 800-vertex polyline with 50 texts: every one made, nothing missing, both completed"
+
+
+# ---------------------------------------------------------------------------
+# Group RV - fixes from the review of the 2026-11-21 merges
+# ---------------------------------------------------------------------------
+
+
+async def rv3_a_sequence_cannot_switch_drawings(ctx: Context) -> str:
+    before = await lc.entity_count()
+    o = lc.origin("RV3")
+    said = refusal(await sequence.autocad_sequence(steps=[
+        {"tool": "autocad_switch_drawing", "args": {"name": str(ctx.scratch)}},
+        {"tool": "autocad_draw_line", "args": {"start": _at(o, 0, 0), "end": _at(o, 1000, 0)}},
+    ]))
+    expect("Step 1" in said or "step 1" in said, f"the refusal does not name step 1: {said[:140]}")
+    expect(await lc.entity_count() == before, "something was drawn")
+    return f"refused naming step 1 ('{said[:80]}...'); nothing drawn"
+
+
 CHECKS: tuple[Check, ...] = (
     Check("M3", "M", "a save typed as a command or AutoLISP is refused",
           m3_a_save_typed_as_a_command_or_lisp_is_refused, frozenset({"admin", "no_publish"})),
@@ -703,6 +854,15 @@ CHECKS: tuple[Check, ...] = (
           z4_an_open_command_is_named_and_the_rest_not_sent, frozenset({"admin"})),
     Check("Z5", "Z", "a quiet sequence gives counts and handles", z5_a_quiet_sequence_gives_counts_and_handles),
     Check("Z8", "Z", "a long DELAY says how it ended", z8_a_long_delay_says_how_it_ended, frozenset({"admin"})),
+    Check("AG5", "AG", "a reference drawing names what differs", ag5_a_reference_drawing_names_what_really_differs),
+    Check("AG6", "AG", "a reference open in AutoCAD is read there", ag6_a_reference_open_in_autocad_is_read_there),
+    Check("AG8", "AG", "a TrueType pair is quiet, an SHX pair said", ag8_a_truetype_pair_is_quiet_an_shx_pair_is_said),
+    Check("AJ3", "AJ", "a drawing closed and opened again is checked", aj3_a_drawing_closed_and_opened_again_is_checked_again),
+    Check("AJ4", "AJ", "a Save As by hand is followed", aj4_a_save_as_by_hand_is_followed),
+    Check("AJ5b", "AJ", "the old file opened again is checked", aj5b_the_old_file_opened_again_is_checked_again),
+    Check("AJ6", "AJ", "the A22 batch is made whole", aj6_the_a22_batch_is_made_whole),
+    Check("AJ7", "AJ", "big batches arrive whole", aj7_big_batches_arrive_whole),
+    Check("RV3", "RV", "a sequence cannot switch drawings", rv3_a_sequence_cannot_switch_drawings),
 )
 
 _TWO_AUTOCADS = "needs a second AutoCAD open and connected to Heron"
@@ -776,4 +936,24 @@ BY_EYE: dict[str, str] = {
     "Z7": "needs a dialog opened by hand and left open",
     "Z9": "needs a plug-in built before this change installed",
     "Z10": _ASK_TO_KEEP,
+    "AG1": "needs AutoCAD closed, which the runner cannot do",
+    "AG2": "needs AutoCAD closed and the ODA File Converter not installed",
+    "AG3": "needs the ODA File Converter installed by hand, and AutoCAD closed",
+    "AG4": "needs AutoCAD closed and a drawing with real dynamic blocks",
+    "AG7": "needs a .dxf saved from the office .dws, and that layer's true colour is judged",
+    "AG9": "needs a real network share and a second PC",
+    "AG10": "needs the network drive disconnected by hand",
+    "AG11": "needs a second PC sharing the same list",
+    "AG12": "needs a share where this user has read-only rights",
+    "AG13": "needs a second PC in the same job folder",
+    "AG14": "would point this PC's office check-list folder somewhere; the runner does not change that setting",
+    "AG15": "needs AutoCAD closed, which the runner cannot do",
+    "AJ1": "what the Heron palette's Activity tab shows is read on screen",
+    "AJ2": "needs two minutes untouched with SAVETIME 1, and the palette is read on screen",
+    "AJ5": _RESTART,
+    "AJ8": "needs Ctrl+Tab pressed by hand while the sequence runs",
+    "AJ9": _PALETTE,
+    "AJ10": "needs a plug-in built before this change, or the server started with --no-bridge",
+    "RV1": "needs the chat closed mid-command and a box opened by hand with no job running",
+    "RV2": "needs the values typed in Excel, which converts them; Heron's own writer writes text only",
 }

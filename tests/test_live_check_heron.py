@@ -294,7 +294,78 @@ Z8 = {
     "autocad_get_variable": {"name": "CMDACTIVE", "value": 0},
 }
 
+# --- AG, AJ, RV ---------------------------------------------------------------------------------
+
+OFFICE = Path("C:/Temp/x/ag5-office/office.dwg")
+
+
+def standard_answer(row: str, read_by: str = "AutoCAD's own reader (ObjectDBX); the file was not opened on screen") -> dict:
+    return {"checked": 40, "passed": False, "source": f"reference drawing {OFFICE.name}", "pass_means": "x",
+            "reference": {"file": str(OFFICE), "read_by": read_by}, "findings": [
+                {"rule": "layer_differs_from_standard", "table": "layer", "name": f"LC-{row}-WALL",
+                 "detail": "colour 5 here, 1 in the standard"},
+                {"rule": "text_style_differs_from_standard", "table": "text style", "name": f"LC-{row}-NOTE",
+                 "detail": "font simplex.shx here, romans.shx in the standard"},
+                {"rule": "layer_not_in_standard", "table": "layer", "name": "LC-AA1", "detail": "x"},
+            ]}
+
+
+def reference_rows(row: str, **answer) -> dict:
+    return {
+        "lc.other_drawing": OFFICE,
+        "autocad_create_layer": {"created": True},
+        "autocad_create_styles": {"text_styles": []},
+        "lc.save_active": None,
+        "lc.close_drawing": None,
+        "lc.activate": None,
+        "autocad_check_standards": standard_answer(row, **answer),
+        "lc.drawing_names": ["live-check.dwg"],
+    }
+
+
+AG5 = reference_rows("AG5")
+AG6 = reference_rows("AG6", read_by="AutoCAD: the drawing is open there (what is saved and not saved)")
+AG8 = reference_rows("AG8")
+A_DWG = Path("C:/Temp/x/aj3/a.dwg")
+DRAWN_LINE = answer("DONE - 1 added, 0 changed, 0 erased.", {"created": True, "handle": "L1"})
+AJ3 = {
+    "lc.other_drawing": A_DWG, "lc.close_drawing": None, "lc.open_drawing": "a.dwg",
+    "autocad_draw_line": seq(refused("a.dwg was closed at 10:02:03 and opened again since Heron checked it. Call "
+                                     "autocad_status first, so Heron knows the units."), DRAWN_LINE),
+    "autocad_status": STATUS, "lc.exists": True,
+}
+AJ4 = {
+    "lc.new_drawing": "Drawing3.dwg", "lc.save_as": "plan.dwg",
+    "autocad_draw_line": DRAWN_LINE, "lc.exists": True,
+    "autocad_status": {**STATUS, "active_drawing": {**STATUS["active_drawing"], "name": "plan.dwg"}},
+}
+AJ5B = {
+    "lc.other_drawing": A_DWG.with_name("a.dwg"), "lc.save_as": "a-rev2.dwg", "lc.open_drawing": "a.dwg",
+    "autocad_draw_line": seq(refused("a.dwg was opened at 10:04:00, after Heron checked a drawing, so it is a new copy "
+                                     "in memory. Call autocad_status first."), DRAWN_LINE),
+    "autocad_status": STATUS, "lc.exists": True,
+}
+AJ6 = {"autocad_batch_draw": {"created": 41, "requested": 41, "failed": 0, "completed": True, "handles": [], "elapsed_seconds": 0.2}}
+AJ7 = {"autocad_batch_draw": seq({"created": 2000, "requested": 2000, "completed": True},
+                                 {"created": 51, "requested": 51, "completed": True})}
+RV3 = {
+    "autocad_status": STATUS,
+    "autocad_sequence": "Error: Step 1: 'autocad_switch_drawing' makes another drawing active, so it cannot be a step.",
+}
+
 SAMPLES: dict[str, tuple[dict, dict]] = {
+    "AG5": (AG5, {"lc.drawing_names": ["live-check.dwg", "office.dwg"]}),
+    "AG6": (AG6, {"autocad_check_standards": standard_answer("AG6")}),
+    "AG8": (AG8, {"autocad_check_standards": {**standard_answer("AG8"), "findings": [
+        {"rule": "text_style_differs_from_standard", "name": "LC-AG8-ARIAL", "detail": "font Arial here, Arial in the standard"},
+        *standard_answer("AG8")["findings"]]}}),
+    "AJ3": (AJ3, {"autocad_draw_line": seq(refused("The active drawing changed from a.dwg to a.dwg since Heron last checked."), DRAWN_LINE)}),
+    "AJ4": (AJ4, {"autocad_status": STATUS}),
+    "AJ5b": (AJ5B, {"autocad_draw_line": seq(DRAWN_LINE, DRAWN_LINE)}),
+    "AJ6": (AJ6, {"autocad_batch_draw": {**AJ6["autocad_batch_draw"], "created": 40, "missing": 1}}),
+    "AJ7": (AJ7, {"autocad_batch_draw": seq({"created": 2000, "requested": 2000, "completed": True},
+                                            {"created": 51, "requested": 51, "completed": False})}),
+    "RV3": (RV3, {"autocad_sequence": {"ran": 2, "failed": 0, "steps": []}}),
     "M3": (M3, {"autocad_run_lisp": {"expression": '(command "_.QSAVE")', "result": "nil"}}),
     "M6": (M6, {"autocad_preview": "Error: The Publish padlock is off."}),
     "O1": (O1, {"autocad_status": STATUS}),
@@ -398,5 +469,6 @@ def test_every_heron_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(heron.BY_EYE)
     assert not set(CHECKS) & set(heron.BY_EYE)
     assert {"V1", "V4", "V6", "V7"} <= set(heron.BY_EYE)
+    assert {lc.group_of(r) for r in rows} >= {"AG", "AJ", "RV"}
     assert all("#213" in heron.BY_EYE[r] for r in ("V1", "V4", "V7")), "the dialog rows point at their issue"
     assert len(rows) == len(CHECKS) + len(heron.BY_EYE)

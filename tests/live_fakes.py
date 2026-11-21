@@ -194,6 +194,7 @@ def play(monkeypatch: Any, check: Any, answers: dict[str, Any], ctx: lc.Context 
 HELPERS = (
     "read_padlocks", "save_scratch", "other_drawing", "activate", "drawing_names", "read_props",
     "exists", "by_hand_line", "by_hand_group", "by_hand_width", "by_hand_true_colour", "file_stamp", "files_in",
+    "new_drawing", "save_active", "save_as", "close_drawing", "open_drawing",
 )
 
 
