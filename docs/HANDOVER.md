@@ -8,7 +8,26 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (check lists for QA #84-#87 merged, PR #122)
+## Latest - 2026-11-21 (the Revit batch is merged: server 1.8.0, plug-in 1.6.0; nothing live yet)
+
+Every PR from the seven cloud sessions is merged into `main`, on Ajmal's word: ribbon audit and
+install table (#99), dialog watch (#100), why / gaps / question mode (#120), padlocks in memory
+(#121, **Ask to Keep starts off, as before**, Ajmal's choice), check lists (#122), docked palette
+(#123), server answers (#124), and their notes (#125, #127, #129-#131). The Claude review check
+works again (#126: it lacked the tools the code-review command uses); it still fails now and then
+in 2 s at no cost while many cloud sessions run at once, which looks like the account's rate limit,
+not the code. Server **1.8.0**, plug-in **1.6.0**, 138 tools. All gates pass on `main` (2,853
+offline tests, 290 bridge tests on net48 and net10, ruff, structure).
+
+Still open from the comparison: #80 (waits for live row T7), #91 Companion page, #96 spreadsheet
+round trip, #97 folder check, #101 dialog watch named answer.
+
+**Next (on this PC, with AutoCAD closed):** pull the main checkout, `tools/build_plugin.py` +
+`tools/install_plugin.py` (plug-in 1.6.0), restart Claude. Then the live rows, none run yet:
+R (padlocks), T (server answers), U (check lists), V (dialog watch), W (why / gaps), X (palette),
+and the older M-Q. After the restart every padlock is off: turn Changes on in Settings first.
+
+## Earlier - 2026-11-21 (check lists for QA #84-#87 merged, PR #122)
 
 PR #122 was merged by Ajmal after CI `python` and `plugin` passed. Server only, no plug-in change;
 restart the server after pulling. 138 tools.
