@@ -208,6 +208,19 @@ public class RunTests
     }
 
     [Fact]
+    public void Sheets_and_viewports_are_changes_and_the_active_sheet_a_read()
+    {
+        // #64, #39, D-90: a sheet or a viewport needs the Changes padlock; status reading the sheet never does.
+        foreach (var name in new[] { "create_layout", "add_viewport" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Change, level);
+        }
+        Assert.True(PluginOperations.TryLevel("active_sheet", out var read));
+        Assert.Equal(Risk.Read, read);
+    }
+
+    [Fact]
     public void Publishing_needs_the_Publish_padlock_even_inside_a_publish_job()
     {
         _config.PublishEnabled = true;

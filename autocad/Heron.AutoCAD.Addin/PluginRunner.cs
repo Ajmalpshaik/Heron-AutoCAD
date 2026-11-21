@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -40,6 +41,7 @@ namespace Heron.AutoCAD.Addin
                     var viewports = request.Operation == "set_sun";
                     if (viewports) doc.Editor.UpdateTiledViewportsInDatabase();
                     RunResult result;
+                    _afterCommit = null;
                     using (var tr = doc.Database.TransactionManager.StartTransaction())
                     {
                         result = Dispatch(request.Operation, doc, tr, args);
@@ -48,15 +50,18 @@ namespace Heron.AutoCAD.Addin
                         else tr.Commit();
                     }
                     if (viewports) doc.Editor.UpdateTiledViewportsFromDatabase();
+                    RunAfterCommit();
                     return result;
                 }
             }
             catch (RunRefusal refusal)
             {
+                _afterCommit = null;
                 return RunResult.Failed(refusal.Message + " " + Texts.NothingChanged);
             }
             catch (AcException ex)
             {
+                _afterCommit = null;
                 HeronLog.Error("Operation " + request.Operation, ex);
                 if (ex.ErrorStatus == ErrorStatus.OnLockedLayer)
                     return RunResult.Failed("An object this needs is on a locked layer. Unlock the layer first. " + Texts.NothingChanged);
@@ -64,8 +69,35 @@ namespace Heron.AutoCAD.Addin
             }
             catch (System.Exception ex)
             {
+                _afterCommit = null;
                 HeronLog.Error("Operation " + request.Operation, ex);
                 return RunResult.Failed("Heron in AutoCAD hit an error: " + ex.Message + " " + Texts.NothingChanged);
+            }
+        }
+
+        // What an operation leaves for after its transaction is committed (a new
+        // sheet put on screen, a regen): only ever for one that landed. Main thread only.
+        private static List<Action>? _afterCommit;
+
+        /// <summary>Do this once the operation's transaction is committed; never when it is aborted.</summary>
+        public static void AfterCommit(Action action) => (_afterCommit ??= new List<Action>()).Add(action);
+
+        private static void RunAfterCommit()
+        {
+            var pending = _afterCommit;
+            _afterCommit = null;
+            if (pending == null) return;
+            foreach (var action in pending)
+            {
+                try
+                {
+                    action();
+                }
+                catch (System.Exception ex)
+                {
+                    // The operation itself has landed: a failed switch or regen is logged, not reported as a failure.
+                    HeronLog.Error("After the operation", ex);
+                }
             }
         }
 
@@ -122,6 +154,9 @@ namespace Heron.AutoCAD.Addin
                 case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
                 case "excel_table": return ExcelTables.Make(db, tr, args);
                 case "update_table_links": return ExcelTables.Update(db, tr, args);
+                case "active_sheet": return Sheets.ActiveSheet(db, tr);
+                case "create_layout": return Sheets.CreateLayout(doc, db, tr, args);
+                case "add_viewport": return Sheets.AddViewport(doc, db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }
