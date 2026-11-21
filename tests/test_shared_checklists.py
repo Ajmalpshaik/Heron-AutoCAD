@@ -90,9 +90,10 @@ def test_the_office_folder_is_kept_per_pc_and_cleared_with_nothing(office):
     assert checklists.office_folder() is None
 
 
-@pytest.mark.parametrize("folder, words", [("CAD\\Heron", "full path"), ("/no/such/share", "could not be reached")])
-def test_a_wrong_office_folder_is_not_kept(folder, words):
-    answer = call(action="office_folder", folder=folder)
+@pytest.mark.parametrize("folder, words", [("CAD\\Heron", "full path"), (None, "could not be reached")])
+def test_a_wrong_office_folder_is_not_kept(folder, words, tmp_path):
+    # None: a full path on this system (C:\... on Windows, /... elsewhere) to a folder that is not there.
+    answer = call(action="office_folder", folder=folder or str(tmp_path / "no-such-share"))
     assert answer.startswith("Error:") and words in answer and "Nothing was kept" in answer
     assert checklists.office_folder() is None
 
