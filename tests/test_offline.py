@@ -114,6 +114,7 @@ COLOR_TOOLS = (
     "autocad_loft",
     "autocad_thicken_surface",
     "autocad_super_hatch",
+    "autocad_trace_boundary",
 )
 
 
@@ -310,7 +311,7 @@ class TestToolSurface:
     asserted rather than assumed."""
 
     async def test_all_tools_registered(self, tools):
-        assert len(tools) == 142
+        assert len(tools) == 147
 
     async def test_every_name_is_namespaced(self, tools):
         assert all(tool.name.startswith("autocad_") for tool in tools)

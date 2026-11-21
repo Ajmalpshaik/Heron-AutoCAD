@@ -76,6 +76,11 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "add_wipeout",
         "attach_xref",
         "manage_xref",
+        # Cleaning up and referencing (#104, #112, #118; D-84).
+        "attach_underlay",
+        "clip_reference",
+        "overkill",
+        "trace_boundary",
         "draw_line",
         "draw_polyline",
         "draw_rectangle",
@@ -163,6 +168,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "create_linetype",
         "publish_pdf",
         "checklist_report",  # writes an .xlsx and an .html next to the drawing (D-65)
+        "etransmit",  # writes a folder or a .zip of the drawing and its files (D-85)
     ),
     Risk.ADMIN: (
         "render",
