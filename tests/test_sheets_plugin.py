@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 
 import pytest
 import pythoncom
@@ -592,7 +593,9 @@ class Documents:
 
     def Item(self, index):
         full, saved = self.entries[index]
-        return type("D", (), {"Name": full.rsplit("/", 1)[-1] or "Drawing1.dwg", "FullName": full or "Drawing1.dwg", "Saved": saved})()
+        # As AutoCAD gives them: Name is the file's own name, FullName the whole path (any slashes).
+        name = os.path.basename(full) or "Drawing1.dwg"
+        return type("D", (), {"Name": name, "FullName": full or name, "Saved": saved})()
 
 
 @pytest.fixture
