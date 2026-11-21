@@ -512,3 +512,26 @@ From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
   regen shrinks them after an erase is not proven (AM4); a ZOOM Extents does.
 - Close-ups need a plan view in the world UCS (or a window you give): in a 3D view the plan box does
   not match the picture, so they are skipped with the reason.
+
+## 34. Multileader and table styles, and plot style tables
+
+From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NEEDS-CHECKING group AN).
+- **A plot style table (.ctb / .stb) cannot be made by Heron.** It is a file in AutoCAD's Plot
+  Styles folder, and neither COM nor AutoCAD's .NET API can write one (checked in the 2021 and 2027
+  reference assemblies). Make or copy it in AutoCAD's Plot Style Manager, then set it on a sheet with
+  `autocad_page_setup(plot_style_table=...)`.
+- **A multileader style is text only, with straight leaders.** No block content (a tag bubble), no
+  spline leaders, no frame, no colours or lineweights set by Heron (they stay what AutoCAD gives
+  a new style), no angle constraints. Bring a style like that in with `autocad_import_from_drawing`.
+- **Annotative styles are not made here.** A new style carries its scale ('scale': '1:50'); an
+  existing annotative style keeps following the annotation scale, and a `scale` asked for it is
+  noted, not set.
+- **`replace=true` sets the whole style again**, defaults included: an option left out goes back to
+  Heron's default (TLD attachment, closed filled arrow, scale 1), not to what the style had.
+- **A table style sets the whole row type**: one text style for every row, and the same margins
+  for title, header and data. Grid lines, colours, cell formats (number, date) and a table's
+  direction stay AutoCAD's own. Text is always in the vertical middle of the cell.
+- **The arrow block** of a non-default arrow is made by naming it in DIMBLK, which is put back
+  straight after; that block stays even when a later step of the same style fails.
+- **Margins default to a third of the text height**, AutoCAD's own Standard proportion. A margin
+  of 0 is allowed; text then touches the grid lines.

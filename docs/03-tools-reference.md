@@ -274,7 +274,7 @@ One named area, used for a plot, a viewport and a measurement. Detail:
 | Tool | Purpose |
 |---|---|
 | `autocad_drawing_setup` | Units, precision, the drawing `scale` (which sets DIMSCALE, the annotation scale and LTSCALE), `paper_text_height`, object snaps, point style, linetype scaling, limits. `dry_run` shows the plan; writes only from a fixed list ([D-28](DECISIONS.md)) |
-| `autocad_create_styles` | Text styles (font, height, width factor, oblique) and dimension styles (scale, text height, arrows, precision, or raw `DIM...` variables). The drawing's own DIM variables are put back |
+| `autocad_create_styles` | Text styles (font, height, width factor, oblique) and dimension styles (scale, text height, arrows, precision, or raw `DIM...` variables; the drawing's own DIM variables are put back). Multileader styles (text style, height, arrow, dogleg, landing gap, attachment; Ajmal's TLD label by default) and table styles (text heights, margins, left / centre / right in the vertical middle) made by the plug-in ([D-104](DECISIONS.md)). Not plot style tables: AutoCAD's .NET API cannot write one ([D-105](DECISIONS.md)) |
 
 ## An import into a shop drawing (Change)
 
@@ -377,9 +377,10 @@ until the solid changes.
 | `autocad_add_surface` | Change | PLANESURF (from closed outlines or regions, or two corners) or SURFNETWORK (through u and v curves). The curves are kept |
 | `autocad_add_mesh` | Change | MESH primitives (box, wedge, cylinder, cone, sphere, torus, pyramid) placed by the centre of the base, smoothness 0-4; or a mesh made from a solid, surface or region (MESHSMOOTH), which is kept |
 
-The attribute sync and the Excel table link and update are plug-in operations too
-(`sync_attributes`, `excel_table`, `update_table_links`); their tools are listed with the blocks
-and the tables above.
+The attribute sync, the Excel table link and update, and the multileader and table styles are
+plug-in operations too (`sync_attributes`, `excel_table`, `update_table_links`,
+`multileader_style`, `table_style`); their tools are listed with the blocks, the tables and the
+settings above.
 
 ## Materials (Change; listing is Read)
 
