@@ -19,8 +19,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# .claude holds nothing of the repository's own, only Claude's local folders, and
-# in the main checkout other sessions' worktrees: whole copies of this repository.
+# .claude holds the padlock guard (settings.json, hooks/, D-59), which has no Markdown,
+# C# or tools, and Claude's local folders: in the main checkout other sessions'
+# worktrees, whole copies of this repository. Its tracked files are tested by
+# tests/test_padlock_guard.py.
 SKIP_DIRS = {".venv", ".venv.broken", ".git", "bin", "obj", "dist", ".superpowers", "node_modules", ".pytest_cache", ".ruff_cache", ".claude"}
 _API = re.compile(r"\bAutodesk\.(AutoCAD|Windows)\b")
 _LINK = re.compile(r"\]\(([^)#\s]+)(?:#[^)]*)?\)")

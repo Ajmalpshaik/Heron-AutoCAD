@@ -24,14 +24,14 @@ from autocad_mcp.tools import _shared, document
 def pc(tmp_path, monkeypatch):
     plugins = tmp_path / "ApplicationPlugins"
     bridges = tmp_path / "bridges"
-    config = tmp_path / "heron-autocad.config"
+    config = tmp_path / "heron-autocad.config"  # where an older plug-in kept the padlocks
     package = tmp_path / "package"
     package.mkdir()
     (package / "server.py").write_text("x = 1\n", encoding="utf-8")
     monkeypatch.setattr(diagnose, "_alive", lambda pid: pid == os.getpid())
 
     def run(**overrides):
-        args = {"plugins": plugins, "bridges": bridges, "config": config, "package": package,
+        args = {"plugins": plugins, "bridges": bridges, "package": package,
                 "loaded_at": time.time() + 60}  # fmt: skip
         args.update(overrides)
         return diagnose.report(**args)
@@ -109,11 +109,14 @@ def test_files_newer_than_the_running_server_say_reopen_the_chat(pc):
     assert any("reopen the chat" in step for step in report["to_fix"])
 
 
-def test_the_padlocks_are_reported(pc):
+def test_a_padlock_file_is_not_taken_for_the_padlocks(pc):
+    # D-59: the padlocks live in AutoCAD's memory. A file saying "on" is not believed.
     pc.install()
-    pc.config.write_text(json.dumps({"write.enabled": True, "publish.enabled": False}), encoding="utf-8")
+    pc.config.write_text(json.dumps({"write.enabled": True, "admin.enabled": True}), encoding="utf-8")
     report = pc()
-    assert report["padlocks"]["changes"] is True and report["padlocks"]["publish"] is False
+    assert "padlocks" not in report
+    detail = next(check["detail"] for check in report["checks"] if check["check"] == "padlocks")
+    assert "inside each AutoCAD" in detail and "On:" not in detail
 
 
 # ---------------------------------------------------------------------------

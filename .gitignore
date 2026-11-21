@@ -32,6 +32,11 @@ drawings/
 # Plan-execution scratch
 .superpowers/
 
+# Claude Code: only settings.json and hooks/ (the padlock guard, D-59) are the repository's
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+
 # .NET build output
 bin/
 obj/
