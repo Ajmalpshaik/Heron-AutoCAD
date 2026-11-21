@@ -343,6 +343,7 @@ GETTER_READERS = [
     ("autocad_mcp.tools.materials", "_try"),
     ("autocad_mcp.tools.dimensions_edit", "_try"),
     ("autocad_mcp.tools.drawing_report", "_try"),
+    ("autocad_mcp.tools.draw_extra", "_try"),
 ]
 NAMED_READERS = [
     ("autocad_mcp.tools.sheets", "_read"),
