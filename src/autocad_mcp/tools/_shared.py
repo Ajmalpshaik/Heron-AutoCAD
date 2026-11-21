@@ -195,20 +195,26 @@ PLUGIN_ONLY = (
 )
 
 
-def in_plugin(operation: str, args: dict[str, Any], what: str, *, changes: bool = True) -> dict[str, Any]:
+def in_plugin(
+    operation: str, args: dict[str, Any], what: str, *, changes: bool = True, timeout: float | None = None
+) -> dict[str, Any]:
     """Have the Heron plug-in do one of its own operations (D-40); what it did.
 
     On the worker thread, inside the tool's job. Options left as None are not
     sent. A change counts as a write before it is asked for, so a busy signal
     after it is never retried into a second run (D-15) and Keep or Discard
-    asks about it.
+    asks about it. ``timeout`` is how long to wait for the answer, when it
+    should be shorter than the bridge's usual 300 s (the boundary trace, D-84).
     """
     runner = plugin_runner()
     if runner is None:
         raise AutocadError(PLUGIN_ONLY.format(what=what))
     if changes:
         mark_writing()
-    return runner(operation, {key: value for key, value in args.items() if value is not None})
+    sent = {key: value for key, value in args.items() if value is not None}
+    if timeout is None:
+        return runner(operation, sent)
+    return runner(operation, sent, timeout)
 
 
 def plugin_read(operation: str, args: dict[str, Any] | None = None) -> tuple[dict[str, Any] | None, str | None]:

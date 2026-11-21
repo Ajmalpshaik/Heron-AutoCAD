@@ -135,6 +135,10 @@ namespace Heron.AutoCAD.Addin
                 case "associative_array": return AssociativeArrays.Make(db, tr, args);
                 case "geo_location": return GeoLocation.Read(db, tr);
                 case "set_geo_location": return GeoLocation.Change(db, tr, args);
+                case "attach_underlay": return References.AttachUnderlay(db, tr, args);
+                case "clip_reference": return References.Clip(db, tr, args);
+                case "list_dependencies": return References.Dependencies(db, tr, args);
+                case "trace_boundary": return Boundary.Trace(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }
