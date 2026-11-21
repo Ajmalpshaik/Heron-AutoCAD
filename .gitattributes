@@ -2,3 +2,5 @@
 *.dwg binary
 *.pdf binary
 *.png binary
+# Release scripts run in cmd and PowerShell: CRLF on every checkout, not only on Windows.
+tools/release_files/* text eol=crlf
