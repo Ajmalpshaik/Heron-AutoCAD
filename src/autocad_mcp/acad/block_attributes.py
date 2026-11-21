@@ -234,7 +234,8 @@ def plan_sync(
     """Which inserts ATTSYNC touches, and what each keeps, gains and loses.
 
     ``inserts`` are {"handle", "block" (its effective name), "layer",
-    "attributes": [(tag, value)]}. Only inserts of ``block`` (by effective
+    "attributes": [(tag, value)]}, and "inside" (the block whose definition
+    holds it) for a nested one. Only inserts of ``block`` (by effective
     name, so a dynamic block's changed copies count) are touched; ``only``
     narrows them to some handles. An insert on a locked layer is left out and
     listed: AutoCAD would refuse the whole job for it.
@@ -264,7 +265,8 @@ def plan_sync(
             skipped.append({"handle": handle, "why": f"its layer '{layer}' is locked: unlock it first"})
             continue
         plan = sync_one(definition, insert.get("attributes") or [])
-        touched.append({"handle": handle, **plan})
+        where = {"inside": insert["inside"]} if insert.get("inside") else {}
+        touched.append({"handle": handle, **where, **plan})
     if chosen is not None:
         skipped.extend({"handle": h, "why": f"no insert of '{block}' has that handle"} for h in sorted(chosen - found))
     return {
