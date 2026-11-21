@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from pathlib import Path
 
 CONFIG = re.compile(r"heron-autocad\.config", re.IGNORECASE)
 # Any slashes between the parts: Policies\Heron, Policies\\Heron, Policies/Heron.
@@ -52,6 +53,15 @@ REGISTRY_WRITE = re.compile(
 FILE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 SHELL_TOOLS = {"Bash", "PowerShell"}
 
+# A file a shell or interpreter runs: written now, it could write a target later (#142).
+SCRIPTS = (".ps1", ".psm1", ".bat", ".cmd", ".vbs", ".js", ".py", ".sh")
+REPOSITORY = Path(__file__).resolve().parents[2]
+# This repository's own tests and this guard name the targets on purpose.
+OWN = (REPOSITORY / "tests", REPOSITORY / ".claude" / "hooks")
+
+# Commands whose quoted values are messages (an issue, a commit), not file contents (#142).
+MESSAGE_COMMANDS = re.compile(r"^\s*(?:\w+=\S*\s+)*(gh|git)\b")
+
 REFUSED = (
     "Heron's padlock guard refused this step: it would write {what}. "
     "The padlocks are turned on only by the modeller's click in Settings on the Heron tab in "
@@ -69,6 +79,41 @@ def _texts(tool_input: dict) -> list[str]:
     return [text for text in texts if isinstance(text, str)]
 
 
+def _unquoted(command: str) -> str:
+    """The command with what is inside its quotes left out: a message, not a write."""
+    out, quote, i = [], None, 0
+    while i < len(command):
+        char = command[i]
+        if quote is None:
+            if char in "'\"":
+                quote = char
+            else:
+                out.append(char)
+        elif char == "\\" and quote == '"':
+            i += 1  # an escaped character inside double quotes stays inside them
+        elif char == quote:
+            quote = None
+        i += 1
+    return "".join(out)
+
+
+def _own(path: str) -> bool:
+    try:
+        resolved = Path(path).resolve()
+    except (OSError, ValueError):
+        return False
+    return any(folder == resolved or folder in resolved.parents for folder in OWN)
+
+
+def _writes_a_target(text: str) -> str | None:
+    """What a command or script would write, or None."""
+    if CONFIG.search(text) and FILE_WRITE.search(text):
+        return "heron-autocad.config"
+    if POLICY.search(text) and REGISTRY_WRITE.search(text):
+        return "the Heron policy key in the Windows registry"
+    return None
+
+
 def refusal(event: dict) -> str | None:
     """Why this step is refused, or None to let it go ahead."""
     tool = event.get("tool_name")
@@ -83,16 +128,22 @@ def refusal(event: dict) -> str | None:
             return REFUSED.format(what="heron-autocad.config")
         if name.lower().endswith(".reg") and any(POLICY.search(text) for text in _texts(tool_input)):
             return REFUSED.format(what="a .reg file for the Heron policy key")
+        if name.lower().endswith(SCRIPTS) and not _own(path):
+            for text in _texts(tool_input):
+                what = _writes_a_target(text)
+                if what:
+                    return REFUSED.format(what="a script that would write " + what)
         return None
 
     if tool in SHELL_TOOLS:
         command = tool_input.get("command")
         if not isinstance(command, str):
             return None
-        if CONFIG.search(command) and FILE_WRITE.search(command):
-            return REFUSED.format(what="heron-autocad.config")
-        if POLICY.search(command) and REGISTRY_WRITE.search(command):
-            return REFUSED.format(what="the Heron policy key in the Windows registry")
+        if MESSAGE_COMMANDS.match(command):
+            command = _unquoted(command)
+        what = _writes_a_target(command)
+        if what:
+            return REFUSED.format(what=what)
     return None
 
 

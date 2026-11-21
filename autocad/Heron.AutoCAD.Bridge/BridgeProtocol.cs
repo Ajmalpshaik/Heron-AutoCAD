@@ -56,6 +56,13 @@ namespace Heron.AutoCAD.Bridge
 
         public void Stop() => _stopped = true;
 
+        /// <summary>
+        /// Something the modeller is doing in AutoCAD that no new job may start
+        /// under: the palette's Undo waiting for AutoCAD to run it (D-68). The
+        /// sentence for the chat, or null. Asked at begin only, on the pipe thread.
+        /// </summary>
+        public Func<string?>? BlockedBy { get; set; }
+
         public void Resume() => _stopped = false;
 
         /// <summary>Set by the server so info can report it.</summary>
@@ -107,6 +114,7 @@ namespace Heron.AutoCAD.Bridge
                             {
                                 w.WriteNumber("protocolVersion", Version);
                                 w.WriteBoolean("stopped", _stopped);
+                                WritePadlocks(w, _config());
                             });
                         case "info":
                             return Ok(w =>
@@ -149,6 +157,8 @@ namespace Heron.AutoCAD.Bridge
         private string Begin(JsonElement root, string conversation)
         {
             if (!RiskNames.TryParse(Str(root, "risk"), out var risk)) return Refuse("Level", Texts.UnknownRisk);
+            var blocked = BlockedBy?.Invoke();
+            if (blocked != null) return Refuse("Busy", blocked);
             if (!_hold.TryTake(conversation, _clock())) return Refuse("InUse", Texts.InUse);
             var config = _config();
             var refusal = Permissions.Refusal(risk, config);
@@ -441,6 +451,26 @@ namespace Heron.AutoCAD.Bridge
             w.WriteString("refusedBy", refusedBy);
             w.WriteString("message", message);
         });
+
+        /// <summary>
+        /// Which padlocks are on and which a Windows policy holds (D-59, D-60),
+        /// so a chat can say why a job would be refused before trying it. Read
+        /// only: no request can change them.
+        /// </summary>
+        private static void WritePadlocks(Utf8JsonWriter w, HeronConfig config)
+        {
+            w.WriteStartObject("padlocks");
+            w.WriteBoolean("changes", config.WriteEnabled);
+            w.WriteBoolean("publish", config.PublishEnabled);
+            w.WriteBoolean("admin", config.AdminEnabled);
+            w.WriteBoolean("askToKeep", config.AskBeforeKeeping);
+            w.WriteEndObject();
+            w.WriteStartObject("held");
+            w.WriteBoolean("changes", config.Held.Changes);
+            w.WriteBoolean("publish", config.Held.Publish);
+            w.WriteBoolean("admin", config.Held.Admin);
+            w.WriteEndObject();
+        }
 
         private static string Ok(Action<Utf8JsonWriter>? more) => Write(w =>
         {

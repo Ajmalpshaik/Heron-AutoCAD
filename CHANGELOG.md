@@ -9,6 +9,50 @@ Newest first. Dates are when the change was made.
   and `autocad_check_standards` said `passed: true` after a cut-off read. Both now say not decided
   (NO DATA, `passed: null`); a failure found in the part read is still a failure
   ([D-64](docs/DECISIONS.md)). Four more phrases in the tool-finding test find the check list tools.
+- **AutoCAD always starts disconnected (2026-11-21, #141).** `bridge.autoConnect` in the config
+  file is ignored: only the modeller's press of Heron connects AutoCAD, so no file can let a chat
+  read a drawing without a click ([D-73](docs/DECISIONS.md)). Live row R10 NOT RUN.
+- **The offline gates run on Linux (2026-11-21, #102).** pywin32 stand-ins in `tests/winstubs`,
+  used only where pywin32 is not installed, let the offline suite and `tools/check_structure.py`
+  run in a Linux cloud session; tests that need Windows itself (named pipes, the COM message filter,
+  Windows paths) are skipped there with the reason, and so is the bridge's named-pipe C# test.
+  Windows CI is unchanged ([D-72](docs/DECISIONS.md)).
+
+- **Attributes to Excel and back, a folder of drawings checked, the Companion page (2026-11-21).**
+  `autocad_export_attribute_sheet` (Publish) writes every block's attributes to a new `.xlsx` next
+  to the drawing; `autocad_apply_attribute_sheet` reads the edited sheet back and writes only the
+  cells the modeller changed, in one undo step, old -> new; a value the drawing changed since the
+  export is kept, a cell changed in both places is listed, not written ([D-69](docs/DECISIONS.md),
+  #96). `autocad_check_folder` runs a check list over every drawing in a folder, each opened read
+  only and closed unsaved ([D-70](docs/DECISIONS.md), #97). `autocad_companion` opens the Heron
+  Companion page: one HTML file per chat with the drawing, view, selection and this chat's activity,
+  rewritten after every job; no server, no script ([D-71](docs/DECISIONS.md), #91). Design:
+  [docs/13](docs/13-sheets-folders-companion.md). 142 tools. Live rows Y1-Y6 NOT RUN.
+
+- **The palette's Run can never skip the plug-in's checks (2026-11-21).** If AutoCAD was started
+  with `HERON_AUTOCAD_BRIDGE=off` or a chat id in its environment, the palette's run used to inherit
+  them. It now always runs with the checks on and as its own chat, and the server refuses a palette
+  run with them off ([D-68](docs/DECISIONS.md)). An Undo AutoCAD has not started in 30 s is given
+  up with a plain line, and a job whose end never came stops blocking the palette after 20 minutes.
+  While a palette Undo waits for AutoCAD, a chat's new job is refused with "try again in a moment",
+  so the UNDO never lands inside it (#138). Live rows X22-X24 NOT RUN.
+
+- **`autocad_why` asks AutoCAD for its padlocks; the padlock guard's gaps (2026-11-21, PR #140,
+  #142).** The plug-in's `ping` now says which padlocks are on and which a Windows policy holds
+  (read-only). When this chat's AutoCAD answers, `autocad_why` says which padlock is really off,
+  or that a policy holds it ("ask the PC's administrator"); when nothing answers it still names
+  them without guessing (#134). The Claude Code guard also refuses a script that would write the
+  padlock file or policy key when run later, and no longer mistakes an issue or commit message
+  that only mentions the file for a write. Live row R9 NOT RUN.
+
+- **What changed for the padlocks in plug-in 1.6.0 (#76, #77, PR #121).** Security: the padlocks
+  are no longer saved in `heron-autocad.config`. Every time AutoCAD starts, Changes, Admin,
+  Publish and Ask to Keep are **off**, and only your click in Settings turns one on (D-59). Old
+  padlock lines in that file are ignored; it keeps only connect-at-start and the banner. Each open
+  AutoCAD has its own padlocks. An office can hold a padlock off for everyone with a Windows
+  policy: DWORD `AllowChanges`, `AllowAdmin` or `AllowPublish` = 0 under
+  `HKLM\SOFTWARE\Policies\Heron\AutoCAD`; Settings then shows it **HELD** (D-60). Live rows R1-R8
+  NOT RUN.
 
 - **`autocad_why` never guesses a padlock; Heron's folders never become relative (2026-11-21,
   #134).** Since the padlocks moved into AutoCAD's memory (D-59), `autocad_why` could no longer

@@ -12,7 +12,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 |---|---|---|
 | **Heron** (top half) | Connect, or disconnect. No pop-up when it works: the icon is the answer (orange heron = connected, black = not) | `HERON` |
 | **Heron** (arrow) -> Bridge Status | The state, the Changes card, and Connect / Disconnect | `HERONSTATUS` |
-| **Heron** (arrow) -> Heron palette | Opens or closes the docked Heron palette: Activity and Saved commands ([section 10](#10-the-heron-palette-d-68)) | `HERONPALETTE` |
+| **Heron** (arrow) -> Heron palette | Opens or closes the docked Heron palette: Activity and Saved commands ([section 10](#10-the-heron-palette-plug-in-160-d-68)) | `HERONPALETTE` |
 | **Heron** (arrow) -> Stop Heron now | The emergency stop ([D-51](DECISIONS.md)): every chat is refused at once, a running job stops at its next request to the plug-in, and Esc is pressed for the command running now. Sticky until picked again. What AutoCAD already has queued (one batch) still finishes | `HERONSTOP` |
 | **Heron** (arrow) -> Free this AutoCAD | Lets another chat use this AutoCAD now, whichever chat holds it (not while one of its jobs is running). Changes nothing in a drawing | `HERONFREE` |
 | **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep; HELD when a Windows policy holds it off) | `HERONSETTINGS` |
@@ -24,7 +24,8 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
 | **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
 
-- AutoCAD starts **disconnected** every time (unless `bridge.autoConnect` is set). Until you
+- AutoCAD starts **disconnected** every time; only your press of **Heron** connects it
+  ([D-73](DECISIONS.md)). Until you
   connect, a chat can learn only that AutoCAD is running and not connected: `autocad_status` returns
   no drawing name, path or contents, and every other tool is refused.
 - **Turning a padlock on asks first; turning it off never asks.** Ask to Keep is the other way round:
@@ -36,9 +37,9 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
   turns one on: in Settings, or in the same question `HERONCHANGES` / `HERONADMIN` /
   `HERONPUBLISH` open. No file can turn one on, so a chat that can write files cannot unlock itself.
 - **Each open AutoCAD has its own padlocks.** Turning Changes on in one does not turn it on in another.
-- `%APPDATA%\Heron\autocad\heron-autocad.config` now keeps only `bridge.autoConnect` and
-  `ui.activityBanner`. The padlock lines an older plug-in wrote there (`write.enabled`,
-  `publish.enabled`, `admin.enabled`, `write.askBeforeKeeping`) are **ignored**; you may delete them.
+- `%APPDATA%\Heron\autocad\heron-autocad.config` now keeps only `ui.activityBanner`. The
+  padlock lines an older plug-in wrote there (`write.enabled`, `publish.enabled`, `admin.enabled`,
+  `write.askBeforeKeeping`) and `bridge.autoConnect` are **ignored**; you may delete them.
   A file that cannot be read means no connect at start and the banner on.
 
 ### A Windows policy can hold a padlock off
@@ -142,7 +143,7 @@ AutoCAD."* The hold frees itself after 3 quiet minutes, or when you disconnect.
 | Address file | `%LOCALAPPDATA%\Heron\autocad\bridges\<pid>.json`: pid, pipe, versions, token, start time. Written on connect, deleted on disconnect; a file whose AutoCAD is gone is deleted by the server |
 | Token | 24 random bytes, new on every connect, compared in constant time |
 | Message | one JSON line each way: `{op, token, client, conversation, ...}` |
-| Ops | `ping`, `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)) |
+| Ops | `ping` (also says which padlocks are on and which a Windows policy holds, read-only, [D-59](DECISIONS.md)), `info`, `release`, `begin`, `end`, `ask_keep`, `send_quiet` (batch input, echo off, only inside a running change job, [D-22](DECISIONS.md)), `run` (one of the plug-in's own operations, below, [D-40](DECISIONS.md)), `dialogs` (the boxes the dialog watch closed in this job, [D-66](DECISIONS.md)) |
 
 **Units first ([D-19](DECISIONS.md)).** Nothing is changed in a drawing until Heron has run
 `autocad_status` on it, which reports its units. A switch to another drawing needs a new status check
@@ -256,7 +257,7 @@ run of their own keep it (a preview that writes nothing). A save, an export, a p
 AutoLISP refuses a dry run, because an UNDO mark cannot take back a file or a command. UNDO must be
 on in the drawing.
 
-## 10. The Heron palette ([D-68](DECISIONS.md))
+## 10. The Heron palette (plug-in 1.6.0, [D-68](DECISIONS.md))
 
 `HERONPALETTE`, or Heron (arrow) -> **Heron palette**, opens one palette docked on the right with two
 tabs, in Heron's window style. Press it again to close it. The palette's own title bar is
@@ -312,3 +313,12 @@ Stop Heron now all in force, and frees this AutoCAD when done. So:
   **Free this AutoCAD**, or wait 3 quiet minutes.
 - The answer is one line under the header: *Done: 'plinth', 2 of 2 step(s).*, or the refusal in the
   gate's own words.
+- The run always has the plug-in's checks on and is never another chat: the palette sets
+  `HERON_AUTOCAD_BRIDGE=on` and drops `HERON_CONVERSATION_ID` and `CLAUDE_CODE_SESSION_ID` from what
+  AutoCAD's own environment would pass on, and the server refuses a palette run with the checks off.
+- While a palette Undo waits for AutoCAD to run it, no chat's job may begin: the chat is told "The
+  modeller is undoing a Heron change from the Heron palette right now. Try again in a moment." (at
+  most one minute), so the UNDO can never land inside another job (#138).
+- An Undo that AutoCAD has not started within 30 s (a command or a box in the way) is given up, and
+  the line says so; a job whose end never reached the plug-in stops blocking Select, Zoom and Undo
+  after 20 minutes.

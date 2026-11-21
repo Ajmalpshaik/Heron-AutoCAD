@@ -14,9 +14,12 @@
 | `test_plugin_bundle.py` | No | Bundle layout, PackageContents.xml, installer refusing while AutoCAD runs |
 | `test_folders.py` | No | Every Heron folder stays absolute with `%LOCALAPPDATA%` / `%APPDATA%` unset (#43, #134) |
 | `test_why_and_gaps.py` | No | `autocad_why`, `autocad_gaps`, the audit reason words, the audit folder fallback ([D-67](../docs/DECISIONS.md)) |
+| `test_padlock_guard.py` | No | The Claude Code guard hook in `.claude/`: refuses writing `heron-autocad.config` or the Heron policy key ([D-59](../docs/DECISIONS.md)) |
+| `test_padlocks_from_plugin.py` | No (faked bridge) | The padlocks read from the connected AutoCAD's ping, not a file; `autocad_why` naming a Windows policy hold ([D-59, D-60](../docs/DECISIONS.md)) |
 | `test_structure.py` | No | `tools/check_structure.py` |
 | `test_live.py` | **Yes**, marked `live` | Real drawing round trips |
-| `conftest.py` | | Switches the bridge off and moves `%LOCALAPPDATA%` to a temp folder for every test |
+| `conftest.py` | | Switches the bridge off and moves `%LOCALAPPDATA%` to a temp folder for every test; off Windows, puts the pywin32 stand-ins in `winstubs/` on the path |
+| `winstubs/` | | Stand-ins for pywin32, used **only** where it is not installed (Linux): just enough to import and to fake COM ([README](winstubs/README.md), [D-72](../docs/DECISIONS.md)) |
 
 The C# tests are in [`autocad/Heron.AutoCAD.Bridge.Tests`](../autocad/README.md).
 
@@ -27,6 +30,10 @@ The C# tests are in [`autocad/Heron.AutoCAD.Bridge.Tests`](../autocad/README.md)
 ```bash
 dotnet test autocad/Heron.AutoCAD.Bridge.Tests
 ```
+
+On Linux the same suites run with `PYTHONPATH=src python -m pytest -m "not live"`; 19 tests that
+need Windows itself are reported skipped with the reason, and the bridge's named-pipe test is
+skipped the same way (`[WindowsFact]`). Windows CI runs them all.
 
 With AutoCAD open: `.venv\Scripts\python.exe -m pytest -m live`. How many tests there are:
 `pytest --collect-only -q`. Never edit a test just to make it pass.

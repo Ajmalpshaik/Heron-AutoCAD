@@ -49,7 +49,6 @@ public class ConfigTests : IDisposable
         Assert.False(config.PublishEnabled);
         Assert.False(config.AdminEnabled);
         Assert.False(config.AskBeforeKeeping);
-        Assert.False(config.AutoConnect);
     }
 
     [Fact]
@@ -78,8 +77,18 @@ public class ConfigTests : IDisposable
         Assert.False(config.AskBeforeKeeping);
         Assert.NotNull(Permissions.Refusal(Risk.Change, config));
 
-        // The file keeps its own two settings.
-        Assert.True(config.AutoConnect);
+        // The file keeps only its banner setting.
+        Assert.False(config.ActivityBanner);
+    }
+
+    [Fact]
+    public void No_file_can_make_AutoCAD_connect_at_start()
+    {
+        // D-73: bridge.autoConnect is read by nothing; AutoCAD starts disconnected.
+        Assert.Null(typeof(HeronConfig).GetProperty("AutoConnect"));
+        var path = PathOf("heron-autocad.config");
+        File.WriteAllText(path, "{\"bridge.autoConnect\": true, \"ui.activityBanner\": false}");
+        var config = HeronConfig.Load(path);
         Assert.False(config.ActivityBanner);
     }
 }
@@ -373,7 +382,7 @@ public class ServerTests : IDisposable
         if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
     }
 
-    [Fact]
+    [WindowsFact]
     public void Start_publishes_an_address_and_answers_ping_then_Stop_removes_it()
     {
         var server = new BridgeServer(new FakeHost(), () => new HeronConfig(), "26.0", "1.0.0", _dir,

@@ -8,7 +8,47 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (autocad_why after D-59, and Heron's folders, #134)
+## Latest - 2026-11-21 (the offline gates run on Linux, #102)
+
+`tests/winstubs` stands in for pywin32 where it is not installed (D-72). On Linux:
+`PYTHONPATH=src python -m pytest -m "not live"` gives 2931 passed, 19 skipped (each with its
+Windows reason); `tools/check_structure.py` passes; `dotnet test` gives 297 passed, 1 skipped (the
+named pipe). A cloud session can now run all four gates instead of saying NOT RUN. Windows CI
+still runs every test.
+
+## Earlier - 2026-11-21 (attribute sheets #96, folder check #97, Companion page #91; server 1.9.0)
+
+Built offline in one PR, from Heron AI for Revit's ideas; design in
+[docs/13](13-sheets-folders-companion.md). Server **1.9.0** (four new tools, **142**), plug-in
+still **1.6.0** (no C# changed): restart Claude after pulling.
+- **D-69 (#96):** `autocad_export_attribute_sheet` (Publish) and `autocad_apply_attribute_sheet`
+  (Change). The workbook's "As exported" sheet lets the compare keep the drawing's own later
+  changes and list conflicts; only changed cells are written, one undo step. `acad/xlsx.py` reads
+  and writes `.xlsx` with the standard library.
+- **D-70 (#97):** `autocad_check_folder` (View): each drawing read only, checked, closed unsaved.
+- **D-71 (#91):** `autocad_companion` (Read): a page file per chat, rewritten by the gate after
+  every job. Editable tables (Revit's) would need a local server: not built.
+
+**Next:** live rows Y1-Y6 with the others below. Still open from the comparison: #80 (row T7),
+#101.
+
+## Earlier - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
+
+A review of the docked palette (D-68) after plug-in 1.6.0 merged found one safety gap and three
+robustness gaps, all fixed in PR #137. Plug-in **1.6.0** already carries them if it is
+built from `main` after #137; no version change.
+- **Safety:** the palette's Run inherited AutoCAD's environment, so a developer's
+  `HERON_AUTOCAD_BRIDGE=off` or a chat id there would have reached it. Now forced on and dropped
+  (`PaletteServer.PrepareEnvironment`), and the server refuses `--run-saved` with the checks off.
+- **#138:** while a palette Undo waits for AutoCAD, the plug-in refuses a new job's begin with
+  "try again in a moment" (`BridgeProtocol.BlockedBy`, one minute at most).
+- An UNDO AutoCAD has not started in 30 s is given up; a job whose end never came stops blocking
+  the palette after 20 minutes.
+
+**Next:** as below, plus live rows X22-X24 (X23: whether zooming inside a layout viewport counts as
+a change, which would make Undo refuse there).
+
+## Earlier - 2026-11-21 (autocad_why after D-59, and Heron's folders, #134)
 
 Follow-up to PR #120, server only, no version change.
 - **Bug fixed:** since D-59 (padlocks in AutoCAD's memory) `diagnose.report()` has no padlocks,

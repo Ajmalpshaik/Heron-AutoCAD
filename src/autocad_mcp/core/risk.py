@@ -25,6 +25,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "checklist",
         "project_notes",
         "activity",
+        "companion",
         "list_drawings",
         "list_entities",
         "get_entity",
@@ -58,6 +59,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "gaps",
     ),
     Risk.VIEW: (
+        "check_folder",
         "zoom",
         "show",
         "regen",
@@ -90,6 +92,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "make_block",
         "set_dynamic_properties",
         "set_attributes",
+        "apply_attribute_sheet",
         "number_tags",
         "text_clean",
         "find_replace_text",
@@ -153,6 +156,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "delete_layer",
     ),
     Risk.PUBLISH: (
+        "export_attribute_sheet",
         "save_drawing",
         "export",
         "create_hatch_pattern",

@@ -254,6 +254,28 @@ class Bridge:
             return None
         return reply.get("changedSince") is True
 
+    def padlocks(self) -> dict[str, Any] | None:
+        """The padlocks as this AutoCAD holds them in memory (D-59), or None when it cannot tell.
+
+        None too for a plug-in older than 1.6.0, whose ping does not say. "held"
+        lists the padlocks a Windows policy holds off (D-60).
+        """
+        try:
+            reply = self.call("ping")
+        except AutocadError:
+            return None
+        locks, held = reply.get("padlocks"), reply.get("held")
+        if not isinstance(locks, dict):
+            return None
+        held = held if isinstance(held, dict) else {}
+        return {
+            "changes": locks.get("changes") is True,
+            "publish": locks.get("publish") is True,
+            "admin": locks.get("admin") is True,
+            "ask_to_keep": locks.get("askToKeep") is True,
+            "held": [name for name in ("changes", "publish", "admin") if held.get(name) is True],
+        }
+
     def stopped(self) -> bool:
         """True when the modeller pressed the emergency stop (HERONSTOP). False if it cannot tell."""
         try:

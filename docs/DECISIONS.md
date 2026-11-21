@@ -130,6 +130,72 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-73 - AutoCAD always starts disconnected; no file can make it connect
+
+**Decided:** 2026-11-21 by Ajmal PS, issue #141 (option 2 of three). **Status:** in force. Replaces
+the "`autoConnect` stays a file setting" line of D-59.
+`"bridge.autoConnect": true` in `heron-autocad.config` made AutoCAD connect to Heron at start without
+the modeller's press of **Heron**. Every padlock was still off, so a chat could change nothing, but it
+could read the drawing's name, path and contents without a click, and any program that can write
+that file (an AI chat too) could switch it on.
+- **Removed.** The plug-in no longer connects at start; the key is ignored like the old padlock
+  lines. `HeronConfig` has no `AutoConnect` any more (a bridge test checks it stays gone).
+- **Not taken:** keeping it with a warning in the docs (option 1), and allowing it only from the
+  administrator's policy key (option 3). It was off on the owner's PC, so nothing changes for him;
+  an office that wants it can ask for option 3 later.
+- **Live row:** R10 (NOT RUN).
+## D-72 - The offline gates run on Linux with pywin32 stand-ins; Windows-only tests skip, saying why
+
+**Decided:** 2026-11-21 (issue #102). **Status:** in force. Cloud sessions run on Linux, where
+pywin32 does not install, so three of the four gates could only say NOT RUN. `tests/winstubs/`
+holds stand-ins (`pythoncom.com_error` and the `VT_*` numbers, a `VARIANT` that keeps its type and
+value, `pywintypes.error`, the `ctypes` names `message_filter.py` needs); `tests/conftest.py` and
+`tools/check_structure.py` put them on the path **only** when `pythoncom` cannot be found, so on
+Windows and in Windows CI nothing changes. They talk to nothing. The tests that need Windows itself
+are marked to skip off Windows with the reason: real named pipes (8 in `test_bridge.py`, and the C#
+`[WindowsFact]` server test), the COM message filter on a real thread (5), Windows path rules (5),
+CRLF in a Windows checkout (1). The stand-ins are test code, never a dependency of the server.
+
+## D-71 - The Companion page is a file per chat, not a server
+
+**Decided:** 2026-11-21, from Heron AI for Revit's companion page (its docs/40, D-108; issue #91).
+**Status:** in force. `autocad_companion` (Read) writes one HTML file per chat in
+`%LOCALAPPDATA%\Heron\autocad\companion`; after that the gate rewrites it after every job in
+that chat (`core/companion.py`, `gate.companion_state()`), and it reloads itself every 5 s. No
+port, no listener, no script (a Content-Security-Policy of `default-src 'none'`), every value
+escaped, so there is nothing on the PC to reach. The page shows only what the gate already holds
+(activity, the drawing last checked, what `autocad_undo_last` could take back) and what
+`autocad_companion` read in its own Read job (drawing, units, layout, view, selection, with the
+time): no COM outside a job. Writing it never fails a job. Pages older than 7 days are removed.
+Revit's editable tables and dashboard need the page to send things back, so a local server with
+a token: left for a decision of its own. Design: [13 §3](13-sheets-folders-companion.md).
+
+## D-70 - A folder of drawings is checked read only, one at a time, as a View tool
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-181, accepted there, not built; issue
+#97). **Status:** in force. `autocad_check_folder` opens each `.dwg` read only, runs the check
+list with that drawing's own project changes (`run_list(..., doc_of=...)`, the same code as
+`autocad_checklist`), and closes it unsaved; a drawing already open is checked where it is and
+left open; the modeller's drawing is made active again at the end. It changes which drawing is
+open, never what is in one, so it is a **View** tool (like `autocad_open_drawing`) and needs no
+Changes padlock. A drawing that will not open is NOT RUN with AutoCAD's reason; HERONSTOP leaves
+the rest out. Not ObjectDBX: a database opened that way has no selection sets or system
+variables, which the checks read. Design: [13 §2](13-sheets-folders-companion.md).
+
+## D-69 - Attributes go to Excel and back; only the cells the modeller changed are written
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-182, D-183; issue #96). **Status:** in
+force. Two tools, because a tool's padlock is a property of the tool (D-65):
+`autocad_export_attribute_sheet` (Publish: it writes a new `.xlsx` next to the drawing, never over
+one) and `autocad_apply_attribute_sheet` (Change). The workbook has an **Attributes** sheet to edit
+and an **As exported** copy, so the compare (`acad/attribute_sheet.py`, offline) tells the
+modeller's edit (written) from a change made in the drawing since (kept) and from both (a
+conflict, listed, not written). A blank cell never empties an attribute. Only changed cells are
+written, in one undo step, listed old -> new (`before_after`, D-62); nothing to write opens no undo
+step. A `.csv` with a Handle column is accepted and compared with the drawing alone. The `.xlsx`
+is written and read with the standard library (`acad/xlsx.py`): no new package. Design:
+[13 §1](13-sheets-folders-companion.md).
+
 ## D-68 - One docked Heron palette: Activity with Undo by D-54's rule, saved commands run by a copy of the server
 
 **Decided:** 2026-11-21, from Heron AI for Revit's Activity and Commands panes (issues #92, #93).
@@ -168,6 +234,13 @@ shows them and makes the AutoCAD calls.
   starts; that is how the palette finds one, so Run needs Heron to have run once on this PC.
 - **Not copied:** a separate Commands pane (one palette with two tabs instead), and asking a
   running chat's server to run it (a stdio server has no way in from the plug-in).
+- **Added after the merge (same day):** the palette's run never inherits a way round the gate or
+  another chat's id from the environment AutoCAD was started with: `HERON_AUTOCAD_BRIDGE` is forced
+  on, `HERON_CONVERSATION_ID` and `CLAUDE_CODE_SESSION_ID` are dropped (`PaletteServer.
+  PrepareEnvironment`), and the server refuses `--run-saved` with the checks off. A job whose end
+  never came stops counting as running after 20 minutes (`ActivityLog.MostJob`). While a palette Undo
+  waits for AutoCAD, the plug-in refuses a new job's begin with a plain "try again" (`BlockedBy`,
+  at most one minute), so the UNDO never lands inside a chat's job (#138).
 
 ## D-67 - Finding and explaining: why a job cannot run, what failed, a question gets a read tool
 
@@ -395,8 +468,22 @@ modeller's click, skipping "turning a padlock on asks first".
 - **The file keeps** `bridge.autoConnect` and `ui.activityBanner` only. The old padlock lines are
   ignored, never read, and the plug-in no longer writes the file. `autoConnect` stays a file
   setting: it only connects, and with every padlock off a chat can then read but change nothing.
+  Since D-73 `autoConnect` is ignored too.
 - **`autocad://diagnose`** no longer reads padlocks from the file: it would have reported stale
   lines as on.
+- **Added 2026-11-21, after the merge:** `autocad_why` (D-67) still read the padlocks from that
+  report, so it said every padlock was off even with Changes on. Now the plug-in's `ping` answer
+  carries `padlocks` (changes, publish, admin, askToKeep) and `held` (what a D-60 policy holds),
+  read-only; `autocad_why` asks the AutoCAD this chat works in, and a held padlock gets its own
+  reason (`admin_held`: ask the PC's administrator) instead of "type HERONADMIN". No answer
+  (nothing connected, several and none picked, a plug-in older than 1.6.0) keeps #134's rule: the
+  padlocks are named (`needs_changes`...), never guessed, and do not block. Pinned by
+  `tests/test_padlocks_from_plugin.py` and the bridge `PadlockTests`.
+- **Added 2026-11-21, the guard's two gaps (issue #142):** it now also refuses an Edit or Write of
+  a script (`.ps1`, `.bat`, `.cmd`, `.py`, ...) whose content would write either target when run
+  later, except in this repository's own `tests/` and `.claude/hooks/`. For `gh` and `git`
+  commands it no longer looks inside quoted text (an issue body, a commit message), so mentioning
+  the file is not taken for writing it; a redirect outside the quotes is still refused.
 - **A guard for Claude Code in this repository:** `.claude/settings.json` runs
   `.claude/hooks/guard_padlocks.py` before every Edit, Write and shell command, and refuses one that
   would write `heron-autocad.config` or the D-60 policy key (exit 2). It catches the plain ways, not
