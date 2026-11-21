@@ -36,11 +36,12 @@ from ..acad.coords import corners_box, rotated_box
 from ..acad.entities import bounding_box, resolve_handles
 from ..acad.tables import ensure_layer, validate_name
 from ..acad.units import rad
+from ..core.bridge import OLD_PLUGIN
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, OutcomeUnknown, com_message, is_retryable
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
-from ._shared import COORDS_OPT, current_ucs, ucs_for, world_coords
+from ._shared import COORDS_OPT, current_ucs, in_plugin, ucs_for, world_coords
 
 # The media-name matching is already proven and tested in document.py (the PDF
 # export path); a sheet picks its paper the same way rather than a second way.
@@ -165,7 +166,7 @@ def _paper_of(layout: Any) -> dict[str, Any]:
     e.g. ISO_full_bleed_A3_(420.00_x_297.00_MM).
     """
     media = str(_try(lambda: layout.CanonicalMediaName, "") or "")
-    info: dict[str, Any] = {"media": media, "plotter": str(_try(lambda: layout.ConfigName, "") or "")}
+    plotter = str(_try(lambda: layout.ConfigName, "") or "")
 
     size = _try(lambda: tuple(float(v) for v in layout.GetPaperSize()))
     if not size or len(size) < 2 or min(size[:2]) <= 0:
@@ -175,38 +176,81 @@ def _paper_of(layout: Any) -> dict[str, Any]:
             f"Layout '{_try(lambda: layout.Name, '?')}' has no usable paper size. Set one "
             "with autocad_page_setup (paper_size='A3') before placing anything on it."
         )
-    info["paper"] = [round(size[0], 4), round(size[1], 4)]
 
     margins = _try(lambda: layout.GetPaperMargins())
     low, high = (0.0, 0.0), (0.0, 0.0)
     if margins and len(margins) == 2:
         low = tuple(float(v) for v in margins[0])[:2]
         high = tuple(float(v) for v in margins[1])[:2]
-    info["margins"] = [round(low[0], 4), round(low[1], 4), round(high[0], 4), round(high[1], 4)]
-    # Paper space (0, 0) sits at the lower-left of the printable area, so the
-    # printable rectangle starts there and is the sheet less both margins.
-    info["printable"] = [
-        0.0,
-        0.0,
-        round(size[0] - low[0] - high[0], 4),
-        round(size[1] - low[1] - high[1], 4),
-    ]
     rotation = int(_try(lambda: layout.PlotRotation, 0) or 0)
-    info["plot_rotation_degrees"] = next(
-        (deg for deg, code in PLOT_ROTATIONS.items() if code == rotation), 0
-    )
+    degrees = next((deg for deg, code in PLOT_ROTATIONS.items() if code == rotation), 0)
+    return plan.paper_info(size, (low[0], low[1], high[0], high[1]), media, plotter, degrees)
+
+
+def _paper_from_plugin(paper: dict[str, Any]) -> dict[str, Any]:
+    """The same facts from the plug-in's answer (Sheets.WritePaper in the add-in)."""
+    size = paper.get("size") or ()
+    media = str(paper.get("media") or "")
+    if not size or len(size) < 2 or min(float(v) for v in size[:2]) <= 0:
+        size = plan.media_dimensions(media) or ()
+    if not size:
+        raise AutocadError("Heron in AutoCAD made the sheet but reported no paper size for it.")
+    info = plan.paper_info(
+        size, paper.get("margins") or (0.0, 0.0, 0.0, 0.0), media,
+        str(paper.get("plotter") or ""), int(paper.get("plot_rotation_degrees") or 0),
+    )  # fmt: skip
+    if paper.get("paper_units"):
+        info["paper_units"] = str(paper["paper_units"])
     return info
 
 
 def _area_box(info: dict[str, Any], anchor: str) -> plan.Box:
     """The rectangle to work inside: the printable area, or the whole sheet."""
-    if str(anchor).strip().lower() == "paper":
-        low_x, low_y, _, _ = info["margins"]
-        width, height = info["paper"]
-        # The sheet, in paper-space coordinates: the printable area is inset by
-        # the lower-left margin, so the sheet corner is that much below it.
-        return (-low_x, -low_y, width - low_x, height - low_y)
-    return tuple(info["printable"])  # type: ignore[return-value]
+    return plan.area_box(info, anchor)
+
+
+def _sheet_of(info: dict[str, Any], margins: Any, title_block_width: float | None) -> dict[str, Any]:
+    """A sheet's arithmetic for the answer: frame, drawing space, where the title block goes."""
+    width, height = info["paper"]
+    sheet: dict[str, Any] = {
+        "paper": [width, height],
+        "orientation": "portrait" if height > width else "landscape",
+    }
+    try:
+        outline = plan.frame_in(_area_box(info, "printable"), margins)
+        space = outline
+        if title_block_width:
+            space = plan.reserve(space, "right", float(title_block_width))
+        sheet.update(
+            {
+                "printable": info["printable"],
+                "frame": [round(v, 4) for v in outline],
+                "drawing_space": [round(v, 4) for v in space],
+                "drawing_space_size": [round(v, 4) for v in plan.size_of(space)],
+                "title_block_at": [round(v, 4) for v in plan.corner_point(outline, "bottom-right")],
+            }
+        )
+    except ValueError as exc:
+        sheet["frame_note"] = f"The frame could not be worked out: {exc}"
+    return sheet
+
+
+# What the plug-in answers when it cannot do an operation at all: no plug-in
+# in this job (--no-bridge), one too old to do runs, or one without this
+# operation. Then the work is done over COM, as before (D-90). Anything else -
+# a refusal, a padlock, HERONSTOP, "Outcome unknown" - is the answer.
+_NO_PLUGIN = ("--no-bridge", "does not have the operation")
+
+
+def by_plugin(operation: str, args: dict[str, Any], what: str) -> tuple[dict[str, Any] | None, str | None]:
+    """(the plug-in's answer, None), or (None, why it could not be asked) when COM must do it."""
+    try:
+        return in_plugin(operation, args, what), None
+    except AutocadError as exc:
+        text = str(exc)
+        if text == OLD_PLUGIN or any(marker in text for marker in _NO_PLUGIN):
+            return None, text
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -549,87 +593,218 @@ async def autocad_create_layout(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        found = _layouts(doc)
-        if any(k.lower() == clean.lower() for k in found):
-            raise AutocadError(
-                f"This drawing already has a layout called '{clean}'. Pick another name, "
-                "or change that one with autocad_page_setup."
-            )
-
+        _free_name(doc, clean)
+        if copy_from:
+            _pick_layout(doc, copy_from)
         with undo_mark(doc):
-            if copy_from:
-                source = _pick_layout(doc, copy_from)
-                try:
-                    layout = doc.Layouts.Add(clean)
-                    layout.CopyFrom(source)
-                except BaseException as exc:  # noqa: BLE001
-                    raise AutocadError(
-                        f"Could not copy layout '{copy_from}' ({com_message(exc)}). Make the "
-                        "sheet without copy_from, or copy its contents with "
-                        "autocad_manage_layouts(copy_handles=...)."
-                    ) from exc
-            else:
-                try:
-                    layout = doc.Layouts.Add(clean)
-                except BaseException as exc:  # noqa: BLE001
-                    raise AutocadError(f"AutoCAD would not add the layout '{clean}': {com_message(exc)}") from exc
-
-            try:
-                # Fetched again from the collection: the object Add returned is
-                # the one pywin32 could not set the plotter on.
-                layout = _pick_layout(doc, clean)
-                page = _set_page(
-                    layout, plotter, paper_size, orientation, "layout", None, None,
-                    "1:1", True, plot_style_table, None, None, None,
-                )
-            except BaseException as exc:
-                # Never leave a half-made sheet: the retry would only be told
-                # the name is taken (2026-11-05).
-                kept = not _write_delete(layout)
-                if isinstance(exc, AutocadError) and not kept:
-                    raise AutocadError(
-                        f"{exc} The layout '{clean}' was not kept, so the call can be "
-                        "repeated as it is."
-                    ) from exc
-                raise
-            if activate:
-                _activate(doc, layout)
-
-        info = _paper_of(layout)
-        width, height = info["paper"]
-        sheet = {
-            "paper": [width, height],
-            "orientation": "portrait" if height > width else "landscape",
-        }
-        try:
-            area = _area_box(info, "printable")
-            outline = plan.frame(*plan.size_of(area), margins)
-            outline = (outline[0] + area[0], outline[1] + area[1], outline[2] + area[0], outline[3] + area[1])
-            space = outline
-            if title_block_width:
-                space = plan.reserve(space, "right", float(title_block_width))
-            sheet.update(
-                {
-                    "printable": info["printable"],
-                    "frame": [round(v, 4) for v in outline],
-                    "drawing_space": [round(v, 4) for v in space],
-                    "drawing_space_size": [round(v, 4) for v in plan.size_of(space)],
-                    "title_block_at": [round(v, 4) for v in plan.corner_point(outline, "bottom-right")],
-                }
-            )
-        except ValueError as exc:
-            sheet["frame_note"] = f"The frame could not be worked out: {exc}"
-
-        return {
-            "created": True,
-            "layout": str(layout.Name),
-            "tab_order": int(_try(lambda: layout.TabOrder, 0) or 0),
-            "page_setup": page,
-            "paper": info,
-            "sheet": sheet,
-        }
+            return make_layout(
+                doc, clean, paper_size=paper_size, orientation=orientation, plotter=plotter,
+                plot_style_table=plot_style_table, copy_from=copy_from, margins=margins,
+                title_block_width=title_block_width, activate=activate,
+            )  # fmt: skip
 
     return dumps(await run(work))
+
+
+def _free_name(doc: Any, clean: str) -> None:
+    """Refuse a sheet name the drawing already has, before anything is made."""
+    if any(k.lower() == clean.lower() for k in _layouts(doc)):
+        raise AutocadError(
+            f"This drawing already has a layout called '{clean}'. Pick another name, "
+            "or change that one with autocad_page_setup."
+        )
+
+
+def make_layout(
+    doc: Any,
+    clean: str,
+    *,
+    paper_size: str | None,
+    orientation: str | None,
+    plotter: str | None,
+    plot_style_table: str | None,
+    copy_from: str | None,
+    margins: Any,
+    title_block_width: float | None,
+    activate: bool,
+) -> dict[str, Any]:
+    """One new sheet, by the plug-in when it can (#64, D-90), else over COM.
+
+    On the worker thread, inside the caller's undo mark: autocad_sheet_set
+    makes many sheets in one undo step, so this opens none of its own.
+    """
+    report, why_not = by_plugin(
+        "create_layout",
+        {
+            "name": clean, "copy_from": copy_from, "plotter": plotter, "paper_size": paper_size,
+            "orientation": orientation if paper_size else None,
+            "plot_style_table": plot_style_table, "activate": bool(activate),
+        },
+        "Making the sheet",
+    )  # fmt: skip
+    if report is not None:
+        info = _paper_from_plugin(report.get("paper") or {})
+        page = dict(report.get("page_setup") or {})
+        result: dict[str, Any] = {
+            "created": True,
+            "layout": str(report.get("layout") or clean),
+            "tab_order": int(report.get("tab_order") or 0),
+            "page_setup": page,
+            "paper": info,
+            "sheet": _sheet_of(info, margins, title_block_width),
+            "made_by": "plugin",
+        }
+        if report.get("copied_from"):
+            result["copied_from"] = report["copied_from"]
+        if activate:
+            result["activated"] = bool(report.get("activated", True))
+        return result
+
+    result = _make_layout_com(
+        doc, clean, paper_size, orientation, plotter, plot_style_table, copy_from, margins,
+        title_block_width, activate,
+    )  # fmt: skip
+    result["made_by"] = "com"
+    result["plugin_note"] = why_not
+    return result
+
+
+BUSY_READBACK_TRIES = 10
+BUSY_READBACK_DELAY = 0.3
+
+
+def _make_layout_com(
+    doc: Any,
+    clean: str,
+    paper_size: str | None,
+    orientation: str | None,
+    plotter: str | None,
+    plot_style_table: str | None,
+    copy_from: str | None,
+    margins: Any,
+    title_block_width: float | None,
+    activate: bool,
+) -> dict[str, Any]:
+    """The sheet over COM, for a plug-in that cannot (older, or --no-bridge).
+
+    AutoCAD can go busy once the layout is added, while the plotter loads
+    (#40, row D8): that answer is now a clear one, from the drawing read back,
+    instead of "Outcome unknown".
+    """
+    if copy_from:
+        source = _pick_layout(doc, copy_from)
+        try:
+            layout = doc.Layouts.Add(clean)
+            layout.CopyFrom(source)
+        except BaseException as exc:  # noqa: BLE001
+            raise AutocadError(
+                f"Could not copy layout '{copy_from}' ({com_message(exc)}). Make the "
+                "sheet without copy_from, or copy its contents with "
+                "autocad_manage_layouts(copy_handles=...)."
+            ) from exc
+    else:
+        try:
+            layout = doc.Layouts.Add(clean)
+        except BaseException as exc:  # noqa: BLE001
+            raise AutocadError(f"AutoCAD would not add the layout '{clean}': {com_message(exc)}") from exc
+
+    try:
+        # Fetched again from the collection: the object Add returned is
+        # the one pywin32 could not set the plotter on.
+        layout = _pick_layout(doc, clean)
+        page = _set_page(
+            layout, plotter, paper_size, orientation, "layout", None, None,
+            "1:1", True, plot_style_table, None, None, None,
+        )
+    except BaseException as exc:
+        if is_retryable(exc):
+            return _made_but_busy(doc, clean, "while its page setup was being written", margins, title_block_width)
+        # Never leave a half-made sheet: the retry would only be told
+        # the name is taken (2026-11-05).
+        kept = not _write_delete(layout)
+        if isinstance(exc, AutocadError) and not kept:
+            raise AutocadError(
+                f"{exc} The layout '{clean}' was not kept, so the call can be "
+                "repeated as it is."
+            ) from exc
+        raise
+
+    notes: dict[str, Any] = {}
+    if activate:
+        try:
+            _activate(doc, layout)
+        except BaseException as exc:
+            if not is_retryable(exc):
+                raise
+            notes["activate_note"] = (
+                f"AutoCAD went busy as '{clean}' was put on screen, so it may not be the tab "
+                "showing. The sheet itself is made and set up; click its tab."
+            )
+    try:
+        info = _paper_of(layout)
+        tab_order = int(_try(lambda: layout.TabOrder, 0) or 0)
+    except BaseException as exc:
+        if not is_retryable(exc):
+            raise
+        return _made_but_busy(doc, clean, "as the new sheet was read back", margins, title_block_width, page)
+
+    result: dict[str, Any] = {
+        "created": True,
+        "layout": str(_try(lambda: layout.Name, clean) or clean),
+        "tab_order": tab_order,
+        "page_setup": page,
+        "paper": info,
+        "sheet": _sheet_of(info, margins, title_block_width),
+    }
+    result.update(notes)
+    return result
+
+
+def _made_but_busy(
+    doc: Any,
+    clean: str,
+    when: str,
+    margins: Any,
+    title_block_width: float | None,
+    page: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """The answer when AutoCAD went busy after the layout was added (#40).
+
+    The layout is looked for again for a moment. Found, the answer says the
+    sheet is made and what may not be set; not found, it is "Outcome unknown"
+    in words that say exactly what to look at.
+    """
+    for _ in range(BUSY_READBACK_TRIES):
+        try:
+            found = next((v for k, v in _layouts(doc).items() if k.lower() == clean.lower()), None)
+        except BaseException:  # noqa: BLE001 - still busy; look again
+            time.sleep(BUSY_READBACK_DELAY)
+            continue
+        if found is None:
+            break
+        result: dict[str, Any] = {
+            "created": True,
+            "layout": clean,
+            "page_setup": page or {},
+            "warning": (
+                f"The sheet '{clean}' is made, but AutoCAD went busy {when}, so its page setup "
+                "may not all be written. Check it, and set what is missing with "
+                f"autocad_page_setup(layouts=['{clean}'], ...). Do not make the sheet again."
+            ),
+        }
+        try:
+            info = _paper_of(found)
+            result["paper"] = info
+            result["sheet"] = _sheet_of(info, margins, title_block_width)
+        except BaseException:  # noqa: BLE001 - the warning already says to check it
+            pass
+        return result
+    raise OutcomeUnknown(
+        f"Outcome unknown: AutoCAD went busy {when}, right after the sheet '{clean}' was added, "
+        "and could not be read back. Look at the layout tabs before trying again: if "
+        f"'{clean}' is there, finish it with autocad_page_setup(layouts=['{clean}'], ...) "
+        "rather than making it again."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -739,24 +914,7 @@ async def autocad_place_title_block(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-
-        block_name = source
-        if block_name is None:
-            try:
-                doc.Blocks.Item(name)
-            except BaseException:  # noqa: BLE001 - say what the drawing does have
-                have = []
-                for i in range(int(doc.Blocks.Count)):
-                    item = doc.Blocks.Item(i)
-                    label = str(item.Name)
-                    if label and not label.startswith("*") and not _is_layout_block(item):
-                        have.append(label)
-                raise AutocadError(
-                    f"No block named '{name}' is in this drawing. Blocks: "
-                    + (", ".join(sorted(have)[:40]) if have else "none")
-                    + ". To bring one in from a file, pass the full .dwg path."
-                ) from None
-            block_name = name
+        block_name = title_block_source(doc, name, source)
 
         found = _layouts(doc)
         if all_layouts:
@@ -774,59 +932,108 @@ async def autocad_place_title_block(
                 ensure_layer(doc, layer)
             for layout in targets:
                 label = str(layout.Name)
-                info = _paper_of(layout)
-                try:
-                    area = _area_box(info, anchor)
-                    outline = plan.frame(*plan.size_of(area), margins)
-                    outline = (outline[0] + area[0], outline[1] + area[1], outline[2] + area[0], outline[3] + area[1])
-                    at = plan.corner_point(outline, corner)
-                except ValueError as exc:
-                    raise AutocadError(f"Sheet '{label}': {exc}") from exc
-                at = (at[0] + nudge[0], at[1] + nudge[1])
-
-                _activate(doc, layout)
-                space = doc.PaperSpace
-                removed = 0
-                if replace_existing:
-                    for existing in list(_references(space, block_name)):
-                        try:
-                            existing.Delete()
-                            removed += 1
-                        except BaseException:  # noqa: BLE001 - a locked layer, reported by count
-                            pass
-
-                try:
-                    reference = space.InsertBlock(
-                        apoint(at[0], at[1], 0.0), block_name,
-                        float(scale), float(scale), float(scale), rad(rotation),
-                    )
-                except BaseException as exc:  # noqa: BLE001
-                    raise AutocadError(
-                        f"Sheet '{label}': AutoCAD would not insert '{name}' ({com_message(exc)})."
-                    ) from exc
-                if layer:
-                    reference.Layer = layer.strip()
-
                 wanted = {k.strip().upper(): v for k, v in (attributes or {}).items()}
                 for sheet_name, extra in (per_layout_attributes or {}).items():
                     if sheet_name.strip().lower() == label.lower():
                         wanted.update({k.strip().upper(): v for k, v in extra.items()})
-                applied, missing = _fill_attributes(reference, wanted)
-
                 placed.append(
-                    {
-                        "layout": label,
-                        "handle": str(reference.Handle),
-                        "at": [round(at[0], 4), round(at[1], 4)],
-                        "frame": [round(v, 4) for v in outline],
-                        "attributes_set": applied,
-                        "attributes_not_found": missing,
-                        "replaced": removed,
-                    }
+                    put_title_block(
+                        layout, block_name, name, corner=corner, anchor=anchor, margins=margins,
+                        nudge=nudge, scale=scale, rotation=rotation, values=wanted, layer=layer,
+                        replace_existing=replace_existing,
+                    )  # fmt: skip
                 )
         return {"block": block_name, "count": len(placed), "placed": placed}
 
     return dumps(await run(work))
+
+
+def title_block_source(doc: Any, name: str, source: str | None) -> str:
+    """The block to insert: a .dwg path as given, or a block the drawing has (else the ones it has)."""
+    if source is not None:
+        return source
+    try:
+        doc.Blocks.Item(name)
+    except BaseException:  # noqa: BLE001 - say what the drawing does have
+        have = []
+        for i in range(int(doc.Blocks.Count)):
+            item = doc.Blocks.Item(i)
+            label = str(item.Name)
+            if label and not label.startswith("*") and not _is_layout_block(item):
+                have.append(label)
+        raise AutocadError(
+            f"No block named '{name}' is in this drawing. Blocks: "
+            + (", ".join(sorted(have)[:40]) if have else "none")
+            + ". To bring one in from a file, pass the full .dwg path."
+        ) from None
+    return name
+
+
+def put_title_block(
+    layout: Any,
+    block_name: str,
+    shown_as: str,
+    *,
+    corner: str,
+    anchor: str,
+    margins: Any,
+    nudge: tuple[float, float],
+    scale: float,
+    rotation: float,
+    values: dict[str, str],
+    layer: str | None,
+    replace_existing: bool,
+    info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """One title block on one sheet, filled in. No undo mark of its own.
+
+    It goes into the layout's own block, not ``doc.PaperSpace``: that threw a
+    bare Automation error on a sheet made with Layouts.Add (known limit 23,
+    #39), and the layout's block answered. So the sheet need not be the one
+    on screen, and none is switched to.
+    """
+    label = str(layout.Name)
+    info = info or _paper_of(layout)
+    try:
+        outline = plan.frame_in(_area_box(info, anchor), margins)
+        at = plan.corner_point(outline, corner)
+    except ValueError as exc:
+        raise AutocadError(f"Sheet '{label}': {exc}") from exc
+    at = (at[0] + nudge[0], at[1] + nudge[1])
+
+    space = layout.Block
+    removed = 0
+    if replace_existing:
+        for existing in list(_references(space, block_name)):
+            try:
+                existing.Delete()
+                removed += 1
+            except BaseException:  # noqa: BLE001 - a locked layer, reported by count
+                pass
+
+    try:
+        reference = space.InsertBlock(
+            apoint(at[0], at[1], 0.0), block_name,
+            float(scale), float(scale), float(scale), rad(rotation),
+        )  # fmt: skip
+    except BaseException as exc:  # noqa: BLE001
+        raise AutocadError(
+            f"Sheet '{label}': AutoCAD would not insert '{shown_as}' ({com_message(exc)})."
+        ) from exc
+    if layer:
+        reference.Layer = layer.strip()
+
+    applied, missing = _fill_attributes(reference, values)
+    return {
+        "layout": label,
+        "handle": str(reference.Handle),
+        "block": str(_read(reference, "EffectiveName", "") or _read(reference, "Name", "") or shown_as),
+        "at": [round(at[0], 4), round(at[1], 4)],
+        "frame": [round(v, 4) for v in outline],
+        "attributes_set": applied,
+        "attributes_not_found": missing,
+        "replaced": removed,
+    }
 
 
 def _references(space: Any, block_name: str) -> list[Any]:
@@ -901,6 +1108,18 @@ async def autocad_add_viewport(
     layer: Annotated[str | None, Field(default=None, description="Layer for the viewport border, created if missing. A drafter puts it on a non-plotting layer such as 'G-VPRT'.")] = None,
     color: Annotated[str | StrictInt | None, Field(default=None, description="Colour of the viewport border.")] = None,
     coords: Annotated[str, COORDS_OPT] = "world",
+    clip_outline: Annotated[
+        list[list[float]] | None,
+        Field(default=None, description="Clip the viewport to this outline instead of a rectangle: its corners on the paper, [[x, y], ...], at least three, not crossing itself. The viewport is made the size of the box round it, and the outline is drawn on the viewport's layer. Done by Heron's plug-in."),
+    ] = None,
+    clip_handle: Annotated[
+        str | None,
+        Field(default=None, description="Clip the viewport to a closed polyline, circle, ellipse, spline or region already drawn on that sheet, by handle (what VPCLIP does). Done by Heron's plug-in."),
+    ] = None,
+    annotation_scale: Annotated[
+        str | None,
+        Field(default="match", description="The viewport's annotation scale, so annotative text and dimensions inside it show at the right size: 'match' (the default) uses the viewport's own scale, adding it to the drawing's scale list if missing; a scale name such as '1:50' uses that one; 'none' leaves AutoCAD's choice."),
+    ] = "match",
 ) -> str:
     """Cut a viewport in a sheet at a real scale, looking where you tell it.
 
@@ -929,13 +1148,17 @@ async def autocad_add_viewport(
         locked (bool): lock it (default true).
         layer (Optional[str]), color (Optional[str | int]): the border.
         coords (str): 'world' or 'ucs' for the drawing-space points.
+        clip_outline (Optional[list[list[float]]]): clip to these paper corners.
+        clip_handle (Optional[str]): clip to this closed shape on the sheet.
+        annotation_scale (Optional[str]): 'match', a scale name, or 'none'.
 
     Returns:
         str: JSON: {
           "created": true, "handle": str, "layout": str,
           "scale": "1:50", "scale_ratio": float, "fitted": bool,
           "paper_rect": [x1, y1, x2, y2], "model_window": [x1, y1, x2, y2],
-          "looking_at": [x, y], "twist_degrees": float, "locked": bool
+          "looking_at": [x, y], "twist_degrees": float, "locked": bool,
+          "clipped": bool, "annotation_scale": str, "made_by": "plugin" | "com"
         }
 
     Examples:
@@ -943,7 +1166,12 @@ async def autocad_add_viewport(
         - Use when: "same area I just plotted" — autocad_save_view first, then
           view_name here.
         - Use when: the plan is on a 23 degree grid — align_to_ucs=true.
+        - Use when: "clip the viewport to this L-shaped polyline" — clip_handle,
+          or clip_outline with the corners.
+        - Use when: annotative text must show at the viewport's scale — the
+          default annotation_scale='match' does it.
         - Don't use when: you want the whole sheet plotted (autocad_export).
+        - Don't use when: making a whole drawing list of sheets — autocad_sheet_set.
 
     Error Handling:
         - An area that will not fit the viewport at any standard scale says so
@@ -961,96 +1189,215 @@ async def autocad_add_viewport(
         doc = get_doc()
         require_idle(doc)
         sheet = _pick_layout(doc, layout)
-        info = _paper_of(sheet)
-        ucs = ucs_for(doc, coords)
-
-        # 1. Where on the paper.
-        if paper_centre and paper_width and paper_height:
-            if len(paper_centre) < 2:
-                raise AutocadError("paper_centre needs [x, y] in paper units.")
-            cx, cy = float(paper_centre[0]), float(paper_centre[1])
-            pw, ph = float(paper_width), float(paper_height)
-            paper_rect = (cx - pw / 2.0, cy - ph / 2.0, cx + pw / 2.0, cy + ph / 2.0)
-        else:
-            try:
-                area = _area_box(info, "printable")
-                outline = plan.frame(*plan.size_of(area), margins)
-                outline = (outline[0] + area[0], outline[1] + area[1], outline[2] + area[0], outline[3] + area[1])
-                if title_block_width:
-                    outline = plan.reserve(outline, "right", float(title_block_width))
-                paper_rect = plan.inset(outline, gap) if gap else outline
-            except ValueError as exc:
-                raise AutocadError(
-                    f"The viewport could not be fitted to sheet '{sheet.Name}': {exc}. Give "
-                    "paper_centre, paper_width and paper_height instead."
-                ) from exc
-            cx, cy = plan.centre_of(paper_rect)
-            pw, ph = plan.size_of(paper_rect)
-
-        # 2. Where to look, in world coordinates.
-        model_box, look_at = _target_area(doc, centre, corner1, corner2, view_name, handles, ucs)
-
-        # 3. The twist, and the area a twisted view has to cover. A viewport's
-        #    twist is its view rotation against the world (VIEWTWIST), and a
-        #    plan view of a UCS turned 23 degrees carries a twist of 23 - which
-        #    is what makes a plan drawn on that grid read upright. An explicit
-        #    twist wins over align_to_ucs.
-        if twist is not None:
-            angle = float(twist)
-        elif align_to_ucs:
-            angle = current_ucs(doc).rotation_degrees
-        else:
-            angle = 0.0
-        fitting_box = rotated_box(model_box, angle) if angle and model_box else model_box
-
-        # 4. The scale.
-        fitted = scale is None
-        if fitted:
-            if not fitting_box:
-                raise AutocadError(
-                    "Without a scale there has to be an area to fit: give corner1/corner2, "
-                    "view_name or handles, or name the scale."
-                )
-            try:
-                text, ratio = plan.fit_scale(fitting_box, pw, ph)
-            except ValueError as exc:
-                raise AutocadError(str(exc)) from exc
-        else:
-            ratio = plan.parse_typed_scale(scale)
-            text = plan.scale_text(ratio)
-
-        window = plan.model_window(look_at, pw, ph, ratio)
-
         with undo_mark(doc):
-            if layer:
-                ensure_layer(doc, layer)
-            _activate(doc, sheet)
-            viewport = _new_viewport(doc, str(sheet.Name), cx, cy, pw, ph)
-            if layer:
-                viewport.Layer = layer.strip()
-            if aci is not None:
-                viewport.Color = aci
-
-            notes = _aim(doc, viewport, window, angle, ratio, locked)
-
-        result: dict[str, Any] = {
-            "created": True,
-            "handle": str(viewport.Handle),
-            "layout": str(sheet.Name),
-            "scale": text,
-            "scale_ratio": round(ratio, 9),
-            "fitted": fitted,
-            "paper_rect": [round(v, 4) for v in paper_rect],
-            "model_window": [round(v, 4) for v in window],
-            "looking_at": [round(look_at[0], 4), round(look_at[1], 4)],
-            "twist_degrees": round(angle % 360.0, 6),
-            "locked": bool(locked),
-            "layer": str(_try(lambda: viewport.Layer, "") or ""),
-        }
-        result.update(notes)
-        return result
+            return make_viewport(
+                doc, sheet, scale=scale, centre=centre, corner1=corner1, corner2=corner2,
+                view_name=view_name, handles=handles, paper_centre=paper_centre,
+                paper_width=paper_width, paper_height=paper_height, margins=margins,
+                title_block_width=title_block_width, gap=gap, twist=twist,
+                align_to_ucs=align_to_ucs, locked=locked, layer=layer, aci=aci, coords=coords,
+                clip_outline=clip_outline, clip_handle=clip_handle,
+                annotation_scale=annotation_scale,
+            )  # fmt: skip
 
     return dumps(await run(work))
+
+
+def _annotation_name(annotation_scale: str | None, scale_name: str) -> str | None:
+    """The annotation scale to give a viewport: its own for 'match', none for 'none'."""
+    text = str(annotation_scale or "").strip()
+    if not text or text.lower() in ("none", "off", "no"):
+        return None
+    if text.lower() in ("match", "same", "viewport"):
+        return scale_name
+    return text
+
+
+def make_viewport(
+    doc: Any,
+    sheet: Any,
+    *,
+    scale: str | float | None = None,
+    centre: list[float] | None = None,
+    corner1: list[float] | None = None,
+    corner2: list[float] | None = None,
+    view_name: str | None = None,
+    handles: list[str] | None = None,
+    paper_centre: list[float] | None = None,
+    paper_width: float | None = None,
+    paper_height: float | None = None,
+    margins: Any = None,
+    title_block_width: float | None = None,
+    gap: float = 0.0,
+    twist: float | None = None,
+    align_to_ucs: bool = False,
+    locked: bool = True,
+    layer: str | None = None,
+    aci: int | None = None,
+    coords: str = "world",
+    clip_outline: list[list[float]] | None = None,
+    clip_handle: str | None = None,
+    annotation_scale: str | None = "match",
+    info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """One viewport on one sheet, by the plug-in when it can (#64, #65, D-90), else over COM.
+
+    Everything is worked out here first, from reads only: where on the paper,
+    where it looks, the twist, the scale. Then one write. No undo mark of its
+    own (autocad_sheet_set holds one round many sheets).
+    """
+    info = info or _paper_of(sheet)
+    ucs = ucs_for(doc, coords)
+    sheet_name = str(sheet.Name)
+
+    if clip_outline and clip_handle:
+        raise AutocadError("Clip to clip_outline or to clip_handle, not both.")
+    outline = None
+    if clip_outline:
+        try:
+            outline = plan.clip_outline(clip_outline)
+        except ValueError as exc:
+            raise AutocadError(f"The clip outline will not do: {exc}.") from exc
+    clip_box = None
+    if outline is not None:
+        clip_box = tuple(outline["box"])
+    elif clip_handle:
+        shape = resolve_handles(doc, [clip_handle])[0]
+        found = bounding_box(shape)
+        if not found:
+            raise AutocadError(f"{clip_handle} reports no extents, so a viewport cannot be clipped to it.")
+        clip_box = (found["min"][0], found["min"][1], found["max"][0], found["max"][1])
+    if clip_box is not None and (paper_centre or paper_width or paper_height):
+        raise AutocadError(
+            "A clipped viewport takes its place on the paper from the clip outline. Leave out "
+            "paper_centre, paper_width and paper_height."
+        )
+
+    # 1. Where on the paper.
+    if clip_box is not None:
+        paper_rect = clip_box
+        cx, cy = plan.centre_of(paper_rect)
+        pw, ph = plan.size_of(paper_rect)
+        if pw <= 0 or ph <= 0:
+            raise AutocadError("The clip outline has no width or no height on the paper.")
+    elif paper_centre and paper_width and paper_height:
+        if len(paper_centre) < 2:
+            raise AutocadError("paper_centre needs [x, y] in paper units.")
+        cx, cy = float(paper_centre[0]), float(paper_centre[1])
+        pw, ph = float(paper_width), float(paper_height)
+        paper_rect = (cx - pw / 2.0, cy - ph / 2.0, cx + pw / 2.0, cy + ph / 2.0)
+    else:
+        try:
+            outline_box = plan.frame_in(_area_box(info, "printable"), margins)
+            if title_block_width:
+                outline_box = plan.reserve(outline_box, "right", float(title_block_width))
+            paper_rect = plan.inset(outline_box, gap) if gap else outline_box
+        except ValueError as exc:
+            raise AutocadError(
+                f"The viewport could not be fitted to sheet '{sheet_name}': {exc}. Give "
+                "paper_centre, paper_width and paper_height instead."
+            ) from exc
+        cx, cy = plan.centre_of(paper_rect)
+        pw, ph = plan.size_of(paper_rect)
+
+    # 2. Where to look, in world coordinates.
+    model_box, look_at = _target_area(doc, centre, corner1, corner2, view_name, handles, ucs)
+
+    # 3. The twist, and the area a twisted view has to cover. A viewport's
+    #    twist is its view rotation against the world (VIEWTWIST), and a
+    #    plan view of a UCS turned 23 degrees carries a twist of 23 - which
+    #    is what makes a plan drawn on that grid read upright. An explicit
+    #    twist wins over align_to_ucs.
+    if twist is not None:
+        angle = float(twist)
+    elif align_to_ucs:
+        angle = current_ucs(doc).rotation_degrees
+    else:
+        angle = 0.0
+    fitting_box = rotated_box(model_box, angle) if angle and model_box else model_box
+
+    # 4. The scale.
+    fitted = scale is None
+    if fitted:
+        if not fitting_box:
+            raise AutocadError(
+                "Without a scale there has to be an area to fit: give corner1/corner2, "
+                "view_name or handles, or name the scale."
+            )
+        try:
+            text, ratio = plan.fit_scale(fitting_box, pw, ph)
+        except ValueError as exc:
+            raise AutocadError(str(exc)) from exc
+    else:
+        ratio = plan.parse_typed_scale(scale)
+        text = plan.scale_text(ratio)
+
+    window = plan.model_window(look_at, pw, ph, ratio)
+    annotation = _annotation_name(annotation_scale, text)
+
+    result: dict[str, Any] = {
+        "created": True,
+        "layout": sheet_name,
+        "scale": text,
+        "scale_ratio": round(ratio, 9),
+        "fitted": fitted,
+        "paper_rect": [round(v, 4) for v in paper_rect],
+        "model_window": [round(v, 4) for v in window],
+        "looking_at": [round(look_at[0], 4), round(look_at[1], 4)],
+        "twist_degrees": round(angle % 360.0, 6),
+        "locked": bool(locked),
+    }
+
+    report, why_not = by_plugin(
+        "add_viewport",
+        {
+            "layout": sheet_name, "paper_centre": [cx, cy], "paper_width": pw, "paper_height": ph,
+            "look_at": [look_at[0], look_at[1]], "twist": angle % 360.0, "scale_ratio": ratio,
+            "locked": bool(locked), "layer": layer.strip() if layer else None, "color": aci,
+            "clip_outline": [v for corner in outline["points"] for v in corner] if outline else None,
+            "clip_handle": clip_handle.strip() if clip_handle else None,
+            "annotation_scale": annotation,
+        },
+        "Adding the viewport",
+    )  # fmt: skip
+    if report is not None:
+        result["handle"] = str(report.get("handle", ""))
+        result["layer"] = str(report.get("layer", ""))
+        result["scale_set"] = report.get("scale_set", round(ratio, 9))
+        result["clipped"] = bool(report.get("clipped", False))
+        for key in ("clip_handle", "annotation_scale", "annotation_scale_added", "annotation_scale_note"):
+            if key in report:
+                result[key] = report[key]
+        result["made_by"] = "plugin"
+        if not result["handle"]:
+            result["warning"] = (
+                "Heron in AutoCAD made the viewport but gave no handle back. Look at the sheet "
+                "before making it again."
+            )
+        return result
+
+    if clip_box is not None:
+        raise AutocadError(
+            "Clipping a viewport to an outline is done by Heron's plug-in in AutoCAD, and it "
+            f"could not be asked ({why_not}) Nothing was made: leave the clip out for a "
+            "rectangular viewport, or update and connect Heron."
+        )
+    if layer:
+        ensure_layer(doc, layer)
+    _activate(doc, sheet)
+    viewport = _new_viewport(doc, sheet_name, cx, cy, pw, ph)
+    if layer:
+        viewport.Layer = layer.strip()
+    if aci is not None:
+        viewport.Color = aci
+    notes = _aim(doc, viewport, window, angle, ratio, locked, annotation)
+    result["handle"] = str(viewport.Handle)
+    result["layer"] = str(_try(lambda: viewport.Layer, "") or "")
+    result["clipped"] = False
+    result.update(notes)
+    result["made_by"] = "com"
+    result["plugin_note"] = why_not
+    return result
 
 
 def _target_area(
@@ -1204,7 +1551,13 @@ def _new_viewport(doc: Any, sheet_name: str, cx: float, cy: float, pw: float, ph
 
 
 def _aim(
-    doc: Any, viewport: Any, window: plan.Box, twist: float, ratio: float, locked: bool
+    doc: Any,
+    viewport: Any,
+    window: plan.Box,
+    twist: float,
+    ratio: float,
+    locked: bool,
+    annotation: str | None = None,
 ) -> dict[str, Any]:
     """Point a viewport at a drawing area, pin its scale, and lock it.
 
@@ -1229,6 +1582,16 @@ def _aim(
     if _write(doc, "MSpace", True):
         _write(doc, "ActivePViewport", viewport)
         _try(lambda: doc.Application.ZoomWindow(apoint(window[0], window[1]), apoint(window[2], window[3])))
+        if annotation:
+            # Inside a viewport, CANNOSCALE is that viewport's annotation scale.
+            # COM has no other way to it; the scale must be in the drawing's list.
+            if _try(lambda: doc.SetVariable("CANNOSCALE", annotation) or True, False):
+                notes["annotation_scale"] = annotation
+            else:
+                notes["annotation_scale_note"] = (
+                    f"AutoCAD would not set the viewport's annotation scale to {annotation}: it may "
+                    "not be in the drawing's scale list (SCALELISTEDIT). Set it from the status bar."
+                )
         _write(doc, "MSpace", False)
     else:
         notes["aim_note"] = (

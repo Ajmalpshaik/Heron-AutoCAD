@@ -369,3 +369,289 @@ def sheet_plan(
         "title_block_at": [round(v, 4) for v in corner_point(outline, "bottom-right")],
         "drawing_space_size": [round(v, 4) for v in size_of(space)],
     }
+
+
+# ---------------------------------------------------------------------------
+# A layout's paper, from the numbers AutoCAD gives (COM or the plug-in)
+# ---------------------------------------------------------------------------
+
+PLOT_ROTATIONS_DEGREES = (0, 90, 180, 270)
+
+
+def paper_info(
+    size: Sequence[float],
+    margins: Sequence[float] | None = None,
+    media: str = "",
+    plotter: str = "",
+    rotation_degrees: int = 0,
+) -> dict[str, Any]:
+    """The facts about a layout's sheet, in the one shape every sheet tool reads.
+
+    ``size`` is the sheet (width, height); ``margins`` the unprintable strip on
+    each side as (left, bottom, right, top). Paper-space (0, 0) is the lower
+    left of the printable area, so the printable rectangle starts there and is
+    the sheet less both margins.
+    """
+    width, height = float(size[0]), float(size[1])
+    if width <= 0.0 or height <= 0.0:
+        raise ValueError("a sheet with no size")
+    left, bottom, right, top = (float(v) for v in (margins or (0.0, 0.0, 0.0, 0.0)))
+    return {
+        "media": str(media or ""),
+        "plotter": str(plotter or ""),
+        "paper": [round(width, 4), round(height, 4)],
+        "margins": [round(left, 4), round(bottom, 4), round(right, 4), round(top, 4)],
+        "printable": [0.0, 0.0, round(width - left - right, 4), round(height - bottom - top, 4)],
+        "plot_rotation_degrees": int(rotation_degrees)
+        if int(rotation_degrees) in PLOT_ROTATIONS_DEGREES
+        else 0,
+    }
+
+
+def area_box(info: dict[str, Any], anchor: str = "printable") -> Box:
+    """The rectangle to work inside: the printable area, or the whole sheet."""
+    if str(anchor).strip().lower() == "paper":
+        low_x, low_y, _, _ = info["margins"]
+        width, height = info["paper"]
+        # The printable area is inset by the lower-left margin, so the sheet
+        # corner is that much below and to the left of paper-space (0, 0).
+        return (-low_x, -low_y, width - low_x, height - low_y)
+    return tuple(info["printable"])  # type: ignore[return-value]
+
+
+def frame_in(area: Box, margins: Sequence[float] | None = None) -> Box:
+    """The drawing frame inside an area, in the area's own coordinates."""
+    outline = frame(*size_of(area), margins)
+    return (outline[0] + area[0], outline[1] + area[1], outline[2] + area[0], outline[3] + area[1])
+
+
+# ---------------------------------------------------------------------------
+# A viewport clipped to an outline (#65)
+# ---------------------------------------------------------------------------
+
+MOST_CLIP_CORNERS = 500
+
+
+def clip_outline(points: Sequence[Sequence[float]]) -> dict[str, Any]:
+    """A clip outline checked and closed, with the box round it.
+
+    VPCLIP takes any closed shape that does not cross itself. Corners are
+    [x, y] on the paper; a last corner that repeats the first is dropped, and
+    so is a corner given twice in a row. Returns {"points", "box", "area"};
+    the viewport is made the size of the box and clipped to the outline.
+    """
+    clean: list[tuple[float, float]] = []
+    for index, corner in enumerate(points or ()):
+        if not isinstance(corner, (list, tuple)) or len(corner) < 2:
+            raise ValueError(f"clip corner {index + 1} is not [x, y]")
+        x, y = float(corner[0]), float(corner[1])
+        if not (math.isfinite(x) and math.isfinite(y)):
+            raise ValueError(f"clip corner {index + 1} is not a number")
+        if clean and _same(clean[-1], (x, y)):
+            continue
+        clean.append((x, y))
+    if len(clean) > 1 and _same(clean[0], clean[-1]):
+        clean.pop()
+    if len(clean) < 3:
+        raise ValueError("a clip outline needs at least three different corners")
+    if len(clean) > MOST_CLIP_CORNERS:
+        raise ValueError(f"a clip outline takes at most {MOST_CLIP_CORNERS} corners")
+    area = _signed_area(clean)
+    if abs(area) < 1e-9:
+        raise ValueError("that clip outline has no area: its corners are on one line")
+    crossing = _first_crossing(clean)
+    if crossing is not None:
+        a, b = crossing
+        raise ValueError(
+            f"that clip outline crosses itself (side {a + 1} crosses side {b + 1}); "
+            "AutoCAD clips only to an outline that does not"
+        )
+    box = (
+        min(p[0] for p in clean),
+        min(p[1] for p in clean),
+        max(p[0] for p in clean),
+        max(p[1] for p in clean),
+    )
+    return {
+        "points": [[round(x, 6), round(y, 6)] for x, y in clean],
+        "box": [round(v, 6) for v in box],
+        "area": round(abs(area), 6),
+    }
+
+
+def _same(a: tuple[float, float], b: tuple[float, float]) -> bool:
+    return abs(a[0] - b[0]) < 1e-9 and abs(a[1] - b[1]) < 1e-9
+
+
+def _signed_area(points: Sequence[tuple[float, float]]) -> float:
+    total = 0.0
+    for i, (x1, y1) in enumerate(points):
+        x2, y2 = points[(i + 1) % len(points)]
+        total += x1 * y2 - x2 * y1
+    return total / 2.0
+
+
+def _cross(o: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> float:
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def _on_segment(p: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> bool:
+    return (
+        min(a[0], b[0]) - 1e-9 <= p[0] <= max(a[0], b[0]) + 1e-9
+        and min(a[1], b[1]) - 1e-9 <= p[1] <= max(a[1], b[1]) + 1e-9
+    )
+
+
+def _segments_meet(
+    p1: tuple[float, float], p2: tuple[float, float], q1: tuple[float, float], q2: tuple[float, float]
+) -> bool:
+    d1, d2 = _cross(q1, q2, p1), _cross(q1, q2, p2)
+    d3, d4 = _cross(p1, p2, q1), _cross(p1, p2, q2)
+    if ((d1 > 1e-9 and d2 < -1e-9) or (d1 < -1e-9 and d2 > 1e-9)) and (
+        (d3 > 1e-9 and d4 < -1e-9) or (d3 < -1e-9 and d4 > 1e-9)
+    ):
+        return True
+    return (
+        (abs(d1) <= 1e-9 and _on_segment(p1, q1, q2))
+        or (abs(d2) <= 1e-9 and _on_segment(p2, q1, q2))
+        or (abs(d3) <= 1e-9 and _on_segment(q1, p1, p2))
+        or (abs(d4) <= 1e-9 and _on_segment(q2, p1, p2))
+    )
+
+
+def _first_crossing(points: Sequence[tuple[float, float]]) -> tuple[int, int] | None:
+    """The first two sides of a closed outline that meet, other than neighbours at their shared corner."""
+    count = len(points)
+    for i in range(count):
+        a1, a2 = points[i], points[(i + 1) % count]
+        for j in range(i + 1, count):
+            if j == i + 1 or (i == 0 and j == count - 1):
+                continue  # neighbours share a corner
+            b1, b2 = points[j], points[(j + 1) % count]
+            if _segments_meet(a1, a2, b1, b2):
+                return i, j
+    return None
+
+
+# ---------------------------------------------------------------------------
+# A drawing list made into sheets (#66)
+# ---------------------------------------------------------------------------
+
+MOST_SHEETS = 200
+_LAYOUT_BAD = set('<>/\\":;?*|,=`')
+
+
+def plan_sheet_set(
+    rows: Sequence[dict[str, Any]],
+    existing_layouts: Sequence[str] = (),
+    saved_views: Sequence[str] | None = None,
+) -> list[dict[str, Any]]:
+    """A drawing list checked and turned into one plan per sheet.
+
+    Each row is a sheet: ``number`` (the layout name, e.g. 'M-101'), an
+    optional ``title``, ``scale`` and where its viewport looks — a saved
+    ``view``, ``corner1``/``corner2``, ``handles`` or a ``centre`` (which needs
+    a scale). A row with none of those gets a sheet and a title block but no
+    viewport (a cover or a legend sheet). Every problem in the list is said at
+    once, before anything is made: a name used twice or already in the drawing,
+    a scale nobody can read, a view the drawing does not have.
+    """
+    if not rows:
+        raise ValueError("the drawing list is empty: give one row per sheet")
+    if len(rows) > MOST_SHEETS:
+        raise ValueError(f"one call makes at most {MOST_SHEETS} sheets; split the list")
+    taken = {str(name).strip().lower() for name in existing_layouts}
+    views = None if saved_views is None else {str(v).strip().lower(): str(v) for v in saved_views}
+    problems: list[str] = []
+    seen: dict[str, int] = {}
+    plans: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, start=1):
+        number = str(row.get("number") or "").strip()
+        label = f"row {index}" + (f" ({number})" if number else "")
+        if not number:
+            problems.append(f"{label} has no sheet number")
+            continue
+        if any(ch in _LAYOUT_BAD for ch in number) or len(number) > 255:
+            problems.append(f"{label}: '{number}' cannot be a layout name (no < > / \\ \" : ; ? * | , = `)")
+        if number.lower() == "model":
+            problems.append(f"{label}: 'Model' is model space, not a sheet")
+        key = number.lower()
+        if key in seen:
+            problems.append(f"{label}: sheet number '{number}' is also row {seen[key]}")
+        else:
+            seen[key] = index
+        if key in taken:
+            problems.append(f"{label}: the drawing already has a layout called '{number}'")
+
+        ratio: float | None = None
+        scale = row.get("scale")
+        if scale not in (None, ""):
+            try:
+                ratio = parse_typed_scale(scale)
+            except ValueError as exc:
+                problems.append(f"{label}: {exc}")
+
+        aims = [k for k in ("view", "corner1", "handles", "centre") if row.get(k) not in (None, "", [])]
+        if len(aims) > 1:
+            problems.append(f"{label}: give one of view, corner1/corner2, handles or centre, not {' and '.join(aims)}")
+        aim = aims[0] if aims else None
+        if aim == "corner1" and not row.get("corner2"):
+            problems.append(f"{label}: corner1 needs corner2")
+        if row.get("corner2") and not row.get("corner1"):
+            problems.append(f"{label}: corner2 needs corner1")
+        if aim == "centre" and ratio is None:
+            problems.append(f"{label}: a centre needs a scale, or give an area to fit instead")
+        view = None
+        if aim == "view":
+            view = str(row["view"]).strip()
+            if views is not None and view.lower() not in views:
+                problems.append(f"{label}: this drawing has no saved view called '{view}'")
+            elif views is not None:
+                view = views[view.lower()]
+
+        attributes = row.get("attributes") or {}
+        if not isinstance(attributes, dict):
+            problems.append(f"{label}: attributes must be tag: value pairs")
+            attributes = {}
+        plans.append(
+            {
+                "number": number,
+                "title": str(row.get("title") or "").strip(),
+                "scale": scale_text(ratio) if ratio is not None else None,
+                "scale_ratio": ratio,
+                "aim": aim,
+                "view": view,
+                "corner1": row.get("corner1"),
+                "corner2": row.get("corner2"),
+                "handles": row.get("handles"),
+                "centre": row.get("centre"),
+                "twist": row.get("twist"),
+                "paper_size": row.get("paper_size"),
+                "orientation": row.get("orientation"),
+                "attributes": {str(k): str(v) for k, v in attributes.items()},
+            }
+        )
+    if problems:
+        raise ValueError("the drawing list has problems, nothing was made: " + "; ".join(problems) + ".")
+    return plans
+
+
+def title_block_values(
+    plan_row: dict[str, Any],
+    common: dict[str, str] | None,
+    number_tag: str | None,
+    title_tag: str | None,
+    scale_tag: str | None,
+    fitted_scale: str | None = None,
+) -> dict[str, str]:
+    """The attributes one sheet's title block gets: the common ones, then its number, title and scale, then its own."""
+    values = {str(k).strip().upper(): str(v) for k, v in (common or {}).items()}
+    if number_tag:
+        values[number_tag.strip().upper()] = plan_row["number"]
+    if title_tag and plan_row.get("title"):
+        values[title_tag.strip().upper()] = plan_row["title"]
+    scale = plan_row.get("scale") or fitted_scale
+    if scale_tag and scale:
+        values[scale_tag.strip().upper()] = scale
+    values.update({str(k).strip().upper(): str(v) for k, v in (plan_row.get("attributes") or {}).items()})
+    return values
