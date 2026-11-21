@@ -4,7 +4,7 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
-- **The drawing tools (2026-11-21, #50, #51, #52, #55, #56).** One new tool, **176** in all (with the 2D edits and 3D for MEP).
+- **The drawing tools (2026-11-21, #50, #51, #52, #55, #56).** One new tool, **180** in all (with the other sessions' tools).
   `coords="ucs"` on every `autocad_draw_*` tool, text, mtext, dimensions and blocks, and move, copy,
   rotate, scale, mirror and array: points, vertex lists and angles are read in the modeller's own
   UCS, a rectangle comes out square to it, a horizontal dimension measures along its X. A flipped
@@ -17,6 +17,13 @@ Newest first. Dates are when the change was made.
   (`method="control_points"`, `degree`), and the new `autocad_edit_spline` moves, inserts and
   removes a spline's fit points. Three new plug-in operations ([D-97](docs/DECISIONS.md)). Live rows
   AI1-AI14 NOT RUN.
+
+- **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
+  part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
+  (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter
+  and centre), `autocad_add_donut` (DONUT's closed polyline with width, Heron's maths, many centres
+  in one undo step) and `autocad_divide_curve` (DIVIDE or MEASURE with points or a block, Heron's
+  maths) ([D-108](docs/DECISIONS.md)). Live rows AP1-AP11 NOT RUN.
 
 - **A preview of a full sheet (2026-11-21, #41).** `autocad_preview` now says the area it plotted
   (`plotted`, extents refreshed first), its `pixels` and the smallest text that reads

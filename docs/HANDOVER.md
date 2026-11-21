@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (the drawing tools: #50, #51, #52, #55, #56; D-96, D-97)
 
-One new tool (**176** in all, with the 2D edits and 3D for MEP): `autocad_edit_spline`. `coords="ucs"` on the single-entity draw and
+One new tool (**180** in all, with the other sessions' tools): `autocad_edit_spline`. `coords="ucs"` on the single-entity draw and
 modify tools; `mtext`, `hatch` (solid) and `dimension` (linear) in `autocad_batch_draw`; `filled=true`
 on four symbol shapes; `autocad_break_at_blocks` cuts arcs; `autocad_draw_multiline(closed=true)`
 mitres its last corner; `autocad_draw_spline(method="control_points")`. Three new plug-in
@@ -22,6 +22,19 @@ bumped here (the parent does it).
 live rows **AI1-AI14**. AI4 decides whether an entmade solid hatch lands (if it does, `filled` could
 become the default on the symbol shapes); AI11 says how AutoCAD shows a closed control-point
 spline; AI12 says whether `insert` at the count adds after the last fit point.
+
+## Earlier - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
+
+Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+(xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
+`autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
+(DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
+`tests/test_draw_extra.py`. Server only, no plug-in change. #119 stays open for its parts 2 and 3.
+
+**Next (on this PC):** pull, restart Claude, then live rows AP1-AP10. AP2 (does AddRegion keep the
+outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
+when counted from the end) are the answers the code could not get from Autodesk's reference. Not
+built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
 
 ## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
 
