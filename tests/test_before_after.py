@@ -11,7 +11,15 @@ import json
 
 import pytest
 
-from autocad_mcp.tools import _shared, document, layers, modify, takeoff, text_tools
+from autocad_mcp.tools import (
+    _shared,
+    document,
+    layers,
+    modify,
+    settings,
+    takeoff,
+    text_tools,
+)
 
 
 class Doc:
@@ -79,7 +87,7 @@ def doc(monkeypatch):
     async def now(fn):
         return fn()
 
-    for module in (modify, layers, document, takeoff, text_tools):
+    for module in (modify, layers, document, settings, takeoff, text_tools):
         monkeypatch.setattr(module, "run", now, raising=False)
         monkeypatch.setattr(module, "get_doc", lambda: fake, raising=False)
         monkeypatch.setattr(module, "require_idle", lambda d: None, raising=False)
@@ -227,4 +235,13 @@ def test_set_dynamic_properties_lists_old_and_new_and_skips_equal_values(doc, mo
     result = answer(takeoff.autocad_set_dynamic_properties(handle="7A", values={"Width": 900, "visibility1": "LEFT"}))
     assert result["before_after"] == [{"handle": "7A", "property": "Width", "from": 800.0, "to": 900.0}]
     assert result["already"] == ["Visibility1"]
+    assert doc.groups == 1
+
+
+def test_drawing_setup_with_nothing_to_change_opens_no_undo_step(doc):
+    result = answer(settings.autocad_drawing_setup(dimscale=50))
+    assert result["unchanged"] == ["DIMSCALE"] and result["before_after"] == []
+    assert doc.groups == 0
+    changed = answer(settings.autocad_drawing_setup(dimscale=100))
+    assert changed["before_after"] == [{"variable": "DIMSCALE", "property": "value", "from": 50.0, "to": 100.0}]
     assert doc.groups == 1

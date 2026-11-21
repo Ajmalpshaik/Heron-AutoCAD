@@ -226,3 +226,25 @@ yet is also re-run for up to 10 s. What is left:
   A "timed out" that says AutoCAD stayed busy means the expression was sent and probably ran.
 
 All three are NOT RUN live (NEEDS-CHECKING group Q).
+
+## 25. A job that changed nothing may still leave an undo step
+
+Heron for Revit takes back a kept job that changed nothing, so its undo list gets no blank entry
+(its D-160). In AutoCAD this is only partly done ([D-62](DECISIONS.md), issue #80):
+- **Where an empty step could come from.** The plug-in opens no undo group of its own; reads leave
+  none at all ([D-34](DECISIONS.md)). The groups come from the server: each change tool opens one
+  (`StartUndoMark` / `EndUndoMark`) around its writes, and with Ask to Keep on, or for a dry run, the
+  gate puts an `UNDO _Mark` down first ([D-18](DECISIONS.md)).
+- **Fixed.** The tools that most often have nothing to do now look first and write only what
+  differs: `autocad_modify_entity`, `autocad_set_attributes`, `autocad_find_replace_text`,
+  `autocad_set_dynamic_properties`, the layer tools, `autocad_set_variable` and
+  `autocad_drawing_setup`. Asked for what is already there, they open no group, and the answer says
+  `NOTHING CHANGED`.
+- **Not fixed.** Other change tools open their group before they know there is nothing to do, and
+  with Ask to Keep on Heron's mark stays in the list for a job that wrote nothing. Whether AutoCAD
+  keeps an entry for an empty group, or for a mark with nothing after it, is not known: it has not
+  been checked in AutoCAD (NEEDS-CHECKING T7).
+- **Why it is not taken back afterwards.** Taking an entry out means one more `UNDO`. If AutoCAD
+  kept no entry, that `UNDO` undoes the modeller's own last change instead. And the plug-in counts
+  drawing objects only, so "counted nothing" is not proof: a layer or a variable may have changed.
+  Until T7 says what AutoCAD does, Heron does not guess.

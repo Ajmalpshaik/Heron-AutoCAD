@@ -176,6 +176,11 @@ naming the object (`handle`, or `layer` / `variable`), the `property`, `from` an
 then `before_after_more` counts the rest. They read each value first and write only what differs, so
 asking for what is already there writes nothing and leaves no undo step; an empty `before_after`
 then lets the line say NOTHING CHANGED even for a layer or a variable, which the count cannot see.
+**No empty undo step** (issue #80, Revit's D-160): only that part is done. A kept job that changed
+nothing is not taken back afterwards, because whether AutoCAD keeps an entry for an empty undo group
+or a lone mark is not known; one more `UNDO` would then undo the modeller's own last change. Written
+up in [05 §25](05-known-limits.md#25-a-job-that-changed-nothing-may-still-leave-an-undo-step), live
+row T7.
 
 ## D-61 - A chat reopened after a restart keeps its hold
 
