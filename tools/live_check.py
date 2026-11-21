@@ -1319,7 +1319,7 @@ BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, wh
 # S were written before the runner covered them.
 RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
-    "AG", "AJ", "RV",
+    "AG", "AJ", "AM", "AP", "RV",
 )
 
 CHANGES_OFF = (
