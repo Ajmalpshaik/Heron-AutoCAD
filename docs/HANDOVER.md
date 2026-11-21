@@ -8,7 +8,21 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+## Latest - 2026-11-21 (sheets by the plug-in: #64-#67, #39, #40; D-90, D-91)
+
+One new tool, `autocad_sheet_set` (**170** with the 2D edits and the other sessions' work), and three new
+plug-in operations (`create_layout`, `add_viewport`, `active_sheet`); `publish_pdf` takes a list
+of drawings. `autocad_create_layout` and `autocad_add_viewport` ask the plug-in first and fall back
+to COM; viewports clip (`clip_outline`, `clip_handle`) and take an annotation scale; title blocks go
+into the layout's own block; `autocad_status` no longer fails on a sheet tab; `autocad_publish_pdf`
+takes `folder` / `drawings`. Compiled for all three builds and checked offline only; the plug-in
+version is not bumped here (the parent does it). #39 and #40 stay open until their live rows run.
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then live
+rows **AF1-AF15**. AF9 decides whether the sheet set really is one undo step; AF6 checks which way a
+viewport twist turns (the same in the old COM path); AF10 is row D33 again.
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
 Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /

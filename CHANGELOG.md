@@ -4,6 +4,20 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Sheets by the plug-in, a drawing list in one call, one PDF of many drawings (2026-11-21, #64-#67, #39, #40).**
+  `autocad_create_layout` and `autocad_add_viewport` are now done by the plug-in in .NET, so neither
+  touches `doc.PaperSpace`, which threw on a sheet tab; COM is the fallback for an older plug-in
+  (`made_by` says which), and over COM a busy moment after the layout is added is answered from
+  the drawing read back instead of "Outcome unknown". `copy_from` copies a sheet with everything on
+  it. Viewports can be **clipped** to an outline or a closed shape on the sheet, and get their
+  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**170** in all):
+  a drawing list (number, title, scale, view) into sheets, viewports and filled title blocks, checked
+  whole first, one undo step. `autocad_publish_pdf` takes a **folder** or a **list of drawings**,
+  refusing an unsaved one or a missing xref by name. Title blocks go into the layout's own block;
+  `autocad_status` names a fact it cannot read instead of failing on a sheet tab; `space="paper"`
+  falls back to the active layout's block. Three new plug-in operations
+  ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). Live rows AF1-AF16 NOT RUN.
+
 - **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
   all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
   `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,

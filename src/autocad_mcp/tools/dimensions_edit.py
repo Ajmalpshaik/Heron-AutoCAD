@@ -23,7 +23,7 @@ from typing import Annotated, Any
 from pydantic import Field
 
 from ..acad.entities import resolve_handles, short_type
-from ..core.connection import get_doc, require_idle, run
+from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import before_after, in_plugin
@@ -283,7 +283,8 @@ async def autocad_space_dimensions(
 def _space_of(doc: Any) -> tuple[Any, str]:
     """Where a typed command picks objects: model space on the Model tab or in an active viewport."""
     in_model = int(_try(lambda: doc.ActiveSpace, 1)) == 1 or bool(_try(lambda: doc.MSpace, False))
-    return (doc.ModelSpace, "model") if in_model else (doc.PaperSpace, "paper")
+    # get_space: doc.PaperSpace can throw on a sheet tab; the layout's block answers (#169).
+    return (doc.ModelSpace, "model") if in_model else (get_space(doc, "paper"), "paper")
 
 
 def _wait_done(doc: Any) -> bool:

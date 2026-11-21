@@ -41,6 +41,11 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // Sheets made in .NET, so neither needs doc.PaperSpace (#64, D-90); the
+            // active sheet's own count for autocad_status (#39).
+            ["active_sheet"] = Risk.Read,
+            ["create_layout"] = Risk.Change,
+            ["add_viewport"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

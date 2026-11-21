@@ -668,6 +668,34 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC15 | Same, with a handle from plan.dwg, and with `source='plan'` | Refused before anything is copied: the wrong handle is named; the active drawing as source points at `autocad_copy_entities` | NOT RUN |
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 
+## Group AF - Sheets by the plug-in: layouts, viewports, clip, annotation scale, drawing list, PDF of many drawings (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-90](DECISIONS.md), [D-91](DECISIONS.md); issues #64-#67, #39, #40). Built and
+tested offline only (`tests/test_sheets_plugin.py`, `tests/test_sheet_arithmetic.py`,
+`SheetMathTests.cs`); the add-in **compiles** for all three AutoCAD builds. Needs the plug-in built
+from this change (three new operations, and `publish_pdf` taking drawings) and a server restart.
+Use a drawing with saved views of a plan, a title block with DWG_NO / TITLE / SCALE attributes, and a
+folder of three small saved drawings, one with an xref. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AF1 | `autocad_create_layout(name="AF-101", paper_size="A1", plot_style_table="monochrome.ctb")` (row D8 again) | Answers at once with `made_by: "plugin"` and no "Outcome unknown"; the AF-101 tab is on screen; Page Setup shows DWG To PDF, ISO full bleed A1, Layout, 1:1, monochrome.ctb; the sheet has **no** viewport of AutoCAD's own; the answer's `frame` matches PAGESETUP; one Ctrl+Z removes the tab | NOT RUN |
+| AF2 | Five calls with `activate=false` (AF-102..106) | Five tabs, every answer `created: true`, none busy; the tab on screen does not change | NOT RUN |
+| AF3 | `autocad_create_layout(name="AF-107", copy_from="<a sheet with a title block and a viewport>")` | AF-107 has the same title block and viewport (CopyLayout), and its page setup is DWG To PDF A1 | NOT RUN |
+| AF4 | `paper_size="A7"`; then `plotter="No Such.pc3"`; then `plot_style_table="none.ctb"` | Each refused in words naming what the plotter does have; no tab is left behind | NOT RUN |
+| AF5 | On AF-101: `autocad_add_viewport(view_name="<plan>", scale="1:100", title_block_width=180, layer="G-VPRT")` | `made_by: "plugin"`; Properties: Custom scale 1:100, Display locked Yes, layer G-VPRT; the saved view's centre is in the middle of the viewport; the status bar's annotation scale in it is 1:100; nothing scrolls when you zoom inside | NOT RUN |
+| AF6 | On a UCS turned 23 degrees: `autocad_add_viewport(..., align_to_ucs=true)`; then `twist=23` on a world UCS | The plan drawn on the 23 degree grid reads square on the sheet, and the viewport still looks at the same centre. Record which way `twist=23` turns the view: if it reads 46 degrees off instead of square, the twist sign is the wrong way (in the COM path too) | NOT RUN |
+| AF7 | Draw an L-shaped closed polyline on AF-101; `autocad_add_viewport(..., clip_handle="<its handle>")`; then `clip_outline=[[50,50],[250,50],[250,130],[130,130],[130,200],[50,200]]` | Both viewports show the plan only inside the L (as VPCLIP); the second draws the outline on the viewport's layer; Properties: Clipped Yes; one Ctrl+Z removes each viewport with its outline | NOT RUN |
+| AF8 | `autocad_add_viewport(..., scale="1:75")` in a drawing whose scale list has no 1:75; an annotative text 2.5 mm in the plan | The answer says `annotation_scale_added: true`; SCALELISTEDIT shows 1:75; the text shows 2.5 mm high on the paper in that viewport | NOT RUN |
+| AF9 | `autocad_sheet_set(sheets=[3 rows: one view at 1:100, one view with no scale, one cover], title_block="<block>", title_block_width=180, attributes={"PROJECT": "AF"})`; then one Ctrl+Z; then again with Ask to Keep on and Discard | Three tabs named by number, each with its title block filled (number, title, the fitted scale on the second), viewports at the scales said; **one** Ctrl+Z takes all three sheets back (the plug-in's steps are inside Heron's undo mark); Discard does the same. If Ctrl+Z takes them back one by one, D-90's one-undo-step claim fails | NOT RUN |
+| AF10 | With a sheet tab active (rows D33 and S8 again): `autocad_status`, then `autocad_add_table(space="paper", ...)` | Status answers with `active_space: "paper"`, `active_layout` the tab, no `unreadable`; the table lands on the sheet; if `doc.PaperSpace` throws, the table still lands (the layout's block) | NOT RUN |
+| AF11 | With the plug-in from before this change: `autocad_create_layout` and `autocad_add_viewport(... clip_outline=...)` | The layout and a plain viewport are made over COM (`made_by: "com"`, `plugin_note` says why); the clipped one is refused with nothing made; a busy moment answers "the sheet is made ... check it" instead of "Outcome unknown" | NOT RUN |
+| AF12 | `autocad_publish_pdf(path="<folder>\set.pdf", folder="<folder of 3 saved drawings>")` | One PDF, the drawings in name order (M-2 before M-10), each drawing's sheets in tab order, none blank; `pages` lists them; nothing in any drawing changes | NOT RUN |
+| AF13 | Open one of them, change something, do not save; publish the folder again | Refused before anything is plotted, naming that drawing and "unsaved changes"; no PDF written | NOT RUN |
+| AF14 | Rename the xref file of one drawing; publish the folder; then unload that xref in the drawing, save, publish | First refused naming the drawing and the xref; second publishes, the sheet without the unloaded xref | NOT RUN |
+| AF15 | `drawings=[<C>, <A>]` with C the active, saved drawing | The PDF has C's sheets first, then A's | NOT RUN |
+| AF16 | AF1-AF15 on AutoCAD 2025/2026 and 2021-2024 | As AF1-AF15 | NOT RUN (no PC with those versions yet) |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

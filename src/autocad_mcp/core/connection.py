@@ -362,8 +362,28 @@ def get_doc(launch_if_needed: bool = False) -> Any:
 
 
 def get_space(doc: Any, space: str = MODEL_SPACE) -> Any:
-    """ModelSpace or PaperSpace for the given document."""
-    return doc.PaperSpace if space == PAPER_SPACE else doc.ModelSpace
+    """ModelSpace, or the paper space of the sheet on screen, for the given document.
+
+    ``doc.PaperSpace`` can throw a bare Automation error with a sheet tab
+    active (known limit 23, #39: autocad_add_table(space="paper") failed so).
+    The active layout's own block holds the same objects and takes the same
+    Add calls, so it is used then. A busy AutoCAD is not a broken one: that
+    error goes up to be retried.
+    """
+    if space != PAPER_SPACE:
+        return doc.ModelSpace
+    try:
+        return doc.PaperSpace
+    except BaseException as exc:  # noqa: BLE001 - the layout's block is tried next
+        if is_retryable(exc):
+            raise
+        try:
+            layout = doc.ActiveLayout
+            if str(layout.Name) != "Model":
+                return layout.Block
+        except BaseException:  # noqa: BLE001 - the first error says more
+            pass
+        raise
 
 
 def require_idle(doc: Any) -> None:

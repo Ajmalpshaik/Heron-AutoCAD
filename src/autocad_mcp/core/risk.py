@@ -118,6 +118,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "page_setup",
         "place_title_block",
         "add_viewport",
+        "sheet_set",
         "save_view",
         "drawing_setup",
         "create_styles",
