@@ -8,7 +8,22 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (review fixes for the new tools, D-75)
+## Latest - 2026-11-21 (blocks, attributes and tables: #115, #117, #106; D-82, D-83)
+
+Branch `claude/blocks-tables`. Five new tools (**147**): `autocad_sync_attributes` (ATTSYNC),
+`autocad_table_from_excel`, `autocad_update_table_links`, `autocad_set_table_cells`,
+`autocad_copy_from_drawing`; `autocad_make_block` takes `attributes`. Three new plug-in operations
+(`BlockAttributes.cs`, `ExcelTables.cs`): `sync_attributes`, `excel_table`, `update_table_links`.
+The .NET calls were checked against Autodesk's reference packages for 2021, 2025 and 2027 and build
+for all three with no warning; none has run in AutoCAD. Planning is offline and tested
+(`acad/block_attributes.py`, `acad/table_cells.py`, `acad/drawing_copy.py`). Versions not bumped
+(the parent session does it).
+
+**Next (on this PC, AutoCAD closed):** pull, `tools/build_plugin.py` + `tools/install_plugin.py`,
+restart Claude; live rows **AC1-AC16**. AC7 first: whether AutoCAD's data link needs Excel
+installed, and whether the connection string `file!sheet!range` is read as hoped.
+
+## Earlier - 2026-11-21 (review fixes for the new tools, D-75)
 
 An independent review of PRs #124, #143 and #146 found six real problems; all fixed with tests:
 Excel's date / time / percent typing written as numbers (now refused, `excel_converted`), a tag

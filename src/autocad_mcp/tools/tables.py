@@ -28,6 +28,7 @@ from pydantic import Field
 from ..acad import xlsx
 from ..acad.entities import resolve_handle
 from ..acad.table_cells import (
+    DATA_ROW,
     ROW_TYPES,
     CellError,
     grid_from_sheet,
@@ -109,10 +110,9 @@ def fill_table(
     layout = table_layout(len(grid), bool(title), header)
     height = float(text_height) if text_height else None
     row_h = height * 2.0 if height else 10.0
-    widths = widths or column_widths_for(grid, height or 5.0)
     not_set: list[str] = []
     try:
-        table = target.AddTable(at, layout["total_rows"], columns, row_h, widths[0])
+        table = target.AddTable(at, layout["total_rows"], columns, row_h, widths[0] if widths else row_h * 6)
     except Exception as exc:  # noqa: BLE001
         raise AutocadError(f"AutoCAD would not add the table ({com_message(exc)}).") from exc
     if style:
@@ -123,6 +123,14 @@ def fill_table(
                 f"This drawing has no table style called '{style}' ({com_message(exc)}). Copy it in with "
                 "autocad_import_from_drawing, or leave style out."
             ) from exc
+    if not widths:
+        # Fit each column to its text at the height it will have: the one asked
+        # for, else the table style's own (read once the style is set).
+        try:
+            style_height = float(table.GetTextHeight(DATA_ROW))
+        except Exception:  # noqa: BLE001 - a plain guess, AutoCAD wraps what does not fit
+            style_height = 0.0
+        widths = column_widths_for(grid, height or style_height or 2.5)
     try:
         table.RegenerateTableSuppressed = True
     except Exception:  # noqa: BLE001 - only a speed-up

@@ -225,6 +225,9 @@ class FakeTable:
     def GetRowHeight(self, r):
         return 10.0
 
+    def GetTextHeight(self, row_type):
+        return 100.0  # a 1:40 drawing's table style
+
     def GetColumnWidth(self, c):
         return 60.0
 
@@ -362,6 +365,13 @@ class TestTableFromExcel:
         assert result["not_linked_because"] == "link=false was asked for"
         assert doc.ModelSpace.table.TitleSuppressed is True and doc.ModelSpace.table.texts[(0, 0)] == "TAG"
 
+    def test_columns_fit_the_text_at_the_table_styles_own_height(self, env, workbook):
+        doc = env()
+        answer(tables.autocad_table_from_excel(path=str(workbook), position=[0, 0], link=False))
+        widths = [c[2] for c in doc.ModelSpace.table.calls if c[0] == "SetColumnWidth"]
+        assert widths == tables.column_widths_for([["TAG", "FLOW"], ["P-01", "12.5"], ["P-02", "8"]], 100.0)
+        assert min(widths) > 600  # not sized for a 5-unit text
+
     def test_outcome_unknown_is_never_followed_by_a_second_table(self, env, workbook, monkeypatch):
         doc = env()
 
@@ -470,6 +480,23 @@ class TestAddTableKeepsTheRule:
         result = answer(annotate.autocad_add_table(position=[0, 0], rows=[["A", "B"]], headers=["X", "Y"], title="T"))
         assert result["rows_aligned_middle"] == 3
         assert [c for c in space.table.calls if c[0] == "SetAlignment"] == [("SetAlignment", 2, 5), ("SetAlignment", 4, 5), ("SetAlignment", 1, 5)]
+
+
+    def test_no_title_makes_the_title_row_an_ordinary_row(self, monkeypatch):
+        space = FakeSpace()
+        doc = FakeDoc()
+        doc.ModelSpace = space
+
+        async def run(fn):
+            return fn()
+
+        monkeypatch.setattr(annotate, "run", run)
+        monkeypatch.setattr(annotate, "get_doc", lambda: doc)
+        monkeypatch.setattr(annotate, "require_idle", lambda d: None)
+        result = answer(annotate.autocad_add_table(position=[0, 0], rows=[["P-01", "12"]], headers=["TAG", "FLOW"]))
+        assert space.table.TitleSuppressed is True and space.table.HeaderSuppressed is False
+        assert result["suppressed"] == ["TitleSuppressed"]
+        assert space.table.texts[(0, 0)] == "TAG" and space.table.texts[(0, 1)] == "FLOW"
 
 
 def test_levels():

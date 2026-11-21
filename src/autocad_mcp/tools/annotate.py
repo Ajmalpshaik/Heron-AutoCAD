@@ -477,6 +477,19 @@ async def autocad_add_table(
                         "Make it in AutoCAD, or copy it in with autocad_import_from_drawing."
                     ) from exc
 
+            # A new table starts with a title row (merged across) and a header
+            # row. With no title (or no headings) asked for, those rows would
+            # hold the rows below as one merged cell: they become ordinary rows
+            # (D-83). A table that refuses keeps them, as before.
+            suppressed = []
+            for flag, wanted in (("TitleSuppressed", bool(title)), ("HeaderSuppressed", bool(head))):
+                if not wanted:
+                    try:
+                        setattr(table, flag, True)
+                        suppressed.append(flag)
+                    except BaseException:  # noqa: BLE001 - the style's own rows stay
+                        pass
+
             for index, width in enumerate(widths):
                 try:
                     table.SetColumnWidth(index, width)
@@ -542,6 +555,8 @@ async def autocad_add_table(
             "has_header": bool(head),
             "rows_aligned_middle": aligned,
         }
+        if suppressed:
+            result["suppressed"] = suppressed
         result.update(notes)
         if not_set:
             result["not_set"] = not_set[:30]
