@@ -48,10 +48,13 @@ CATALOGUE = (
     "\nDrafting furniture (your office block is better when you have one — "
     "autocad_insert_block):\n"
     "detail_bubble (number, radius) - sheet= splits it, number over sheet\n"
-    "section_mark (length) - cut line, arrows and a bubble each end; label=, flip=\n"
-    "north_arrow (size) - points up before rotation\n"
-    "scale_bar (scale, length) - length is on the PAPER, labels are the real distances\n"
-    "level_mark (level) - spot level triangle; below=true for a soffit or invert\n"
+    "section_mark (length) - cut line, arrows and a bubble each end; label=, flip=, "
+    "filled=true for solid heads\n"
+    "north_arrow (size) - points up before rotation; filled=true half-fills it\n"
+    "scale_bar (scale, length) - length is on the PAPER, labels are the real distances; "
+    "filled=true fills every other division\n"
+    "level_mark (level) - spot level triangle; below=true for a soffit or invert; "
+    "filled=true makes it solid\n"
     "revision_tag (number) - the numbered triangle"
 )
 
