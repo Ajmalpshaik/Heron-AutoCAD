@@ -25,6 +25,7 @@ from pydantic import Field, StrictInt
 
 from ..acad import geometry
 from ..acad.entities import bounding_box, resolve_handle, short_type
+from ..acad.table_cells import middle_rows
 from ..acad.tables import apply_properties, ensure_layer
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message
@@ -377,7 +378,8 @@ async def autocad_add_table(
     """Put a schedule on the drawing as a real AutoCAD table, not a grid of loose text.
 
     A table the modeller can edit, sort and restyle, with a title and headings.
-    Pair it with autocad_extract_attributes: read the blocks, then put the rows
+    Text sits in the vertical middle of each cell, keeping the style's left /
+    centre / right. Pair it with autocad_extract_attributes: read the blocks, then put the rows
     on the sheet.
 
     One undo step.
@@ -518,6 +520,8 @@ async def autocad_add_table(
                     table.SetTextHeight(TABLE_ALL_ROWS, height)
                 except BaseException as exc:  # noqa: BLE001 - the style keeps its own
                     not_set.append(f"text_height ({com_message(exc)})")
+            # Heron's tables keep their text in the vertical middle of each cell (D-83).
+            aligned = middle_rows(table)
             if height or text_style:
                 try:
                     table.RegenerateTableSuppressed = False
@@ -536,6 +540,7 @@ async def autocad_add_table(
             "cells_written": written,
             "has_title": bool(title),
             "has_header": bool(head),
+            "rows_aligned_middle": aligned,
         }
         result.update(notes)
         if not_set:

@@ -153,6 +153,14 @@ CASES = [
     ("I filled in the tags in the Excel, put them back in the drawing", "autocad_apply_attribute_sheet"),
     ("check every drawing in the issue folder before we send it", "autocad_check_folder"),
     ("show me what you are doing in a window beside AutoCAD", "autocad_companion"),
+    # Blocks, attributes and tables (D-82, D-83; issues #115, #117, #106).
+    ("make a tag block with a TAG attribute", "autocad_make_block"),
+    ("I added an attribute to the block, update all the inserts", "autocad_sync_attributes"),
+    ("attsync the title block", "autocad_sync_attributes"),
+    ("put the pump schedule from the Excel file on the sheet", "autocad_table_from_excel"),
+    ("the schedule changed in excel, update the table", "autocad_update_table_links"),
+    ("change the value in cell B3 of that table", "autocad_set_table_cells"),
+    ("copy the pump skid from the other open drawing into this one", "autocad_copy_from_drawing"),
 ]
 
 def entries() -> list[Entry]:
