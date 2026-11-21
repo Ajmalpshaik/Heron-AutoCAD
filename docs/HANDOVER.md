@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (setting a render up from the chat, #59-#63, D-86 / D-87)
 
-Five new tools (**147**) and five new plug-in operations, built and tested offline in one PR:
+Five new tools (**152** with the blocks and tables work merged first) and five new plug-in operations, built and tested offline in one PR:
 `autocad_add_camera_view` (a view record with perspective and a lens, never DVIEW),
 `autocad_set_sun` (date and time on the model viewport's sun through the plug-in; LATITUDE,
 LONGITUDE, TIMEZONE and SUNSTATUS over COM), `autocad_list_lights` and `autocad_switch_lights`
@@ -25,6 +25,21 @@ add-in compiles for all three builds; versions not bumped (the parent does).
 **Next (on this PC, AutoCAD closed):** build and install the plug-in, restart Claude, then live
 rows **AE1-AE14**. AE14 decides the exposure route: if 2027 has no EXPVALUE, the ROADMAP item for
 the viewport's `PhotographicExposureParameters` is next.
+
+## Earlier - 2026-11-21 (blocks, attributes and tables: #115, #117, #106; D-82, D-83)
+
+Branch `claude/blocks-tables`. Five new tools (**147**): `autocad_sync_attributes` (ATTSYNC),
+`autocad_table_from_excel`, `autocad_update_table_links`, `autocad_set_table_cells`,
+`autocad_copy_from_drawing`; `autocad_make_block` takes `attributes`. Three new plug-in operations
+(`BlockAttributes.cs`, `ExcelTables.cs`): `sync_attributes`, `excel_table`, `update_table_links`.
+The .NET calls were checked against Autodesk's reference packages for 2021, 2025 and 2027 and build
+for all three with no warning; none has run in AutoCAD. Planning is offline and tested
+(`acad/block_attributes.py`, `acad/table_cells.py`, `acad/drawing_copy.py`). Versions not bumped
+(the parent session does it).
+
+**Next (on this PC, AutoCAD closed):** pull, `tools/build_plugin.py` + `tools/install_plugin.py`,
+restart Claude; live rows **AC1-AC16**. AC7 first: whether AutoCAD's data link needs Excel
+installed, and whether the connection string `file!sheet!range` is read as hoped.
 
 ## Earlier - 2026-11-21 (server core 2: #42, #44, #46, #47; D-76, D-77)
 

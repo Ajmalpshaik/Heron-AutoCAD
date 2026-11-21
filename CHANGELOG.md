@@ -4,7 +4,7 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
-- **Setting a render up from the chat (2026-11-21, #59-#63).** Five new tools (147): a named
+- **Setting a render up from the chat (2026-11-21, #59-#63).** Five new tools (152 with the blocks and tables tools): a named
   perspective **camera view** with an eye, a target and a lens (`autocad_add_camera_view`, 24 mm
   inside a room), the **sun's date, time and place** (`autocad_set_sun`), the **lights listed**
   with on / off and brightness, plus the sun, default lighting and exposure
@@ -14,6 +14,20 @@ Newest first. Dates are when the change was made.
   viewport has (`visual_style_found`). Five new plug-in operations. **None of these tools
   renders**: the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md));
   whether `autocad_render` stays is issue #158. Live rows AE1-AE15 NOT RUN.
+
+- **Blocks, attributes and tables (2026-11-21, #115, #117, #106).** Five new tools, **147** in all.
+  `autocad_make_block` takes attribute definitions (tag, prompt, default, position, height;
+  invisible, constant, preset). `autocad_sync_attributes` is ATTSYNC, done by the plug-in: every
+  insert gets the block's attributes again, keeping the values already typed
+  ([D-82](docs/DECISIONS.md)). `autocad_table_from_excel` puts an Excel range on the drawing as a
+  table, linked with AutoCAD's Data Link by the plug-in, or filled from the sheet with the reason
+  when it cannot be linked; `autocad_update_table_links` updates linked tables;
+  `autocad_set_table_cells` changes cells by address (`B3`), old -> new.
+  `autocad_copy_from_drawing` copies objects from another open drawing into the active one at a
+  base point, saying which layers, styles and blocks came with them ([D-83](docs/DECISIONS.md)).
+  Heron's tables keep text in the vertical middle of each cell, and `autocad_add_table` with no
+  title no longer writes into the merged title row. Three new plug-in operations
+  (`sync_attributes`, `excel_table`, `update_table_links`). Live rows AC1-AC16 NOT RUN.
 
 - **Safer undo commands, long AutoLISP in pieces, quiet answers, busy answers that name the
   command (2026-11-21, #42 #44 #46 #47).** An UNDO, U, REDO, MREDO or OOPS sent with

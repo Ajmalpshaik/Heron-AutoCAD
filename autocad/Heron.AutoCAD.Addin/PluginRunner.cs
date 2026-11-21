@@ -113,6 +113,9 @@ namespace Heron.AutoCAD.Addin
                 case "switch_lights": return RenderView.SwitchLights(db, tr, args);
                 case "set_sun": return RenderView.SetSun(doc, tr, args);
                 case "add_camera_view": return RenderView.AddCameraView(doc, tr, args);
+                case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
+                case "excel_table": return ExcelTables.Make(db, tr, args);
+                case "update_table_links": return ExcelTables.Update(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

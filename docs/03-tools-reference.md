@@ -108,6 +108,15 @@ anchor); pipes and runs can stay as lines. More copies: `autocad_insert_block`; 
 `autocad_mirror_entities` on the insert. Labels: `text_align="right"` hangs a label from its
 top-right corner, for a tidy column left of a detail.
 
+`attributes` on `autocad_make_block` adds attribute definitions (ATTDEF): tag, prompt, default,
+position, height, and the flags `invisible`, `constant` (needs a default) and `preset`
+([D-82](DECISIONS.md)). Not proven in AutoCAD yet: [NEEDS-CHECKING group AC](NEEDS-CHECKING.md).
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_sync_attributes` | Change | ATTSYNC, done by the plug-in: every insert of a block (dynamic copies too) gets the definition's attributes again; values already typed are kept by tag, new tags come with their default, lost ones go. `add_attributes` adds definitions to the block first; `dry_run` says what each insert keeps, gains and loses |
+| `autocad_copy_from_drawing` | Change | Copy with Base Point and Paste between **open** drawings: handles from another open drawing into the active one, from `base_point` to `to_point`. The layers, styles and blocks it lacks come along (`brought_in`); names it has stay its own (`already_here`). Neither drawing is switched ([D-83](DECISIONS.md)) |
+
 ## Bulk drawing (Change)
 
 `autocad_batch_draw` sends one AutoLISP script that creates many entities inside AutoCAD. Use it for
@@ -265,7 +274,10 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 | `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `quiet=true`: counts and handles only |
 | `autocad_add_centre_marks` | The cross on every circle and arc, by handle or by layer; `extend` makes full centre lines |
 | `autocad_add_multileader` | One note with **as many arrows as it needs**; text or block content |
-| `autocad_add_table` | A schedule as a real AutoCAD table, with title and headings; `text_height` and `text_style` on every row |
+| `autocad_add_table` | A schedule as a real AutoCAD table, with title and headings; `text_height` and `text_style` on every row; text in the vertical middle of each cell |
+| `autocad_table_from_excel` | An Excel range as a table: a real **Data Link** made by the plug-in, so it can be updated; filled from the sheet with `"linked": false` and the reason when a link cannot be made. Cells Excel only shows as a date or percent are listed, not written ([D-83](DECISIONS.md)) |
+| `autocad_update_table_links` | Update linked tables from their sheets (DATALINKUPDATE), keeping the table's formatting |
+| `autocad_set_table_cells` | Change cells of a table by address (`B3`) or row / column, counted from 1 at the top-left cell, title and header rows included; old -> new; `grow` adds rows or columns; linked and locked cells are listed and left alone |
 | `autocad_add_revision_cloud` | A cloud round a boundary, a rectangle, or an object's own extents. One polyline with bulges, like REVCLOUD |
 
 ## 3D (Change; reading is Read, the view is View)
@@ -306,6 +318,10 @@ until the solid changes.
 | `autocad_press_pull_faces` | Change | Push or pull flat faces by a distance, with an optional taper |
 | `autocad_thicken_surface` | Change | THICKEN: a solid from a surface; the surface is kept |
 | `autocad_super_hatch` | Change | Express Tools' SUPERHATCH with a block: tiles in a grid (spacing, origin, angle, scale) inside a closed outline drawn flat in plan, clipped as XCLIP clips. One object; at most 10,000 tiles |
+
+The attribute sync and the Excel table link and update are plug-in operations too
+(`sync_attributes`, `excel_table`, `update_table_links`); their tools are listed with the blocks
+and the tables above.
 
 ## Materials and rendering (Change; listing is Read, rendering is Admin)
 

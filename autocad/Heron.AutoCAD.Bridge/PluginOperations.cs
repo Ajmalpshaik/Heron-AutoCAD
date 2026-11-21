@@ -23,12 +23,16 @@ namespace Heron.AutoCAD.Bridge
             ["super_hatch"] = Risk.Change,
             ["add_light"] = Risk.Change,
             ["create_material"] = Risk.Change,
-            // Setting a render up (D-86, D-87). Heron never renders.
+            // Setting a render up (D-86, D-87). None of them renders.
             ["current_view"] = Risk.Read,
             ["list_lights"] = Risk.Read,
             ["switch_lights"] = Risk.Change,
             ["set_sun"] = Risk.Change,
             ["add_camera_view"] = Risk.Change,
+            // ATTSYNC and the Excel data link: COM can add neither (D-82, D-83).
+            ["sync_attributes"] = Risk.Change,
+            ["excel_table"] = Risk.Change,
+            ["update_table_links"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

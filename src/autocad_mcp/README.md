@@ -35,6 +35,9 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths |
 | `tools/patterns.py` | write custom hatch pattern (.pat) and linetype (.lin) files; the text is `acad/patterns.py` |
 | `tools/annotate.py` | multileaders, tables, revision clouds |
+| `tools/blocks.py` | `autocad_make_block` (with attribute definitions) and `autocad_sync_attributes` (ATTSYNC, by the plug-in) |
+| `tools/tables.py` | an Excel range as a linked table, updating linked tables, changing cells of a table |
+| `tools/between_drawings.py` | `autocad_copy_from_drawing`: objects from another open drawing into this one |
 | `tools/solids.py` | 3D solids, extrude and revolve, booleans, mass properties, 3D views |
 | `tools/solid_edits.py` | loft, fillet and chamfer solid edges, shell, press-pull, thicken, and the face and edge list: done by the plug-in (`run`, D-40) |
 | `tools/superhatch.py` | super hatch with a block, done by the plug-in |
