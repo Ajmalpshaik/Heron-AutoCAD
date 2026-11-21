@@ -29,15 +29,14 @@ ENTRIES = asyncio.run(resources._entries())
 DESCRIPTIONS = {tool.name: tool.description or "" for tool in TOOLS}
 
 
-def report(*, installed="1.5.0", connected=(), padlocks=None, checks=()):
-    """A diagnose.report() as the PC would give it."""
+def report(*, installed="1.5.0", connected=(), checks=()):
+    """A diagnose.report() as the PC would give it. It has no padlocks: they live inside AutoCAD (D-59)."""
     return {
         "plugin_installed": installed,
         "autocads_connected": [
             {"pid": pid, "acad_version": "25.1", "plugin_version": plugin, "protocol_version": 1}
             for pid, plugin in connected
         ],
-        "padlocks": padlocks,
         "checks": list(checks),
     }
 
@@ -48,7 +47,7 @@ def explain_job(job, **overrides):
         "level_of": lambda tool: RISK.get(tool, Risk.ADMIN),
         "descriptions": DESCRIPTIONS,
         "known_tools": set(RISK),
-        "report": report(connected=[(4242, "1.5.0")], padlocks={"changes": True, "publish": True, "admin": True}),
+        "report": report(connected=[(4242, "1.5.0")]),
         "bridge_on": True,
         "chosen_pid": None,
         "drawing_checked": True,
@@ -59,9 +58,6 @@ def explain_job(job, **overrides):
 
 def reasons(answer):
     return [r["reason"] for r in answer["reasons"]]
-
-
-ALL_ON = {"changes": True, "publish": True, "admin": True, "ask_to_keep": False}
 
 
 class TestWhy:
@@ -87,21 +83,32 @@ class TestWhy:
         answer = explain_job("qqqq zzzz", known_tools=set(RISK) | {"autocad_draw_line_removed"})
         assert "read_only_server" in reasons(answer)
 
-    def test_a_padlock_off_names_the_padlock_and_the_command(self):
-        answer = explain_job(
-            "why can't you save this as PDF",
-            report=report(connected=[(4242, "1.5.0")], padlocks={"changes": True, "publish": False, "admin": False}),
-        )
-        assert answer["can_run"] is False
+    def test_the_padlocks_a_job_needs_are_named_never_guessed(self):
+        """D-59: the padlocks live inside AutoCAD, so Heron names them but cannot say they are off."""
+        answer = explain_job("why can't you save this as PDF")
         assert answer["tool"]["tool"] in {"autocad_export", "autocad_publish_pdf"}
-        assert "publish_off" in reasons(answer) and "admin_off" not in reasons(answer)
-        off = next(r for r in answer["reasons"] if r["reason"] == "publish_off")
-        assert "HERONPUBLISH" in off["what_to_do"]
+        assert {"needs_changes", "needs_publish"} <= set(reasons(answer))
+        assert "needs_admin" not in reasons(answer)
+        named = next(r for r in answer["reasons"] if r["reason"] == "needs_publish")
+        assert named["blocks"] is False
+        assert "cannot see" in named["says"] and "is off" not in named["says"]
+        assert "HERONPUBLISH" in named["what_to_do"]
+        assert answer["can_run"] is True  # nothing Heron can see is in the way
+        assert "padlock" in answer["cannot_see"]
 
-    def test_no_padlock_file_means_every_padlock_is_off(self):
-        answer = explain_job("run this autolisp", report=report(connected=[(4242, "1.5.0")], padlocks=None))
+    def test_an_admin_job_names_changes_and_admin(self):
+        answer = explain_job("run this autolisp")
         assert answer["tool"]["tool"] == "autocad_run_lisp"
-        assert {"changes_off", "admin_off"} <= set(reasons(answer))
+        assert {"needs_changes", "needs_admin"} <= set(reasons(answer))
+        assert answer["tool"]["needs"] == ["Changes", "Admin"]
+
+    def test_the_real_install_report_has_no_padlocks_to_misread(self, tmp_path, monkeypatch):
+        """The report why reads is diagnose's own; it must never make a padlock look off."""
+        monkeypatch.setattr(diagnose, "_alive", lambda pid: False)
+        real = diagnose.report(plugins=tmp_path / "p", bridges=tmp_path / "b", package=tmp_path)
+        assert "padlocks" not in real
+        answer = explain_job("draw a line", report=real)
+        assert not any(r["reason"].endswith("_off") for r in answer["reasons"])
 
     def test_a_reading_job_needs_no_padlock(self):
         answer = explain_job("how many diffusers on this floor", report=report(connected=[(4242, "1.5.0")]))
@@ -109,7 +116,7 @@ class TestWhy:
         assert answer["tool"]["needs"] == []
 
     def test_nothing_connected_comes_before_the_padlocks(self):
-        answer = explain_job("draw a line from 0,0 to 100,0", report=report(connected=(), padlocks=None))
+        answer = explain_job("draw a line from 0,0 to 100,0", report=report(connected=()))
         assert answer["can_run"] is False
         assert reasons(answer)[0] == "not_connected"
         assert "Heron button" in answer["verdict"]
@@ -120,18 +127,18 @@ class TestWhy:
         assert "Install.bat" in answer["reasons"][0]["what_to_do"]
 
     def test_two_autocads_and_none_picked(self):
-        answer = explain_job("draw a line", report=report(connected=[(1, "1.5.0"), (2, "1.5.0")], padlocks=ALL_ON))
+        answer = explain_job("draw a line", report=report(connected=[(1, "1.5.0"), (2, "1.5.0")]))
         assert "which_autocad" in reasons(answer)
         assert "which_autocad" not in reasons(explain_job(
-            "draw a line", report=report(connected=[(1, "1.5.0"), (2, "1.5.0")], padlocks=ALL_ON), chosen_pid=2))
+            "draw a line", report=report(connected=[(1, "1.5.0"), (2, "1.5.0")]), chosen_pid=2))
 
     def test_a_plug_in_older_than_the_tool_needs(self):
-        answer = explain_job("undo what you just did", report=report(connected=[(4242, "1.4.2")], padlocks=ALL_ON))
+        answer = explain_job("undo what you just did", report=report(connected=[(4242, "1.4.2")]))
         assert answer["tool"]["tool"] == "autocad_undo_last"
         assert answer["tool"]["needs_plugin"] == "1.5.0"
         assert "old_plugin" in reasons(answer)
         assert "old_plugin" not in reasons(explain_job(
-            "undo what you just did", report=report(connected=[(4242, "1.5.0")], padlocks=ALL_ON)))
+            "undo what you just did", report=report(connected=[(4242, "1.5.0")])))
 
     def test_the_version_each_tool_needs_comes_from_its_own_docstring(self):
         assert why.needs_plugin(DESCRIPTIONS["autocad_add_light"]) == "1.4.0"
@@ -140,7 +147,7 @@ class TestWhy:
 
     def test_server_and_plug_in_from_different_releases(self):
         mismatch = {"check": "server and plug-in match", "state": "FAIL", "detail": "protocol 2 against 1."}
-        answer = explain_job("draw a line", report=report(connected=[(4242, "1.5.0")], padlocks=ALL_ON, checks=[mismatch]))
+        answer = explain_job("draw a line", report=report(connected=[(4242, "1.5.0")], checks=[mismatch]))
         assert "versions_do_not_match" in reasons(answer) and answer["can_run"] is False
 
     def test_an_update_waiting_is_said_but_does_not_block(self):
@@ -289,6 +296,7 @@ class TestReasonWords:
         ("Error: Invalid input - x must be a number", "bad_input"),
         ("Error: AutoCAD rejected the operation - locked layer", "autocad_rejected"),
         ("Error: Outcome unknown: the undo was sent", "outcome_unknown"),
+        ("Error: A dry run is not possible for Export: it writes a file", "no_dry_run"),
         ("Error: layer PIPE-CHW has no objects", "other"),
     ])  # fmt: skip
     def test_each_message_gets_its_word(self, message, word):
