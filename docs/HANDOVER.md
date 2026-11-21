@@ -12,7 +12,7 @@
 
 `tests/winstubs` stands in for pywin32 where it is not installed (D-72). On Linux:
 `PYTHONPATH=src python -m pytest -m "not live"` gives 2931 passed, 19 skipped (each with its
-Windows reason); `tools/check_structure.py` passes; `dotnet test` gives 289 passed, 1 skipped (the
+Windows reason); `tools/check_structure.py` passes; `dotnet test` gives 297 passed, 1 skipped (the
 named pipe). A cloud session can now run all four gates instead of saying NOT RUN. Windows CI
 still runs every test.
 
