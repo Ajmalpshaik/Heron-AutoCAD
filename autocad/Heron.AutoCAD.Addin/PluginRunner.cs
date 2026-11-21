@@ -183,6 +183,12 @@ namespace Heron.AutoCAD.Addin
                 case "active_sheet": return Sheets.ActiveSheet(db, tr);
                 case "create_layout": return Sheets.CreateLayout(doc, db, tr, args);
                 case "add_viewport": return Sheets.AddViewport(doc, db, tr, args);
+                case "flat_views": return Sections.FlatViews(db, tr, args);
+                case "section_plane": return Sections.SectionPlaneOp(db, tr, args);
+                case "loft_surface": return Surfaces.LoftSurface(db, tr, args);
+                case "planar_surface": return Surfaces.PlanarSurface(db, tr, args);
+                case "network_surface": return Surfaces.NetworkSurface(db, tr, args);
+                case "add_mesh": return Surfaces.Mesh(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

@@ -15,7 +15,7 @@ is in the server's instructions (`core/registry.py`), the full checklist is the 
 | 5 | **Dimensions grouped**, whole numbers, DIMSCALE set to the drawing scale | `autocad_add_dimension` (`text_override`) |
 | 6 | **Views aligned**: plan under the elevation on the same centre line; underlined titles with a smaller scale line; notes aligned to the top | `autocad_add_mtext` |
 | 7 | **Layers per discipline**; text height = paper height x scale (2.5 mm at 1:10 = 25) | `autocad_create_layer` |
-| 8 | **Look before reporting**: preview, fix overlaps and crossings, preview again | `autocad_preview` |
+| 8 | **Look before reporting**: preview, fix overlaps and crossings, preview again. A full sheet (A1, A0): `detail=2`, so the small text can be read | `autocad_preview` |
 
 ## The sheet rules
 

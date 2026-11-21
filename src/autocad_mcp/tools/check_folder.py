@@ -92,9 +92,10 @@ async def autocad_check_folder(
     for what Heron read, never that a drawing complies.
 
     Returns:
-        str: JSON: {"folder", "checklist", "verdicts" {state: n}, "worst",
-        "drawings": [{drawing, verdict, coverage, failed, no_data, reason}],
-        "left_out", "pass_means"}
+        str: JSON: {"folder", "checklist", "list" {"file", "from"}, "verdicts"
+        {state: n}, "worst", "drawings": [{drawing, verdict, coverage, failed,
+        no_data, reason, warning, project_changes}], "left_out", "pass_means",
+        "warning"}
 
     Examples:
         - Use when: "check every drawing in the issue folder before we send it".
@@ -113,7 +114,8 @@ async def autocad_check_folder(
     paths, left_out = folder_check.drawings_in(where, subfolders, max_drawings)
     if not paths:
         raise AutocadError(f"There is no .dwg drawing in {where}" + ("" if subfolders else " (subfolders=true looks inside its folders)") + ". Nothing was opened.")
-    checklists.load(name)  # an unknown list is said before any drawing is opened
+    # An unknown list is said before any drawing is opened; a network folder can be slow (D-93).
+    found = await asyncio.to_thread(checklists.find, name)
 
     original = await run(_active)
     lines: list[dict[str, Any]] = []
@@ -150,7 +152,10 @@ async def autocad_check_folder(
         except Exception:  # noqa: BLE001 - the wrong-drawing guard catches a different active drawing
             pass
 
-    answer = {"folder": str(where), "checklist": name, **folder_check.summary(lines), "pass_means": checklist.PASS_MEANS}
+    answer = {"folder": str(where), "checklist": name, **folder_check.summary(lines), "pass_means": checklist.PASS_MEANS,
+              "list": {"file": found["file"] or checklists.SHIPS, "from": found["where"]}}  # fmt: skip
+    if found.get("warning"):
+        answer["warning"] = found["warning"]
     if left_out:
         answer["left_out"] = f"{left_out} more drawing(s) were not checked; raise max_drawings (up to {folder_check.MOST_DRAWINGS})."
     if stopped:

@@ -36,9 +36,11 @@ The group headings below give the level.
 | `autocad_activity` | **Read.** What Heron did in this chat, newest first: tool, drawing, outcome, created handles, what the plug-in counted; and whether its last change can still be undone ([D-54](DECISIONS.md)) |
 | `autocad_why` | **Read, needs no AutoCAD.** For one job in plain words: the real reason it cannot run (no tool, nothing connected, a plug-in older than the tool needs, server and plug-in from different releases) and what to do, worst first; names the padlocks the job needs, which it cannot see from outside AutoCAD (D-59) ([D-67](DECISIONS.md)) |
 | `autocad_gaps` | **Read, needs no AutoCAD.** The last N days (1-90) of Heron's audit log: calls per tool, failures by plain reason with what to do, the slowest jobs. Drawings by file name only, no contents ([D-67](DECISIONS.md)) |
+| `autocad_read_file` | **Read, needs no AutoCAD.** A `.dxf` on disk (with ezdxf), or a `.dwg` / `.dws` / `.dwt` when the free ODA File Converter is installed (found, never downloaded; else a plain refusal): `summary` (version, units, extents, counts, most placed blocks, layouts, xrefs), `layers` with objects per layer, `blocks` with placed / nested counts and attribute tags, `text`, `attributes` (JSON or CSV), `styles`. Never changes the file; reads what was last saved ([D-92](DECISIONS.md)) |
 | `autocad_undo_last` | **Change.** Undo Heron's own last change, only when the plug-in saw no change since (the modeller's work is never taken with it), in the same drawing, one level ([D-54](DECISIONS.md)) |
 | `autocad_project_notes` | **Read.** Keep the modeller's answers (scale, standard, text heights) for the project (the drawing's folder); `autocad_status` hands them to every chat ([D-53](DECISIONS.md)) |
-| `autocad_checklist` | **Read.** The modeller's own check list, saved once and run before issue: PASS / FAIL / NO DATA / NOT RUN per line, a coverage line ("2 of 4 decided, 1 no data, 1 not run"), the failing handles and each line's source; `before issue` ships ready. `project` lays this project's changes (severity, target, on/off only) over the office list ([D-52](DECISIONS.md), [D-64](DECISIONS.md)) |
+| `autocad_checklist` | **Read.** The modeller's own check list, saved once and run before issue: PASS / FAIL / NO DATA / NOT RUN per line, a coverage line ("2 of 4 decided, 1 no data, 1 not run"), the failing handles and each line's source; `before issue` ships ready. `project` lays this project's changes (severity, target, on/off only) over the office list. `office_folder` names a shared folder (once per PC) the office lists are read from; when it cannot be reached, this PC's copy is used and the run says so. Every line names the file it came from ([D-52](DECISIONS.md), [D-64](DECISIONS.md), [D-93](DECISIONS.md)) |
+| `autocad_share_checklist` | **Publish.** Puts a check list in the office folder (`office_list`), or this project's changes in the drawing's folder as `Heron check list changes.json` (`project_changes`), for the whole team. A different file already there is replaced only with `replace=true`, naming who saved it and when; what was there is kept as `previous` ([D-93](DECISIONS.md)) |
 | `autocad_checklist_report` | **Publish.** Runs a check list and saves it as a new `.xlsx` and `.html` next to the drawing; an earlier report is never overwritten (` (2)`, ` (3)`) ([D-65](DECISIONS.md)) |
 | `autocad_check_folder` | **View.** Runs a check list over every `.dwg` in a folder (`subfolders` too): each opened read only, checked with its own project's changes, closed unsaved; an open drawing is checked where it is; the modeller's drawing is active again at the end. Verdict and coverage per drawing, worst first; one that will not open is NOT RUN with the reason ([D-70](DECISIONS.md)) |
 | `autocad_companion` | **Read.** Opens the Heron Companion page: one HTML file per chat on this PC with the drawing, units, layout, view, selection and this chat's activity, rewritten after every Heron job. No server, no port, no script; it sends nothing to AutoCAD. `stop` ends the updates ([D-71](DECISIONS.md)) |
@@ -64,13 +66,17 @@ object is made annotative at the drawing's current annotation scale, by the plug
 ([D-81](DECISIONS.md)). Sizes stay in drawing units at that scale (125 for 2.5 mm at 1:50); the
 reply gives the paper height. An annotative dimension is not given the drawing's DIMSCALE.
 
-## Splines, multilines, wipeouts and xrefs (Change)
+## Splines, multilines, wipeouts, construction lines, regions, donuts, divide and xrefs (Change)
 
 | Tool | Purpose |
 |---|---|
 | `autocad_draw_spline` | A smooth curve through fit points (flexible duct, a curved edge). The ends follow the first and last segments unless tangents are given; `closed` closes it smoothly; `coords="ucs"` |
 | `autocad_draw_multiline` | MLINE: a wall or double-line duct in one object. `scale` is the thickness with the STANDARD style; `justification` zero / top / bottom; `style` from the drawing (put back afterwards). `closed` repeats the first point, so that corner is not mitred |
 | `autocad_add_wipeout` | Mask an area, from corners or a closed straight-sided polyline (`erase_boundary`); `frames` sets WIPEOUTFRAME. No Automation call exists: it types WIPEOUT with world, unsnapped points (`_non *x,y`), in the current space ([D-38](DECISIONS.md)) |
+| `autocad_add_construction_line` | XLINE (endless both ways) or RAY (endless one way, `kind="ray"`) through `base`, towards `through` or at `angle` degrees. COM `AddXline` / `AddRay` ([D-108](DECISIONS.md)) |
+| `autocad_add_region` | REGION: closed outlines (closed polylines, circles, ellipses, splines, or lines and arcs meeting end to end) to regions, in the outlines' own space; gives each one's area, perimeter and centre. Outlines stay unless `erase_outlines`. COM `AddRegion` ([D-108](DECISIONS.md)) |
+| `autocad_add_donut` | DONUT at one or many `centers`: a closed polyline of two half circles, width = (outside - inside) / 2, run midway; `inside_diameter=0` is a filled dot. Says when FILLMODE is 0 ([D-108](DECISIONS.md)) |
+| `autocad_divide_curve` | DIVIDE (`segments`, equal parts; an open run's ends stay free) or MEASURE (`interval` from the start, or `from_end`; the rest at the end), with points or a `block_name` turned to the run (`align`). Lines, polylines, arcs, circles, flat in world plan; in the run's own space. Heron's own maths ([D-108](DECISIONS.md)) |
 | `autocad_attach_xref` | XATTACH a .dwg: name from the file, insertion, scale, rotation, `overlay`. A name already in the drawing is refused. `autocad_list_blocks` lists xrefs with their paths |
 | `autocad_manage_xref` | `reload`, `unload`, `detach`, `bind` (names kept apart, NAME$0$...) or `insert` (names merged). Detach and both binds need `confirm=true` |
 | `autocad_xref_tree` | **Read.** Every xref with the xrefs inside it (8 levels), its saved path, the file found on this PC and `loaded` / `unloaded` / `not found`; `broken` lists the ones that lead nowhere ([11](11-adn-repos-study.md)) |
@@ -290,8 +296,9 @@ point and measurement; errors stay whole ([D-77](DECISIONS.md)). `autocad_batch_
 
 ## Shapes from a few numbers (Change)
 
-`autocad_make_shape` draws a named shape from its dimensions — 24 of them, from
-a slot to a reducer's flat pattern. Detail: [10 §1](10-geometry-annotation-3d.md#1-simple-words-complex-geometry).
+`autocad_make_shape` draws a named shape from its dimensions — 24 flat ones, from
+a slot to a reducer's flat pattern, and two 3D ones made as solids along a route.
+Detail: [10 §1](10-geometry-annotation-3d.md#1-simple-words-complex-geometry).
 
 | Group | Shapes |
 |---|---|
@@ -300,9 +307,11 @@ a slot to a reducer's flat pattern. Detail: [10 §1](10-geometry-annotation-3d.m
 | MEP | elbow (with centreline), duct_transition, grating |
 | Building | stair (section or plan), ladder, truss |
 | Furniture | detail_bubble, section_mark, north_arrow, scale_bar, level_mark, revision_tag |
+| **3D, as solids** | **duct_run** (rectangular or round, a bend at every corner of the route), **pipe_spool** (pipe lengths, elbows, flanges, with each pipe's cut length) ([D-94](DECISIONS.md)) |
 
 Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
-`dry_run=true` returns the geometry instead of drawing it.
+`dry_run=true` returns the geometry instead of drawing it. A 3D shape is one solid per straight,
+bend and flange (`join=true` makes one), each checked against the box it should fill.
 
 ## Dimensioning and annotation (Change)
 
@@ -336,13 +345,15 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 | `autocad_set_3d_view` | View | A named direction (top, front, sw_iso …) and a visual style, typed as the VSCURRENT command, then the style the viewport has read back by the plug-in (`visual_style_found`, a warning when it differs). Changes only what is on screen ([D-31](DECISIONS.md), [D-35](DECISIONS.md), [D-86](DECISIONS.md)) |
 
 `SectionSolid` is deliberately **not** here: no documented ActiveX signature for it could be
-found, and guessing one would risk the model ([D-33](DECISIONS.md)).
+found, and guessing one would risk the model ([D-33](DECISIONS.md)). A section plane and a 2D
+section come from the plug-in instead: `autocad_section_plane`, below ([D-95](DECISIONS.md)).
 
 ## 3D edits and super hatch, done by the plug-in (Change; the listing is Read)
 
 COM has no call for these, so the Heron plug-in (1.2.0 or newer) does them through AutoCAD's .NET
 API, each in one transaction: all of it or none ([D-40](DECISIONS.md), [06](06-heron-plugin.md)).
-Not proven in AutoCAD yet: [NEEDS-CHECKING group H](NEEDS-CHECKING.md).
+Not proven in AutoCAD yet: [NEEDS-CHECKING group H](NEEDS-CHECKING.md), and group AH for the
+flat views, the section plane, surfaces, meshes and the new super hatch tiles.
 
 Edges and faces are picked by a **word** - edges `all`, `vertical`, `horizontal`, `top`, `bottom`;
 faces `top`, `bottom`, `front` (towards -Y, what the Front view looks at), `back`, `left`, `right`,
@@ -352,13 +363,17 @@ until the solid changes.
 | Tool | Level | Purpose |
 |---|---|---|
 | `autocad_list_solid_faces_and_edges` | Read | Numbers each face (kind, area, centre, normal, its edges) and edge (kind, ends, length) |
-| `autocad_loft` | Change | LOFT: a solid through closed outlines in order - a rectangle-to-round duct transition, a tapered column. Optional guides or a path, `ruled`, `closed`. The outlines are kept |
+| `autocad_loft` | Change | LOFT: a solid through closed outlines in order - a rectangle-to-round duct transition, a tapered column. Optional guides or a path, `ruled`, `closed`. `surface=true` makes a surface, and the outlines may be open (a canopy, a roof sheet). The outlines are kept |
 | `autocad_fillet_solid_edges` | Change | FILLETEDGE: round edges by a radius |
 | `autocad_chamfer_solid_edges` | Change | CHAMFEREDGE: bevel the edges of one face (all of them, or those named), by one or two distances |
 | `autocad_shell_solid` | Change | SOLIDEDIT Shell: hollow to a wall thickness, leaving faces open (`remove_faces="top"` for a tank); inside unless `outward` |
 | `autocad_press_pull_faces` | Change | Push or pull flat faces by a distance, with an optional taper |
 | `autocad_thicken_surface` | Change | THICKEN: a solid from a surface; the surface is kept |
-| `autocad_super_hatch` | Change | Express Tools' SUPERHATCH with a block: tiles in a grid (spacing, origin, angle, scale) inside a closed outline drawn flat in plan, clipped as XCLIP clips. One object; at most 10,000 tiles |
+| `autocad_super_hatch` | Change | Express Tools' SUPERHATCH: a block, an **image** (with `image_size`), an **xref** (attached from its .dwg if need be) or a **wipeout** as the tile, in a grid (spacing, origin, angle, scale) inside a closed outline drawn flat in plan, clipped as XCLIP clips. One object; at most 10,000 tiles, 2,000 for images ([D-95](DECISIONS.md)) |
+| `autocad_flatten_views` | Change | FLATSHOT / SOLPROF: plan, front and side views (any of front, top, right, left, back, bottom) of solids as 2D linework, hidden lines removed, one block per view, set out third or first angle so they line up. `join` lets a part hide what is behind it. The model is not touched |
+| `autocad_section_plane` | Change | SECTIONPLANE and Generate Section: a section plane through two points (a vertical cut) or three (any plane; a level cut looks down), kept in the model, and its 2D section (cut outlines, hatch, what is seen beyond) as one block at `insert_at`. `look_towards` picks the side |
+| `autocad_add_surface` | Change | PLANESURF (from closed outlines or regions, or two corners) or SURFNETWORK (through u and v curves). The curves are kept |
+| `autocad_add_mesh` | Change | MESH primitives (box, wedge, cylinder, cone, sphere, torus, pyramid) placed by the centre of the base, smoothness 0-4; or a mesh made from a solid, surface or region (MESHSMOOTH), which is kept |
 
 The attribute sync and the Excel table link and update are plug-in operations too
 (`sync_attributes`, `excel_table`, `update_table_links`); their tools are listed with the blocks
@@ -407,8 +422,8 @@ camera and the sun's date, which COM has no call for. Not proven in AutoCAD yet:
 
 | Tool | Purpose |
 |---|---|
-| `autocad_preview` | Plot the extents, the current view or a window to PNG and return the **picture** to the AI. Use after drawing, before saying it is done. Page setup put back |
-| `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file. `passed` means the rules given were met against the named `source`, never that the drawing complies; `null` when only part of the objects was read ([D-64](DECISIONS.md)) |
+| `autocad_preview` | Plot the extents, the current view or a window to PNG and return the **picture** to the AI. Use after drawing, before saying it is done. Says the area plotted and the smallest text that reads; `detail=2` or `3` adds close-ups of the same area, for a full sheet whose small text one picture cannot show (D-102). Page setup put back |
+| `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file. Or against a `reference` drawing (`.dws`, `.dwt`, `.dwg`, `.dxf`): layers, text styles, dimension styles (name only) and linetypes (name only) missing, different, or not in the standard (`flag_extra`); the answer says what read the reference ([D-92](DECISIONS.md)). `passed` means the rules given were met against the named `source`, never that the drawing complies; `null` when only part of the objects was read ([D-64](DECISIONS.md)) |
 | `autocad_extract_attributes` | Every block reference with attributes as rows (block, handle, layer, insertion, tags), JSON or CSV - for schedules |
 
 ## Resources and prompts

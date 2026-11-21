@@ -20,8 +20,8 @@ live is in [NEEDS-CHECKING](NEEDS-CHECKING.md) and nowhere else.
   AutoCAD here. The panel lists below are AutoCAD's out-of-the-box ribbon as written from
   knowledge, not read off a live ribbon. Panel names and the exact place of a button move a little
   between 2021 and 2027. **Before building from a row, open that panel in AutoCAD 2027 and check.**
-- **Heron's side:** the tool list in [`core/risk.py`](../src/autocad_mcp/core/risk.py) (138 tools
-  on 2026-11-21) and [03 - Tools reference](03-tools-reference.md).
+- **Heron's side:** the tool list in [`core/risk.py`](../src/autocad_mcp/core/risk.py) (the live
+  count is `autocad-mcp.exe --list-tools`) and [03 - Tools reference](03-tools-reference.md).
 - **Not audited here:** the Collaborate, Express Tools and Add-ins tabs, the contextual tabs
   (Text Editor, Hatch Editor, Block Editor ...), and the 3D Modeling workspace's own Home tab
   (it repeats Solid, Mesh and Modify).
@@ -57,7 +57,7 @@ every project; **low** = rare, or for other trades.
 | Panel | Main commands | Heron | Missing | Can be done | Priority |
 |---|---|---|---|---|---|
 | Draw | Line, Polyline, Circle, Arc, Rectangle, Ellipse, Spline, Polygon, Hatch, Point | **Yes**: `draw_line`, `draw_polyline`, `draw_circle`, `draw_arc`, `draw_rectangle`, `draw_ellipse`, `draw_spline`, `draw_point`, `add_hatch`, `make_shape` (polygon), `batch_draw` | - | COM | - |
-| Draw (more) | Construction line, Ray, Region, Donut, Helix, Boundary, Divide, Measure, Revision cloud, Wipeout | **Part**: `add_revision_cloud`, `add_wipeout`, `draw_3d_path` (helix), `place_along` (blocks along a run) | Construction line and ray; region; donut; **Boundary** (a closed outline from what is drawn round a point); Divide / Measure with points | Xline, ray, region, donut: COM. Boundary: .NET (unsure). Divide / Measure with points: own maths | Boundary **medium**; rest low |
+| Draw (more) | Construction line, Ray, Region, Donut, Helix, Boundary, Divide, Measure, Revision cloud, Wipeout | **Part** (all but Boundary): `add_revision_cloud`, `add_wipeout`, `draw_3d_path` (helix), `place_along` (blocks along a run); since 2026-11-21 `add_construction_line` (xline, ray), `add_region`, `add_donut`, `divide_curve` (DIVIDE / MEASURE with points or a block) ([D-108](DECISIONS.md), #173, #174, #177, #181; live check AP NOT RUN) | **Boundary** (a closed outline from what is drawn round a point); Divide / Measure along a spline or an ellipse | Xline, ray, region: COM. Donut, divide, measure: own maths over COM. Boundary: .NET (unsure) | Boundary **medium**; rest low |
 | Modify | Move, Copy, Rotate, Mirror, Scale, Offset, Array, Erase | **Yes**: `move_entities`, `copy_entities`, `rotate_entities`, `mirror_entities`, `scale_entities`, `offset_entities`, `array_entities`, `delete_entities` | Path array and **associative** arrays (the ones that stay editable) | Path / associative array: .NET (unsure) | low |
 | Modify (edit) | **Trim, Extend, Fillet, Chamfer, Break, Join**, Lengthen, Stretch, Blend curves | **Yes** (2026-11-21, NOT RUN live): `trim_extend`, `fillet_chamfer`, `break_curve`, `join_curves`, `stretch`, `edit_vertex`, `break_at_blocks` | Lengthen; blend curves; fillet between a line and an arc | Built with own maths over COM ([D-78](DECISIONS.md)), not .NET. Lengthen: own maths | Lengthen **medium** ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)); blend low ([#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52) stays for blocks on arcs) |
 | Modify (more) | Explode, Edit Polyline, Edit Spline, Edit Hatch, Draw Order, Reverse, Change Space, Overkill | **Part**: `explode`, `draw_order`, `edit_vertex` (2026-11-21, NOT RUN live), `modify_entity` (layer, colour, linetype, lineweight, transparency, text, height, radius, closed), `tidy_entities` (back to ByLayer) | Polyline width editing; hatch pattern / scale change; change space; **Overkill** (delete duplicate lines) | Hatch pattern: COM. Change space: .NET. Overkill: Typed, or own check over COM | Overkill **medium**; rest low |
@@ -148,13 +148,13 @@ numbers already, so the whole tab is low.
 | Solid | Extrude, Revolve, Sweep, Loft, Presspull | **Yes**: `extrude_profile` (extrude, revolve, sweep), `loft`, `press_pull_faces` | - | COM / .NET | - |
 | Boolean | Union, Subtract, Intersect, Interfere | **Yes**: `solid_boolean`, `check_interference` (clash check) | - | COM | - |
 | Solid Editing | Slice, Thicken, Shell, Fillet Edge, Chamfer Edge, Imprint, Separate, Check, Extract Edges, Offset / Taper / Move / Delete faces | **Part**: `slice_solid`, `thicken_surface`, `shell_solid`, `fillet_solid_edges`, `chamfer_solid_edges`, `list_solid_faces_and_edges` | Imprint, separate, check, extract edges; offset, taper, move and delete faces | .NET | low |
-| Section | Section Plane, Live Section, Generate Section, Flatshot | **No** (`SectionSolid` left out on purpose, [D-33](DECISIONS.md)) | **A section plane and a 2D section from the model**; Flatshot | .NET | **medium** ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54) covers Flatshot / SOLPROF; the section plane is [#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109)) |
+| Section | Section Plane, Live Section, Generate Section, Flatshot | **Yes** (by the plug-in, [D-95](DECISIONS.md)): `section_plane` (plane + 2D section block), `flatten_views` (Flatshot / SOLPROF); `SectionSolid` still left out ([D-33](DECISIONS.md)) | Live section, jogged section lines, hidden lines in a flat view | .NET | done ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54), [#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109)); live rows AH4-AH8 NOT RUN |
 
 ### Surface tab
 
 | Panel | Main commands | Heron | Missing | Can be done | Priority |
 |---|---|---|---|---|---|
-| Create | Network, Loft, Sweep, Planar, Extrude, Revolve, Blend, Patch, Offset | **No** (only `thicken_surface` uses a surface) | All | .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58)) |
+| Create | Network, Loft, Sweep, Planar, Extrude, Revolve, Blend, Patch, Offset | **Part** (by the plug-in, [D-95](DECISIONS.md)): `add_surface` (planar, network), `loft(surface=true)`; `thicken_surface` | Sweep, extrude and revolve to a surface; blend, patch, offset | .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58) done) |
 | Edit | Fillet, Trim, Untrim, Extend, Sculpt | **No** | All | .NET | low |
 | Control Vertices | Show / hide CVs, Rebuild, Add / remove CVs | **No** | All | .NET | low ([#56](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/56) for splines) |
 | Curves / Project Geometry | Spline CV, Extract isolines, Project to UCS / view | **Part**: `draw_spline` (fit points) | Projection onto a surface | .NET | low |
@@ -164,7 +164,7 @@ numbers already, so the whole tab is low.
 
 | Panel | Main commands | Heron | Missing | Can be done | Priority |
 |---|---|---|---|---|---|
-| Primitives | Mesh box, cylinder ...; Revolved, Edge, Ruled, Tabulated surfaces | **No** | All | Old polyface / 3D meshes: COM. Smooth mesh (SubD): .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58)) |
+| Primitives | Mesh box, cylinder ...; Revolved, Edge, Ruled, Tabulated surfaces | **Part** (by the plug-in, [D-95](DECISIONS.md)): `add_mesh` (box, wedge, cylinder, cone, sphere, torus, pyramid; or from a solid) | Revolved, edge, ruled, tabulated surfaces | Old polyface / 3D meshes: COM. Smooth mesh (SubD): .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58) done) |
 | Mesh | Smooth more / less, Refine, Crease | **No** | All | .NET | low |
 | Mesh Edit | Extrude face, Split, Merge, Close hole, Collapse | **No** | All | .NET | low |
 | Convert Mesh | Convert to solid / surface | **No** | Convert a mesh (an imported model) to a solid | .NET | low |

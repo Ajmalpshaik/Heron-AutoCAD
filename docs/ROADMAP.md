@@ -22,7 +22,7 @@ done looks like here.
 - [x] Dry run for any change ([#81](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/81)); before / after values ([#82](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/82)). D-63 and D-62, PR #124; live rows T4-T6 NOT RUN.
 - [ ] Dialog watch during a job ([#83](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/83)).
 - [x] Check lists: NO DATA + coverage ([#84](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/84)), office list + project changes ([#85](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/85)), Excel / HTML report ([#86](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/86)), never "complies" ([#87](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/87)). D-64 and D-65, PR #122; live rows U1-U10 NOT RUN.
-- [ ] Later: share the office check list and project changes with the team ([#135](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/135)); needs Ajmal's choice of shared folder.
+- [x] Share the office check list and project changes with the team ([#135](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/135)): an office folder per PC with this PC's copy as the fallback, `autocad_share_checklist` (Publish). D-93; live rows AG9-AG14 NOT RUN.
 - [ ] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).
 - [ ] AutoCAD ribbon coverage audit ([#94](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/94)); an honest install table ([#95](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/95)).
 - [x] From the audit: attribute definitions and ATTSYNC ([#115](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/115), D-82), an Excel range as a linked table and table cell edits ([#117](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/117), D-83), copy between open drawings ([#106](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/106), D-83). Live rows AC1-AC16 NOT RUN.
@@ -38,9 +38,9 @@ done looks like here.
 
 ## Found in the first live checks (2026-10-26)
 
-- [ ] A batch still leaves one `Command:` prompt per piece in the history (about 27 for 41 objects).
-  Harmless; fewer, larger pieces may be possible through the plug-in (the 600-character limit was
-  measured for COM SendCommand). ([#45](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/45))
+- [x] A batch still leaves one `Command:` prompt per piece in the history (about 27 for 41 objects).
+  Through the plug-in it now goes in pieces up to its `quietLimit` (1,500): 9 pieces instead of 25
+  for that batch, offline ([D-98](DECISIONS.md), 2026-11-21; live rows AJ6, AJ7 NOT RUN). ([#45](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/45))
 - [ ] `autocad_preview`: the picture comes out portrait with the drawing at the left edge; fit and
   centre it, landscape when the drawing is wide. Probably fixed with J6 (the preview now plots
   centred at 0 degrees); look at one live before ticking it.
@@ -76,6 +76,9 @@ done looks like here.
 - [ ] `autocad_preview` with `area='extents'` on an A1 schematic drawn at 1:1 showed only the two
   frame rectangles; `area='window'` over the same parts showed everything. Find out why before
   trusting an extents preview of a full sheet. ([#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41))
+  2026-11-21: most likely too few pixels for an A1 (about 0.5 mm a pixel), or extents stretched by
+  something far off. The answer now says the area plotted and the smallest text that reads, and
+  `detail=2` / `3` adds window close-ups ([D-102](DECISIONS.md)). Live row AM1 says which cause it was.
 - [x] A chat's server keeps the code it started with: `autocad_drawing_setup(scale='1:1')` failed
   with the fault already fixed in a2acf6a, because that server was older than the merge. Done:
   `autocad_status` reports `server_version` and `plugin_version`, and `autocad://diagnose` warns
@@ -109,11 +112,11 @@ done looks like here.
 
 - [x] **Super hatch** with a block: `autocad_super_hatch`, done by the plug-in (D-40, 2026-10-29).
   Built and compiled for every version; live rows H10-H12 NOT RUN.
-- [ ] Super hatch with an image, an xref or a wipeout as the tile (Express Tools offers them). ([#57](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/57))
+- [x] Super hatch with an image, an xref or a wipeout as the tile (Express Tools offers them): `autocad_super_hatch(image= / xref= / wipeout=)` (D-95); live rows AH12-AH14 NOT RUN. ([#57](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/57))
 - [x] **3D modelling commands** with no ActiveX call: loft, fillet / chamfer edges, shell,
   press-pull, thicken, and the face and edge listing they pick from - done by the plug-in (D-40,
   2026-10-29). Built and compiled; live rows H1-H9 and H13 NOT RUN, so **not yet proven**.
-- [ ] Loft to a surface (open outlines), surfaces from curves (PLANESURF, NETWORK) and meshes. ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58))
+- [x] Loft to a surface (open outlines), surfaces from curves (PLANESURF, NETWORK) and meshes: `autocad_loft(surface=true)`, `autocad_add_surface`, `autocad_add_mesh` (D-95); live rows AH9-AH11 NOT RUN. ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58))
 - [ ] `autocad_draw_multiline` close with a mitred corner (MLINE's own Close) - needs the plug-in. ([#55](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/55))
 - [ ] `autocad_draw_spline` by control points, and editing a spline's fit points. ([#56](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/56))
 
@@ -156,18 +159,22 @@ done looks like here.
   justification landed with the shape library (D-30); these three are what is left. ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51))
 - [ ] A hatch or solid fill for the furniture shapes: an arrowhead and a north point come out as
   outlines today, because a batch has no fill. ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51))
-- [ ] `autocad_make_shape`: a 3D shape group (duct runs, pipe spools) once the solid tools have a
-  live check behind them. ([#53](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/53))
-- [ ] Flatten a 3D solid to 2D views for a shop drawing (AutoCAD's SOLPROF / FLATSHOT). No
-  Automation call, so it needs the plug-in or an Admin command. ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54))
+- [x] `autocad_make_shape`: a 3D shape group (duct runs, pipe spools): `duct_run`, `pipe_spool` (D-94);
+  live rows AH1-AH3 NOT RUN. ([#53](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/53))
+- [x] Flatten a 3D solid to 2D views for a shop drawing (AutoCAD's SOLPROF / FLATSHOT):
+  `autocad_flatten_views`, by the plug-in (D-95); live rows AH4-AH5 NOT RUN. ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54))
+- [x] A section plane and a 2D section from a 3D model: `autocad_section_plane`, by the plug-in
+  (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
+- [ ] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines: not in
+  D-95's first build (limit 32). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
 - [ ] Multileader, table and dimension **style** creation from `autocad_create_styles`: no
   Automation API for the first two, and a dimension style already works, so this is really
   "bring the office styles in" - `autocad_import_from_drawing` does it today. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [x] Draw an attribute schedule as an AutoCAD table: `autocad_add_table` ([10](10-geometry-annotation-3d.md)).
-- [ ] Standards check against a reference DWG / DWS, not only a rules file. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69))
+- [x] Standards check against a reference DWG / DWS, not only a rules file: `autocad_check_standards(reference=...)`. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69), D-92; live rows AG5-AG8 NOT RUN)
 - [ ] A layer-standard rule file shipped for Ajmal's own office standard, beside the `ifc` preset
   in `tools/convert.py` (which is a starting point, not a standard). ([#70](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/70))
-- [ ] Read DXF / DWG files without AutoCAD (ezdxf, plus the ODA converter for DWG), read only. ([#71](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/71))
+- [x] Read DXF / DWG files without AutoCAD (ezdxf, plus the ODA converter for DWG), read only: `autocad_read_file`. ([#71](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/71), D-92; live rows AG1-AG4 NOT RUN)
 - [x] Paper-space layouts and viewports: `autocad_create_layout`, `autocad_page_setup`,
   `autocad_place_title_block`, `autocad_add_viewport` (D-27, [09](09-sheets-and-coordinates.md)).
 - [ ] `coords="ucs"` on the single-entity `autocad_draw_*` and `autocad_modify_*` tools. Today only
@@ -186,7 +193,7 @@ done looks like here.
   DWGs; each must be checked for unsaved changes and xrefs first) (D-91, 2026-11-21: `folder` / `drawings`; live rows AF12-AF15 NOT RUN). ([#67](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/67))
 - [x] Use the add-in's command tracker for the server's own busy answers too (D-77, 2026-11-21: ping says `command`; live rows Z6-Z9 NOT RUN), not only plug-in
   operations ("Outcome unknown: AutoCAD went busy", rows D8, D33). ([#47](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/47))
-- [ ] Document events to feed the wrong-drawing guard and a Companion activity list. ([#48](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/48))
+- [x] Document events to feed the wrong-drawing guard and a live activity list ([D-98](DECISIONS.md), 2026-11-21: the plug-in records them, the guard and `send_quiet` use them, the docked palette shows them live; the Companion page stays a file written after each job; live rows AJ1-AJ10 NOT RUN). ([#48](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/48))
 - [ ] `core/audit.py`: with `%LOCALAPPDATA%` unset, `audit_dir()` resolves to a relative
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway. ([#43](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/43))

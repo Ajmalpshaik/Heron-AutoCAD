@@ -699,6 +699,130 @@ folder of three small saved drawings, one with an xref. **Every row below is NOT
 | AF17 | `autocad_create_layout(name="AF-ANSI", plotter="DWG To PDF.pc3", paper_size="ANSI D")` in a drawing from acad.dwt (inch paper units); then a sheet copied from a template whose page setup plots at 90 degrees | The answer's `paper` is 34 x 22 (inches, not 863.6 x 558.8) and the frame matches PAGESETUP; on the turned sheet the frame is the right way round. If either is 25.4 times too big or swapped, the plug-in's paper read (`SheetMath.PaperInUnits`) is wrong | NOT RUN |
 | AF18 | A drawing whose xref has its own xref (nested); rename the nested one's file; publish the folder | Refused naming `<xref>|<nested>`; put the file back and it publishes | NOT RUN |
 
+## Group AP - The smaller draw gaps: construction line and ray, region, donut, divide / measure (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-108](DECISIONS.md); issues #173, #174, #177, #181, part 1 of #119). Built and
+tested offline only (`tests/test_draw_extra.py`). Server only, no plug-in change: restart the server
+after pulling. Scratch drawing, `autocad_status` first. After each row press **Ctrl+Z once** and
+check the drawing is back as it was (one undo step). The COM calls and the DIVIDE / MEASURE rules
+were not checked against Autodesk's reference (D-108); each row compares with AutoCAD's own command.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AP1 | `autocad_add_construction_line(base=[1000,1000], angle=90)`; then `kind='ray'`, `base=[0,0]`, `through=[300,400]`; then the same in paper space with a sheet tab active (`space='paper'`) | A vertical XLINE through 1000,1000 (LIST says Xline, base point 1000,1000, unit direction 0,1); a RAY from 0,0 towards 300,400 only; the paper one on the sheet. `verified: true` each | NOT RUN |
+| AP2 | A closed polyline 1000 x 500: `autocad_add_region(handles=[it])` | One region (LIST says Region), area 500000, perimeter 3000, centroid 500,250 (MASSPROP agrees); **the polyline is still there** (record it: does COM's AddRegion keep the outline, whatever DELOBJ says?) | NOT RUN |
+| AP3 | Four lines meeting end to end in a square, plus a circle elsewhere: `autocad_add_region(handles=[all five], erase_outlines=true)` | Two regions; the four lines and the circle erased after the modeller's yes (D-50); one Ctrl+Z brings them back and takes the regions away. Then add one loose open line to the handles: **record whether AddRegion ignores it** (Heron erases every outline given, so it goes too). An outline on a locked layer with erase_outlines: refused before any region is made | NOT RUN |
+| AP4 | An open polyline; then a text: `autocad_add_region` on each | The polyline: refused with "no region" and AutoCAD's own words, nothing made; the text: refused before AutoCAD is asked | NOT RUN |
+| AP5 | `autocad_add_donut(centers=[[0,0],[500,0]], outside_diameter=150, inside_diameter=100)`; then `outside_diameter=30` (a dot) at 1000,0. Beside them, AutoCAD's own DONUT with the same sizes | Rings and a dot that look the same as DONUT's (LIST of each: closed polyline, 2 vertices, constant width 25 and 15); with FILLMODE 0 the answer has the note and they show as outlines | NOT RUN |
+| AP6 | A line 0,0 to 1000,0: `autocad_divide_curve(segments=4)`; then AutoCAD's own DIVIDE 4 on a copy | Points at 250, 500, 750 (none on the ends), the same as DIVIDE's; with PDMODE 0 the answer has the point-style note | NOT RUN |
+| AP7 | A circle r=100 at 0,0 and a closed rectangle: `autocad_divide_curve(segments=4)` on each; compare DIVIDE 4 on copies | The circle: 4 points at 0, 90, 180, 270 degrees (100,0 first); the rectangle: 4 points, the first on its first vertex. **Record whether DIVIDE on a closed object also puts N points with one on the start**, and where DIVIDE starts on a circle | NOT RUN |
+| AP8 | A line 0,0 to 1000,0: `autocad_divide_curve(interval=300)`, then `interval=250`, then `interval=300, from_end=true`; compare MEASURE 300 and 250 picked near the start, and 300 near the end | 300, 600, 900 (left_at_end 100); 250, 500, 750 (left_at_end 0, no point on the end); 700, 400, 100. **Record whether MEASURE puts a point exactly on the end at 250** | NOT RUN |
+| AP9 | An L-shaped polyline at elevation 2700 (0,0 -> 600,0 -> 600,600), a block SUPPORT with an arrow along +X: `autocad_divide_curve(interval=500, block_name='SUPPORT', layer='M-SUPPORT')`; then MEASURE Block SUPPORT aligned on a copy | Two supports at 500,0 and 600,400, z 2700, turned 0 and 90 degrees, on M-SUPPORT, matching MEASURE's. With `from_end=true`: record whether MEASURE turns blocks the other way when counted from the far end | NOT RUN |
+| AP10 | A line drawn in a UCS tilted out of plan, and a line sloping in Z: `autocad_divide_curve(segments=2)` on each; a polyline in paper space on a sheet | The first two refused plainly, nothing placed; the paper-space one gets its points on that sheet | NOT RUN |
+| AP11 | AutoCAD 2025 / 2026 and 2021-2024 builds: AP1, AP2, AP5, AP6 | As in AutoCAD 2027 | NO MACHINE |
+
+## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-102](DECISIONS.md), issue #41). Built and tested offline only
+(`tests/test_preview_extents.py`); server change only, no plug-in change. Restart the server first.
+Use the A1 automation room SLD from 2026-10-28 (or any A1 sheet at 1:1 with 2.5 mm text). AM1 is
+the row that says which cause #41 was. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AM1 | On the A1 SLD in Model: `autocad_preview()` (extents). Read `plotted`, `pixels`, `smallest_clear_text`, `tip` | Record all four and whether the picture shows the contents. **Tells the causes apart:** `plotted` about 841 x 594 and `smallest_clear_text` above 2.5 = too few pixels (go to AM2); `plotted` much bigger than the frame = something far off (find it with `autocad_get_extents`, ZOOM E; erase it and repeat); `plotted` right, picture shows the sheet full size and yet nothing but the frames = a third cause in AutoCAD's Extents plot itself (record it, the close-ups in AM2 still work round it) | NOT RUN |
+| AM2 | `autocad_preview(detail=2)`, then `detail=3` | 5 then 10 pictures: the overview, then the parts top left first, each with its `part` and corners; the 2.5 mm text reads in the detail=3 parts; parts overlap a little at the seams; `detail_smallest_clear_text` smaller than in AM1 | NOT RUN |
+| AM3 | After AM2: PAGESETUP on Model, and BACKGROUNDPLOT | Page setup as before (plotter, paper, area, scale, rotation); BACKGROUNDPLOT as before; one U in AutoCAD undoes nothing of the previews | NOT RUN |
+| AM4 | Draw a line at 100000,100000, then `autocad_preview()`; erase it, `autocad_preview()` again | First: `plotted` reaches 100000 and the sheet is small in the picture. Second: record whether `plotted` shrank back to the sheet (the regen refreshed the extents) or still reaches 100000 (stale until ZOOM E; then the code should do more) | NOT RUN |
+| AM5 | `autocad_preview(width_px=4000)` and `width_px=640` | Record the `size` and `pixels` AutoCAD chose each time: they are the PNG plotter's biggest and smallest sizes, not yet known here | NOT RUN |
+| AM6 | `autocad_set_3d_view(direction='sw_iso')`, `autocad_preview(detail=2)`; then `autocad_preview(area='view', detail=2)` | First: one picture and `detail_skipped` naming the plan view. Second: refused, naming area='extents' or 'window'; nothing plotted | NOT RUN |
+
+## Group AH - 3D for MEP: duct runs, pipe spools, flat views, sections, surfaces, meshes, super hatch tiles (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-94](DECISIONS.md), [D-95](DECISIONS.md); issues #53, #54, #109, #58,
+#57). Built and tested offline only (`tests/test_shapes3d.py`, `tests/test_model_views.py`,
+`SectionMathTests.cs`, `RunTests.cs`); the add-in **compiles** for all three AutoCAD builds. AH1-AH3
+are server only (restart the server); the rest need the plug-in built from this change (six new
+operations) installed. Changes padlock on, `autocad_status` first, a scratch drawing in mm. After
+each row press **Ctrl+Z once** and check the drawing is back as it was. **Every row below is NOT
+RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AH1 | `autocad_make_shape(shape="duct_run", settings={"points": [[0,0,3000],[5000,0,3000],[5000,4000,3000],[5000,4000,6000]], "width": 600, "height": 400}, layer="M-DUCT")`, then `autocad_set_3d_view(direction="sw_iso", visual_style="conceptual")` and `autocad_preview` | Five solids on M-DUCT meeting end to end: a level 90° bend (R600) and a bend up (R400), the 600 side level on the first leg; `verified: true`, no warning. `autocad_solid_properties` of the first straight: volume 600 x 400 x 4400 = 1,056,000,000. One Ctrl+Z removes all five | NOT RUN |
+| AH2 | `autocad_make_shape(shape="pipe_spool", settings={"points": [[0,0,0],[2000,0,0],[2000,0,1500]], "outside_diameter": 114.3, "wall": 6.02, "flange_diameter": 229, "flange_thickness": 24, "bolt_count": 8, "pitch_diameter": 190.5, "hole_diameter": 19})` | Flange, pipe, elbow, pipe, flange: the flange faces on 0,0,0 and 2000,0,1500; both flanges bored 102.26 and drilled 8 x 19 holes straddling the centrelines; `pipe_cut_lengths` 1804.55 and 1304.55 match DIST across each pipe. Again with `"join": true`: one solid | NOT RUN |
+| AH3 | Look at the AH1 and AH2 answers' pieces | Write down whether any bend says `revolved_the_other_way` (AutoCAD's revolve sense, not in its reference). Either way every bend must continue the run, not fold back over the straight | NOT RUN |
+| AH4 | Spool from AH2 (not joined): `autocad_flatten_views(handles=[its five handles], insert_at=[4000, 0], layer="M-SHOP")` | Three blocks FLATSHOT-1-FRONT, -TOP, -RIGHT on M-SHOP; plan above the front and the right view to its right, lined up (the pipe's centreline level across front and right); no hidden lines; the model untouched. Record `laid_flat_from` (expected `plane`). Compare with FLATSHOT done by hand on the same spool | NOT RUN |
+| AH5 | Two overlapping boxes: `autocad_flatten_views(views=["front"])` with `join=false`, then `join=true` | Without join the back box's lines show through the front one; with join they are hidden, and the line where the two meet on a flush face is gone | NOT RUN |
+| AH6 | The AH1 duct run: `autocad_section_plane(points=[[2500,-1000],[2500,5000]], insert_at=[8000, 0], layer="M-SECT")` | A section plane in the model through x=2500 (SECTIONPLANE's object), and block SECTION-1 at 8000,0: the duct's 600 x 400 cut outline, hatched, and the bend and riser beyond seen in elevation. It looks left of the line: from x=2500 towards -X (`looking` [-1,0,0]). Record `laid_flat_from` | NOT RUN |
+| AH7 | `autocad_section_plane(points=[[0,0,3200],[1000,0,3200],[0,1000,3200]], insert_at=[0,-6000], background=false)` | A plan cut at 3200 looking down, north up: the duct's cut outlines along the first leg and the riser's 600 x 400, hatched, nothing beyond | NOT RUN |
+| AH8 | `autocad_section_plane` with two points far from every solid, then with `keep_plane=false` | First: refused, "neither cuts nor sees ... Nothing was changed", and no section plane left. Second (through the duct): the block only, no plane in the model | NOT RUN |
+| AH9 | Two open arcs at z=0 and z=2000: `autocad_loft(sections=[a, b], surface=true)`; then `autocad_thicken_surface(<it>, thickness=3)` | A lofted surface through both arcs (`area` given), the arcs kept; thickening it makes a 3 mm solid. Without `surface=true` the loft is refused naming surface=true | NOT RUN |
+| AH10 | `autocad_add_surface(kind="planar", corners=[[0,0,2700],[3000,2000,2700]])`; then `kind="planar", outlines=[a closed polyline]`; then `kind="network"` with three curves each way crossing | A 3000 x 2000 plane surface at 2700 (area 6,000,000); one over the polyline; one network surface through the six curves. An open outline is refused | NOT RUN |
+| AH11 | `autocad_add_mesh(shape="box", base=[0,0,0], length=1000, width=600, height=400, smoothness=2)`; `shape="sphere", radius=300, base=[2000,0,0]`; `from_handle=<an AH1 straight>` | A smoothed mesh box sitting on z=0, centred on 0,0; a mesh sphere centred at 2000,0,0; a mesh of the straight with the solid still there. Record faces / vertices for each | NOT RUN |
+| AH12 | An L-shaped closed polyline: `autocad_super_hatch(boundary=<it>, image="<a .jpg on disk>", image_size=[600])` | One block reference (SUPERHATCH-n) holding the image tiled 600 wide, in proportion, showing only inside the outline. Record whether XCLIP clips the images inside the block (the reason for this row); one Ctrl+Z takes it all | NOT RUN |
+| AH13 | `autocad_super_hatch(boundary=<it>, xref="<a tile .dwg>")`; then again with the xref's name | The xref attached (External References lists it) and tiled, clipped to the outline; the second call reuses it. Then a refusal case (an outline too big for 10,000 tiles with a .dwg not yet attached): refused and the xref not left attached | NOT RUN |
+| AH14 | A 300 x 300 wipeout over some lines: `autocad_super_hatch(boundary=<it>, wipeout=<its handle>, spacing=[600, 600])` | A grid of masks inside the outline hiding the lines under them; the original wipeout untouched | NOT RUN |
+| AH15 | Ask to keep on: run AH4, AH6, AH10, AH11 and AH12, answering Discard each time | Each is taken back whole; PURGE finds no FLATSHOT, SECTION or SUPERHATCH block left; no section plane left | NOT RUN |
+| AH16 | AH1-AH15 on AutoCAD 2025/2026 and 2021-2024 | As AH1-AH15 | NOT RUN (no PC with those versions yet) |
+
+## Group AG - Files with AutoCAD closed, standards against a reference drawing, shared check lists (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-92](DECISIONS.md), [D-93](DECISIONS.md); issues #71, #69, #135). Built and
+tested offline (`tests/test_read_file.py`, `tests/test_shared_checklists.py`): the DXF reader is
+proved there on small DXF files made with ezdxf, and the compare, the refusals and the shared-file
+rules on plain data. **Set-up:** close Claude, run `.venv\Scripts\python.exe -m pip install ezdxf`
+once (a new dependency, installed by name: [05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)),
+start Claude again. Server only: no plug-in build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AG1 | AutoCAD **closed**. `autocad_read_file(path="<a real project .dxf>")`, then `what="layers"`, `"blocks"`, `"text"`, `"attributes"` | Answers with AutoCAD closed; units, layer names and colours, block counts and title block values match what AutoCAD shows when the file is opened (record two counts side by side). No AutoCAD starts; the file's date is unchanged | NOT RUN |
+| AG2 | AutoCAD closed, ODA File Converter **not** installed: `autocad_read_file(path="<a .dwg>")` | Refused in plain words: needs AutoCAD, the ODA File Converter, or a DXF of it; nothing downloaded | NOT RUN |
+| AG3 | Install the ODA File Converter (from the Open Design Alliance, by hand). Repeat AG1 on a `.dwg` and on the office `.dws` | `read_by` names the converter's path; layers and block counts match AutoCAD; no converter window flashes up; nothing is left in `%TEMP%\heron-oda-*`; the `.dwg` / `.dws` date is unchanged. Record the converter version and the seconds taken | NOT RUN |
+| AG4 | `autocad_read_file` on a DWG with dynamic blocks (valves, doors) and `what="blocks"` | Placed counts are under the dynamic block's own name, not `*U12`; the count matches AutoCAD's BCOUNT / Count palette | NOT RUN |
+| AG5 | AutoCAD open, a project drawing active: `autocad_check_standards(reference="<the office .dws>")`, converter **not** installed | `reference.read_by` says AutoCAD's own reader (ObjectDBX); the .dws does not open on screen; the findings name layers and text styles that really differ (check two by hand in the Layer and Style dialogs). AutoCAD's CHECKSTANDARDS on the same pair: record where the two disagree | NOT RUN |
+| AG6 | AG5 with the office `.dws` **open** in AutoCAD as well | `read_by` says the drawing is open there; same findings as AG5 | NOT RUN |
+| AG7 | AG5 with a `.dxf` saved from the `.dws`, then with `flag_extra=false` | Same findings as AG5 (`read_by` ezdxf); with `flag_extra=false` the "not in standard" lines are gone. A layer with a true colour: record what is said | NOT RUN |
+| AG8 | Text styles: a style with a TrueType font (Arial) in both drawings, and one with romans.shx vs simplex.shx | Arial is not reported; the SHX pair is reported as "font ... here, ... in the standard" | NOT RUN |
+| AG9 | `autocad_checklist(action="office_folder", folder="<a real network share>")`, then `autocad_share_checklist(share="office_list", name="before issue")` with Publish ON; run `before issue` on a second PC pointed at the same share | The file appears on the share with `saved_by` = this Windows user; the second PC's run says `office_from: office folder` and names the share's file on every line | NOT RUN |
+| AG10 | Disconnect the network drive (or unplug), then run `before issue` | Within about 10 s: the run says the office folder could not be reached and that it used this PC's copy, with the date read; the verdict is given | NOT RUN |
+| AG11 | Second PC changes the list and shares it with `replace=true`; first PC shares its own different list without replace | First PC is refused, naming the second PC's user and time and what differs; the share's file is unchanged. With `replace=true`, the file holds `previous` with the second PC's list | NOT RUN |
+| AG12 | A share where this user has read-only rights: share a list | Refused: "read-only for you"; nothing written | NOT RUN |
+| AG13 | `autocad_share_checklist(share="project_changes", name="before issue", changes=[{id: "xrefs_found", on: false}])` in a job folder; open another drawing in the same folder on the second PC and run `before issue` | `Heron check list changes.json` is in the job folder; the second PC's run has `xrefs_found` NOT RUN, `from: project`, naming that file | NOT RUN |
+| AG14 | Padlocks: Publish OFF. `autocad_share_checklist(share="office_list")` | Refused by the plug-in (Publish padlock); nothing written to the share | NOT RUN |
+| AG15 | `autocad_why(job="read the layers of a DXF file")` with AutoCAD closed | `can_run: true`, the tool `autocad_read_file`, no "press Heron" reason | NOT RUN |
+
+## Group AJ - Drawing events from the plug-in, fewer batch pieces (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-98](DECISIONS.md); issues #48, #45). Built and tested offline only
+(`DrawingEventsTests.cs`, `tests/test_drawing_events.py`, `tests/test_quiet_pieces.py`). Needs the
+plug-in built from this change (its ping says `quietLimit`, it knows the op `drawings`), reinstalled,
+and the server restarted. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AJ1 | Connect, open the Heron palette (Activity). Open a second drawing, switch between the two, QSAVE one, Save As the other to a new name, close one | Each shows at once, newest first: "b.dwg opened", "b.dwg came to the front", "a.dwg saved", "Drawing1.dwg saved as plan.dwg", "b.dwg closed"; the "In front:" line follows every switch. The log (`addin-*.log`) shows no error | NOT RUN |
+| AJ2 | SAVETIME 1, leave a drawing open for 2 minutes untouched | No "saved" line from the automatic save (.sv$) | NOT RUN |
+| AJ3 | `autocad_status` on a.dwg; close a.dwg and open it again; ask Heron to draw a line | REFUSED: "a.dwg was closed at hh:mm:ss and opened again since Heron checked it. Call autocad_status first"; after `autocad_status` the line is drawn | NOT RUN |
+| AJ4 | `autocad_status` on an unsaved Drawing1; Save As `C:\...\plan.dwg` by hand; ask Heron to draw a line | The line is drawn in plan.dwg with no new status check (the Save As is followed). With a plug-in built before this change: refused "The active drawing changed from Drawing1.dwg to ..." as before | NOT RUN |
+| AJ5 | `autocad_status`; close AutoCAD; start it again with the same drawing; press Heron; ask Heron to draw a line (same chat) | REFUSED: "AutoCAD was started again, or another AutoCAD is in front, since Heron checked a.dwg"; after `autocad_status` it draws | NOT RUN |
+| AJ5b | `autocad_status` on a.dwg; Save As a-rev2.dwg; open a.dwg from disk again and keep it in front; ask Heron to draw a line | REFUSED: "a.dwg was opened at hh:mm:ss, after Heron checked a drawing"; after `autocad_status` it draws | NOT RUN |
+| AJ6 | `autocad_batch_draw` of the A22 batch (41 objects) with the plug-in connected, then F2 | About 9 `Command:` prompts (it was about 27), all 41 made, no `missing` in the answer, no LISP text in the history. **Write the count down** | NOT RUN |
+| AJ7 | `autocad_batch_draw` of 2,000 lines, then of one 800-vertex polyline and 50 texts | `created` = `requested`, no `missing`, `completed` true: every piece up to 1,500 characters arrived. If any is missing, or AutoCAD sits at a `(_>` prompt (a piece cut short), write the batch size and lower `QUIET_CHUNK_LIMIT` | NOT RUN |
+| AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, on layer 0 (no `layer`: a new layer is made over COM, in whichever drawing is in front, [#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)); press Ctrl+Tab to b.dwg while it runs | The steps after the switch are refused: "The drawing in front changed while this job ran ... so Heron typed none of this input"; nothing from Heron lands in b.dwg; a.dwg has the steps before the switch | NOT RUN |
+| AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
+| AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
+
+## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| RV1 | Admin on. `autocad_send_command` with `expect_box` / `press` on a box that never comes; close the chat (stop the server) before the command ends; then, with no Heron job running, open a box yourself (e.g. OPTIONS) | Heron leaves your box alone; `addin-*.log` shows no "dialog watch" line for it | NOT RUN |
+| RV2 | `autocad_export_attribute_sheet`, then in Excel type `0051` and `1:100` over two values, save, `autocad_apply_attribute_sheet` | The attributes read `0051` and `1:100` exactly; nothing listed in `excel_converted` | NOT RUN |
+| RV3 | `autocad_sequence` with steps `[autocad_switch_drawing, autocad_draw_line]` | Refused naming step 1; nothing drawn in either drawing | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

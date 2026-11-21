@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import tempfile
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
@@ -229,8 +230,18 @@ def _plot_pdf(
 
 PNG_PLOTTER = "PublishToWeb PNG.pc3"
 # AcPlotType values for the preview areas.
-_PREVIEW_AREAS = {"view": 0, "extents": AC_EXTENTS, "window": 4}
+AC_WINDOW = 4
+_PREVIEW_AREAS = {"view": 0, "extents": AC_EXTENTS, "window": AC_WINDOW}
 _PIXEL_MEDIA = re.compile(r"\(([\d.]+)_x_([\d.]+)_Pixels\)")
+# AcRegenType: acAllViewports, as autocad_get_extents regenerates.
+AC_ALL_VIEWPORTS = 1
+# A letter needs about this many pixels of height to read; smaller turns to specks.
+CLEAR_TEXT_PX = 8
+# Each close-up reaches this share of its size into its neighbours, so a
+# part on a seam shows whole in one of them.
+DETAIL_OVERLAP = 0.05
+_DETAIL_ROWS = {2: ("top", "bottom"), 3: ("top", "middle", "bottom")}
+_DETAIL_COLUMNS = {2: ("left", "right"), 3: ("left", "centre", "right")}
 
 
 def _point2d(value: Sequence[float], name: str) -> Any:
@@ -241,6 +252,94 @@ def _point2d(value: Sequence[float], name: str) -> Any:
     )
 
 
+Box = tuple[list[float], list[float]]
+
+
+def _box(corner1: Sequence[float], corner2: Sequence[float]) -> Box | None:
+    """The lower-left and upper-right of two corners, or None if it has no area."""
+    low = [min(float(corner1[0]), float(corner2[0])), min(float(corner1[1]), float(corner2[1]))]
+    high = [max(float(corner1[0]), float(corner2[0])), max(float(corner1[1]), float(corner2[1]))]
+    if not all(abs(v) < 1e15 for v in low + high) or high[0] <= low[0] or high[1] <= low[1]:
+        return None
+    return low, high
+
+
+def _plan_view(doc: Any) -> bool:
+    """True when the screen looks straight down in the world UCS, untwisted."""
+    try:
+        view = point_to_list(doc.GetVariable("VIEWDIR"))
+        return (
+            int(doc.GetVariable("WORLDUCS")) == 1
+            and abs(float(doc.GetVariable("VIEWTWIST"))) < 1e-9
+            and len(view) == 3
+            and abs(view[0]) < 1e-9
+            and abs(view[1]) < 1e-9
+            and view[2] > 0
+        )
+    except BaseException:  # noqa: BLE001 - not known to be plan
+        return False
+
+
+def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None]:
+    """The area an extents preview covers, or None and the reason it cannot be told.
+
+    Regenerates first, as autocad_get_extents does: EXTMIN/EXTMAX lag behind
+    erased objects (issue #41). A paper layout plots its own extents. In
+    model space the box is a plan box, so it maps onto the picture only in a
+    plan view of the world UCS.
+    """
+    try:
+        doc.Regen(AC_ALL_VIEWPORTS)
+    except BaseException:  # noqa: BLE001 - the plot regenerates for itself anyway
+        pass
+    model = bool(layout.ModelType)
+    if model and not _plan_view(doc):
+        return None, "the screen is not a plan view of the world UCS"
+    try:
+        low = point_to_list(doc.GetVariable("EXTMIN" if model else "PEXTMIN"))
+        high = point_to_list(doc.GetVariable("EXTMAX" if model else "PEXTMAX"))
+        box = _box(low, high)
+    except BaseException:  # noqa: BLE001 - no extents to read
+        box = None
+    return box, None if box else "the drawing has no extents (nothing drawn)"
+
+
+def _clear_text(box: Box, pixels: tuple[float, float]) -> float:
+    """The smallest text height, in drawing units, that reads in this picture."""
+    per_pixel = max((box[1][0] - box[0][0]) / pixels[0], (box[1][1] - box[0][1]) / pixels[1])
+    return float(f"{CLEAR_TEXT_PX * per_pixel:.3g}")
+
+
+def _detail_parts(box: Box, rows: int) -> list[tuple[str, list[float], list[float]]]:
+    """Split a box into rows x rows overlapping windows, top left first."""
+    (x0, y0), (x1, y1) = box
+    width, height = (x1 - x0) / rows, (y1 - y0) / rows
+    pad_x, pad_y = width * DETAIL_OVERLAP, height * DETAIL_OVERLAP
+    parts = []
+    for row in range(rows):
+        top = y1 - row * height
+        for column in range(rows):
+            left = x0 + column * width
+            name = f"{_DETAIL_ROWS[rows][row]} {_DETAIL_COLUMNS[rows][column]}"
+            parts.append(
+                (
+                    "centre" if name == "middle centre" else name,
+                    [left - pad_x, top - height - pad_y],
+                    [left + width + pad_x, top + pad_y],
+                )
+            )
+    return parts
+
+
+def _detail_path(target: str, picture: int) -> str:
+    stem, extension = os.path.splitext(target)
+    return f"{stem}-{picture}{extension}"
+
+
+def _round_point(point: Sequence[float]) -> list[float]:
+    return [round(float(v), 3) for v in point]
+
+
 def _plot_png(
     doc: Any,
     target: str,
@@ -248,11 +347,14 @@ def _plot_png(
     corner1: Sequence[float] | None,
     corner2: Sequence[float] | None,
     width_px: int,
+    detail: int = 1,
 ) -> dict[str, Any]:
     """Plot the active layout to a PNG through AutoCAD's own PNG plotter.
 
     Same order as _plot_pdf (plotter on the layout first, PlotToFile with the
     path alone) and the same restore, so a preview never changes the page setup.
+    With detail 2 or 3 the same area is then plotted again as overlapping
+    windows (D-102), each beside target as <name>-<picture>.png.
     """
     layout = doc.ActiveLayout
     plot = doc.Plot
@@ -260,6 +362,7 @@ def _plot_png(
     quiet = plot.QuietErrorMode
     snapshot = _snapshot_page_setup(doc, layout)
     size = None
+    result: dict[str, Any] = {"area": area}
     try:
         layout.ConfigName = PNG_PLOTTER
         layout.RefreshPlotDeviceInfo()
@@ -279,6 +382,40 @@ def _plot_png(
             layout.PlotRotation = AC_0_DEGREES
         except BaseException:  # noqa: BLE001 - a preview on its side beats no preview
             pass
+
+        # Which area the picture covers, so a sheet too big for the pixels, or
+        # extents stretched by something far off, can be seen (issue #41).
+        box, why_not = None, None
+        if area == "extents":
+            box, why_not = _extents_box(doc, layout)
+        elif area == "window":
+            box = _box(corner1, corner2)
+            why_not = None if box else "the window has no area"
+        found = _PIXEL_MEDIA.search(str(layout.CanonicalMediaName))
+        pixels = (float(found.group(1)), float(found.group(2))) if found else None
+        if box:
+            low, high = box
+            result["plotted"] = {
+                "min": _round_point(low),
+                "max": _round_point(high),
+                "width": round(high[0] - low[0], 3),
+                "height": round(high[1] - low[1], 3),
+            }
+        if pixels:
+            result["pixels"] = [int(pixels[0]), int(pixels[1])]
+        if box and pixels:
+            result["smallest_clear_text"] = _clear_text(box, pixels)
+        parts = []
+        if detail > 1:
+            if box and pixels:
+                parts = _detail_parts(box, detail)
+            else:
+                why_not = why_not or "the PNG plotter offers no size in pixels"
+                result["detail_skipped"] = (
+                    f"No close-ups: {why_not}. This is the one picture; preview "
+                    "area='window' over one part to look closer."
+                )
+
         if area == "window":
             layout.SetWindowToPlot(_point2d(corner1, "corner1"), _point2d(corner2, "corner2"))
         layout.PlotType = _PREVIEW_AREAS[area]
@@ -288,11 +425,44 @@ def _plot_png(
         doc.SetVariable("BACKGROUNDPLOT", 0)
         plot.QuietErrorMode = True
         plot.PlotToFile(target)
+
+        # The close-ups are window plots: on 2026-10-28 windows over an A1
+        # sheet's parts showed what its extents picture did not.
+        detail_info = []
+        for picture, (part, low, high) in enumerate(parts, start=2):
+            layout.SetWindowToPlot(_point2d(low, "corner1"), _point2d(high, "corner2"))
+            layout.PlotType = AC_WINDOW
+            plot.PlotToFile(_detail_path(target, picture))
+            detail_info.append(
+                {"picture": picture, "part": part, "corner1": _round_point(low), "corner2": _round_point(high)}
+            )
+        if detail_info:
+            result["detail"] = detail_info
+            result["detail_smallest_clear_text"] = _clear_text((parts[0][1], parts[0][2]), pixels)
     finally:
         unrestored = _restore_plot_state(doc, layout, snapshot, background, quiet)
-    result: dict[str, Any] = {"area": area, "layout": str(layout.Name)}
+    result["layout"] = str(layout.Name)
     if size:
         result["size"] = size.replace("_", " ")
+    clear = result.get("detail_smallest_clear_text", result.get("smallest_clear_text"))
+    if clear and area != "view":
+        try:
+            text_size = float(doc.GetVariable("TEXTSIZE"))
+        except BaseException:  # noqa: BLE001 - no tip then
+            text_size = 0.0
+        if 0 < text_size < clear:
+            closer = (
+                "area='window' over one part"
+                if "detail" in result
+                else "detail=2 (four close-ups), detail=3, or area='window' over one part"
+            )
+            result["tip"] = (
+                f"Text under about {clear:g} drawing units high does not read in "
+                f"{'these close-ups' if 'detail' in result else 'this picture'}, and "
+                f"this drawing's text size (TEXTSIZE) is {text_size:g}: small parts "
+                "and thin lines may not show. To look closer, call autocad_preview "
+                f"again with {closer}."
+            )
     if unrestored:
         result["warning"] = "Could not put back: " + "; ".join(unrestored)
     return result
@@ -1343,6 +1513,19 @@ async def autocad_preview(
     width_px: Annotated[
         int, Field(ge=320, le=4000, description="Wanted image width in pixels.")
     ] = 1600,
+    detail: Annotated[
+        int,
+        Field(
+            ge=1,
+            le=3,
+            description=(
+                "1 = one picture. 2 or 3 = also close-ups of the same area, "
+                "split 2 x 2 or 3 x 3 (area='extents' or 'window'): use it for "
+                "a full sheet, whose small text and thin lines cannot show in "
+                "one picture."
+            ),
+        ),
+    ] = 1,
 ) -> list | str:
     """See the drawing: plot it to a PNG and return the picture.
 
@@ -1350,22 +1533,42 @@ async def autocad_preview(
     done. Plots through AutoCAD's own PNG plotter, so it shows what a plot
     would show; the page setup is put back afterwards and nothing is drawn.
 
+    One picture has a fixed number of pixels (about 1600 across), so a whole
+    A1 sheet at 1:1 gets about half a millimetre a pixel: 2.5 mm text and thin
+    lines do not show, though the heavy frame does (issue #41). The answer
+    says the area plotted and the smallest text that reads
+    (`smallest_clear_text`); `detail=2` adds four overlapping close-ups of
+    the same area, `detail=3` nine.
+
     Returns:
-        The PNG image, then JSON: {"area", "layout", "size"}.
+        The PNG image (then one per close-up, top left first), then JSON:
+        {"area", "layout", "size", "pixels", "plotted": {"min", "max",
+        "width", "height"}, "smallest_clear_text", "detail": [{"picture",
+        "part", "corner1", "corner2"}], "detail_smallest_clear_text", "tip"}.
+        A `plotted` area much bigger than the sheet means something lies far
+        off: find it with autocad_get_extents.
 
     Examples:
         - Use when: you have drawn something and want to see it before saying
           it is done. Drafting rule: look at the picture, then fix it.
         - Use when: checking crossings, overlaps, text on lines, crowding.
+        - Use when: "check the whole sheet": `detail=2` for an A1 or A0, so
+          the text can be read.
+        - Don't use when: a PDF to keep or send is wanted: autocad_export.
     """
     if area == "window" and (not corner1 or not corner2):
         raise AutocadError("area='window' needs both corner1 and corner2 as [x, y].")
+    if detail > 1 and area == "view":
+        raise AutocadError(
+            "detail works with area='extents' or area='window': the current "
+            "view has no corners to split. Give the window's corners instead."
+        )
 
     folder = tempfile.mkdtemp(prefix="heron-preview-")
     target = os.path.join(folder, "preview.png")
 
     def work() -> dict[str, Any]:
-        return _plot_png(get_doc(), target, area, corner1, corner2, width_px)
+        return _plot_png(get_doc(), target, area, corner1, corner2, width_px, detail)
 
     try:
         info = await run(work)
@@ -1374,12 +1577,23 @@ async def autocad_preview(
                 f"AutoCAD did not write the preview. Check that '{PNG_PLOTTER}' "
                 "is listed in AutoCAD's PLOTTERMANAGER folder."
             )
-        with open(target, "rb") as fh:
-            data = fh.read()
+        images = [Image(data=_read_png(target), format="png")]
+        written = []
+        for part in info.get("detail", []):
+            path = _detail_path(target, part["picture"])
+            if os.path.isfile(path) and os.path.getsize(path) > 0:
+                part["picture"] = len(images) + 1
+                images.append(Image(data=_read_png(path), format="png"))
+                written.append(part)
+            else:
+                info.setdefault("detail_missing", []).append(part["part"])
+        if "detail" in info:
+            info["detail"] = written
     finally:
-        try:
-            os.remove(target)
-            os.rmdir(folder)
-        except OSError:
-            pass
-    return [Image(data=data, format="png"), dumps(info)]
+        shutil.rmtree(folder, ignore_errors=True)
+    return [*images, dumps(info)]
+
+
+def _read_png(path: str) -> bytes:
+    with open(path, "rb") as fh:
+        return fh.read()

@@ -44,7 +44,9 @@ once, read only).
 - **Never run `pip install -e .` while an `autocad-mcp` server is running**
   ([05 §1](docs/05-known-limits.md#1-reinstalling-while-the-server-runs)).
 - **Never drive AutoCAD from two sessions at once.**
-- **Never send an AutoLISP expression near 3,600 characters**; keep chunks under about 700.
+- **Never send an AutoLISP expression near 3,600 characters**; keep chunks under about 700 over
+  COM. Only the batch through the plug-in's quiet input may send pieces up to the `quietLimit` its
+  ping says, at most 1,500 ([D-98](docs/DECISIONS.md)).
   `autocad_run_lisp` cuts longer code between its top-level forms itself, and refuses one form over
   2,000 ([05 §3](docs/05-known-limits.md#3-long-autolisp-fails-silently), D-76).
 - **Never draw parts as loose lines or fake a leader**: [07 drafting rules](docs/07-drafting-rules.md).

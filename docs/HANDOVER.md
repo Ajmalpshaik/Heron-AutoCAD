@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (sheets by the plug-in: #64-#67, #39, #40; D-90, D-91)
 
-One new tool, `autocad_sheet_set` (**170** with the 2D edits and the other sessions' work), and three new
+One new tool, `autocad_sheet_set` (**180** with the other sessions' work), and three new
 plug-in operations (`create_layout`, `add_viewport`, `active_sheet`); `publish_pdf` takes a list
 of drawings. `autocad_create_layout` and `autocad_add_viewport` ask the plug-in first and fall back
 to COM; viewports clip (`clip_outline`, `clip_handle`) and take an annotation scale; title blocks go
@@ -21,6 +21,92 @@ version is not bumped here (the parent does it). #39 and #40 stay open until the
 **Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then live
 rows **AF1-AF15, AF17, AF18**. AF9 decides whether the sheet set really is one undo step; AF6 checks the twist sign,
 which this PR flipped from the code (the old COM path too); AF10 is row D33 again.
+
+## Earlier - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
+
+A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
+SECURITY, PROJECT-MAP, 06), D-87 and D-67 notes, sequence steps that switch drawing or undo, the
+dialog watch's lost jobs, four Excel read / write faults, and three tests that passed for the wrong
+reason. Filed, in areas other sessions are changing: #189-#191 and #206-#212. Live rows: Group RV, NOT RUN.
+
+**Next:** the filed issues, highest first: #206 (palette Undo), #207 (batch text escape), #208
+(bring-them-back after join / explode), #211 (check list PASS on failed reads).
+
+## Earlier - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
+
+Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+(xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
+`autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
+(DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
+`tests/test_draw_extra.py`. Server only, no plug-in change. #119 stays open for its parts 2 and 3.
+
+**Next (on this PC):** pull, restart Claude, then live rows AP1-AP10. AP2 (does AddRegion keep the
+outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
+when counted from the end) are the answers the code could not get from Autodesk's reference. Not
+built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
+
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
+
+Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
+only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
+pixels for the sheet (most likely), or extents stretched by something far off. `autocad_preview`
+now reports `plotted`, `pixels`, `smallest_clear_text` and a `tip`, and `detail=2` / `3` adds
+window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-known-limits.md#33-one-preview-picture-cannot-show-a-whole-big-sheets-small-text).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
+AM1 names the cause; close #41 only after AM1 and AM2 pass.
+
+## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
+
+Five issues built offline in one PR. `autocad_make_shape` has a 3D group: `duct_run` and
+`pipe_spool`, solids along a route, a bend at every corner, flanges with bolt holes, each pipe's cut
+length (pure geometry in `acad/shapes3d.py`, made over COM by `tools/_solid_pieces.py`). Four new
+tools done by the plug-in (**175** in all): `autocad_flatten_views` (FLATSHOT / SOLPROF),
+`autocad_section_plane` (SECTIONPLANE + 2D section block), `autocad_add_surface` (planar, network),
+`autocad_add_mesh`; `autocad_loft(surface=true)`; `autocad_super_hatch` takes an image, an xref or
+a wipeout as the tile. Plug-in: `Sections.cs`, `Surfaces.cs`, `SuperHatch.cs`, pure maths in
+`Bridge/SectionMath.cs`; every .NET signature was checked against the AutoCAD 2027 reference
+assemblies, and the add-in compiles for all three builds. Limits: [05 §32](05-known-limits.md#32-3d-for-mep-duct-runs-spools-flat-views-sections-surfaces-meshes-have-their-own-limits).
+
+**Next (on this PC):** pull, build and install the plug-in, restart Claude, then live rows AH1-AH15
+([NEEDS-CHECKING group AH](NEEDS-CHECKING.md)). The answers the reference could not give: which way
+AutoCAD revolves a bend (AH3), where GenerateSectionGeometry puts a 2D section's lines
+(`laid_flat_from`, AH4 and AH6), which side a section looks at (AH6), and whether XCLIP hides
+images inside a block (AH12).
+
+## Earlier - 2026-11-21 (drawing events from the plug-in, fewer batch pieces: #48, #45; D-98)
+
+Branch `claude/plugin-events`. No new tool. **Plug-in change**: `DrawingEvents` (bridge) and
+`DrawingWatch` (add-in) record each drawing opened, brought to the front, saved / saved as, closed;
+new op `drawings`; `send_quiet` refuses after a switch mid-job and lines over `quietLimit` (1,500,
+said in ping). Server: the guard reads the events (`core/drawing_events.py`); the batch goes in
+longer pieces through the plug-in (`acad/lisp.py` `quiet_pieces`). The palette's Activity shows
+the drawing events live. An independent review found six gaps, all fixed with tests (D-98, last
+bullet): a drawing opened since the check, history that dropped off, bare-name matches, the status
+mark, `send_quiet` now answering only after AutoCAD got to the input, old names keyed by database.
+Built for all three targets and tested offline; none of it has run in AutoCAD. Versions not bumped
+(the parent does). Follow-up: #165 (a sequence's COM steps after a mid-job switch).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude; live
+rows **AJ1-AJ10**. AJ6 first (count the `Command:` prompts for the 41-object batch), then AJ7
+(every 1,500-character piece arrives); if one is lost, lower `QUIET_CHUNK_LIMIT`.
+
+## Earlier - 2026-11-21 (files with AutoCAD closed, standards against a reference, shared check lists: #71, #69, #135; D-92, D-93)
+
+Two new tools (**171** with the 2D edits and `autocad_render` removed): `autocad_read_file` (Read, needs no
+AutoCAD: a DXF with ezdxf, a DWG / DWS / DWT through the ODA File Converter only when it is
+installed) and `autocad_share_checklist` (Publish: the office list into the office folder, a
+project's changes into `Heron check list changes.json` in the drawing's folder).
+`autocad_check_standards` takes `reference=` (a `.dws`, `.dwt`, `.dwg` or `.dxf`; read by Heron, or
+by AutoCAD's ObjectDBX when it is a DWG and the converter is not there). `autocad_checklist` has
+`action='office_folder'` and names the file every check came from. The DXF reader is proved
+offline on DXF files made by ezdxf; the converter, ObjectDBX on a `.dws` and a real network share
+are not. Versions not bumped (the parent does).
+
+**Next (on this PC):** close Claude, `.venv\Scripts\python.exe -m pip install ezdxf`, start
+Claude, then live rows **AG1-AG15**. AG3 needs the ODA File Converter installed by hand; AG9-AG13
+need a real share and a second PC. If Ajmal wants the office folder set in `.mcp.json` instead, or
+roles for who may change the office list, that is a new decision on top of D-93.
 
 ## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
