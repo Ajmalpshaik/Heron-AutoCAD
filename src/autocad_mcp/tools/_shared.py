@@ -207,6 +207,20 @@ def in_plugin(operation: str, args: dict[str, Any], what: str, *, changes: bool 
     return runner(operation, {key: value for key, value in args.items() if value is not None})
 
 
+def plugin_read(operation: str, args: dict[str, Any] | None = None) -> tuple[dict[str, Any] | None, str | None]:
+    """A read the plug-in does (D-40), or None and why it could not be had. Never raises.
+
+    For a tool whose own work is done, that only wants to report what it
+    found (the visual style after setting it, D-86).
+    """
+    if plugin_runner() is None:
+        return None, "Heron's plug-in is not in this job (the server runs with --no-bridge)."
+    try:
+        return in_plugin(operation, args or {}, "Reading it", changes=False), None
+    except Exception as exc:  # noqa: BLE001 - the read is extra; its failure is said, not raised
+        return None, str(exc)
+
+
 def plugin_created(doc: Any, report: dict[str, Any]) -> dict[str, Any]:
     """The payload for something the plug-in made, read back over COM.
 

@@ -8,7 +8,25 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (blocks, attributes and tables: #115, #117, #106; D-82, D-83)
+## Latest - 2026-11-21 (setting a render up from the chat, #59-#63, D-86 / D-87)
+
+Five new tools (**152** with the blocks and tables work merged first) and five new plug-in operations, built and tested offline in one PR:
+`autocad_add_camera_view` (a view record with perspective and a lens, never DVIEW),
+`autocad_set_sun` (date and time on the model viewport's sun through the plug-in; LATITUDE,
+LONGITUDE, TIMEZONE and SUNSTATUS over COM), `autocad_list_lights` and `autocad_switch_lights`
+(lights in model space and in light blocks; the sun and DEFAULTLIGHTING), and
+`autocad_set_render_exposure` (EXPVALUE / EXPWHITEBALANCE). `autocad_set_3d_view` reads the
+visual style back (`visual_style_found`). **None of these tools renders**: Ajmal presses Render;
+whether `autocad_render` (Admin) stays is Ajmal's call, issue **#158**. An independent review found
+six real problems before merging, all fixed with tests (stale sun on / off, a year refused only
+after the place was set, TIMEZONE codes like 9031, a style reading taken as a failure, no warning
+for 2D Wireframe, a layout view replaceable). The
+add-in compiles for all three builds; versions not bumped (the parent does).
+**Next (on this PC, AutoCAD closed):** build and install the plug-in, restart Claude, then live
+rows **AE1-AE14**. AE14 decides the exposure route: if 2027 has no EXPVALUE, the ROADMAP item for
+the viewport's `PhotographicExposureParameters` is next.
+
+## Earlier - 2026-11-21 (blocks, attributes and tables: #115, #117, #106; D-82, D-83)
 
 Branch `claude/blocks-tables`. Five new tools (**147**): `autocad_sync_attributes` (ATTSYNC),
 `autocad_table_from_excel`, `autocad_update_table_links`, `autocad_set_table_cells`,

@@ -8,6 +8,17 @@ Newest first. Dates are when the change was made.
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
 
+- **Setting a render up from the chat (2026-11-21, #59-#63).** Five new tools (152 with the blocks and tables tools): a named
+  perspective **camera view** with an eye, a target and a lens (`autocad_add_camera_view`, 24 mm
+  inside a room), the **sun's date, time and place** (`autocad_set_sun`), the **lights listed**
+  with on / off and brightness, plus the sun, default lighting and exposure
+  (`autocad_list_lights`), lights, the sun and **default lighting switched**
+  (`autocad_switch_lights`), and the render **exposure and white balance**
+  (`autocad_set_render_exposure`). `autocad_set_3d_view` now reads back the visual style the
+  viewport has (`visual_style_found`). Five new plug-in operations. **None of these tools
+  renders**: the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md));
+  whether `autocad_render` stays is issue #158. Live rows AE1-AE15 NOT RUN.
+
 - **Blocks, attributes and tables (2026-11-21, #115, #117, #106).** Five new tools, **147** in all.
   `autocad_make_block` takes attribute definitions (tag, prompt, default, position, height;
   invisible, constant, preset). `autocad_sync_attributes` is ATTSYNC, done by the plug-in: every

@@ -41,6 +41,7 @@ from ._shared import (
     COORDS_OPT,
     LAYER_OPT,
     created_payload,
+    plugin_read,
     ucs_for,
     world_coords,
     world_direction,
@@ -945,9 +946,16 @@ async def autocad_set_3d_view(
         visual_style (Optional[str]): the visual style to switch to.
         zoom_extents (bool): fit the drawing afterwards.
 
+    After setting it, the style the viewport has is read back through
+    Heron's plug-in and given as "visual_style_found" (AutoCAD's own name,
+    e.g. 'Realistic'). If it is not the one asked for, "visual_style_warning"
+    says so; autocad_preview shows which is right. Without the plug-in it is
+    null, with the reason.
+
     Returns:
         str: JSON: {"direction": [x, y, z], "named": str | null,
-             "visual_style": str | null, "zoomed": bool, "not_set": [str]}
+             "visual_style": str | null, "visual_style_found": str | null,
+             "visual_style_warning"?: str, "zoomed": bool, "not_set": [str]}
 
     Examples:
         - Use when: "show me the model in 3D" — direction='sw_iso',
@@ -1039,11 +1047,38 @@ async def autocad_set_3d_view(
                 not_set.append("zoom_extents")
 
         _try(lambda: doc.Regen(AC_ALL_VIEWPORTS))
+        # Read the style back from the viewport (#59, D-86): only the plug-in
+        # can, as COM has no visual style on a model viewport.
+        found, why = plugin_read("current_view")
+        if found is None:
+            result["visual_style_found"] = None
+            result["visual_style_note"] = f"The style could not be read back ({why}). autocad_preview shows it."
+        else:
+            seen = found.get("visual_style")
+            result["visual_style_found"] = seen
+            if found.get("visual_style_on_screen") is None and seen is not None:
+                result["visual_style_found_from"] = "the viewport's saved record"
+            if found.get("perspective"):
+                result["perspective"] = True
+            took = seen is not None and style_key(seen) == style
+            if style is not None and not took and not any(item.startswith("visual_style") for item in not_set):
+                # Said, not counted as a failure: the reading may be the viewport's
+                # record from before VSCURRENT (row AE1), and the screen is the truth.
+                result["visual_style_warning"] = (
+                    f"Asked for '{style}', but the viewport reads "
+                    + (f"'{seen}'" if seen is not None else "no style")
+                    + ". Look with autocad_preview: if the screen shows the asked style, the read-back is behind."
+                )
         if not_set:
             result["not_set"] = not_set
         return result
 
     return dumps(await run(work))
+
+
+def style_key(name: str) -> str:
+    """A visual style's name as this server spells it: AutoCAD's 'Shades of Gray' is 'shades of gray'."""
+    return str(name).strip().lower()
 
 
 def _still_asking(doc: Any) -> bool:
