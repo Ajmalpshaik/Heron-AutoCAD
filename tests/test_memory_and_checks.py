@@ -67,11 +67,12 @@ def test_a_clean_drawing_passes():
     assert report["verdict"] == "PASS" and report["counts"]["PASS"] == 5
 
 
-def test_a_check_that_cannot_be_judged_is_not_run_never_a_silent_pass():
+def test_a_check_that_cannot_be_judged_is_no_data_never_a_silent_pass():
+    # Was NOT RUN until D-64: a missing title block is missing data (#84).
     rows, report = _result([{"check": "title_block_filled", "params": {"block": "SHEET*"}}])
-    assert rows["title_block_filled"]["state"] == "NOT RUN"
+    assert rows["title_block_filled"]["state"] == "NO DATA"
     assert "no block named SHEET*" in rows["title_block_filled"]["note"]
-    assert report["verdict"] == "NOT RUN"
+    assert report["verdict"] == "NO DATA"
 
 
 def test_failures_come_first_and_carry_the_modellers_advice():

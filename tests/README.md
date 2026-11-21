@@ -10,6 +10,7 @@
 | `test_before_after.py` | No (fake COM) | Old -> new per object on the modify, attribute, find-replace, dynamic block, layer and variable tools; no undo step when nothing differs |
 | `test_gate.py` | No (faked bridge and COM) | Gate order, audit line, wrong-drawing guard, Keep or Discard, no retry after a write began, read-back |
 | `test_standards.py` | No | Standards rules, attribute CSV, resources and prompts |
+| `test_checklists_qa.py` | No | Check lists: NO DATA, coverage, office and project lists, reports never overwriting, PASS wording (D-64, D-65) |
 | `test_plugin_bundle.py` | No | Bundle layout, PackageContents.xml, installer refusing while AutoCAD runs |
 | `test_why_and_gaps.py` | No | `autocad_why`, `autocad_gaps`, the audit reason words, the audit folder fallback ([D-67](../docs/DECISIONS.md)) |
 | `test_structure.py` | No | `tools/check_structure.py` |

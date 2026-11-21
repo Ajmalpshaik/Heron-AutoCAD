@@ -433,6 +433,24 @@ Added on 2026-11-21 ([D-66](DECISIONS.md), issue #83). Built and tested offline
 | V5 | With no Heron job running, open the Select File dialog yourself (Ctrl+O) and wait 10 s | It stays open: the watch never acts outside a job | NOT RUN |
 | V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`) | One line "dialog watch: 'Select File' -> Cancel"; no error lines | NOT RUN |
 
+## Group U - Check lists for QA: NO DATA, office and project lists, reports, wording (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-64](DECISIONS.md), [D-65](DECISIONS.md); issues #84-#87). Built and tested
+offline (`tests/test_checklists_qa.py`). Server only: restart the server after pulling; no plug-in
+build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| U1 | A saved sheet with NO title block; `autocad_checklist(action="save", name="sheets", checks=[{check: "title_block_filled", params: {block: "TITLE*"}}, {check: "nothing_on_layer_0"}])`, then run `sheets` | The title block line is **NO DATA** ("no block named TITLE*"), never PASS; the verdict is NO DATA, not PASS; coverage says "1 of 2 decided, 1 no data, 0 not run" | NOT RUN |
+| U2 | On a big drawing, run `before issue` with `max_entities=10` | Lines with nothing wrong in the first 10 objects are NO DATA ("only the first 10 objects were read"), not PASS; a line that found a failure is FAIL | NOT RUN |
+| U3 | `autocad_checklist(action="project", name="before issue", changes=[{id: "bylayer_colour", severity: "high"}, {id: "xrefs_found", on: false}])`, then run `before issue` | `bylayer_colour` is high and `from: project`; `xrefs_found` is NOT RUN; `checks_used` names all 5 with office / project; coverage ends "1 not run" | NOT RUN |
+| U4 | Open a drawing in ANOTHER folder; run `before issue` | Every line `from: office`; no change from U3's folder | NOT RUN |
+| U5 | `action="project"` with `changes=[{id: "my_new_check", on: true}]`, then with `[{id: "nothing_on_layer_0", label: "x"}]` | Both refused in plain words ("cannot add one", "may only change severity, target, on"); nothing kept | NOT RUN |
+| U6 | Padlocks: Publish OFF. `autocad_checklist_report(name="before issue")` | Refused by the plug-in (Publish padlock); no file written next to the drawing | NOT RUN |
+| U7 | Changes + Publish ON. `autocad_checklist_report(name="before issue")` twice | Two pairs next to the drawing: `<drawing> - checklist before-issue - <date>.xlsx` / `.html`, then the same with ` (2)`; the first pair unchanged (same size and time) | NOT RUN |
+| U8 | Open U7's `.xlsx` in Excel and the `.html` in a browser | Excel opens it with no repair message; one row per check with state, severity, source, from, objects; the HTML shows the same with coloured rows; both carry the coverage line and "PASS means the checked value is met" | NOT RUN |
+| U9 | Ask the chat "does this drawing comply?" after a run that passes | The answer gives the verdict and coverage line, says PASS means the checked value is met against the named source, and does not say the drawing complies | NOT RUN |
+| U10 | `autocad_check_standards(rules={...})` on a drawing that passes | `passed: true` with `source` and `pass_means`; the chat does not say "complies" | NOT RUN |
 ## Group W - Finding and explaining: why, gaps, question mode (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-67](DECISIONS.md)). Built and tested offline

@@ -38,7 +38,8 @@ The group headings below give the level.
 | `autocad_gaps` | **Read, needs no AutoCAD.** The last N days (1-90) of Heron's audit log: calls per tool, failures by plain reason with what to do, the slowest jobs. Drawings by file name only, no contents ([D-67](DECISIONS.md)) |
 | `autocad_undo_last` | **Change.** Undo Heron's own last change, only when the plug-in saw no change since (the modeller's work is never taken with it), in the same drawing, one level ([D-54](DECISIONS.md)) |
 | `autocad_project_notes` | **Read.** Keep the modeller's answers (scale, standard, text heights) for the project (the drawing's folder); `autocad_status` hands them to every chat ([D-53](DECISIONS.md)) |
-| `autocad_checklist` | **Read.** The modeller's own check list, saved once and run before issue: PASS / FAIL / NOT RUN per line, with the failing handles; `before issue` ships ready ([D-52](DECISIONS.md)) |
+| `autocad_checklist` | **Read.** The modeller's own check list, saved once and run before issue: PASS / FAIL / NO DATA / NOT RUN per line, a coverage line ("2 of 4 decided, 1 no data, 1 not run"), the failing handles and each line's source; `before issue` ships ready. `project` lays this project's changes (severity, target, on/off only) over the office list ([D-52](DECISIONS.md), [D-64](DECISIONS.md)) |
+| `autocad_checklist_report` | **Publish.** Runs a check list and saves it as a new `.xlsx` and `.html` next to the drawing; an earlier report is never overwritten (` (2)`, ` (3)`) ([D-65](DECISIONS.md)) |
 | `autocad_use_autocad` | **Read.** List the AutoCADs connected to Heron, or pick the one to work in. One connected: used without asking. Two or more: nothing is sent until one is picked ([D-49](DECISIONS.md)) |
 | `autocad_export` | PDF, DXF, WMF, SAT, BMP, EPS, STL. PDF takes `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
@@ -324,7 +325,7 @@ Three limits worth knowing before you plan around them ([D-33](DECISIONS.md)):
 | Tool | Purpose |
 |---|---|
 | `autocad_preview` | Plot the extents, the current view or a window to PNG and return the **picture** to the AI. Use after drawing, before saying it is done. Page setup put back |
-| `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file |
+| `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file. `passed` means the rules given were met against the named `source`, never that the drawing complies ([D-64](DECISIONS.md)) |
 | `autocad_extract_attributes` | Every block reference with attributes as rows (block, handle, layer, insertion, tags), JSON or CSV - for schedules |
 
 ## Resources and prompts
