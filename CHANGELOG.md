@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A preview of a full sheet (2026-11-21, #41).** `autocad_preview` now says the area it plotted
+  (`plotted`, extents refreshed first), its `pixels` and the smallest text that reads
+  (`smallest_clear_text`), with a `tip` when the drawing's text is smaller. `detail=2` or `3` adds 4
+  or 9 overlapping close-ups of the same area, plotted as windows. A whole A1 in one picture is about
+  0.5 mm a pixel, so its 2.5 mm text could not show ([D-102](docs/DECISIONS.md)). Live rows AM1-AM6
+  NOT RUN; #41 stays open until AM1 names the cause.
+
 - **A busy AutoCAD is never a false failure (2026-11-21, #36).** When AutoCAD stays busy past the
   message filter's 3 s (a dialog left open, a heavy redraw), every tool now lets the refusal go up
   as it is, so the answer is "AutoCAD stayed busy ... press Esc" or "Outcome unknown, look before

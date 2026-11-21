@@ -100,6 +100,8 @@ ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
         1, "deletes a wrongly styled dimension while already reporting a failure; a refusal there must not hide the real error"),
     ("tools/document.py", "_restore_plot_state"): (
         1, "puts the page setup, BACKGROUNDPLOT and the plot error mode back; a refusal there must not hide the plot's own answer or skip the other restores"),
+    ("tools/document.py", "_plot_png"): (
+        1, "only a tip about text size, after the picture is made; a refusal there must not throw the picture away"),
     ("tools/document.py", "autocad_export.work"): (
         1, "deletes the temporary selection set in a finally; a refusal there must not hide the export's own result"),
     ("tools/edit2d.py", "autocad_draw_order.work"): (
