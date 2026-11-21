@@ -96,9 +96,13 @@ Check (Test-Path (Join-Path $bundle 'PackageContents.xml')) 'zip: the plug-in is
 Check (Test-Path $server) 'zip: the server is in %LOCALAPPDATA%\Heron\autocad'
 Check ((Desktop-Entry 'autocad') -eq $server) 'zip: Claude Desktop points at the server'
 
-# 2. the setup over the zip install, with a file the new version does not have
+# 2. the setup over the zip install, with a file the new version does not have. The Claude
+#    settings the zip wrote are wiped first, so what is found after comes from the setup.
 $stale = Join-Path $bundle 'Contents\R24\stale-from-old-version.dll'
 Set-Content $stale 'old' -Encoding ascii
+Set-Content $desktopCfg '{"mcpServers":{"other":{"command":"x"}}}' -Encoding ascii
+Remove-Item "$desktopCfg.heron-backup" -Force
+Remove-Item $calls -Force
 $code = Run-Setup 'setup-over-zip'
 Check ($code -eq 0) "setup over the zip install finished (exit $code)"
 Check (-not (Test-Path $stale)) 'setup: the old bundle was replaced whole (stale file gone)'
@@ -107,6 +111,9 @@ foreach ($f in 'autocad-mcp.exe', 'Install.ps1', 'CheckForUpdate.bat') {
     Check (Test-Path (Join-Path $app $f)) "setup: $f is in %LOCALAPPDATA%\Heron\autocad"
 }
 Check ([bool](Get-ChildItem $app -Filter 'unins*.exe')) 'setup: its uninstaller is there'
+Check (-not (Test-Path "$bundle.heron-old")) 'setup: the old plug-in it moved aside is gone'
+$listed = & $server --list-tools 2>&1 | Out-String
+Check (($LASTEXITCODE -eq 0) -and ($listed -match 'autocad_status')) 'setup: the installed server starts and lists its tools'
 $entry = Get-ItemProperty $appKey -ErrorAction SilentlyContinue
 Check ($entry -and $entry.DisplayVersion -eq $version -and $entry.Publisher -eq 'Ajmal PS') "setup: Windows Apps lists Heron $version by Ajmal PS"
 Check ((Test-Path (Join-Path $menu 'Check for a newer Heron.lnk')) -and (Test-Path (Join-Path $menu 'Remove Heron AI for AutoCAD.lnk'))) 'setup: the two Start menu entries are there'
@@ -129,7 +136,7 @@ $real = Join-Path $work 'autocad-mcp.exe.installed'
 Move-Item $server $real -Force
 $running = Start-StandIn $app 'autocad-mcp.exe'
 $code = Run-Setup 'setup-while-server'
-Check ($code -ne 0) "setup refused while the installed server runs (exit $code)"
+Check ($code -eq 1) "setup refused at the start while the installed server runs (exit $code, want 1)"
 Stop-Process -Id $running.Id -Force
 Start-Sleep -Seconds 1
 Move-Item $real $server -Force
@@ -137,12 +144,14 @@ Remove-Item (Join-Path $app 'en-US') -Recurse -Force
 
 # ...and the setup and its uninstaller both refuse while AutoCAD runs
 $acad = Start-StandIn (Join-Path $work 'fakeacad') 'acad.exe'
-$before = (Get-Item $server).LastWriteTimeUtc
+# A file an install would remove ([InstallDelete] and the move aside): it must still be there.
+$marker = Join-Path $bundle 'marker-setup-must-not-touch.txt'
+Set-Content $marker 'x' -Encoding ascii
 $code = Run-Setup 'setup-while-acad'
-Check ($code -ne 0) "setup refused while acad.exe runs (exit $code)"
-Check ((Test-Path (Join-Path $bundle 'PackageContents.xml')) -and (Get-Item $server).LastWriteTimeUtc -eq $before) 'setup while acad.exe runs changed nothing'
+Check ($code -eq 1) "setup refused at the start while acad.exe runs (exit $code, want 1)"
+Check ((Test-Path $marker) -and (Test-Path $server)) 'setup while acad.exe runs changed nothing'
 $code = Run-Uninstall 'uninstall-while-acad'
-Check ((Test-Path $server) -and (Test-Path $appKey)) "uninstall refused while acad.exe runs (exit $code), nothing removed"
+Check ((Test-Path $server) -and (Test-Path $appKey) -and (Test-Path $marker)) "uninstall refused while acad.exe runs (exit $code), nothing removed"
 Stop-Process -Id $acad.Id -Force
 Start-Sleep -Seconds 1
 

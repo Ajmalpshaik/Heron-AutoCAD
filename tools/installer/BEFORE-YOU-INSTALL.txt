@@ -29,5 +29,8 @@ Update, go back, remove
   - Remove: Windows Settings > Apps > Heron AI for AutoCAD > Uninstall. Your saved
     commands, check lists and logs in %LOCALAPPDATA%\Heron\autocad stay.
 
-Windows SmartScreen or company antivirus may warn about this setup and autocad-mcp.exe
-when they are not code-signed. If your IT team blocks them, ask them to allow those files.
+Heron is not code-signed (Ajmal's decision). So, once:
+  - Windows SmartScreen may say "Windows protected your PC": choose More info, then Run
+    anyway. If your IT team's antivirus blocks the files, ask them to allow them.
+  - The first time AutoCAD loads Heron it may ask whether to load it: choose to load it
+    always, so it does not ask again.

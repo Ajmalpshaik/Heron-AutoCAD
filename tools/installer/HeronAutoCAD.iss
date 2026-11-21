@@ -62,6 +62,8 @@ SignedUninstaller=yes
 
 [InstallDelete]
 ; An update replaces the whole bundle, as Install.bat does, so no file of an older version stays.
+; Normally [Code] has already moved it aside (and puts it back if the install stops); this is
+; for when it could not.
 Type: filesandordirs; Name: "{userappdata}\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle"
 
 [Files]
@@ -75,16 +77,32 @@ Name: "{autoprograms}\Heron AI for AutoCAD\Check for a newer Heron"; Filename: "
 Name: "{autoprograms}\Heron AI for AutoCAD\Remove Heron AI for AutoCAD"; Filename: "{uninstallexe}"
 
 [UninstallDelete]
-; The earlier version Install.bat keeps for Rollback.bat, when the zip was used before.
+; The earlier version Install.bat keeps for Rollback.bat, when the zip was used before, and an
+; earlier plug-in the setup moved aside, if an install was ever cut off.
 Type: filesandordirs; Name: "{app}\previous"
+Type: filesandordirs; Name: "{userappdata}\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle.heron-old"
 
 [Code]
 var
   ConnectReport: String;
+  // The installed plug-in, moved aside until the new one is in place (D-56: a failed update
+  // never leaves the modeller with no plug-in).
+  KeptAside, Installed: Boolean;
 
 function ServerDir: String;
 begin
   Result := ExpandConstant('{localappdata}\Heron\autocad');
+end;
+
+function BundleDir: String;
+begin
+  Result := ExpandConstant('{userappdata}\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle');
+end;
+
+// Beside the bundle, so moving it never crosses a drive; AutoCAD loads only *.bundle folders.
+function KeptBundleDir: String;
+begin
+  Result := BundleDir + '.heron-old';
 end;
 
 function PowerShell: String;
@@ -175,17 +193,39 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := InTheWay('run this setup again', 'Nothing was changed.');
+  // /DIR= on the command line would put the server where Install.ps1 and Claude do not look.
+  if (Result = '') and not PathSame(ExpandConstant('{app}'), ServerDir) then
+    Result := 'This setup always installs in ' + ServerDir + ', where Claude is told the server is. '
+      + 'Run it without /DIR=.' + #13#10#13#10 + 'Nothing was changed.';
 end;
 
-// After the files are in place: tell Claude Code and Claude Desktop where the server is.
+// ssInstall: move the installed plug-in aside. ssPostInstall: the new one is in place, so drop the
+// old one, then tell Claude Code and Claude Desktop where the server is.
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode, I: Integer;
   Output: TExecOutput;
   Line: String;
 begin
+  if CurStep = ssInstall then
+  begin
+    if DirExists(KeptBundleDir) then
+      DelTree(KeptBundleDir, True, True, True);
+    if DirExists(BundleDir) then
+    begin
+      KeptAside := RenameFile(BundleDir, KeptBundleDir);
+      if KeptAside then
+        Log('The installed plug-in is kept as ' + KeptBundleDir + ' until the new one is in place')
+      else
+        Log('Could not move the installed plug-in aside; [InstallDelete] replaces it');
+    end;
+    Exit;
+  end;
   if CurStep <> ssPostInstall then
     Exit;
+  Installed := True;
+  if KeptAside then
+    DelTree(KeptBundleDir, True, True, True);
   ConnectReport := '';
   try
     if ExecAndCaptureOutput(PowerShell, InstallScript('-Connect'), ServerDir, SW_SHOWNORMAL,
@@ -198,9 +238,17 @@ begin
         if Line <> '' then
           ConnectReport := ConnectReport + Line + #13#10;
       end;
+      // PowerShell's own errors (a company policy that blocks scripts, say) come on stderr.
+      for I := 0 to GetArrayLength(Output.StdErr) - 1 do
+      begin
+        Line := Trim(Output.StdErr[I]);
+        Log('Install.ps1 -Connect (error): ' + Line);
+        if (ResultCode <> 0) and (Line <> '') and (I < 3) then
+          ConnectReport := ConnectReport + 'PowerShell said: ' + Line + #13#10;
+      end;
       if ResultCode <> 0 then
         ConnectReport := ConnectReport + 'Claude was not set up (code ' + IntToStr(ResultCode) + '). '
-          + 'Close AutoCAD and Claude, then run this setup again.' + #13#10;
+          + 'Heron''s files are installed; send the setup log in %TEMP% to whoever gave you Heron.' + #13#10;
     end
     else
       ConnectReport := 'Claude was not set up: Windows PowerShell did not start ('
@@ -209,6 +257,20 @@ begin
     ConnectReport := 'Claude was not set up: ' + GetExceptionMessage + #13#10;
   end;
   Log(ConnectReport);
+end;
+
+// The install stopped before the new plug-in was in place (cancelled, or a file could not be
+// copied): put the one that was there back, as Install.bat does.
+procedure DeinitializeSetup();
+begin
+  if not KeptAside or Installed or not DirExists(KeptBundleDir) then
+    Exit;
+  if DirExists(BundleDir) then
+    DelTree(BundleDir, True, True, True);
+  if RenameFile(KeptBundleDir, BundleDir) then
+    Log('The install did not finish: the earlier plug-in was put back')
+  else
+    Log('The install did not finish, and the earlier plug-in could not be put back from ' + KeptBundleDir);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -222,6 +284,8 @@ begin
     + ConnectReport + #13#10
     + 'Start AutoCAD, open the Heron tab and press Heron to connect. Everything starts locked: '
     + 'press Settings and turn Changes on before Claude may draw.' + #13#10#13#10
+    + 'Heron is not code-signed: the first time AutoCAD loads it, it may ask whether to load it. '
+    + 'Choose to load it always; it asks once.' + #13#10#13#10
     + 'To remove it later: Windows Settings > Apps > Heron AI for AutoCAD.';
   Grown := WizardForm.AdjustLabelHeight(WizardForm.FinishedLabel);
   Log('Finished page text grew by ' + IntToStr(Grown) + ' pixels');

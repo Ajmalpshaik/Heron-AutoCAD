@@ -133,7 +133,7 @@ a piece is "checked live" only where a row ran in that AutoCAD and passed.
 | One-file setup (`HeronAutoCAD-<version>-setup.exe`) | **Built and tried on GitHub's Windows machine only** (install, refusals, uninstall; no AutoCAD there) | Group AK: AK1-AK11 NOT RUN |
 | Claude Code connection through this folder's `.mcp.json` | **Checked live, AutoCAD 2027** | A2: Claude asked AutoCAD and got the answer |
 | Claude Code and Claude Desktop entries written by the installer | **Never run live** | Group P: P2 NOT RUN |
-| Plug-in DLLs, `autocad-mcp.exe` and the setup | **Unsigned** (no code signature). The signing step is ready; the certificate is [Ajmal's decision](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164) | [Issue #72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72). Windows SmartScreen or antivirus may warn |
+| Plug-in DLLs, `autocad-mcp.exe` and the setup | **Unsigned, by decision** ([#164](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164)): no certificate is bought | Windows SmartScreen may warn once (More info, Run anyway); AutoCAD may ask once at the first load (load it always). Rows AK10-AK11 NOT RUN |
 | Install size on disk | **Not measured** | The release zip is built on Windows only; none is published yet |
 
 ### Steps

@@ -72,7 +72,8 @@ if ($CheckUpdate) {
     exit 0
 }
 
-# Windows PowerShell's "utf8" adds a byte-order mark, which Claude Desktop cannot read.
+# Windows PowerShell's "utf8" adds a byte-order mark, which Claude Desktop cannot read. Its
+# Get-Content reads a file without one as ANSI, so the file is read with ReadAllText (UTF-8).
 function Save-Config($cfg) {
     [IO.File]::WriteAllText($desktopCfg, ($cfg | ConvertTo-Json -Depth 10), (New-Object Text.UTF8Encoding $false))
 }
@@ -103,7 +104,7 @@ function Connect-Claude {
     $cfg = [pscustomobject]@{}
     if (Test-Path $desktopCfg) {
         Copy-Item $desktopCfg "$desktopCfg.heron-backup" -Force
-        $raw = Get-Content $desktopCfg -Raw
+        $raw = [IO.File]::ReadAllText($desktopCfg)
         if ($raw -and $raw.Trim()) { $cfg = $raw | ConvertFrom-Json }
     }
     if (-not $cfg.PSObject.Properties['mcpServers']) {
@@ -123,7 +124,7 @@ function Disconnect-Claude {
         'Claude Code:        "autocad" entry removed'
     }
     if (Test-Path $desktopCfg) {
-        $raw = Get-Content $desktopCfg -Raw
+        $raw = [IO.File]::ReadAllText($desktopCfg)
         if ($raw -and $raw.Trim()) {
             $cfg = $raw | ConvertFrom-Json
             if ($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad']) {
@@ -156,8 +157,11 @@ if ($Uninstall) {
     $hasClaude = [bool](Get-Command claude -ErrorAction SilentlyContinue)
     $inDesktop = $false
     if (Test-Path $desktopCfg) {
-        $cfg = Get-Content $desktopCfg -Raw | ConvertFrom-Json
-        $inDesktop = [bool]($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad'])
+        $raw = [IO.File]::ReadAllText($desktopCfg)
+        if ($raw -and $raw.Trim()) {
+            $cfg = $raw | ConvertFrom-Json
+            $inDesktop = [bool]($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad'])
+        }
     }
     if (-not ((Test-Path $target) -or (Test-Path $server) -or $inDesktop)) {
         Write-Host 'Heron AI for AutoCAD is not installed for this Windows user. Nothing to remove.' -ForegroundColor Yellow

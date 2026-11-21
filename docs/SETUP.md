@@ -202,10 +202,16 @@ C:\hbuild\v\Scripts\python.exe tools/make_installer.py
 
 ## Code signing
 
-**Not done yet: buying a certificate is Ajmal's decision**
-([Decide: buy a code-signing certificate?](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164),
-issue [#72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72)). Until then every release says
-**Not signed**, and Windows SmartScreen or antivirus may warn about the setup and `autocad-mcp.exe`.
+**Heron is not code-signed, by decision.** Ajmal decided on 2026-11-21 not to buy a certificate
+([#164](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164); [#72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72)
+closed as not planned). Every release says **Not signed**. What a modeller sees, once:
+
+- **Windows SmartScreen** may say *Windows protected your PC* for the setup or `autocad-mcp.exe`:
+  choose **More info**, then **Run anyway**. A company antivirus may ask IT to allow the files.
+- **AutoCAD** may ask, the first time it loads Heron, whether to load this unsigned plug-in: choose
+  to load it **always**, so it does not ask again. Rows AK10 and AK11 record the exact box.
+
+The rest of this section is kept in case the decision changes.
 
 **What is ready.** With a certificate, the release signs Heron's own files with Windows' `signtool`
 (SHA-256, time-stamped so the signature outlives the certificate): the add-in DLLs

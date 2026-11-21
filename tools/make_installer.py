@@ -124,10 +124,7 @@ def main() -> int:
     out = build_plugin.DIST
     done = subprocess.run(iscc_command(find_iscc(), folder, out, sign_command), capture_output=True, text=True, check=False)
     if done.returncode != 0:
-        report = f"{done.stdout}\n{done.stderr}"
-        cert = signing.certificate()
-        if cert is not None:
-            report = report.replace(cert.password, "***")
+        report = signing.hide(f"{done.stdout}\n{done.stderr}")
         raise SystemExit(f"Inno Setup could not build the setup (exit {done.returncode}):\n{report}")
     setup = out / f"{setup_name()}.exe"
     if not setup.is_file():

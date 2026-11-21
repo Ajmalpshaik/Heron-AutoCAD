@@ -136,7 +136,31 @@ def test_an_update_replaces_the_whole_bundle_as_install_bat_does():
 
 def test_uninstall_keeps_the_modellers_own_files():
     # Saved commands, check lists, logs and the audit live in %LOCALAPPDATA%\Heron\autocad too.
-    assert _entries("UninstallDelete") == [{"Type": "filesandordirs", "Name": "{app}\\previous"}]
+    assert _entries("UninstallDelete") == [
+        {"Type": "filesandordirs", "Name": "{app}\\previous"},
+        {"Type": "filesandordirs", "Name": "{userappdata}\\Autodesk\\ApplicationPlugins\\HeronAutoCAD.bundle.heron-old"},
+    ]
+
+
+def test_a_cut_off_update_puts_the_old_plug_in_back():
+    # D-56: the zip does it from previous; the setup moves the bundle aside before [InstallDelete].
+    steps = _function("CurStepChanged")
+    install = steps[steps.index("ssInstall"):steps.index("ssPostInstall")]
+    assert "RenameFile(BundleDir, KeptBundleDir)" in install
+    post = steps[steps.index("ssPostInstall"):]
+    assert post.index("Installed := True") < post.index("DelTree(KeptBundleDir"), "drop the old one only once the new one is in"
+    restore = _function("DeinitializeSetup")
+    assert "not KeptAside or Installed" in restore and "RenameFile(KeptBundleDir, BundleDir)" in restore
+    assert _function("KeptBundleDir").count("BundleDir + '.heron-old'") == 1, "beside the bundle: never across a drive"
+
+
+def test_the_setup_refuses_a_folder_of_its_own():
+    assert "PathSame(ExpandConstant('{app}'), ServerDir)" in _function("PrepareToInstall")
+
+
+def test_powershells_own_errors_reach_the_log_and_the_last_page():
+    steps = _function("CurStepChanged")
+    assert "Output.StdErr" in steps and "PowerShell said: " in steps
 
 
 def test_the_start_menu_has_the_update_check_and_remove():
@@ -190,6 +214,18 @@ def test_install_ps1_has_one_way_to_set_claude_up():
         assert acad < ps1.index(mode) < ps1.index("if ($Uninstall)"), f"{mode} must come after the AutoCAD check"
     connect = ps1[ps1.index("if ($Connect)"):ps1.index("if ($Uninstall)")]
     assert "Read-Host" not in connect and "Remove-Item" not in connect
+    for name in ("Connect-Claude", "Disconnect-Claude"):
+        body = ps1[ps1.index(f"function {name} {{"):]
+        body = body[:body.index("\n}\n")]  # read_text gives \n for the file's CRLF
+        assert "Read-Host" not in body and "Remove-Item" not in body, f"{name} must never ask or delete files"
+
+
+def test_claude_desktops_file_is_read_as_utf8():
+    # Windows PowerShell 5.1's Get-Content reads a file with no byte-order mark as ANSI, and
+    # Save-Config writes UTF-8: a name with an accent would be spoiled on every save.
+    ps1 = _install_ps1()
+    assert "Get-Content $desktopCfg" not in ps1
+    assert ps1.count("[IO.File]::ReadAllText($desktopCfg)") == 3
 
 
 def test_install_bat_uninstall_sends_a_setup_install_to_windows_apps():
@@ -286,7 +322,9 @@ def test_the_setup_check_runs_only_on_a_throwaway_machine_and_checks_each_promis
     check = (TOOLS / "installer" / "Check-Setup.ps1").read_text(encoding="ascii")
     guard = check.index("if (-not $env:GITHUB_ACTIONS -and -not $env:HERON_CHECK_SETUP_HERE)")
     assert guard < check.index("Run-Setup '"), "it must refuse before it installs anything"
-    for promise in ("stale file gone", "refused while acad.exe runs", "uninstall refused while acad.exe runs",
+    for promise in ("stale file gone", "refused at the start while acad.exe runs (exit $code, want 1)",
+                    "uninstall refused while acad.exe runs", "the installed server starts and lists its tools",
+                    "the old plug-in it moved aside is gone", "The Claude\n#    settings the zip wrote are wiped first",
                     "the other Claude Desktop entry is kept", "the modeller''s own files are kept",
                     "Uninstall.bat on a setup install", "zip Install.ps1 finished"):  # fmt: skip
         assert promise in check, promise

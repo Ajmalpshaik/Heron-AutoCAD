@@ -686,8 +686,8 @@ Heron and is **not** an administrator. **Every row below is NOT RUN.**
 | AK7 | After AK1 (setup install): double-click the zip's `Uninstall.bat` | It says Heron was installed with its setup and names Settings > Apps; nothing removed | NOT RUN |
 | AK8 | Start menu > Heron AI for AutoCAD > Check for a newer Heron | A window shows the installed version and either "the newest version" or the newer one's link; nothing installed | NOT RUN |
 | AK9 | Download the setup from the GitHub release in Edge and run it | Record exactly what Windows shows (SmartScreen *Windows protected your PC* or not, the publisher it names) and what the company antivirus does | NOT RUN |
-| AK10 | After AK1, SECURELOAD left at 1 (check with SECURELOAD at the command line): start AutoCAD 2027 | Record whether AutoCAD shows a security box for the **unsigned** Heron in `%APPDATA%\Autodesk\ApplicationPlugins`. No box: signing only helps SmartScreen (issue #164) | NOT RUN |
-| AK11 | Build on this PC with a test certificate (docs/SETUP.md, Code signing), install that build, start AutoCAD with SECURELOAD 1 | The DLLs' Properties > Digital Signatures show the test certificate; record whether AutoCAD loads Heron with no box, or asks once with a choice to trust the publisher | NOT RUN (no test certificate made yet) |
+| AK10 | After AK1, SECURELOAD left at 1 (check with SECURELOAD at the command line): start AutoCAD 2027 | Heron is **unsigned by decision** (#164). Record whether AutoCAD shows a security box for Heron in `%APPDATA%\Autodesk\ApplicationPlugins`, its exact words and buttons; choose to load it always. The Heron tab appears | NOT RUN |
+| AK11 | After AK10: close AutoCAD and start it again; then install the next version over it (AK5) and start AutoCAD | No box on the restart: the modeller trusts Heron **once**. After an update, record whether AutoCAD asks again | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

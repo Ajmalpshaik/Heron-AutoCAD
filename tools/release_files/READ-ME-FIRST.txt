@@ -35,5 +35,6 @@ Remove it
   Close AutoCAD, then double-click Uninstall.bat. It shows what it removes and asks
   before removing anything. Keep this folder so Uninstall.bat is at hand.
 
-Windows SmartScreen or company antivirus may warn about autocad-mcp.exe because it is
-not code-signed. If your IT team blocks it, ask them to allow that file.
+Heron is not code-signed (Ajmal's decision). Windows SmartScreen or company antivirus may
+warn about autocad-mcp.exe: if your IT team blocks it, ask them to allow that file. The first
+time AutoCAD loads Heron it may ask whether to load it: choose to load it always, once.

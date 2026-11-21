@@ -12,10 +12,10 @@ Microsoft ships beside them (System.*.dll) are signed by Microsoft already.
                           signature stays good after the certificate expires
     HERON_SIGNTOOL        optional: signtool.exe, when it is not in the Windows SDK folder
 
-Without HERON_SIGN_PFX nothing is signed and the build says so in one line. A certificate
-costs money and is Ajmal's decision: docs/SETUP.md "Code signing" says what to buy and
-where it goes. Half a configuration (a file but no password) stops the build instead of
-quietly shipping unsigned files.
+Without HERON_SIGN_PFX nothing is signed and the build says so in one line. Ajmal decided on
+2026-11-21 not to buy a certificate (#164), so releases are unsigned; this stays ready in case
+that changes, and docs/SETUP.md "Code signing" says what one would need. Half a configuration (a file without its password, or a password without a
+file) stops the build instead of quietly shipping unsigned files.
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ DESCRIPTION = "Heron AI for AutoCAD"
 INNO_NAME = "heron"  # the Sign Tool name make_installer.py gives ISCC (/Sheron=...)
 NOT_SIGNED = (
     "Not signed: no code-signing certificate was given (HERON_SIGN_PFX). "
-    "Windows SmartScreen and AutoCAD's SECURELOAD may warn about these files. "
-    "Buying a certificate is Ajmal's decision (docs/SETUP.md, Code signing)."
+    "Heron is released unsigned by Ajmal's decision (#164): Windows SmartScreen may warn about "
+    "the setup, and AutoCAD may ask once, the first time it loads Heron, whether to trust it."
 )
 
 
@@ -57,15 +57,19 @@ def certificate(env: Mapping[str, str] | None = None) -> Certificate | None:
     """The certificate the environment names, or None when it names none."""
     env = os.environ if env is None else env
     pfx = env.get("HERON_SIGN_PFX", "").strip()
-    if not pfx:
-        return None
     password = env.get("HERON_SIGN_PASSWORD", "")
-    if not password:
-        raise SystemExit("HERON_SIGN_PFX is set but HERON_SIGN_PASSWORD is not. Set both, or neither. Nothing was signed.")
+    if not pfx and not password:
+        return None
+    if not pfx or not password:
+        given, missing = ("HERON_SIGN_PFX", "HERON_SIGN_PASSWORD") if pfx else ("HERON_SIGN_PASSWORD", "HERON_SIGN_PFX")
+        raise SystemExit(f"{given} is set but {missing} is not. Set both, or neither. Nothing was signed.")
     if not Path(pfx).is_file():
         raise SystemExit(f"HERON_SIGN_PFX names {pfx}, which is not a file. Nothing was signed.")
-    if '"' in password:
-        raise SystemExit("The certificate password has a double quote in it, which signtool's command line cannot carry. Nothing was signed.")
+    if '"' in password or password.endswith("\\"):
+        raise SystemExit(
+            "The certificate password has a double quote in it or ends in a backslash, which signtool's"
+            " command line cannot carry. Nothing was signed."
+        )
     return Certificate(Path(pfx), password, env.get("HERON_SIGN_TIMESTAMP", "").strip() or TIMESTAMP)
 
 
@@ -105,7 +109,7 @@ def sign(files: Iterable[Path], env: Mapping[str, str] | None = None, run: Calla
     done = run(sign_command(find_signtool(env), cert, files), capture_output=True, text=True, check=False)
     if done.returncode != 0:
         # signtool's own words, never the command: it holds the password.
-        raise SystemExit(f"signtool could not sign the files:\n{done.stdout}\n{done.stderr}".replace(cert.password, "***"))
+        raise SystemExit(hide(f"signtool could not sign the files:\n{done.stdout}\n{done.stderr}", env))
     print(f"Signed {len(files)} file(s): " + ", ".join(Path(f).name for f in files))
     return True
 
@@ -115,8 +119,19 @@ def inno_sign_tool(env: Mapping[str, str] | None = None) -> str | None:
     cert = certificate(env)
     if cert is None:
         return None
-    password = cert.password.replace("$", "$$")  # ISCC reads $ as the start of $f, $q, $p
+
+    def plain(text: object) -> str:
+        return str(text).replace("$", "$$")  # ISCC reads $ as the start of $f, $q, $p
+
     return (
-        f"$q{find_signtool(env)}$q sign /f $q{cert.pfx}$q /p $q{password}$q /fd sha256"
-        f" /tr {cert.timestamp} /td sha256 /d $q{DESCRIPTION}$q $f"
+        f"$q{plain(find_signtool(env))}$q sign /f $q{plain(cert.pfx)}$q /p $q{plain(cert.password)}$q /fd sha256"
+        f" /tr {plain(cert.timestamp)} /td sha256 /d $q{DESCRIPTION}$q $f"
     )
+
+
+def hide(text: str, env: Mapping[str, str] | None = None) -> str:
+    """Text with the certificate password, as typed and as ISCC is given it, replaced by ***."""
+    cert = certificate(env)
+    if cert is None:
+        return text
+    return text.replace(cert.password.replace("$", "$$"), "***").replace(cert.password, "***")

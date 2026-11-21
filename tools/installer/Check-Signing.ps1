@@ -24,6 +24,9 @@ foreach ($f in $ours) {
     Check ($sig.SignerCertificate -and $sig.SignerCertificate.Subject -eq $subject) "$($f.Name) is signed by the test certificate"
     Check ([bool]$sig.TimeStamperCertificate) "$($f.Name) has a time stamp"
 }
+# The server is PyInstaller's one-file exe with the signature added after its archive: it must still run.
+$listed = & (Join-Path $folder.FullName 'autocad-mcp.exe') --list-tools 2>&1 | Out-String
+Check (($LASTEXITCODE -eq 0) -and ($listed -match 'autocad_status')) 'the signed autocad-mcp.exe starts and lists its tools'
 # Microsoft's own DLLs keep Microsoft's signature.
 foreach ($f in Get-ChildItem (Join-Path $bundle 'Contents') -Recurse -Filter 'System.*.dll') {
     $sig = Get-AuthenticodeSignature $f.FullName

@@ -14,7 +14,8 @@ Newest first. Dates are when the change was made.
   ([D-99](docs/DECISIONS.md)). The zip and `Install.bat` stay until the setup passes live rows
   AK1-AK11 (NOT RUN). `Uninstall.bat` now also removes the earlier version it kept, and sends a
   setup install to Windows Apps. **Signing** is ready behind two repository secrets and skipped,
-  saying *Not signed*, without them; buying a certificate is Ajmal's call (#164, `docs/SETUP.md`
+  saying *Not signed*, without them. Ajmal decided not to buy a certificate (#164): Heron stays
+  unsigned, and a modeller trusts the plug-in once at its first AutoCAD load (`docs/SETUP.md`,
   Code signing). **Tests** now always import this checkout's own `src`, also in a worktree (#35).
 
 - **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in

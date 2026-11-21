@@ -165,16 +165,18 @@ What the setup does, and why it matches `Install.bat` (D-56):
 - **The zip and `Install.bat` stay** until Group AK has a live PASS. `Uninstall.bat` now also removes
   the kept earlier version, and sends a setup install to Windows Settings > Apps.
 
-**Signing (#72), prepared only.** `tools/signing.py` signs Heron's own files with `signtool`
+**Signing (#72), prepared, then not bought.** `tools/signing.py` signs Heron's own files with `signtool`
 (SHA-256, time-stamped): `Heron.*.dll` in every Contents folder before they are packed,
 `autocad-mcp.exe`, `Install.ps1`, and the setup with its uninstaller (Inno's `SignTool`). It runs
 only when the repository has **both** secrets `HERON_SIGN_PFX_BASE64` and `HERON_SIGN_PFX_PASSWORD`;
 without them the release says *Not signed* (a notice and the run summary) and goes on; one without
-the other stops the build. The password never reaches a log. No certificate was bought or made up:
-that is Ajmal's call, issue #164. Since June 2023 public code-signing certificates come on a token
-or as cloud signing, so the seller's own step is added to `release.yml` when one is chosen; the
-`.pfx` route serves a test certificate on Ajmal's own PC (docs/SETUP.md, Code signing). Whether
-AutoCAD's SECURELOAD asks about Heron at all is row AK10: it decides whether signing is worth buying.
+the other stops the build. The password never reaches a log. A run started by hand signs a second build with a throwaway test
+certificate and checks every signature (`signing-dry-run`, nothing published). **Ajmal decided on
+2026-11-21 not to buy a certificate** (#164; #72 closed as not planned): Heron stays unsigned, the
+step stays skipped, and a modeller trusts the plug-in once, at its first AutoCAD load (rows AK10,
+AK11), and clicks past SmartScreen once. Should that change: since June 2023 public code-signing
+certificates come on a token or as cloud signing, so the seller's own step would be added to
+`release.yml`; the `.pfx` route also serves a test certificate on a PC of one's own.
 
 **Tests import their own src (#35).** `pyproject.toml` gives pytest `pythonpath = ["src"]`, so a
 worktree sharing the main checkout's `.venv` tests its own code, and `tests/conftest.py`'s

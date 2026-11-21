@@ -15,11 +15,12 @@
 installs and removes it on GitHub's Windows machine before anything is published (no AutoCAD
 there). Per user, same places as `Install.bat`, refuses while AutoCAD runs, Claude set up by
 `Install.ps1 -Connect` / `-Disconnect`. Signing (`tools/signing.py`) runs only with the secrets
-`HERON_SIGN_PFX_BASE64` + `HERON_SIGN_PFX_PASSWORD`; none exist, so releases say *Not signed*.
+`HERON_SIGN_PFX_BASE64` + `HERON_SIGN_PFX_PASSWORD`; none exist, and Ajmal decided not to buy a
+certificate (#164; #72 closed not planned), so releases say *Not signed*.
 pytest now has `pythonpath = ["src"]`. Versions not bumped (the parent does).
 
-**Next (on this PC):** run Group **AK**, AK10 first: whether AutoCAD asks about the unsigned plug-in
-decides #164 (buy a certificate or not). Keep the zip until AK1-AK8 pass.
+**Next (on this PC):** run Group **AK**. AK10-AK11 record what AutoCAD asks the first time it loads
+the unsigned plug-in, and that it asks only once. Keep the zip until AK1-AK8 pass.
 
 ## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 

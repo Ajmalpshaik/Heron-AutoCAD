@@ -50,13 +50,17 @@ def test_without_a_certificate_nothing_is_signed_and_the_build_says_so_once(sign
     assert signing.sign([Path("b.exe")], env={}, run=lambda *a, **k: calls.append(a)) is False
     assert calls == []
     out = capsys.readouterr().out
-    assert out.count("Not signed") == 1 and "Ajmal's decision" in out
+    assert out.count("Not signed") == 1 and "Ajmal's decision (#164)" in out and "ask once" in out
     assert signing.inno_sign_tool({}) is None
 
 
 def test_half_a_configuration_stops_the_build(signing, cert_env):
     with pytest.raises(SystemExit, match="Set both, or neither"):
         signing.certificate({"HERON_SIGN_PFX": cert_env["HERON_SIGN_PFX"]})
+    with pytest.raises(SystemExit, match="HERON_SIGN_PASSWORD is set but HERON_SIGN_PFX is not"):
+        signing.certificate({"HERON_SIGN_PASSWORD": "x"})
+    with pytest.raises(SystemExit, match="ends in a backslash"):
+        signing.certificate({**cert_env, "HERON_SIGN_PASSWORD": "pw\\"})
     with pytest.raises(SystemExit, match="not a file"):
         signing.certificate({"HERON_SIGN_PFX": "missing.pfx", "HERON_SIGN_PASSWORD": "x"})
 
@@ -87,7 +91,14 @@ def test_a_failed_signing_stops_the_build_without_showing_the_password(signing, 
     assert cert_env["HERON_SIGN_PASSWORD"] not in str(stopped.value) and "***" in str(stopped.value)
 
 
-def test_the_setup_sign_tool_quotes_paths_and_escapes_dollars(signing, cert_env):
+def test_the_setup_sign_tool_quotes_paths_and_escapes_dollars(signing, cert_env, tmp_path):
+    odd = tmp_path / "a$b"
+    odd.mkdir()
+    (odd / "heron.pfx").write_bytes(b"x")
+    escaped = signing.inno_sign_tool({**cert_env, "HERON_SIGN_PFX": str(odd / "heron.pfx")})
+    assert "$q" + str(odd / "heron.pfx").replace("$", "$$") + "$q" in escaped
+    hidden = signing.hide("ISCC: /p s3cret$$pw and s3cret$pw", cert_env)
+    assert "s3cret" not in hidden and hidden.count("***") == 2
     command = signing.inno_sign_tool(cert_env)
     assert command.startswith(f"$q{cert_env['HERON_SIGNTOOL']}$q sign ")
     assert "/p $qs3cret$$pw$q" in command, "ISCC reads $ as $f / $q / $p: a $ in the password is doubled"
