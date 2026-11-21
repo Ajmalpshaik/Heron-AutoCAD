@@ -1,8 +1,8 @@
 """Diagnose Heron and autocad_show (no AutoCAD).
 
 autocad://diagnose answers "why does it not work" from files alone: the
-plug-in bundle, the address files the Heron button writes, the padlock file,
-and the server's own code against what is on disk. autocad_show hands the
+plug-in bundle, the address files the Heron button writes, and the server's
+own code against what is on disk (the padlocks live in AutoCAD's memory, D-59). autocad_show hands the
 handles to the plug-in, which selects and zooms (only the connection needed).
 """
 

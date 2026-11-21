@@ -170,6 +170,56 @@ public class PadlockTests
         Assert.Equal("Changes", reply.GetProperty("refusedBy").GetString());
         Assert.Equal(Texts.ChangesHeld, reply.GetProperty("message").GetString());
     }
+
+    private JsonElement Ping(string token = "tok")
+    {
+        var protocol = new BridgeProtocol(new FakeHost(), Now, "tok", new HeronHold(), () => DateTime.UtcNow);
+        return JsonDocument.Parse(protocol.Handle(JsonSerializer.Serialize(new { op = "ping", token, conversation = "chat-a" }))).RootElement;
+    }
+
+    [Fact]
+    public void Ping_reports_the_padlocks_and_what_a_policy_holds()
+    {
+        _padlocks.TurnOn(Padlock.Changes);
+        _policy.Holds = new PolicyHolds(changes: false, publish: true, admin: false);
+        var reply = Ping();
+        var locks = reply.GetProperty("padlocks");
+        Assert.True(locks.GetProperty("changes").GetBoolean());
+        Assert.False(locks.GetProperty("publish").GetBoolean());
+        Assert.False(locks.GetProperty("admin").GetBoolean());
+        Assert.False(locks.GetProperty("askToKeep").GetBoolean());
+        var held = reply.GetProperty("held");
+        Assert.True(held.GetProperty("publish").GetBoolean());
+        Assert.False(held.GetProperty("changes").GetBoolean());
+    }
+
+    [Fact]
+    public void Ping_with_a_wrong_token_tells_nothing_about_the_padlocks()
+    {
+        var reply = Ping(token: "old");
+        Assert.False(reply.GetProperty("ok").GetBoolean());
+        Assert.False(reply.TryGetProperty("padlocks", out _));
+    }
+
+    [Fact]
+    public void No_request_on_the_pipe_turns_a_padlock_on()
+    {
+        // Every op the protocol knows, sent with the right token: none moves a padlock.
+        var protocol = new BridgeProtocol(new FakeHost(), Now, "tok", new HeronHold(), () => DateTime.UtcNow);
+        foreach (var op in new[] { "ping", "info", "release", "begin", "end", "ask_keep", "send_quiet", "run",
+                     "changes", "ask_erase", "since_last", "padlock", "set", "turn_on" })
+        {
+            protocol.Handle(JsonSerializer.Serialize(new
+            {
+                op, token = "tok", conversation = "chat-a", job = "j1", risk = "admin", tool = "autocad_run_lisp",
+                padlock = "changes", on = true, value = true,
+            }));
+        }
+        var config = Now();
+        Assert.False(config.WriteEnabled);
+        Assert.False(config.PublishEnabled);
+        Assert.False(config.AdminEnabled);
+    }
 }
 
 /// <summary>The registry values an administrator may type, and the real reader off Windows.</summary>

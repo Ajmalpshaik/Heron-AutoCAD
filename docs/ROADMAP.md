@@ -6,7 +6,7 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 
 ## Plug-in
 
-- [ ] A Companion page like Heron's in Revit (drawing, view, selection, activity list). ([#91](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/91))
+- [x] A Companion page like Heron's in Revit (drawing, view, selection, activity list). ([#91](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/91)) First page: `autocad_companion`, a file per chat, no server (D-71); live rows Y6 NOT RUN. Editable tables and a dashboard need a local server: a later decision.
 - [ ] A docked **activity palette** in AutoCAD (today: `autocad_activity` in the chat, D-54) with Zoom per job. ([#92](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/92))
 - [ ] A **saved-command palette** in AutoCAD (today: `autocad_saved_command` run from the chat, D-55). ([#93](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/93))
 
@@ -15,7 +15,7 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 Each is a GitHub issue with the `from-heron-revit` label; the issue says what Revit does and what
 done looks like here.
 
-- [ ] **Padlocks a file cannot switch on** ([#76](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/76), bug) and a Windows policy that holds one off ([#77](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/77)).
+- [x] **Padlocks a file cannot switch on** ([#76](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/76), bug) and a Windows policy that holds one off ([#77](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/77)). D-59, D-60, PRs #121 and #140; live rows R1-R9 NOT RUN. Open: whether connect-at-start leaves the file too ([#141](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/141)).
 - [x] A chat reopened after a Claude restart keeps its hold ([#78](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/78), bug). D-61, PR #124; live row T1 NOT RUN.
 - [x] One plain result line: DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN ([#79](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/79)). D-62, PR #124; live rows T2-T3 NOT RUN.
 - [ ] No empty undo step ([#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80)). Part done in PR #124 (no undo step when nothing differs); taking back an empty job waits for live row T7 ([05 §26](05-known-limits.md)).
@@ -24,7 +24,7 @@ done looks like here.
 - [ ] Check lists: NO DATA + coverage ([#84](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/84)), office list + project changes ([#85](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/85)), Excel / HTML report ([#86](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/86)), never "complies" ([#87](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/87)).
 - [ ] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).
 - [ ] AutoCAD ribbon coverage audit ([#94](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/94)); an honest install table ([#95](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/95)).
-- [ ] Later: spreadsheet round trip for attributes ([#96](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/96)), check a folder of drawings ([#97](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/97)).
+- [x] Spreadsheet round trip for attributes ([#96](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/96), D-69), check a folder of drawings ([#97](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/97), D-70). Live rows Y1-Y5 NOT RUN.
 - Not taken: Heron for Revit's knowledge store, standards answers with citations, HVAC / fire
   calculators and usage counter (AutoCAD has no knowledge store), and its proven-only change gate
   (D-117: AutoCAD keeps NEEDS-CHECKING as a record, not a gate).

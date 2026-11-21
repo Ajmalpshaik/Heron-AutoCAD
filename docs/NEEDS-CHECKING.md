@@ -412,7 +412,8 @@ tested offline (bridge `PadlockTests`, `ConfigTests`; `tests/test_padlock_guard.
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
 | R1 | Turn Changes, Admin, Publish and Ask to Keep on in Settings. Close AutoCAD, start it again, press Settings | Changes, Admin, Publish and Ask to Keep all **OFF** | NOT RUN |
-| R2 | AutoCAD closed: edit `%APPDATA%\Heron\autocad\heron-autocad.config` to `{"write.enabled": true, "admin.enabled": true, "publish.enabled": true, "write.askBeforeKeeping": false}`. Start AutoCAD, press Heron, ask the chat to draw a line | Settings shows all three OFF, Ask to Keep ON; the chat is refused "Changes is off" | NOT RUN |
+| R2 | AutoCAD closed: edit `%APPDATA%\Heron\autocad\heron-autocad.config` to `{"write.enabled": true, "admin.enabled": true, "publish.enabled": true, "write.askBeforeKeeping": true}`. Start AutoCAD, press Heron, ask the chat to draw a line | Settings shows all four OFF (the file turned none on, Ask to Keep included); the chat is refused "Changes is off" | NOT RUN |
+| R9 | Changes ON, Admin OFF; ask the chat "why can't you run this AutoLISP?" (`autocad_why`). Then set `AllowAdmin` 0 (R7) and ask again | First: Changes is not named, Admin is off with HERONADMIN. Second: "a Windows policy on this PC holds it off", ask the administrator | NOT RUN |
 | R3 | With AutoCAD open and Changes off, write `"write.enabled": true` into the same file, then ask the chat to draw a line | Still refused "Changes is off"; Settings still OFF | NOT RUN |
 | R4 | Two AutoCADs open. Turn Changes on in the first only | The second's Settings still shows Changes OFF, and a chat on it is refused | NOT RUN |
 | R5 | `reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AllowChanges /t REG_DWORD /d 0 /f`, then press Settings | Changes shows **HELD** with "A Windows policy on this PC holds this off." and cannot be pressed; `HERONCHANGES` says it stays off; a chat is told "Changes is held off by a Windows policy" | NOT RUN |
@@ -516,6 +517,22 @@ Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETT
 | X24 | Start a long `autocad_sequence` from the chat and, in the second before it begins, press **Undo** on the newest row (or type `HERONPALETTE` Undo while the chat is about to call) | The chat's call is refused with "The modeller is undoing a Heron change from the Heron palette right now. Try again in a moment."; the Undo removes only the palette's job; the retried call works | NOT RUN |
 | X23 | On a layout, inside a floating viewport: have the chat draw a circle (Ask to Keep off), press **Zoom** on it, then **Undo** | Record what happens. If Undo says "The drawing changed after this job", the viewport's zoom counted as a change (a viewport is an object): note it in 06 section 10 as a known limit. Either way nothing of the modeller's is undone | NOT RUN |
 | X21 | AutoCAD 2025 / 2026 and 2021-2024 builds: X1, X2, X4, X13 | As in AutoCAD 2027 | NO MACHINE |
+
+## Group Y - Attribute sheets, folder checks, the Companion page (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-69](DECISIONS.md), [D-70](DECISIONS.md), [D-71](DECISIONS.md),
+[13](13-sheets-folders-companion.md)). Built and tested offline only (`tests/test_attribute_sheet.py`,
+`tests/test_check_folder.py`, `tests/test_companion.py`). Server only: restart the server after
+pulling. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| Y1 | In a saved drawing with camera blocks: `autocad_export_attribute_sheet` with Publish **off**, then on | Off: refused naming Publish, no file. On: `<drawing> - attributes - <date>.xlsx` next to the drawing; Excel opens it with sheets Attributes, As exported, Read me; tags such as `0050` still read `0050` | NOT RUN |
+| Y2 | In Excel change two TAG cells, empty one cell, save. `autocad_apply_attribute_sheet` with `dry_run=true`, then without | Dry run: `would_change: 2`, drawing unchanged. Then two attributes change, `before_after` lists both old -> new, the emptied cell is untouched; one Ctrl+Z undoes both | NOT RUN |
+| Y3 | After Y1, change one TAG in the drawing by hand, and the same TAG of another block in Excel; then change the first block's TAG in Excel too; apply | The hand change stays (`kept_drawing`) when Excel left it; the cell changed in both is in `conflicts` and not written | NOT RUN |
+| Y4 | A folder with 3 drawings, one of them open, one a newer-format or damaged file: `autocad_check_folder` | Each opens read only (title bar says read-only) and closes unsaved; the open one stays open; the bad one is NOT RUN with AutoCAD's reason; the modeller's drawing is active again at the end; no drawing's file date changes | NOT RUN |
+| Y5 | During Y4 press HERONSTOP after the first drawing | The rest are not opened; the answer says HERONSTOP; the modeller's drawing is active | NOT RUN |
+| Y6 | `autocad_companion`, open the page in a browser; select 3 objects, ask the chat to draw a line, then to refresh the companion page | The page shows the drawing, units, layout, view; within 5 s of the draw a new row "Draw Line ... done +1"; after the refresh the selection reads 3 objects; the browser's dev tools show no script and no request | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
