@@ -258,7 +258,8 @@ def test_every_change_tool_takes_dry_run_and_the_ones_with_their_own_keep_it():
            "autocad_dimension_run", "autocad_add_centre_marks", "autocad_create_hatch_pattern",
            "autocad_create_linetype", "autocad_saved_command", "autocad_sequence",
            "autocad_drawing_setup", "autocad_make_shape", "autocad_set_attributes",
-           "autocad_number_tags", "autocad_text_clean", "autocad_find_replace_text"}  # fmt: skip
+           "autocad_number_tags", "autocad_text_clean", "autocad_find_replace_text",
+           "autocad_apply_attribute_sheet"}  # fmt: skip
     for tool in asyncio.run(mcp.list_tools()):
         level = RISK[tool.name]
         fn = mcp._tool_manager.get_tool(tool.name).fn

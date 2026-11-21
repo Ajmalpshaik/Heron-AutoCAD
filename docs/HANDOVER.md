@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
+## Latest - 2026-11-21 (attribute sheets #96, folder check #97, Companion page #91; server 1.9.0)
+
+Built offline in one PR, from Heron AI for Revit's ideas; design in
+[docs/13](13-sheets-folders-companion.md). Server **1.9.0** (four new tools, **142**), plug-in
+still **1.6.0** (no C# changed): restart Claude after pulling.
+- **D-69 (#96):** `autocad_export_attribute_sheet` (Publish) and `autocad_apply_attribute_sheet`
+  (Change). The workbook's "As exported" sheet lets the compare keep the drawing's own later
+  changes and list conflicts; only changed cells are written, one undo step. `acad/xlsx.py` reads
+  and writes `.xlsx` with the standard library.
+- **D-70 (#97):** `autocad_check_folder` (View): each drawing read only, checked, closed unsaved.
+- **D-71 (#91):** `autocad_companion` (Read): a page file per chat, rewritten by the gate after
+  every job. Editable tables (Revit's) would need a local server: not built.
+
+**Next:** live rows Y1-Y6 with the others below. Still open from the comparison: #80 (row T7),
+#101.
+
+## Earlier - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
 
 A review of the docked palette (D-68) after plug-in 1.6.0 merged found one safety gap and three
 robustness gaps, all fixed in PR #137. Plug-in **1.6.0** already carries them if it is

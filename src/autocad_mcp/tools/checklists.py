@@ -208,13 +208,18 @@ def gather(doc: Any, wanted: set[str], max_entities: int) -> dict[str, Any]:
     return data
 
 
-async def run_list(name: str, max_entities: int) -> tuple[dict[str, Any], str]:
-    """Run the list 'name' with this project's changes on top. (the answer, the drawing's path)."""
+async def run_list(name: str, max_entities: int, doc_of: Any = None) -> tuple[dict[str, Any], str]:
+    """Run the list 'name' with this project's changes on top. (the answer, the drawing's path).
+
+    doc_of: which open drawing to read (a function giving it); the active one by
+    default. autocad_check_folder passes each drawing it opened (D-70).
+    """
     record = load(name)
     office = checklist.validate(record.get("checks", []))
+    pick = doc_of or get_doc
 
     def work() -> tuple[str, str | None, list[dict[str, Any]], dict[str, Any]]:
-        doc = get_doc()
+        doc = pick()
         drawing = _drawing_of(doc)
         project, changes = project_changes(drawing, record["name"])
         try:

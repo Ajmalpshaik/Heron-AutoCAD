@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Attributes to Excel and back, a folder of drawings checked, the Companion page (2026-11-21).**
+  `autocad_export_attribute_sheet` (Publish) writes every block's attributes to a new `.xlsx` next
+  to the drawing; `autocad_apply_attribute_sheet` reads the edited sheet back and writes only the
+  cells the modeller changed, in one undo step, old -> new; a value the drawing changed since the
+  export is kept, a cell changed in both places is listed, not written ([D-69](docs/DECISIONS.md),
+  #96). `autocad_check_folder` runs a check list over every drawing in a folder, each opened read
+  only and closed unsaved ([D-70](docs/DECISIONS.md), #97). `autocad_companion` opens the Heron
+  Companion page: one HTML file per chat with the drawing, view, selection and this chat's activity,
+  rewritten after every job; no server, no script ([D-71](docs/DECISIONS.md), #91). Design:
+  [docs/13](docs/13-sheets-folders-companion.md). 142 tools. Live rows Y1-Y6 NOT RUN.
+
 - **The palette's Run can never skip the plug-in's checks (2026-11-21).** If AutoCAD was started
   with `HERON_AUTOCAD_BRIDGE=off` or a chat id in its environment, the palette's run used to inherit
   them. It now always runs with the checks on and as its own chat, and the server refuses a palette

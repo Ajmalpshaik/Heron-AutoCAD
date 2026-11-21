@@ -144,6 +144,11 @@ CASES = [
     ("make the cove LED strip glow in the night render", "autocad_create_material"),
     ("make a walnut veneer material with the grain at 1 m", "autocad_create_material"),
     ("save this 3D angle as a camera view for the render", "autocad_save_view"),
+    # The round trip, the folder check and the companion page (2026-11-21).
+    ("give me the equipment tags in Excel so I can fill them in", "autocad_export_attribute_sheet"),
+    ("I filled in the tags in the Excel, put them back in the drawing", "autocad_apply_attribute_sheet"),
+    ("check every drawing in the issue folder before we send it", "autocad_check_folder"),
+    ("show me what you are doing in a window beside AutoCAD", "autocad_companion"),
 ]
 
 def entries() -> list[Entry]:

@@ -40,6 +40,8 @@ The group headings below give the level.
 | `autocad_project_notes` | **Read.** Keep the modeller's answers (scale, standard, text heights) for the project (the drawing's folder); `autocad_status` hands them to every chat ([D-53](DECISIONS.md)) |
 | `autocad_checklist` | **Read.** The modeller's own check list, saved once and run before issue: PASS / FAIL / NO DATA / NOT RUN per line, a coverage line ("2 of 4 decided, 1 no data, 1 not run"), the failing handles and each line's source; `before issue` ships ready. `project` lays this project's changes (severity, target, on/off only) over the office list ([D-52](DECISIONS.md), [D-64](DECISIONS.md)) |
 | `autocad_checklist_report` | **Publish.** Runs a check list and saves it as a new `.xlsx` and `.html` next to the drawing; an earlier report is never overwritten (` (2)`, ` (3)`) ([D-65](DECISIONS.md)) |
+| `autocad_check_folder` | **View.** Runs a check list over every `.dwg` in a folder (`subfolders` too): each opened read only, checked with its own project's changes, closed unsaved; an open drawing is checked where it is; the modeller's drawing is active again at the end. Verdict and coverage per drawing, worst first; one that will not open is NOT RUN with the reason ([D-70](DECISIONS.md)) |
+| `autocad_companion` | **Read.** Opens the Heron Companion page: one HTML file per chat on this PC with the drawing, units, layout, view, selection and this chat's activity, rewritten after every Heron job. No server, no port, no script; it sends nothing to AutoCAD. `stop` ends the updates ([D-71](DECISIONS.md)) |
 | `autocad_use_autocad` | **Read.** List the AutoCADs connected to Heron, or pick the one to work in. One connected: used without asking. Two or more: nothing is sent until one is picked ([D-49](DECISIONS.md)) |
 | `autocad_export` | PDF, DXF, WMF, SAT, BMP, EPS, STL. PDF takes `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
@@ -166,6 +168,8 @@ alternative, because a dialog blocks COM until a person closes it.
 | `autocad_list_layouts` | Read | Layouts in tab order with plotter, paper, object count |
 | `autocad_set_dynamic_properties` | Change | Set visibility, size, distance, flip; typed and checked; failures listed |
 | `autocad_set_attributes` | Change | Attributes from `values`, `rows` or `csv_path`, matched by `key` (a tag or `layout`); `dry_run` |
+| `autocad_export_attribute_sheet` | Publish | Every block's attributes in a new `.xlsx` next to the drawing (one row per block, one column per tag, handle first), with an "As exported" copy; never over an earlier one ([D-69](DECISIONS.md)) |
+| `autocad_apply_attribute_sheet` | Change | Reads the edited `.xlsx` (or a `.csv` with a Handle column) and writes only the cells that changed, in one undo step; blanks change nothing; a value the drawing changed since the export is kept; a cell changed in both is a conflict, listed; `dry_run` ([D-69](DECISIONS.md)) |
 | `autocad_number_tags` | Change | Prefix + padded number + suffix on blocks (`tag`), texts or new text; sort rows / columns / path |
 | `autocad_text_clean` | Change | Strip MText formatting codes; `dry_run` |
 | `autocad_find_replace_text` | Change | Find / replace (plain or regex) in text, mtext, attributes, mleaders, dim overrides, tables; `dry_run` |

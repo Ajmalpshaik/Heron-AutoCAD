@@ -6,7 +6,7 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 
 ## Plug-in
 
-- [ ] A Companion page like Heron's in Revit (drawing, view, selection, activity list). ([#91](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/91))
+- [x] A Companion page like Heron's in Revit (drawing, view, selection, activity list). ([#91](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/91)) First page: `autocad_companion`, a file per chat, no server (D-71); live rows Y6 NOT RUN. Editable tables and a dashboard need a local server: a later decision.
 - [ ] A docked **activity palette** in AutoCAD (today: `autocad_activity` in the chat, D-54) with Zoom per job. ([#92](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/92))
 - [ ] A **saved-command palette** in AutoCAD (today: `autocad_saved_command` run from the chat, D-55). ([#93](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/93))
 
@@ -24,7 +24,7 @@ done looks like here.
 - [ ] Check lists: NO DATA + coverage ([#84](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/84)), office list + project changes ([#85](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/85)), Excel / HTML report ([#86](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/86)), never "complies" ([#87](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/87)).
 - [ ] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).
 - [ ] AutoCAD ribbon coverage audit ([#94](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/94)); an honest install table ([#95](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/95)).
-- [ ] Later: spreadsheet round trip for attributes ([#96](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/96)), check a folder of drawings ([#97](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/97)).
+- [x] Spreadsheet round trip for attributes ([#96](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/96), D-69), check a folder of drawings ([#97](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/97), D-70). Live rows Y1-Y5 NOT RUN.
 - Not taken: Heron for Revit's knowledge store, standards answers with citations, HVAC / fire
   calculators and usage counter (AutoCAD has no knowledge store), and its proven-only change gate
   (D-117: AutoCAD keeps NEEDS-CHECKING as a record, not a gate).

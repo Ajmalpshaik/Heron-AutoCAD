@@ -518,6 +518,22 @@ Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETT
 | X23 | On a layout, inside a floating viewport: have the chat draw a circle (Ask to Keep off), press **Zoom** on it, then **Undo** | Record what happens. If Undo says "The drawing changed after this job", the viewport's zoom counted as a change (a viewport is an object): note it in 06 section 10 as a known limit. Either way nothing of the modeller's is undone | NOT RUN |
 | X21 | AutoCAD 2025 / 2026 and 2021-2024 builds: X1, X2, X4, X13 | As in AutoCAD 2027 | NO MACHINE |
 
+## Group Y - Attribute sheets, folder checks, the Companion page (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-69](DECISIONS.md), [D-70](DECISIONS.md), [D-71](DECISIONS.md),
+[13](13-sheets-folders-companion.md)). Built and tested offline only (`tests/test_attribute_sheet.py`,
+`tests/test_check_folder.py`, `tests/test_companion.py`). Server only: restart the server after
+pulling. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| Y1 | In a saved drawing with camera blocks: `autocad_export_attribute_sheet` with Publish **off**, then on | Off: refused naming Publish, no file. On: `<drawing> - attributes - <date>.xlsx` next to the drawing; Excel opens it with sheets Attributes, As exported, Read me; tags such as `0050` still read `0050` | NOT RUN |
+| Y2 | In Excel change two TAG cells, empty one cell, save. `autocad_apply_attribute_sheet` with `dry_run=true`, then without | Dry run: `would_change: 2`, drawing unchanged. Then two attributes change, `before_after` lists both old -> new, the emptied cell is untouched; one Ctrl+Z undoes both | NOT RUN |
+| Y3 | After Y1, change one TAG in the drawing by hand, and the same TAG of another block in Excel; then change the first block's TAG in Excel too; apply | The hand change stays (`kept_drawing`) when Excel left it; the cell changed in both is in `conflicts` and not written | NOT RUN |
+| Y4 | A folder with 3 drawings, one of them open, one a newer-format or damaged file: `autocad_check_folder` | Each opens read only (title bar says read-only) and closes unsaved; the open one stays open; the bad one is NOT RUN with AutoCAD's reason; the modeller's drawing is active again at the end; no drawing's file date changes | NOT RUN |
+| Y5 | During Y4 press HERONSTOP after the first drawing | The rest are not opened; the answer says HERONSTOP; the modeller's drawing is active | NOT RUN |
+| Y6 | `autocad_companion`, open the page in a browser; select 3 objects, ask the chat to draw a line, then to refresh the companion page | The page shows the drawing, units, layout, view; within 5 s of the draw a new row "Draw Line ... done +1"; after the refresh the selection reads 3 objects; the browser's dev tools show no script and no request | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
