@@ -160,7 +160,7 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 - [ ] `core/audit.py`: with `%LOCALAPPDATA%` unset, `audit_dir()` resolves to a relative
   `Heron/autocad/audit` in the working directory. Windows always sets it, so this only
   shows up running the code off Windows; worth an explicit fallback anyway.
-- [ ] `send_command` / `run_lisp` that manage their own undo do not mark "write started", so a busy retry can still re-run them ([D-15](DECISIONS.md)).
+- [ ] `send_command` with an undo-stack command (UNDO, U, REDO, MREDO, OOPS) is sent outside an undo mark, so it does not mark "write started" and a busy retry can still re-run it ([D-15](DECISIONS.md)). Every other `send_command` and every `run_lisp` now runs inside `undo_mark`.
 - [ ] `autocad_dimension_run`: an optional `dim_style` (an existing style name), so a 1:5 detail
   does not have to change DIMSCALE through `autocad_drawing_setup` mid-run (asked 2026-11-18). Not
   built in D-57 because it cannot be proved offline. Traps found: the tool sets every dimension's
