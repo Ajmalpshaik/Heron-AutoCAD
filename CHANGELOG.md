@@ -15,6 +15,16 @@ Newest first. Dates are when the change was made.
   `autocad_check_standards` and the new [DISCLAIMER.md](DISCLAIMER.md) (#87).
   [D-64](docs/DECISIONS.md), [D-65](docs/DECISIONS.md). Live rows U1-U10 NOT RUN.
 
+- **A docked Heron palette: Activity and Saved commands (2026-11-21, PR #123).** `HERONPALETTE`,
+  or Heron (arrow) -> **Heron palette**, opens one palette docked in AutoCAD, in Heron's window
+  style ([D-68](docs/DECISIONS.md), #92, #93). **Activity** lists Heron's recent changes from every
+  chat, newest first, with what was made, changed and erased, and **Select**, **Zoom** and
+  **Undo** per job. Undo needs no padlock, but works only on Heron's newest change when nothing
+  else changed since (the D-54 rule); otherwise it says why. **Saved commands** lists the commands
+  saved in a chat (a new one shows within 2 s), fills their inputs and **Run**s one through the same
+  gate, hold, padlocks and Keep or Discard as a chat. The server takes `--run-saved` for this, and
+  writes `server.json` at start so the palette can find it. Live rows X1-X21 NOT RUN.
+
 - **How a change job answers and what it keeps (2026-11-21, PR #124).** A chat Claude reopens
   after a restart keeps its hold: the server takes Claude Code's own chat id, hashed; scripts stay
   their own chat ([D-61](docs/DECISIONS.md), #78). Every change answer now starts with one plain
