@@ -191,6 +191,9 @@ namespace Heron.AutoCAD.Addin
                 case "add_mesh": return Surfaces.Mesh(db, tr, args);
                 case "multileader_style": return DrawingStyles.Multileader(db, tr, args);
                 case "table_style": return DrawingStyles.Table(db, tr, args);
+                case "associative_array": return AssociativeArrays.Make(db, tr, args);
+                case "geo_location": return GeoLocation.Read(db, tr);
+                case "set_geo_location": return GeoLocation.Change(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

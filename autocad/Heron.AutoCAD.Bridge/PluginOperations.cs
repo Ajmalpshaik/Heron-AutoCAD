@@ -56,6 +56,11 @@ namespace Heron.AutoCAD.Bridge
             // Multileader and table styles: COM can make neither (D-104).
             ["multileader_style"] = Risk.Change,
             ["table_style"] = Risk.Change,
+            // An associative array (ARRAY) and the drawing's geographic location
+            // (GEOGRAPHICLOCATION): COM has a call for neither (D-110, D-111).
+            ["associative_array"] = Risk.Change,
+            ["geo_location"] = Risk.Read,
+            ["set_geo_location"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

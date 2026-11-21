@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (sheets by the plug-in: #64-#67, #39, #40; D-90, D-91)
 
-One new tool, `autocad_sheet_set` (**180** with the other sessions' work), and three new
+One new tool, `autocad_sheet_set` (**186** with the other sessions' work), and three new
 plug-in operations (`create_layout`, `add_viewport`, `active_sheet`); `publish_pdf` takes a list
 of drawings. `autocad_create_layout` and `autocad_add_viewport` ask the plug-in first and fall back
 to COM; viewports clip (`clip_outline`, `clip_handle`) and take an annotation scale; title blocks go
@@ -21,6 +21,21 @@ version is not bumped here (the parent does it). #39 and #40 stay open until the
 **Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then live
 rows **AF1-AF15, AF17, AF18**. AF9 decides whether the sheet set really is one undo step; AF6 checks the twist sign,
 which this PR flipped from the code (the old COM path too); AF10 is row D33 again.
+
+## Earlier - 2026-11-21 (the smaller ribbon gaps, part 2 of #119, D-110, D-111)
+
+Six new tools (**185** in all), split from #119 into #175, #176, #178, #179, #180:
+`autocad_associative_array` (path, grid, ring; plug-in), `autocad_tiled_viewports` (COM, View),
+`autocad_hyperlinks` / `autocad_list_hyperlinks` (COM), `autocad_geo_location` /
+`autocad_get_geo_location` (plug-in), and DWF in `autocad_export`. The .NET names come from
+Autodesk's reference DLLs and the viewport split numbers from Autodesk's interop DLL; what an
+array's base point and angles mean, and the form of a geo location's reference point, could not be
+read here, so the plug-in checks AutoCAD's result and refuses a wrong one (D-110, D-111).
+
+**Next (on this PC):** build and install the plug-in, restart Claude, then live rows AQ1-AQ13.
+AQ4 (ring angles in degrees? centre?), AQ6 (which split is "vertical"), AQ11 (`reference_form`:
+grid or lon_lat) are the answers the code could not get. Not built (#216): turned grids, DWFx,
+projected coordinate systems in feet.
 
 ## Earlier - 2026-11-21 (multileader and table styles by the plug-in, #68, D-104 and D-105)
 

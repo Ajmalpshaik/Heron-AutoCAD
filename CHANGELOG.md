@@ -10,13 +10,24 @@ Newest first. Dates are when the change was made.
   (`made_by` says which), and over COM a busy moment after the layout is added is answered from
   the drawing read back instead of "Outcome unknown". `copy_from` copies a sheet with everything on
   it. Viewports can be **clipped** to an outline or a closed shape on the sheet, and get their
-  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**180** in all):
+  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**186** in all):
   a drawing list (number, title, scale, view) into sheets, viewports and filled title blocks, checked
   whole first, one undo step. `autocad_publish_pdf` takes a **folder** or a **list of drawings**,
   refusing an unsaved one or a missing xref by name. Title blocks go into the layout's own block;
   `autocad_status` names a fact it cannot read instead of failing on a sheet tab; `space="paper"`
   falls back to the active layout's block. Three new plug-in operations
   ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). `align_to_ucs` now twists the view the other way (337 for a UCS turned 23; reasoned, AF6). Live rows AF1-AF18 NOT RUN.
+
+- **Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (2026-11-21,
+  #175, #176, #178, #179, #180; part 2 of #119).** Six new tools (**185** in all):
+  `autocad_associative_array` (ARRAY's editable path, grid and ring array, by the plug-in, refused
+  if AutoCAD puts the items anywhere but where asked, [D-110](docs/DECISIONS.md)),
+  `autocad_tiled_viewports` (the Model tab in 1-4 viewports, COM, a View tool),
+  `autocad_hyperlinks` and `autocad_list_hyperlinks` (links on objects, COM),
+  `autocad_geo_location` and `autocad_get_geo_location` (GEOGRAPHICLOCATION by the plug-in, proved
+  with AutoCAD's own transform; the sun's place follows the site). `autocad_export` writes **DWF**
+  through the DWF6 ePlot plotter, the PDF way ([D-111](docs/DECISIONS.md)). Plug-in operations
+  `associative_array`, `geo_location`, `set_geo_location`. Live rows AQ1-AQ14 NOT RUN.
 
 - **Multileader and table styles (2026-11-21, #68).** `autocad_create_styles` takes
   `multileader_styles` and `table_styles`, made by Heron's plug-in because COM has no call for

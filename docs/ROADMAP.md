@@ -153,6 +153,7 @@ done looks like here.
 - [x] Dynamic blocks: read and set properties (`autocad_get/set_dynamic_properties`). Authoring
   parameters and actions has no API; it stays a Block Editor job.
 - [x] The Lee Mac ideas: all built ([08](08-lee-mac-study.md)).
+- [ ] Left from part 2 of #119 (D-110, D-111): turned grids in `autocad_associative_array`, DWFx in `autocad_export`, coordinate systems in feet in `autocad_geo_location`. After Group AQ passes. ([#216](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/216))
 - [ ] `autocad_break_at_blocks` for polylines with arcs, through the plug-in's curve splitting. ([#52](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/52))
 
 - [ ] `autocad_batch_draw`: hatch, mtext and dimension operations. Polyline bulges and text
