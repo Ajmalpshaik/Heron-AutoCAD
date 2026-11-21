@@ -148,7 +148,7 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
   picked by number.
 - A chamfer is measured from one face, as AutoCAD's own is: its edges must be on that face.
 - Press-pull moves flat faces only. Loft makes a solid from closed outlines; open outlines are
-  refused unless `surface=true`, which makes a surface (limit 30). Loft and thicken keep their
+  refused unless `surface=true`, which makes a surface (limit 31). Loft and thicken keep their
   outlines and surfaces (as with DELOBJ off).
 - `autocad_super_hatch` fills an outline drawn flat in plan (world XY). Arcs in it are followed in
   short straight steps, as XCLIP stores any boundary: within 1/10,000 of the outline's size for a
@@ -412,7 +412,26 @@ From [D-78](DECISIONS.md) and [D-79](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
 - **Groups:** an unnamed group (*A1) is listed but not made. No Lengthen tool yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AA](NEEDS-CHECKING.md)).
 
-## 30. 3D for MEP: duct runs, spools, flat views, sections, surfaces, meshes have their own limits
+## 30. Files read with AutoCAD closed, the reference standard, and shared check lists
+
+From [D-92](DECISIONS.md) and [D-93](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AG).
+- **A DWG needs the ODA File Converter** to be read with AutoCAD closed. Heron never downloads it;
+  without it, open the drawing in AutoCAD or save it as DXF. Heron looks under Program Files\ODA
+  and on PATH; set `HERON_ODA_CONVERTER` (the `.exe`) in the MCP settings for another place.
+- **What is read is what was last saved.** Changes not yet saved in AutoCAD are not in the file.
+- **Files over 250 MB are refused** (ezdxf holds the whole file in memory); a DWG becomes a larger
+  DXF on the way, and that is held to the same limit.
+- **Dimension styles and linetypes are compared by name only** against a reference: COM cannot
+  read a dimension style's settings without making it current. **True colours** are compared by
+  their colour number.
+- **The office folder is given 10 seconds.** A lost network drive is then believed unreachable for
+  a minute, and the run uses this PC's copy, saying so. A PC that never read a list from the
+  office folder has no copy of it.
+- **Who may change the office list is Windows' business:** give the team read-only rights on the
+  office folder, and the keeper of the lists write rights. Heron refuses a read-only folder, saying
+  so; it adds no roles of its own.
+
+## 31. 3D for MEP: duct runs, spools, flat views, sections, surfaces, meshes have their own limits
 
 From [D-94](DECISIONS.md) and [D-95](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AH).
 - **A duct run or a spool is its centreline through corner points**, with one bend per corner. A
