@@ -19,7 +19,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP_DIRS = {".venv", ".venv.broken", ".git", "bin", "obj", "dist", ".superpowers", "node_modules", ".pytest_cache", ".ruff_cache"}
+# .claude holds nothing of the repository's own, only Claude's local folders, and
+# in the main checkout other sessions' worktrees: whole copies of this repository.
+SKIP_DIRS = {".venv", ".venv.broken", ".git", "bin", "obj", "dist", ".superpowers", "node_modules", ".pytest_cache", ".ruff_cache", ".claude"}
 _API = re.compile(r"\bAutodesk\.(AutoCAD|Windows)\b")
 _LINK = re.compile(r"\]\(([^)#\s]+)(?:#[^)]*)?\)")
 

@@ -28,5 +28,16 @@ def test_broken_doc_link_is_caught(tmp_path):
     assert len(problems) == 1 and "missing.md" in problems[0]
 
 
+def test_session_worktrees_under_dot_claude_are_not_checked(tmp_path):
+    # The main checkout holds other sessions' worktrees in .claude/worktrees: their
+    # add-in copies are not "AutoCAD API outside the add-in" (seen 2026-11-21).
+    copy = tmp_path / ".claude" / "worktrees" / "some-session" / "autocad" / "Heron.AutoCAD.Addin"
+    copy.mkdir(parents=True)
+    (copy / "HeronRibbon.cs").write_text("using Autodesk.Windows;")
+    (copy.parents[1] / "README.md").write_text("[gone](missing.md)")
+    assert cs.autocad_api_outside_addin(tmp_path) == []
+    assert cs.broken_links(tmp_path) == []
+
+
 def test_this_repository_passes():
     assert cs.run_all(ROOT) == []

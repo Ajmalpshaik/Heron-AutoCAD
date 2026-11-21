@@ -8,7 +8,27 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (busy-AutoCAD fixes from the Luxury Suite 3 rehearsal, PR #33)
+## Latest - 2026-11-21 (this PC updated: server 1.7.0, plug-in 1.5.0 installed)
+
+On Ajmal's word, with AutoCAD closed, the main checkout `D:\06_Development\09_Autocad MCP\Autocad MCP`
+was fast-forwarded to `main` a29b4a8 (PR #33). `tools/build_plugin.py` built plug-in **1.5.0**
+(0 warnings), and `tools/install_plugin.py` replaced the installed 1.4.2 in
+`%APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle`. No Python reinstall was needed: only
+the version line changed in `pyproject.toml`, and the version is read from `__init__.py`.
+
+The offline tests passed in the main checkout, except `test_structure`, which read the other
+sessions' worktrees under `.claude/worktrees` as "AutoCAD API outside the add-in". It now skips
+`.claude`, which holds nothing tracked (this PR).
+
+Merged branches were deleted on GitHub and locally. Follow-ups are issues #34-#37.
+
+**Next:**
+- Restart Claude, so the server runs 1.7.0.
+- Start AutoCAD 2027 and press Heron.
+- Run the live rows M1-M8, N1-N8, O1-O7, P1-P5 and Q1-Q5.
+- Take `view_only` off the Luxury Suite 3 player's view steps once Q2 passes.
+
+## Earlier - 2026-11-21 (busy-AutoCAD fixes from the Luxury Suite 3 rehearsal, PR #33)
 
 PR #33 (branch `claude/busy-autocad-fixes`, from `main` ef0af45) was merged on Ajmal's word on
 2026-11-21. CI `python` and `plugin` passed; the Claude `review` check failed before reviewing,
