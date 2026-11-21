@@ -34,7 +34,7 @@ register_all()
 
 # The floors. Current, over 169 tools: 113 of these put the right tool first
 # and 125 of 126 find it in the top three (the miss: "make a tag block with
-# a TAG attribute", issue to follow). Set a little under, so ordinary
+# a TAG attribute", #191). Set a little under, so ordinary
 # rewording does not fail the build but a real loss does. The top-three floor
 # is deliberately the full count minus one: a phrase that stops finding its
 # tool at all is the failure that costs someone time at the machine.
