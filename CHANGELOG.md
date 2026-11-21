@@ -4,6 +4,9 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **AutoCAD always starts disconnected (2026-11-21, #141).** `bridge.autoConnect` in the config
+  file is ignored: only the modeller's press of Heron connects AutoCAD, so no file can let a chat
+  read a drawing without a click ([D-73](docs/DECISIONS.md)). Live row R10 NOT RUN.
 - **The offline gates run on Linux (2026-11-21, #102).** pywin32 stand-ins in `tests/winstubs`,
   used only where pywin32 is not installed, let the offline suite and `tools/check_structure.py`
   run in a Linux cloud session; tests that need Windows itself (named pipes, the COM message filter,

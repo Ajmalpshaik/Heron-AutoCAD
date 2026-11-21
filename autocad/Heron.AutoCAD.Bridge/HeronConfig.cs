@@ -16,7 +16,6 @@ namespace Heron.AutoCAD.Bridge
         public bool PublishEnabled { get; set; }
         public bool AdminEnabled { get; set; }
         public bool AskBeforeKeeping { get; set; }
-        public bool AutoConnect { get; set; }
         public bool ActivityBanner { get; set; } = true;
 
         /// <summary>The padlocks a Windows policy holds off (D-60), so a refusal can say so.</summary>
@@ -26,11 +25,12 @@ namespace Heron.AutoCAD.Bridge
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Heron", "autocad", "heron-autocad.config");
 
         /// <summary>
-        /// The file's own settings: bridge.autoConnect and ui.activityBanner.
+        /// The file's own setting: ui.activityBanner. bridge.autoConnect is
+        /// ignored, so no file can make AutoCAD connect at start (D-73).
         /// The padlock lines an older plug-in wrote (write.enabled,
         /// publish.enabled, admin.enabled, write.askBeforeKeeping) are ignored,
         /// so a file can never turn a padlock on (D-59). A file that cannot be
-        /// read cleanly gives the defaults: not connecting at start, banner on.
+        /// read cleanly gives the default: banner on.
         /// </summary>
         public static HeronConfig Load(string path)
         {
@@ -55,7 +55,6 @@ namespace Heron.AutoCAD.Bridge
                         var on = kind == JsonValueKind.True;
                         switch (property.Name)
                         {
-                            case "bridge.autoConnect": read.AutoConnect = on; break;
                             case "ui.activityBanner": read.ActivityBanner = on; break;
                         }
                     }
