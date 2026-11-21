@@ -43,7 +43,6 @@ ATTRIBUTES_FIELD = Field(
         "default) and preset (filled in, can still be changed). Omit for a block with no attributes."
     ),
 )
-SYNC_SELECTION = "MCP_ATTSYNC"
 # AutoCAD wildcard characters: a block name is matched as text, not as a pattern.
 _WILDCARDS = set("#@.*?~[]-`,")
 MOST_LISTED = 50
@@ -185,12 +184,17 @@ def _block_definition(doc: Any, name: str) -> tuple[Any, list[dict[str, Any]]]:
         item = block.Item(i)
         if str(item.ObjectName) != "AcDbAttributeDefinition":
             continue
+        try:
+            at = [float(v) for v in item.InsertionPoint]
+        except Exception:  # noqa: BLE001 - only used to stack new ones under it
+            at = []
         definitions.append(
             {
                 "tag": str(item.TagString).upper(),
                 "default": str(item.TextString),
                 "constant": bool(item.Constant),
                 "prompt": str(item.PromptString),
+                "at": at,
             }
         )
     return block, definitions
@@ -204,7 +208,9 @@ def _inserts(doc: Any, name: str) -> list[dict[str, Any]]:
     """
     found: list[dict[str, Any]] = []
     wanted = name.strip().lower()
-    sel = select_filtered(doc, "insert", block_name=f"{escape_wildcards(name.strip())},`*U*", name=SYNC_SELECTION)
+    # The shared scratch set: adding a named set of its own would cost the
+    # modeller an undo step the first time (selection.make_selection_set).
+    sel = select_filtered(doc, "insert", block_name=f"{escape_wildcards(name.strip())},`*U*")
     try:
         for ref in iter_selection(sel):
             try:
@@ -222,7 +228,7 @@ def _inserts(doc: Any, name: str) -> list[dict[str, Any]]:
             except Exception:  # noqa: BLE001 - not a block reference after all
                 continue
     finally:
-        discard_selection_set(doc, SYNC_SELECTION)
+        discard_selection_set(doc)
     return found
 
 
@@ -305,13 +311,23 @@ async def autocad_sync_attributes(
             except Exception:  # noqa: BLE001 - a block drawn at 0,0
                 origin = [0.0, 0.0, 0.0]
             shifted = []
-            for spec in add_attributes:
+            for number, spec in enumerate(add_attributes, 1):
                 if isinstance(spec, dict) and spec.get("position") is not None:
-                    offset = [float(v) for v in spec["position"]] + [0.0]
+                    given = spec["position"]
+                    try:
+                        offset = [float(v) for v in given]
+                    except (TypeError, ValueError):
+                        offset = []
+                    if not 2 <= len(offset) <= 3:
+                        raise AutocadError(f"Attribute {number}: the position must be [x, y] from the base point, not {given!r}. Nothing was changed.")
+                    offset = (offset + [0.0])[:3]
                     spec = {**spec, "position": [origin[i] + offset[i] for i in range(3)]}
                 shifted.append(spec)
             try:
-                added = plan_definitions(shifted, origin, _text_height(doc), taken=[d["tag"] for d in definitions])
+                added = plan_definitions(
+                    shifted, origin, _text_height(doc),
+                    taken=[d["tag"] for d in definitions], taken_at=[d["at"] for d in definitions if d["at"]],
+                )  # fmt: skip
             except AttributeSpecError as exc:
                 raise AutocadError(f"{exc} Nothing was changed.") from None
         inserts = _inserts(doc, block)
@@ -344,7 +360,7 @@ async def autocad_sync_attributes(
         changes = [
             {"handle": item["handle"], "property": f"attribute {tag}", "from": None, "to": value}
             for item in plan["inserts"]
-            for tag, value in item["add"].items()
+            for tag, value in item["added"]
         ] + [
             {"handle": item["handle"], "property": f"attribute {tag}", "from": value, "to": None}
             for item in plan["inserts"]

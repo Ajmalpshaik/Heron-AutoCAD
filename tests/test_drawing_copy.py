@@ -32,6 +32,13 @@ class TestFindOpen:
     def test_by_name(self):
         assert find_open(OPEN, "pump-room") == 1
 
+    def test_only_a_drawing_extension_is_left_off(self):
+        """Review 2026-11-21: 'Level.01' found Level.dwg, because '.01' was taken for an extension."""
+        drawings = [("Level.dwg", r"D:\a\Level.dwg"), ("Level.01.dwg", r"D:\a\Level.01.dwg")]
+        assert find_open(drawings, "Level.01") == 1
+        assert find_open(drawings, "Level.01.DWG") == 1
+        assert find_open(drawings, "level") == 0
+
     def test_not_open_lists_what_is(self):
         with pytest.raises(ValueError, match="plan.dwg, pump-room.dwg, Drawing1.dwg"):
             find_open(OPEN, "site.dwg")

@@ -39,6 +39,7 @@ from ..acad.table_cells import (
     table_layout,
 )
 from ..acad.tables import apply_properties, ensure_layer
+from ..core.bridge import OLD_PLUGIN
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
@@ -82,6 +83,28 @@ def read_rows(path: Path, sheet: str | None) -> tuple[str, list[list[str]]]:
         if name.strip().lower() == sheet.strip().lower():
             return name, rows
     raise AutocadError(f"{path.name} has no sheet called '{sheet}'. Its sheets: {', '.join(sheets)}.")
+
+
+# Why a link could not be made that a filled table answers: no plug-in to ask
+# (--no-bridge), one too old for it, or AutoCAD failing to make or read the link.
+# Anything else stops the job: HERONSTOP, a padlock turned off, a refusal the
+# modeller has to act on (no sheet tab for space='paper', no such style), or
+# "Outcome unknown", when the linked table may already be there.
+_CANNOT_LINK = (
+    "--no-bridge",
+    "does not have the operation",
+    "read nothing from",
+    "AutoCAD refused it (",
+    "Heron in AutoCAD hit an error:",
+)
+
+
+def fill_instead(exc: AutocadError) -> bool:
+    """True when the plug-in's answer means "no link possible here", so a filled table is the honest next best."""
+    text = str(exc)
+    if text.startswith("Outcome unknown"):
+        return False
+    return text == OLD_PLUGIN or any(marker in text for marker in _CANNOT_LINK)
 
 
 def column_widths_for(grid: list[list[str]], text_height: float) -> list[float]:
@@ -299,8 +322,8 @@ async def autocad_table_from_excel(
             try:
                 report = in_plugin("excel_table", args, "A table linked to Excel")
             except AutocadError as exc:
-                if str(exc).startswith("Outcome unknown"):
-                    raise  # it may have been made: never make a second one
+                if not fill_instead(exc):
+                    raise  # stopped, a padlock, a refusal to act on, or maybe made: never a table over COM
                 why_not = str(exc)
             else:
                 result = {"created": True, "linked": True, **facts, **report}

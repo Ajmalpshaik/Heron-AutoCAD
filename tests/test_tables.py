@@ -372,6 +372,52 @@ class TestTableFromExcel:
         assert widths == tables.column_widths_for([["TAG", "FLOW"], ["P-01", "12.5"], ["P-02", "8"]], 100.0)
         assert min(widths) > 600  # not sized for a 5-unit text
 
+    @pytest.mark.parametrize(
+        "words",
+        [
+            "Heron was stopped (HERONSTOP): it does nothing more in this job. Nothing was sent to AutoCAD.",
+            "The Changes padlock was turned off while the job ran. Nothing was sent to AutoCAD.",
+            "The Model tab is active, so there is no sheet to put the table on. Click a sheet tab, or use space='model'. Nothing was changed.",
+            "This drawing has no table style called 'SCHED'. Nothing was changed.",
+        ],
+    )
+    def test_a_stop_a_padlock_or_a_refusal_to_act_on_is_never_filled_instead(self, env, workbook, monkeypatch, words):
+        """Review 2026-11-21: a HERONSTOP or a refusal must stop the job, not become a table over COM."""
+        from autocad_mcp.core.bridge import BridgeRefused
+
+        doc = env()
+
+        def refuse(*a, **k):
+            raise (BridgeRefused if "sent" in words else AutocadError)(words)
+
+        monkeypatch.setattr(tables, "in_plugin", refuse)
+        text = asyncio.run(tables.autocad_table_from_excel(path=str(workbook), position=[0, 0], space="paper"))
+        assert text == f"Error: {words}" and doc.ModelSpace.added == []
+
+    @pytest.mark.parametrize(
+        "words",
+        [
+            "Heron in AutoCAD does not have the operation 'excel_table'. Update Heron so both sides match.",
+            "AutoCAD made the link but read nothing from pumps.xlsx (Pumps A1:B3). A data link may need Microsoft Excel on this PC.",
+            "AutoCAD refused it (eNotApplicable). Nothing was changed.",
+        ],
+    )
+    def test_a_link_that_cannot_be_made_is_filled_instead(self, env, workbook, monkeypatch, words):
+        doc = env()
+
+        def refuse(*a, **k):
+            raise AutocadError(words)
+
+        monkeypatch.setattr(tables, "in_plugin", refuse)
+        result = answer(tables.autocad_table_from_excel(path=str(workbook), position=[0, 0]))
+        assert result["linked"] is False and result["not_linked_because"] == words and doc.ModelSpace.added
+
+    def test_an_older_plug_in_is_filled_instead(self):
+        from autocad_mcp.core.bridge import OLD_PLUGIN, BridgeRefused
+
+        assert tables.fill_instead(BridgeRefused(OLD_PLUGIN))
+        assert not tables.fill_instead(AutocadError("Outcome unknown: Heron in AutoCAD did not answer within 300 s."))
+
     def test_outcome_unknown_is_never_followed_by_a_second_table(self, env, workbook, monkeypatch):
         doc = env()
 

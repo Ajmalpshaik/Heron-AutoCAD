@@ -108,10 +108,16 @@ namespace Heron.AutoCAD.Addin
                     notLinked.Add(table.Handle.ToString());
                     continue;
                 }
-                var source = tr.GetObject(ids[0], OpenMode.ForRead) is DataLink link ? link.ConnectionString : "";
-                table.UpgradeOpen();
+                var source = tr.GetObject(ids[0], OpenMode.ForRead) is DataLink first ? first.ConnectionString : "";
                 try
                 {
+                    // Two steps, as DATALINKUPDATE does them: each link reads its
+                    // workbook again (a link keeps a cached copy, PersistCache),
+                    // then the table takes the link's new values.
+                    foreach (ObjectId id in ids)
+                        if (tr.GetObject(id, OpenMode.ForWrite) is DataLink link)
+                            link.Update(UpdateDirection.SourceToData, UpdateOption.None);
+                    table.UpgradeOpen();
                     table.UpdateDataLink(UpdateDirection.SourceToData, UpdateOption.SkipFormat);
                 }
                 catch (AcException ex)

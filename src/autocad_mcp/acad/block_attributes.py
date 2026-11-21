@@ -75,13 +75,15 @@ def plan_definitions(
     base_point: Sequence[float],
     default_height: float,
     taken: Sequence[str] = (),
+    taken_at: Sequence[Sequence[float]] = (),
 ) -> list[dict[str, Any]]:
     """Check attribute definitions and fill in what was left out, in the order given.
 
     ``base_point`` is where an attribute with no position goes: under it, one
     below the other, so none sits on top of another. ``taken`` are tags the
-    block already has (for adding to an existing block). Every problem is a
-    refusal before anything is made.
+    block already has, and ``taken_at`` where they sit (for adding to an
+    existing block): then the stack starts under the lowest of them instead.
+    Every problem is a refusal before anything is made.
 
     Returns one dict per attribute: tag, prompt, default, position [x, y, z],
     height, mode, and the three flags.
@@ -93,6 +95,9 @@ def plan_definitions(
     if not default_height or default_height <= 0:
         default_height = 2.5
     base = [float(v) for v in base_point] + [0.0] * (3 - len(base_point))
+    there = [[float(v) for v in at] + [0.0] * (3 - len(at)) for at in taken_at if len(at) >= 2]
+    if there:
+        base = min(there, key=lambda at: at[1])  # the lowest one already in the block
     seen = {str(t).strip().upper() for t in taken}
     planned: list[dict[str, Any]] = []
     stacked = 0
@@ -166,50 +171,56 @@ def plan_definitions(
 # ---------------------------------------------------------------------------
 
 
-def _queues(values: Sequence[tuple[str, str]]) -> dict[str, list[str]]:
-    by_tag: dict[str, list[str]] = {}
-    for tag, value in values:
-        by_tag.setdefault(str(tag).strip().upper(), []).append("" if value is None else str(value))
-    return by_tag
-
-
 def sync_one(definition: Sequence[dict[str, Any]], existing: Sequence[tuple[str, str]]) -> dict[str, Any]:
-    """What ATTSYNC does to one insert.
+    """What ATTSYNC does to one insert, exactly as the plug-in does it.
 
     ``definition`` is the block's attribute definitions in order ({tag,
     default, constant}); ``existing`` the insert's attributes now, as
     (tag, value) in order. A tag that appears twice is matched in order: the
     first definition of it takes the first value of it.
 
+    The attributes kept stay where they are in the insert's list; the new ones
+    follow, in the definition's order; the lost ones go.
+
     Returns {"keep": {tag: value}, "add": {tag: default}, "drop": [tag],
-    "dropped": [(tag, value it had)], "attributes": [(tag, value)] in the
-    definition's order, "changes_tags": bool}.
+    "kept": [(tag, value)], "added": [(tag, default)], "dropped": [(tag, value
+    it had)], "attributes": [(tag, value)] as the insert will have them,
+    "changes_tags": bool}. ``keep`` and ``add`` show a tag given twice once;
+    the lists have every one.
     """
-    left = _queues(existing)
-    keep: dict[str, str] = {}
-    add: dict[str, str] = {}
-    after: list[tuple[str, str]] = []
+    waiting: dict[str, list[int]] = {}
+    tags = [str(tag).strip().upper() for tag, _ in existing]
+    values = ["" if value is None else str(value) for _, value in existing]
+    for index, tag in enumerate(tags):
+        waiting.setdefault(tag, []).append(index)
+    kept_at: list[int] = []
+    added: list[tuple[str, str]] = []
     for item in definition:
         tag = str(item.get("tag", "")).strip().upper()
         if not tag or item.get("constant"):
             continue  # a constant attribute lives in the definition, not on the insert
-        waiting = left.get(tag)
-        if waiting:
-            value = waiting.pop(0)
-            keep.setdefault(tag, value)
+        if waiting.get(tag):
+            kept_at.append(waiting[tag].pop(0))
         else:
-            value = "" if item.get("default") is None else str(item.get("default"))
-            add.setdefault(tag, value)
-        after.append((tag, value))
-    dropped = [(tag, value) for tag, values in left.items() for value in values]
-    before_tags = [str(t).strip().upper() for t, _ in existing]
+            added.append((tag, "" if item.get("default") is None else str(item.get("default"))))
+    kept = [(tags[i], values[i]) for i in sorted(kept_at)]
+    dropped = [(tags[i], values[i]) for i in range(len(tags)) if i not in set(kept_at)]
+    after = kept + added
+    keep: dict[str, str] = {}
+    add: dict[str, str] = {}
+    for tag, value in kept:
+        keep.setdefault(tag, value)
+    for tag, value in added:
+        add.setdefault(tag, value)
     return {
         "keep": keep,
         "add": add,
         "drop": [tag for tag, _ in dropped],
+        "kept": kept,
+        "added": added,
         "dropped": dropped,
         "attributes": after,
-        "changes_tags": before_tags != [t for t, _ in after],
+        "changes_tags": bool(added or dropped),
     }
 
 
@@ -262,7 +273,7 @@ def plan_sync(
         "skipped": skipped,
         "touched": len(touched),
         "changing_tags": sum(1 for item in touched if item["changes_tags"]),
-        "values_kept": sum(len(item["keep"]) for item in touched),
-        "attributes_added": sum(len(item["add"]) for item in touched),
-        "attributes_dropped": sum(len(item["drop"]) for item in touched),
+        "values_kept": sum(len(item["kept"]) for item in touched),
+        "attributes_added": sum(len(item["added"]) for item in touched),
+        "attributes_dropped": sum(len(item["dropped"]) for item in touched),
     }

@@ -127,6 +127,11 @@ class TestPlaceAndSize:
         with pytest.raises(AttributeSpecError, match="height"):
             plan_definitions([{"tag": "A", "height": height}], [0, 0], 2.5)
 
+    def test_new_ones_stack_under_the_attributes_already_there(self):
+        """Review 2026-11-21: added later, SIZE went on top of TAG, which make_block had stacked."""
+        (size,) = plan_definitions([{"tag": "SIZE"}], [0, 0], 10.0, taken=["TAG", "REV"], taken_at=[[0, -15, 0], [40, 5, 0]])
+        assert size["position"] == [0.0, -15.0 - STACK_GAP * 10.0, 0.0]
+
     def test_the_prompt_defaults_to_the_tag(self):
         (one,) = plan_definitions([{"tag": "size"}], [0, 0], 2.5)
         assert one["prompt"] == "SIZE"
@@ -175,6 +180,24 @@ class TestSyncOne:
         plan = sync_one(definition, [("LINE", "first"), ("LINE", "second"), ("LINE", "third")])
         assert plan["attributes"] == [("LINE", "first"), ("LINE", "second")]
         assert plan["dropped"] == [("LINE", "third")]
+
+    def test_the_inserts_order_is_kept_and_new_ones_follow(self):
+        """As the plug-in does it: kept attributes stay in place, new ones go at the end."""
+        definition = [{"tag": "SIZE", "default": "DN50"}, {"tag": "FLOW", "default": "0"}, {"tag": "TAG", "default": ""}]
+        plan = sync_one(definition, [("TAG", "V-1"), ("SIZE", "DN80")])
+        assert plan["attributes"] == [("TAG", "V-1"), ("SIZE", "DN80"), ("FLOW", "0")]
+
+    def test_a_different_order_alone_changes_no_tag(self):
+        definition = [{"tag": "SIZE"}, {"tag": "TAG"}]
+        plan = sync_one(definition, [("TAG", "V-1"), ("SIZE", "DN80")])
+        assert not plan["changes_tags"] and plan["attributes"] == [("TAG", "V-1"), ("SIZE", "DN80")]
+
+    def test_a_tag_given_twice_is_counted_every_time(self):
+        definition = [{"tag": "LINE", "default": "a"}, {"tag": "LINE", "default": "b"}, {"tag": "LINE", "default": "c"}]
+        plan = sync_one(definition, [("LINE", "first")])
+        assert plan["kept"] == [("LINE", "first")] and plan["added"] == [("LINE", "b"), ("LINE", "c")]
+        totals = plan_sync("B", definition, [{"handle": "1", "block": "B", "layer": "0", "attributes": [("LINE", "first")]}])
+        assert (totals["values_kept"], totals["attributes_added"]) == (1, 2)
 
     def test_an_empty_value_is_still_a_value_and_kept(self):
         plan = sync_one(DEFINITION, [("TAG", ""), ("SIZE", "DN80")])
@@ -244,8 +267,10 @@ class Obj:
 class AttDef:
     ObjectName = "AcDbAttributeDefinition"
 
-    def __init__(self, tag, default="", constant=False):
+    def __init__(self, tag, default="", constant=False, at=None):
         self.TagString, self.TextString, self.Constant, self.PromptString = tag, default, constant, tag
+        if at is not None:
+            self.InsertionPoint = at
 
 
 class Line:
@@ -335,6 +360,7 @@ class Doc:
         self.refs = list(refs)
         self.textsize = textsize
         self.filters = []
+        self.set_names = []
 
     def HandleToObject(self, h):
         return self.objs[h]
@@ -364,6 +390,7 @@ def drawing(monkeypatch):
 
         def select(d, entity_type=None, layer=None, block_name=None, color=None, name=None):
             d.filters.append((entity_type, block_name))
+            d.set_names.append(name)
             return Selection(d.refs)
 
         monkeypatch.setattr(blocks, "run", run)
@@ -447,8 +474,9 @@ class TestSyncTool:
         assert sent == [("sync_attributes", {"block": "VALVE TAG", "handles": ["1A"], "add": []})]
         assert result["synced"]["touched"] == 1
         assert result["before_after"] == [{"handle": "1A", "property": "attribute SIZE", "from": None, "to": "DN50"}]
-        # The selection asks for the block's own name and a dynamic block's *U copies.
-        assert doc.filters == [("insert", "VALVE TAG,`*U*")]
+        # The selection asks for the block's own name and a dynamic block's *U copies,
+        # in the shared scratch set: a named set of its own costs an undo step.
+        assert doc.filters == [("insert", "VALVE TAG,`*U*")] and doc.set_names == [None]
 
     def test_new_definitions_are_measured_from_the_base_point(self, drawing, monkeypatch):
         block = Block("PUMP", [AttDef("TAG", "P-?")], origin=(100.0, 50.0, 0.0))
@@ -462,6 +490,21 @@ class TestSyncTool:
         assert add["position"] == [100.0, 20.0, 0.0] and add["invisible"] is True and add["height"] == 10.0
         assert result["definitions_added"] == ["MAKE"]
         assert result["inserts"][0]["add"] == {"MAKE": "GRUNDFOS"}
+
+    def test_a_new_one_with_no_position_goes_under_the_existing_ones(self, drawing, monkeypatch):
+        block = Block("TAGGED", [AttDef("TAG", "", at=(0.0, -37.5, 0.0))])
+        drawing(block, refs=[], textsize=25.0)
+        sent = []
+        monkeypatch.setattr(blocks, "in_plugin", lambda op, args, what, **k: sent.append(args) or {})
+        call(blocks.autocad_sync_attributes(block="TAGGED", add_attributes=[{"tag": "SIZE"}]))
+        assert sent[0]["add"][0]["position"] == [0.0, -75.0, 0.0]
+
+    @pytest.mark.parametrize("position", [[5], [1, 2, 3, 4], ["a", "b"]])
+    def test_a_bad_position_is_refused_plainly(self, drawing, monkeypatch, position):
+        drawing(VALVE, refs=self.refs())
+        monkeypatch.setattr(blocks, "in_plugin", lambda *a, **k: pytest.fail("nothing may be sent"))
+        text = asyncio.run(blocks.autocad_sync_attributes(block="VALVE TAG", add_attributes=[{"tag": "FLOW", "position": position}]))
+        assert text.startswith("Error: Attribute 1: the position") and "Nothing was changed" in text
 
     def test_a_new_tag_the_block_has_is_refused_before_anything_changes(self, drawing, monkeypatch):
         drawing(VALVE, refs=self.refs())

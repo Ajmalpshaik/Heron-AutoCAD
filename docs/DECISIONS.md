@@ -141,14 +141,18 @@ adds to D-40, D-62, D-63 and D-75, which stand.
   drawing's Data Link Manager and sets it on a new table with `Cell.SetDataLink`, in one
   transaction. COM has no data-link call; the .NET names were read from Autodesk's reference
   packages for 2021 to 2027 and build without a warning, but have never run in AutoCAD (D-33).
-- **When a link cannot be made, the table is filled, and says so.** A `.csv`, `link=false`, an
-  older plug-in or AutoCAD refusing the link gives a table filled over COM with the sheet as it is
-  now, `"linked": false` and `not_linked_because`. "Outcome unknown" is never followed by a second
-  table: the first may be there. A cell Excel only shows as a date, a time or a percent is left
+- **When a link cannot be made, the table is filled, and says so.** A `.csv`, `link=false`, no
+  plug-in to ask (`--no-bridge`), an older plug-in, or AutoCAD failing to make or read the link
+  gives a table filled over COM with the sheet as it is now, `"linked": false` and
+  `not_linked_because`. Nothing else falls back: HERONSTOP, a padlock turned off mid-job, or a
+  refusal the modeller has to act on (no sheet tab for `space='paper'`, no such table style) stops
+  the job, and "Outcome unknown" is never followed by a second table: the first may be there. A cell Excel only shows as a date, a time or a percent is left
   empty in a filled table and listed in `excel_converted` (the D-75 rule), never written as the
   number behind it. A linked table shows the range exactly: no title row is added to it.
 - **`autocad_update_table_links`** (plug-in operation `update_table_links`) updates linked tables
-  from their sheets with `SkipFormat`, all of them or those named, in one transaction: one that
+  from their sheets in two steps, as DATALINKUPDATE does: each link reads its workbook again
+  (`DataLink.Update`; a link keeps a cached copy), then the table takes the new values
+  (`Table.UpdateDataLink`, `SkipFormat`). All of them or those named, in one transaction: one that
   cannot be read stops the job and nothing is changed. A table that is not linked is listed.
 - **Cells by address.** `autocad_set_table_cells` counts rows and columns from 1 at the table's
   top-left cell, title and header rows included, the way an Excel address does ("B3" = row 3,
@@ -162,7 +166,8 @@ adds to D-40, D-62, D-63 and D-75, which stand.
   title (or no headings) asked for, the tool sets `TitleSuppressed` (`HeaderSuppressed`) so the
   rows below are not written into one merged cell. Done in `autocad_add_table` too, which before
   wrote its headings into row 0 when there was no title (expected to fail on all but the first
-  cell; not seen live, since every live table had a title).
+  cell; not seen live, since every live table had a title). These are AutoCAD's older table flags: whether
+  they still turn those rows into ordinary rows on today's tables is live row AC13.
 - **The copy lands in the drawing Heron checked.** `autocad_copy_from_drawing` copies from
   another open drawing *into the active one*: the gate's wrong-drawing guard, its UNDO mark, Keep or
   Discard and the plug-in's change count all belong to the active drawing, so the change must be
@@ -188,12 +193,17 @@ D-25 rule 2 and D-40, which stand.
   by tag** (a tag that appears twice is matched in order); a tag the definition gained comes in
   with its default; a tag it lost, or made constant, goes. A kept attribute goes back to the
   definition's place, height and style (`SetAttributeFromBlock`), except one holding a field or a
-  multi-line one, which is left exactly as it was so nothing typed is lost.
+  multi-line one, which is left exactly as it was so nothing typed is lost. The attributes kept stay
+  where they are in the insert's list and the new ones follow, in the definition's order: Heron
+  does not reorder them, and the server's plan says it the same way (a different order alone
+  changes no tag).
 - **Which inserts:** every insert of the block by its real name in model space and on every sheet
   (a dynamic block's `*U` copies included), or the handles given. An insert on a locked layer is
   left out and listed. Inserts inside other blocks' definitions are not reached yet ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)).
 - `add_attributes` adds new definitions to an existing block first (positions from its base point,
-  as the block is drawn), then syncs, in the same transaction. A `dry_run` writes nothing and says
+  as the block is drawn; one with no position is stacked under the lowest attribute the block
+  already has, so it never lands on one), then syncs, in the same transaction. The inserts are
+  found in the shared scratch selection set: a named set of its own would cost an undo step. A `dry_run` writes nothing and says
   what each insert keeps, gains and loses.
 
 ## D-75 - What a review of the new tools found, and the rules added

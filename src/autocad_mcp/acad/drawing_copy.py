@@ -40,6 +40,18 @@ def _ordinary(kind: str, name: str) -> bool:
     return not (kind == "blocks" and clean.startswith("*"))
 
 
+DRAWING_EXTENSIONS = (".dwg", ".dxf", ".dwt")
+
+
+def _stem(name: str) -> str:
+    """A drawing's name without .dwg (or .dxf, .dwt), any case: 'Level.01.dwg' and 'Level.01' are one."""
+    low = name.strip().lower()
+    for extension in DRAWING_EXTENSIONS:
+        if low.endswith(extension):
+            return low[: -len(extension)]
+    return low
+
+
 def find_open(drawings: Sequence[tuple[str, str]], wanted: str) -> int:
     """Which open drawing is meant: by file name (the .dwg optional) or by full path, any case.
 
@@ -52,13 +64,13 @@ def find_open(drawings: Sequence[tuple[str, str]], wanted: str) -> int:
         raise ValueError("Name the drawing to copy from, e.g. 'site-plan.dwg'.")
     # AutoCAD's paths are Windows paths: any case, either slash.
     by_path = ntpath.normcase(ntpath.normpath(text)) if ("\\" in text or "/" in text) else None
-    stem = ntpath.splitext(ntpath.basename(text).lower())[0]
+    stem = _stem(ntpath.basename(text))
     hits = []
     for index, (name, full) in enumerate(drawings):
         if by_path is not None:
             if full and ntpath.normcase(ntpath.normpath(full)) == by_path:
                 hits.append(index)
-        elif ntpath.splitext(name.lower())[0] == stem:
+        elif _stem(name) == stem:
             hits.append(index)
     if len(hits) == 1:
         return hits[0]

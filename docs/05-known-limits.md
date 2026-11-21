@@ -310,6 +310,8 @@ From [D-82](DECISIONS.md) and [D-83](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
   field, or a multi-line one, keeps its own text, place and size (`kept_as_they_were`).
 - **A tag that appears twice in one block is matched in order**: the first definition of it takes
   the first value of it on each insert.
+- **ATTSYNC does not reorder an insert's attributes**: the ones kept stay where they were in its
+  list, and new ones follow in the definition's order.
 - **AutoCAD's data link may need Microsoft Excel on the PC.** Not known until tried (AC7). When the
   link reads nothing, the plug-in refuses it and the tool fills the table from the sheet instead,
   with the reason in `not_linked_because`.
