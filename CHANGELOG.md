@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The entity summary and a layer's extents are read by the plug-in in one go (2026-11-21, #74).**
+  `autocad_list_entities(summary_only=true)` and `autocad_get_extents(layer=...)` looked at every
+  object over COM, one or more round trips each. Plug-in 1.8.0 does both reads itself
+  (`count_entities`, `entity_extents`) with the same filter, and the server builds the same answer
+  from either path; an older plug-in is read over COM as before ([D-114](docs/DECISIONS.md)). A
+  layer with only rays or construction lines now says it has no extents instead of answering
+  Infinity. Which tools come next, ranked: [docs/13](docs/13-moving-tools-into-the-plug-in.md).
+  No new tool. Live rows AS1-AS9 NOT RUN.
+
 - **PDF Import (2026-11-21, #113).** `autocad_import_pdf` turns one page of a vendor's or
   consultant's PDF into lines, text and hatches (choose with `what`), at a point, scale and
   rotation, all on one layer if asked, and says what came in: counts by type, the box round it, the

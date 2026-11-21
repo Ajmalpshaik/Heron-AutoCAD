@@ -1303,6 +1303,15 @@ OWN_BY_EYE: dict[str, str] = {
     "F18": "needs a drawing with materials already in it, and a look at the counts",
     "F20": "whether it looks like steel is a judgement, not a measurement",
     "F22": "autocad_render was removed on 2026-11-21 (D-87, #158), so there is nothing to run",
+    # Group AS (D-114): each row compares the plug-in's read with the same call to a second
+    # server started with --no-bridge, which one runner cannot be both of.
+    **{f"AS{n}": "compares the plug-in's read with a second server started with --no-bridge (COM only)"
+       for n in (1, 2, 4, 5)},
+    "AS3": "times the same read with the plug-in and over COM on a drawing of 20,000 objects or more",
+    "AS6": "needs a line drawn by hand first, then one Ctrl+Z read off the drawing",
+    "AS7": "needs a plug-in older than 1.8.0 installed",
+    "AS8": "needs your own selection made first, then SELECT and P typed by hand",
+    "AS9": "needs LINE started by hand and left waiting for a point",
 }
 
 
@@ -1323,7 +1332,7 @@ BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, wh
 # S were written before the runner covered them.
 RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
-    "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AP", "AQ", "RV",
+    "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AP", "AQ", "AS", "RV",
 )
 
 CHANGES_OFF = (

@@ -58,7 +58,15 @@ def _try(getter, default=None):
 
 def short_type(entity: Any) -> str:
     """Map a COM entity to this server's short type name."""
-    name = _try(lambda: str(entity.ObjectName), "")
+    return short_type_name(_try(lambda: str(entity.ObjectName), ""))
+
+
+def short_type_name(name: str) -> str:
+    """This server's short type name for an AutoCAD class name ('AcDbLine' -> 'line').
+
+    COM gives the class name as ObjectName, the plug-in as the object's
+    class (D-114): both go through here, so they say the same type.
+    """
     if name in OBJECT_NAME_MAP:
         return OBJECT_NAME_MAP[name]
     # Dimensions come in eight concrete classes that all behave the same here.

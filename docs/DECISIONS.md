@@ -221,6 +221,31 @@ D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158)
 - **Left to issues, in areas other sessions are changing:** #189-#191 and #206-#212 (the palette
   Undo's guessed mark and the batch text escape first). Live rows: Group RV (NOT RUN).
 
+## D-114 - A read over the whole drawing may move into the plug-in for speed; COM stays the fallback
+
+**Decided:** 2026-11-21, on issue #74 ("move tools into the plug-in one at a time where it pays
+off, keeping COM as the fallback"). **Status:** in force; extends D-14 and D-40. D-40 moved a job
+into the plug-in only when COM has no call for it. Now a tool may also move when COM can do it but
+only one round trip per object: a read over the whole drawing or a layer, and later a change that
+needs one transaction. The first two: `autocad_list_entities(summary_only=true)` (plug-in operation
+`count_entities`) and `autocad_get_extents(layer=...)` (`entity_extents`), both at Read. The rules:
+(1) the plug-in selects with the same DXF filter COM selects with (`acad/selection.filter_pairs`,
+all of the drawing as ssget "X" takes it) and hands back raw facts: the class name COM gives as
+ObjectName, the layer, unrounded corners. The server builds the answer from either path with the
+same code, so it is the same either way; offline tests compare the two as text. (2) COM is kept,
+and used when the plug-in is not in the job, is older than `READS_SINCE` (1.8.0, read from its
+address file), says it does not have the operation, or could not do the read. A stop, "Outcome
+unknown" or another chat's hold is said, never read again over COM. (3) The answer does not say
+which path read it, so a chat never acts differently because of it; the plug-in's log names each
+operation, for the live check. (4) One tool at a time, each with its own issue and PR, in the order
+of [13](13-moving-tools-into-the-plug-in.md), and never a tool another session is changing.
+`READS_SINCE` assumes the release that carries these reads is 1.8.0; a test fails if the plug-in
+version is bumped to anything between. Rejected: a general "read any property of every object"
+request (a second COM in JSON, with nothing to check what it reads), and dropping the COM path (an
+older plug-in, or one whose read fails, would lose a tool that worked). Also from this: a layer
+holding only rays or construction lines now says it has no extents, on both paths, instead of
+answering Infinity.
+
 ## D-111 - Tiled viewports and hyperlinks are COM; DWF goes the PDF way; the geographic location is the plug-in's and shares the sun's place
 
 **Decided:** 2026-11-21, part 2 of issue #119, split into #176, #178, #179 and #180. **Status:** in

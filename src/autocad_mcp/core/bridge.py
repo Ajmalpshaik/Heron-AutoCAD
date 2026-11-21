@@ -100,6 +100,9 @@ OLD_EXPECT = (
     "running is older. Rebuild and reinstall it, or call without expect_box: the box would then be "
     "cancelled. " + NOTHING_SENT
 )
+# The first plug-in that reads a whole drawing itself, in one go (D-114):
+# count_entities and entity_extents. An older one is read over COM instead.
+READS_SINCE = "1.8.0"
 RUN_UNKNOWN = (
     "Outcome unknown: Heron in AutoCAD did not answer within {seconds:.0f} s, so the operation may "
     "still have run (one Ctrl+Z reverses it). Look at the drawing before trying again. (details: {details})"
@@ -136,6 +139,26 @@ def bridge_enabled() -> bool:
         "false",
         "no",
     }
+
+
+def older(version: str | None, since: str) -> bool:
+    """True only when version is known and comes before since ('1.7.0' < '1.8.0').
+
+    An empty or unreadable version is not "older": the plug-in is asked, and
+    one without the operation says so itself.
+    """
+
+    def parts(text: str) -> tuple[int, ...]:
+        found: list[int] = []
+        for piece in text.strip().split(".")[:3]:
+            digits = "".join(ch for ch in piece if ch.isdigit())
+            if not digits:
+                break
+            found.append(int(digits))
+        return tuple(found)
+
+    have = parts(version or "")
+    return bool(have) and have < parts(since)
 
 
 def bridges_dir() -> Path:
