@@ -12,9 +12,52 @@ Newest first. Dates are when the change was made.
   two corners or a closed polyline. `autocad_trace_boundary` makes a closed outline round a point
   with the plug-in's `Editor.TraceBoundary` (never -BOUNDARY or BPOLY typed), inside a window, with
   an object limit and a timeout. `autocad_etransmit` packs the saved drawing with its xrefs, images,
-  underlays, fonts and plot styles into a zip or folder and lists what was missing (Publish). 147
-  tools. Needs the next plug-in ([D-84](docs/DECISIONS.md), [D-85](docs/DECISIONS.md)). Live rows
+  underlays, fonts and plot styles into a zip or folder and lists what was missing (Publish). Five
+  new tools, 163 in all with main. Needs the next plug-in ([D-84](docs/DECISIONS.md), [D-85](docs/DECISIONS.md)). Live rows
   AD1-AD12 NOT RUN.
+
+- **`autocad_render` removed (2026-11-21, #158).** Heron never runs the render: `-render` waits on
+  prompts and can stall AutoCAD, and a scripted render has been reported to drop objects. Heron
+  sets the render up (`autocad_add_camera_view`, `autocad_set_sun`, `autocad_switch_lights`,
+  `autocad_set_render_exposure`) and the modeller presses Render. One tool fewer (158). Live row
+  F22 is marked removed; F23 now names `autocad_run_lisp` ([D-87](docs/DECISIONS.md)).
+
+- **Layers and annotation (2026-11-21, #37, #107, #108, #116).** Seven new tools (**159** in all, with the block, table and render tools):
+  `autocad_layer_states` saves, restores and deletes named layer states (listed by
+  `autocad_list_layers`); `autocad_isolate_layers` isolates the layers of picked objects and puts
+  them all back; `autocad_merge_layers` moves everything off old layers, inside blocks too, and
+  removes them once empty (`confirm=true`); `autocad_space_dimensions` spaces a stack of dimensions
+  evenly; `autocad_break_dimensions` breaks dimensions where other objects cross them;
+  `autocad_annotation_scales` and `autocad_list_annotation_scales` make objects annotative and add,
+  remove and read their scales. `annotative=true` on the text, mtext, dimension, dimension run and
+  multileader tools. `autocad_dimension_run` takes `dim_style`, set on each dimension with the
+  style's own scale. Six new plug-in operations ([D-80](docs/DECISIONS.md),
+  [D-81](docs/DECISIONS.md)). Live rows AB1-AB11 NOT RUN.
+
+- **Setting a render up from the chat (2026-11-21, #59-#63).** Five new tools (152 with the blocks and tables tools): a named
+  perspective **camera view** with an eye, a target and a lens (`autocad_add_camera_view`, 24 mm
+  inside a room), the **sun's date, time and place** (`autocad_set_sun`), the **lights listed**
+  with on / off and brightness, plus the sun, default lighting and exposure
+  (`autocad_list_lights`), lights, the sun and **default lighting switched**
+  (`autocad_switch_lights`), and the render **exposure and white balance**
+  (`autocad_set_render_exposure`). `autocad_set_3d_view` now reads back the visual style the
+  viewport has (`visual_style_found`). Five new plug-in operations. **None of these tools
+  renders**: the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md));
+  `autocad_render` is removed (next entry). Live rows AE1-AE15 NOT RUN.
+
+- **Blocks, attributes and tables (2026-11-21, #115, #117, #106).** Five new tools, **147** in all.
+  `autocad_make_block` takes attribute definitions (tag, prompt, default, position, height;
+  invisible, constant, preset). `autocad_sync_attributes` is ATTSYNC, done by the plug-in: every
+  insert gets the block's attributes again, keeping the values already typed
+  ([D-82](docs/DECISIONS.md)). `autocad_table_from_excel` puts an Excel range on the drawing as a
+  table, linked with AutoCAD's Data Link by the plug-in, or filled from the sheet with the reason
+  when it cannot be linked; `autocad_update_table_links` updates linked tables;
+  `autocad_set_table_cells` changes cells by address (`B3`), old -> new.
+  `autocad_copy_from_drawing` copies objects from another open drawing into the active one at a
+  base point, saying which layers, styles and blocks came with them ([D-83](docs/DECISIONS.md)).
+  Heron's tables keep text in the vertical middle of each cell, and `autocad_add_table` with no
+  title no longer writes into the merged title row. Three new plug-in operations
+  (`sync_attributes`, `excel_table`, `update_table_links`). Live rows AC1-AC16 NOT RUN.
 
 - **Safer undo commands, long AutoLISP in pieces, quiet answers, busy answers that name the
   command (2026-11-21, #42 #44 #46 #47).** An UNDO, U, REDO, MREDO or OOPS sent with

@@ -23,6 +23,9 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `PluginRunner.cs` | The plug-in's own operations ([D-40](../docs/DECISIONS.md)): right drawing, document lock, one transaction, refusals that say "Nothing was changed." |
 | `SolidOperations.cs` | Loft, fillet / chamfer edges, shell, press-pull, thicken, and the numbered faces and edges (Brep) |
 | `SuperHatch.cs` | A block tiled in a grid, inserted once and clipped to an outline like XCLIP |
+| `LayerStates.cs` | Named layer states: save, restore (with every layer it changed), delete, list (D-81) |
+| `DimensionLines.cs` | Where a linear or aligned dimension's line is, and moving it, for even spacing (D-80) |
+| `AnnotationScales.cs` | Annotative objects: the drawing's scale list, an object's scales, adding and removing them (D-81) |
 | `RenderSetup.cs` | Photometric lights and materials made from their settings ([D-42](../docs/DECISIONS.md)) |
 | `References.cs` | PDF / DWF / DGN underlays attached; an xref, block or underlay clipped; the files a drawing needs for eTransmit, found with AutoCAD's own search ([D-84](../docs/DECISIONS.md), [D-85](../docs/DECISIONS.md)) |
 | `Boundary.cs` | BOUNDARY without typing it: `Editor.TraceBoundary`, zoomed to a window, objects counted first ([D-84](../docs/DECISIONS.md)) |

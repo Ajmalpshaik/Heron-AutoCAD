@@ -188,8 +188,8 @@ from a run. `SectionSolid` is deliberately **not** built: no documented signatur
 | F19 | `autocad_apply_material(material="NoSuchThing")` | Refused, **listing the materials the drawing does have**, and saying the library cannot be reached from automation | NOT RUN |
 | F20 | `autocad_apply_material(material="Steel", layer_filter=...)` then `autocad_set_3d_view(visual_style="realistic")` and `autocad_preview` | The solids look like steel in the picture | NOT RUN |
 | F21 | `autocad_apply_material` on a line with `solids_only=true` | Skipped and reported, not silently applied | NOT RUN |
-| F22 | `autocad_render` to a PNG, preset "Low", with Admin on | Either the file appears, or the result says the command line is waiting. **Rendering from a script is reported to drop objects - compare the image with a render done by hand before trusting it** | NOT RUN |
-| F23 | `autocad_sequence` with a step naming `autocad_render` | Refused: Admin is above the sequence ceiling | NOT RUN |
+| F22 | `autocad_render` to a PNG, preset "Low", with Admin on | Either the file appears, or the result says the command line is waiting. **Rendering from a script is reported to drop objects - compare the image with a render done by hand before trusting it** | REMOVED 2026-11-21: `autocad_render` is gone ([D-87](DECISIONS.md), #158); nothing to run |
+| F23 | `autocad_sequence` with a step naming `autocad_run_lisp` (it named `autocad_render` until that was removed, D-87) | Refused: Admin is above the sequence ceiling | NOT RUN |
 
 ## Group G - Splines, multilines, wipeouts, xrefs, pattern and linetype files (AutoCAD 2027, this PC)
 
@@ -538,6 +538,56 @@ pulling. **Every row below is NOT RUN.**
 | Y6 | `autocad_companion`, open the page in a browser; select 3 objects, ask the chat to draw a line, then to refresh the companion page | The page shows the drawing, units, layout, view; within 5 s of the draw a new row "Draw Line ... done +1"; after the refresh the selection reads 3 objects; the browser's dev tools show no script and no request | NOT RUN |
 | Y7 | After Y1, type `1:100` in a SCALE cell and a date in a DATE cell in Excel (no leading '), and a value in a row's Block column that is not that block; apply with `dry_run=true` | Those cells are in `excel_converted` and that row in `other_block`; none of them is in `changes`; with `'1:100` typed instead it is written as `1:100` | NOT RUN |
 
+## Group AB - Layers and annotation: layer states, isolate, merge, dimension style, space, break, annotative (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-80](DECISIONS.md), [D-81](DECISIONS.md); issues #37, #107, #108, #116).
+Built and tested offline (`tests/test_dim_style_run.py`, `tests/test_dimensions_edit.py`,
+`tests/test_layer_states.py`, `tests/test_annotation_scales.py`, `RunTests.cs`); the plug-in
+**compiles** against AutoCAD 2021-2024, 2025-2026 and 2027. Six new plug-in operations: build and
+install the plug-in (`tools/build_plugin.py`, close AutoCAD, `tools/install_plugin.py`) and restart
+the server. Changes on. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AB1 | In a 1:50 drawing (`autocad_drawing_setup(scale="1:50")`) with a dimension style `DIM-1-5` whose DIMSCALE is 5: `autocad_dimension_run(points=[[0,0],[300,0],[750,0]], offset=50, dim_style="DIM-1-5")`, then a run with no style | The styled run's arrows and text are a tenth the size of the plain run's; LIST shows style DIM-1-5 and no DIMSCALE override; `style_scale` is 5; DIMSTYLE afterwards still shows the old current style with its DIMSCALE 50 override; `dim_style="NOPE"` is refused and nothing is drawn | NOT RUN |
+| AB2 | Three stacked horizontal dimensions about 200, 450 and 1300 off a base dimension: `autocad_space_dimensions(handles=[base, a, b, c], spacing=400, dry_run=true)`, then without dry_run; then `spacing=0` | Dry run moves nothing; then the dimension lines sit exactly 400, 800, 1200 off the base (measure), extension lines still start on the geometry, text moved with them; one Ctrl+Z puts them back; spacing 0 lines them all up on the base line | NOT RUN |
+| AB3 | Same with an aligned stack on a 30-degree slope, and one radius dimension in the list | The aligned ones step out square to the slope; the radius dimension is in `skipped` and has not moved | NOT RUN |
+| AB4 | Two dimensions crossed by two pipe lines: `autocad_break_dimensions(handles=[...])`, then `remove=true` | A gap (DIMBREAK size) where each line crosses each dimension; AutoCAD back at `Command:`; move a pipe and the gap follows; `remove` takes the gaps off; a line's handle in the list, or a dimension on a locked layer, is refused and nothing typed | NOT RUN |
+| AB5 | Turn some layers off and freeze one: `autocad_layer_states(action="save", name="COORD")`; change the layers; `action="restore"`; `autocad_list_layers` | LAYERSTATE dialog shows COORD; restore brings back every layer as saved and `before_after` lists exactly the layers that changed; `list_layers` gives COORD in `layer_states`; saving COORD again without overwrite is refused | NOT RUN |
+| AB6 | Current layer 0: `autocad_isolate_layers(handles=[a duct])`, then again with a pipe, then `action="unisolate"`; then with `others="lock"` and `others="freeze"` | Only the duct's layer shows and becomes current; the second isolate keeps the first state (`already_isolated`); unisolate puts every layer and current layer 0 back and HERON-ISOLATE is gone from LAYERSTATE; lock mode greys the others and they cannot be picked; freeze works with the current layer moved first; isolating a frozen layer thaws it and makes it current | NOT RUN |
+| AB7 | Layers DUCT (locked, objects in model space, on a layout, inside a block definition and one block attribute) and M-DUCT: `autocad_merge_layers(layers=["DUCT"], into="M-DUCT")`, then with `confirm=true` | First call changes nothing and counts drawing / blocks / attributes right; then every one is on M-DUCT (also inside the block, the attribute too), DUCT is gone from the layer list; one Ctrl+Z brings it all back | NOT RUN |
+| AB8 | Same, but DUCT frozen in one layout viewport (VP freeze) | Either DUCT is removed, or it is kept with AutoCAD's reason; no object is left on it | NOT RUN |
+| AB9 | 1:50 drawing: `autocad_add_text(text="NOTE", height=125, annotative=true)`; `autocad_list_annotation_scales(handles=[it])`; then `autocad_annotation_scales(handles=[it], add=["1:100"])` and look in a 1:50 and a 1:100 viewport | The text shows the annotative icon; Properties shows Paper text height 2.5 and Model 125 (if it shows 6250 or 2.5 the height rule in D-81 is wrong: record which); `paper_height` is 2.5; after the add it is 2.5 mm on paper in both viewports | NOT RUN |
+| AB10 | `autocad_add_dimension(..., annotative=true)`, `autocad_dimension_run(..., annotative=true)`, `autocad_add_multileader(..., annotative=true)`, then one Ctrl+Z each | Each is annotative at 1:50 (OBJECTSCALE lists 1:50), arrows and text sized from the scale, not doubled by DIMSCALE; one Ctrl+Z removes the object and its annotative state together | NOT RUN |
+| AB11 | `autocad_annotation_scales(handles=[it], add=["1:25"])`, then with `add_missing_to_drawing=true`; then `remove=["1:25","1:50","1:100"]` | First is refused (no 1:25); second adds 1:25 to SCALELISTEDIT and to the object (`scales_created`); removing every scale is refused and nothing changes | NOT RUN |
+
+## Group AE - Setting a render up: style read back, camera views, sun, lights, exposure (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-86](DECISIONS.md), [D-87](DECISIONS.md); issues #59-#63). Built and tested
+offline only (`tests/test_render_view.py`, `RenderViewMathTests.cs`, `RunTests.cs`); the add-in
+**compiles** for all three AutoCAD builds. Needs the plug-in built from this change (five new
+operations) and a server restart. **None of these tools renders: in every row Ajmal presses Render.**
+Use a model with a room, a few lights and a light block (the villa or Luxury Suite model).
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AE1 | `autocad_set_3d_view(visual_style=...)` once for each of the ten styles; then VSCURRENT Hidden by hand and `autocad_set_3d_view(direction='sw_iso')` | Each answer's `visual_style_found` is the style on screen (record AutoCAD's exact names, e.g. `Realistic`, `Shades of Gray`), with no `visual_style_warning` and no `visual_style_found_from` for a style that took; after the hand change it says `Hidden`. If it lags one style behind, the read needs the viewports written to the drawing first, as `set_sun` does | NOT RUN |
+| AE2 | Inside a room: `autocad_add_camera_view(name='LIVING-CAM-1', eye=[<corner>, 1600], target=[<far wall>, 1200], lens=24)` | The screen shows the room in perspective from the corner (in 2D Wireframe the answer warns instead, and perspective shows after `visual_style='realistic'`); VIEW lists LIVING-CAM-1 as a perspective view; Properties of the view: lens 24 mm. Record AutoCAD's Field of view next to the answer's `field_of_view_degrees` (73.74). One Ctrl+Z removes the view | NOT RUN |
+| AE3 | After AE2: zoom and orbit away, then VIEW, restore LIVING-CAM-1 | The same perspective comes back at **24 mm** (an `entmake` view came back at 50 mm on 2026-11-09); no DVIEW prompt, nothing hangs | NOT RUN |
+| AE4 | `autocad_add_camera_view` with the AE2 name again, then with `replace=true` and a new eye, then a new name with `look_through=false` | First refused naming replace; second moves LIVING-CAM-1; third saves the view and leaves the screen as it was. Ajmal renders LIVING-CAM-1 from the Render window's view list: the picture is the camera's | NOT RUN |
+| AE5 | `autocad_set_sun(date='2026-06-21', time='10:00', latitude=25.29, longitude=51.53, utc_offset=3, daylight_saving=false, on=true)` | Sun Properties: 21/06/2026, 10:00, no daylight saving; Geographic Location: 25.29 **N**, 51.53 **E**, UTC+3; `(entget (cdr (assoc 361 (entget (tblobjname "VPORT" "*Active")))))` shows groups 91 and 92 equal to the answer's `dxf` (2461213, 36000000). Record whether `azimuth` / `altitude` are in degrees as Sun Properties shows them. One Ctrl+Z takes back the date, the place and SUNSTATUS together | NOT RUN |
+| AE6 | Orbit the view, then `autocad_set_sun(time='16:30')` | Only the time changes (date and place stay); the view on screen does **not** jump back to an older angle; the shadows move in a realistic view with DEFAULTLIGHTING 0 | NOT RUN |
+| AE7 | In a new drawing that has never had a sun: `autocad_set_sun(date='2026-12-21', time='09:00')`, then one Ctrl+Z | `sun_made: true`; Sun Properties shows the date and time; one Ctrl+Z takes back the sun's date and any place set in the same call | NOT RUN |
+| AE8 | `autocad_set_sun(latitude=9.93, longitude=76.27, utc_offset=5.5)`; then `utc_offset=5.75` | TIMEZONE reads 5030 and Geographic Location shows the India time zone; 5045 is taken as Nepal. If AutoCAD refuses a code, it is in `not_set` | NOT RUN |
+| AE9 | `autocad_list_lights` in the villa (lights in model space and in a light block) | The list matches the Lights in Model palette: names, on / off, intensity and unit; the block's lights show its name and the right insert count; the sun part matches Sun Properties; DEFAULTLIGHTING 1 gives the warning | NOT RUN |
+| AE10 | `autocad_switch_lights(turn_off=['<a model space light>'])`; then `turn_on=['NO-SUCH-LIGHT', '<that light>']` | The palette shows it off and the room goes darker in a realistic view; one Ctrl+Z switches it back on (the plug-in's switch and the variables are one undo step); the second call is refused listing the light names, and the light stays off | NOT RUN |
+| AE11 | `autocad_switch_lights(turn_off=['<the light's name inside the block>'])` | Every insert of the light block goes dark after the answer (it regenerates); BEDIT shows the light off in the definition | NOT RUN |
+| AE12 | DEFAULTLIGHTING 1, SUNSTATUS 0: `autocad_switch_lights(sun=true)`; undo; then `autocad_switch_lights(default_lighting=false, sun=true)` | Record whether AutoCAD shows its viewport lighting question in each case, and what the answer says (the dialog watch names a box it closed). In the second, both are set with no question | NOT RUN |
+| AE13 | Lock a light's layer, then switch that light | Refused: an object is on a locked layer; nothing switched | NOT RUN |
+| AE14 | `autocad_set_render_exposure(exposure=7, white_balance=4500)`, then `autocad_list_lights` | If AutoCAD 2027 has EXPVALUE: the RENDEREXPOSURE palette shows 7 and 4500, and a render Ajmal starts is brighter and cooler than at 8.8 / 6500. If it is refused naming RENDEREXPOSURE: record it, nothing changed, and the ROADMAP's viewport route is next | NOT RUN |
+| AE15 | AE1-AE14 on AutoCAD 2025/2026 and 2021-2024 | As AE1-AE14 | NOT RUN (no PC with those versions yet) |
+
 ## Group Z - Undo commands, long AutoLISP, quiet answers, busy answers (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-76](DECISIONS.md), [D-77](DECISIONS.md); issues #42, #44, #46, #47). Built
@@ -559,10 +609,38 @@ below is NOT RUN.**
 | Z9 | Z6 with a plug-in built before this change | The answer reads as before (no command named) and nothing fails | NOT RUN |
 | Z10 | Ask to Keep on; draw a line; while the Keep or Discard box is up, start a heavy regen in another viewport, then press Discard | The line is gone and nothing older is undone; or the answer says "Outcome unknown ... UNDO Back" and the modeller's earlier work is still there. Never two Backs | NOT RUN |
 
+## Group AC - Blocks, attributes and tables: ATTDEF, ATTSYNC, Excel tables, cell edits, copy between drawings (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-82](DECISIONS.md), [D-83](DECISIONS.md); issues #115, #117, #106). Built
+and tested offline only (`tests/test_block_attributes.py`, `tests/test_tables.py`,
+`tests/test_drawing_copy.py`); the plug-in operations `sync_attributes`, `excel_table` and
+`update_table_links` build for all three targets but have never run. Needs the plug-in rebuilt
+and reinstalled, and the server restarted. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AC1 | Draw a circle, `autocad_make_block(name='VALVE TAG', handles=[circle], base_point=<centre>, attributes=[{"tag":"TAG","default":"V-101","position":<centre>,"height":25},{"tag":"SIZE","default":"DN50","invisible":true},{"tag":"MAKE","default":"ACME","constant":true}])` | One insert in place of the circle; BATTMAN lists TAG, SIZE, MAKE with those modes; TAG shows V-101 at the centre; SIZE is hidden (ATTDISP ON shows it under the base point); MAKE shows ACME and is not asked for on INSERT; one Ctrl+Z takes it away | NOT RUN |
+| AC2 | `autocad_make_block` with a tag `VALVE TAG`, then with `constant` and no default | Both refused with the reason; no block made (`autocad_list_blocks`) | NOT RUN |
+| AC3 | After AC1, insert VALVE TAG three more times, type TAG values V-102..V-104. In the Block Editor add a FLOW attribute and delete SIZE, save. `autocad_sync_attributes(block='VALVE TAG', dry_run=true)`, then without | Dry run: 4 inserts, each keeps its TAG, gains FLOW, loses SIZE; drawing unchanged. Then each insert shows its own V-10x still, FLOW with its default, no SIZE (ATTEDIT); one Ctrl+Z undoes it all | NOT RUN |
+| AC4 | A dynamic block with an attribute, three inserts with their grips changed (so they are *U copies). Change the attribute's position in the Block Editor; sync | All three are touched (`touched: 3`), keep their values, and the attribute sits where the definition now has it | NOT RUN |
+| AC5 | One insert on a locked layer, one attribute holding a field (Insert Field into the TAG value); sync | The locked one is in `skipped`, not changed; the job still runs for the others; the field attribute keeps its field (`kept_as_they_were: 1`) | NOT RUN |
+| AC5b | During AC7, type HERONSTOP while the table is being linked; and `autocad_table_from_excel(space='paper')` with the Model tab active | Neither draws a table over COM: the stop is said, and the Model-tab refusal asks for a sheet tab. Nothing is in the drawing | NOT RUN |
+| AC6 | `autocad_sync_attributes(block='PUMP', add_attributes=[{"tag":"MAKE","default":"GRUNDFOS","position":[0,-300],"invisible":true}])`; then add `{"tag":"FLOW"}` with no position | The PUMP definition has MAKE (BATTMAN), every PUMP insert carries it with GRUNDFOS, hidden, 300 below the base point as the block is drawn. FLOW lands under the lowest attribute already there, not on top of one | NOT RUN |
+| AC7 | A saved drawing with `pumps.xlsx` beside it (a header row and 5 pumps). `autocad_table_from_excel(path='pumps.xlsx', position=[0,0], cell_range='A1:D6')` | `"linked": true`; a table of 6 rows x 4 columns; DATALINK lists "Heron pumps Sheet1 A1:D6" pointing at the file and range; the cells show what Excel shows; text in the vertical middle of each cell. **Note whether Excel had to be installed** | NOT RUN |
+| AC8 | After AC7, change two values in Excel, save, close; `autocad_update_table_links()` | `updated` names the table; the two cells show the **new** values (not the link's cached old ones: the link is read again first, then the table); the alignment is still vertical middle; one Ctrl+Z goes back | NOT RUN |
+| AC9 | `autocad_table_from_excel` from a `.csv`, and with `link=false`, `title='PUMP SCHEDULE'` | Both fill a table with `"linked": false` and the reason; the title row is merged across the top; with no title the first row is the sheet's header row (no empty title row) | NOT RUN |
+| AC10 | A sheet with a date cell (no leading ') in the range, `link=false` | That cell is empty in the table and listed in `excel_converted` | NOT RUN |
+| AC11 | `autocad_set_table_cells(handle=<AC9 table>, cells=[{"cell":"B3","value":"12.5"},{"row":4,"column":2,"value":"8"}], dry_run=true)`, then without; then a cell past the last row with and without `grow=true` | Dry run lists old -> new and changes nothing; then those two cells change (text vertical middle), one Ctrl+Z undoes both; past the end refused, then with grow one row is added and filled | NOT RUN |
+| AC12 | `autocad_set_table_cells` on a cell of the AC7 linked table | Refused for that cell: "linked to Excel: change it in the sheet" | NOT RUN |
+| AC13 | `autocad_add_table` with a title, headers and rows; then with headers and no title; then rows only | Title, header and data text in the vertical middle of their cells (`rows_aligned_middle: 3`). With no title there is no empty merged row at the top: the headings sit one per cell in row 1 and nothing is in `not_set` (`suppressed: [TitleSuppressed]`); with rows only, the first row is ordinary data, not bold headings. Before this, a table with no title was expected to put the headings into the merged title row (not seen live) | NOT RUN |
+| AC14 | Two drawings open: `pump-room.dwg` with a pump skid (a block with a nested motor block on layer E-MOTOR, layer M-EQPT) and `plan.dwg` that has M-EQPT in another colour. In plan.dwg after `autocad_status`: `autocad_copy_from_drawing(source='pump-room', handles=[skid, two pipes], base_point=[0,0], to_point=[5000,2000], dry_run=true)`, then without | Dry run lists E-MOTOR and the blocks as brought in, M-EQPT as already here; nothing copied. Then the skid and pipes appear 5000,2000 away in plan.dwg, the new handles come back, E-MOTOR is a new layer, M-EQPT keeps plan.dwg's colour; plan.dwg stays active and pump-room.dwg is unchanged; one Ctrl+Z in plan.dwg takes them away | NOT RUN |
+| AC15 | Same, with a handle from plan.dwg, and with `source='plan'` | Refused before anything is copied: the wrong handle is named; the active drawing as source points at `autocad_copy_entities` | NOT RUN |
+| AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
+
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 for issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
-[05 §28](05-known-limits.md#28-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
+[05 §29](05-known-limits.md#29-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
 Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
 parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and
 the server restarted. **Every row below is NOT RUN.**

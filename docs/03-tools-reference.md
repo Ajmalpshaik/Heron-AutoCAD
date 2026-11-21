@@ -59,6 +59,11 @@ The group headings below give the level.
 `autocad_add_hatch` takes a pattern from acad.pat, or a custom one written by
 `autocad_create_hatch_pattern` (it tries acad.pat first, then a NAME.pat on the support path).
 
+`autocad_add_text`, `autocad_add_mtext` and `autocad_add_dimension` take `annotative=true`: the
+object is made annotative at the drawing's current annotation scale, by the plug-in
+([D-81](DECISIONS.md)). Sizes stay in drawing units at that scale (125 for 2.5 mm at 1:50); the
+reply gives the paper height. An annotative dimension is not given the drawing's DIMSCALE.
+
 ## Splines, multilines, wipeouts and xrefs (Change)
 
 | Tool | Purpose |
@@ -118,6 +123,15 @@ anchor); pipes and runs can stay as lines. More copies: `autocad_insert_block`; 
 `autocad_mirror_entities` on the insert. Labels: `text_align="right"` hangs a label from its
 top-right corner, for a tidy column left of a detail.
 
+`attributes` on `autocad_make_block` adds attribute definitions (ATTDEF): tag, prompt, default,
+position, height, and the flags `invisible`, `constant` (needs a default) and `preset`
+([D-82](DECISIONS.md)). Not proven in AutoCAD yet: [NEEDS-CHECKING group AC](NEEDS-CHECKING.md).
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_sync_attributes` | Change | ATTSYNC, done by the plug-in: every insert of a block (dynamic copies too) gets the definition's attributes again; values already typed are kept by tag, new tags come with their default, lost ones go. `add_attributes` adds definitions to the block first; `dry_run` says what each insert keeps, gains and loses |
+| `autocad_copy_from_drawing` | Change | Copy with Base Point and Paste between **open** drawings: handles from another open drawing into the active one, from `base_point` to `to_point`. The layers, styles and blocks it lacks come along (`brought_in`); names it has stay its own (`already_here`). Neither drawing is switched ([D-83](DECISIONS.md)) |
+
 ## Bulk drawing (Change)
 
 `autocad_batch_draw` sends one AutoLISP script that creates many entities inside AutoCAD. Use it for
@@ -148,9 +162,15 @@ nothing.
 
 ## Layers and blocks (lists Read, the rest Change)
 
-`autocad_list_layers`, `autocad_create_layer`, `autocad_set_layer_state`,
+`autocad_list_layers` (and the saved layer states), `autocad_create_layer`, `autocad_set_layer_state`,
 `autocad_set_current_layer`, `autocad_delete_layer` (needs `confirm=true`), `autocad_list_blocks`,
 `autocad_list_styles`
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_layer_states` | Change | Save the layers as a named layer state (what it remembers is up to you), restore one (every layer it changed comes back in `before_after`), or delete one. Done by the plug-in ([D-81](DECISIONS.md)) |
+| `autocad_isolate_layers` | Change | LAYISO / LAYUNISO: keep the layers of picked objects (or named layers), every other layer `off`, `freeze` or `lock`. The layers before the first isolate are saved as the HERON-ISOLATE layer state; `unisolate` puts them back, current layer too |
+| `autocad_merge_layers` | Change | LAYMERGE: every object on the old layers moves to the new one (model, layouts, block definitions, attributes); an old layer is removed only when nothing is left on it. Needs `confirm=true`; without it, says what would move |
 
 ## Escape hatches (Admin; regen is View)
 
@@ -272,10 +292,17 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `quiet=true`: counts and handles only |
+| `autocad_dimension_run` | A whole run in one call: `chain`, `baseline` (stepped clear of each other), `overall`, `ordinate`. Horizontal, vertical or aligned; the points are put in order first; `include_overall` adds the overall above. Reports both its own arithmetic and AutoCAD's measurement. `dim_style` draws the run in a named style at that style's own scale ([D-80](DECISIONS.md)); `annotative` makes it annotative. `quiet=true`: counts and handles only |
+| `autocad_space_dimensions` | DIMSPACE: a stack of parallel dimensions moved to an even spacing off a base dimension (0 lines them up). Only the dimension lines move; the plug-in moves them, Heron works out where. `dry_run` reports the moves |
+| `autocad_break_dimensions` | DIMBREAK, automatic: a gap in each dimension wherever another object crosses it; `remove` takes the breaks off. Typed, since no API has a call for it |
+| `autocad_annotation_scales` | OBJECTSCALE: make objects annotative (or plain), add or remove annotation scales on them; a 1:N scale the drawing lacks can be added to its list. Done by the plug-in ([D-81](DECISIONS.md)) |
+| `autocad_list_annotation_scales` | **Read.** The drawing's scale list, the current one (CANNOSCALE), and which scales each object carries, with its paper height |
 | `autocad_add_centre_marks` | The cross on every circle and arc, by handle or by layer; `extend` makes full centre lines |
-| `autocad_add_multileader` | One note with **as many arrows as it needs**; text or block content |
-| `autocad_add_table` | A schedule as a real AutoCAD table, with title and headings; `text_height` and `text_style` on every row |
+| `autocad_add_multileader` | One note with **as many arrows as it needs**; text or block content; `annotative` |
+| `autocad_add_table` | A schedule as a real AutoCAD table, with title and headings; `text_height` and `text_style` on every row; text in the vertical middle of each cell |
+| `autocad_table_from_excel` | An Excel range as a table: a real **Data Link** made by the plug-in, so it can be updated; filled from the sheet with `"linked": false` and the reason when a link cannot be made. Cells Excel only shows as a date or percent are listed, not written ([D-83](DECISIONS.md)) |
+| `autocad_update_table_links` | Update linked tables from their sheets (DATALINKUPDATE), keeping the table's formatting |
+| `autocad_set_table_cells` | Change cells of a table by address (`B3`) or row / column, counted from 1 at the top-left cell, title and header rows included; old -> new; `grow` adds rows or columns; linked and locked cells are listed and left alone |
 | `autocad_add_revision_cloud` | A cloud round a boundary, a rectangle, or an object's own extents. One polyline with bulges, like REVCLOUD |
 
 ## 3D (Change; reading is Read, the view is View)
@@ -290,7 +317,7 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 | `autocad_slice_solid` | Change | Cut solids with a plane — a real section through a model. The plane is given the way a drafter says it ("horizontally at 1500"); the three points AutoCAD wants are worked out here |
 | `autocad_check_interference` | Change | **Clash check.** Every solid in one set against every solid in another, with the overlap volume so the worst comes first. `create_solids` draws the overlaps. Needs Changes because AutoCAD builds the overlap as a real solid to measure it, even to report |
 | `autocad_transform_3d` | Change | move with Z, rotate about **any** axis, mirror in a plane, array up in levels. The flat tools only do XY and Z-axis rotation |
-| `autocad_set_3d_view` | View | A named direction (top, front, sw_iso …) and a visual style, typed as the VSCURRENT command. Changes only what is on screen ([D-31](DECISIONS.md), [D-35](DECISIONS.md)) |
+| `autocad_set_3d_view` | View | A named direction (top, front, sw_iso …) and a visual style, typed as the VSCURRENT command, then the style the viewport has read back by the plug-in (`visual_style_found`, a warning when it differs). Changes only what is on screen ([D-31](DECISIONS.md), [D-35](DECISIONS.md), [D-86](DECISIONS.md)) |
 
 `SectionSolid` is deliberately **not** here: no documented ActiveX signature for it could be
 found, and guessing one would risk the model ([D-33](DECISIONS.md)).
@@ -317,13 +344,16 @@ until the solid changes.
 | `autocad_thicken_surface` | Change | THICKEN: a solid from a surface; the surface is kept |
 | `autocad_super_hatch` | Change | Express Tools' SUPERHATCH with a block: tiles in a grid (spacing, origin, angle, scale) inside a closed outline drawn flat in plan, clipped as XCLIP clips. One object; at most 10,000 tiles |
 
-## Materials and rendering (Change; listing is Read, rendering is Admin)
+The attribute sync and the Excel table link and update are plug-in operations too
+(`sync_attributes`, `excel_table`, `update_table_links`); their tools are listed with the blocks
+and the tables above.
+
+## Materials (Change; listing is Read)
 
 | Tool | Level | Purpose |
 |---|---|---|
 | `autocad_list_materials` | Read | The materials in this drawing, and how many objects use each. Run it first: only a material already in the drawing can be applied |
 | `autocad_apply_material` | Change | Apply one to objects or to a whole layer. Refuses an unknown name **and lists what the drawing does have** |
-| `autocad_render` | Admin | Renders the current view to an image, by driving `-render`. Admin, because that is the command line |
 
 Three limits worth knowing before you plan around them ([D-33](DECISIONS.md)):
 
@@ -332,9 +362,30 @@ Three limits worth knowing before you plan around them ([D-33](DECISIONS.md)):
 - **No density.** A material is appearance only. MASSPROP and `autocad_solid_properties` both work
   as if density were 1, so a weight is volume times a density *you* state. Assigning "Steel" does
   not make anything weigh.
-- **No render API.** There is no automation call for rendering at all; `-render` is the only route,
-  its prompts differ between releases, and script rendering has been reported to drop objects. For
-  a picture to look at use `autocad_preview`; for one on a sheet use `autocad_export`.
+- **No render from Heron.** There is no automation call for rendering; `-render` is the only route,
+  it waits on prompts that differ between releases and can stall AutoCAD, and a scripted render has
+  been reported to drop objects. So `autocad_render` was removed ([D-87](DECISIONS.md),
+  [#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)): Heron sets the render up (next
+  section) and the modeller presses Render. For a picture to look at use `autocad_preview`; for one
+  on a sheet use `autocad_export`.
+
+## Setting a render up (Change; the light list is Read)
+
+These tools set the view, the sun, the lights and the exposure; **none of them renders**: the
+modeller presses Render ([D-86](DECISIONS.md), [D-87](DECISIONS.md)); Heron has no tool that
+renders ([#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)). The plug-in does the lights, the
+camera and the sun's date, which COM has no call for. Not proven in AutoCAD yet:
+[NEEDS-CHECKING groups K and AE](NEEDS-CHECKING.md).
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_add_light` | Change | A photometric point, spot, web (IES) or distant light: lumens or candela, Kelvin, a spot's cones in degrees ([D-42](DECISIONS.md)) |
+| `autocad_create_material` | Change | A material from its settings: colour, texture with its real size, bump, gloss, transparency, glow ([D-42](DECISIONS.md), [D-46](DECISIONS.md)) |
+| `autocad_add_camera_view` | Change | A named perspective camera: eye, target and lens (24 mm inside a room), put on screen so Render can be pressed. A view record with perspective on, never DVIEW |
+| `autocad_set_sun` | Change | The sun's date and clock time (on the model viewport's sun) and the place (LATITUDE, LONGITUDE, TIMEZONE from a UTC offset), read back with the sun's azimuth and altitude |
+| `autocad_list_lights` | Read | Every light, in model space and in light blocks, with on / off, intensity and unit, Kelvin; plus the sun, DEFAULTLIGHTING, LIGHTINGUNITS and the exposure, and why a render may be dark |
+| `autocad_switch_lights` | Change | Lights on or off by name or handle, or all; the sun (SUNSTATUS) and default lighting (DEFAULTLIGHTING) on or off. One unknown name switches nothing |
+| `autocad_set_render_exposure` | Change | Exposure (EV, -6 to 21, lower is brighter) and White balance (K) as EXPVALUE / EXPWHITEBALANCE; an AutoCAD without them is told to use RENDEREXPOSURE |
 
 ## Seeing and checking (Read)
 

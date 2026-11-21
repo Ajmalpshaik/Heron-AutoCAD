@@ -141,6 +141,11 @@ do nothing; a real Z on work that should be flat, so trim and hatch misbehave.
 |---|---|---|
 | `autocad_remap_layers` | Change | Puts everything on the right layer, and makes those layers with the colour, linetype, lineweight, description and plot setting they should have |
 | `autocad_tidy_entities` | Change | Clears the per-object overrides, flattens to one level, moves geometry off layer 0, deletes the zero-length leftovers |
+| `autocad_merge_layers` | Change | When an import came with three names for one layer: everything moves to the one, inside blocks too, and the empty old layers go. Needs `confirm=true` ([D-81](DECISIONS.md)) |
+
+Once the layers are right, **save them as a layer state** (`autocad_layer_states(action="save")`),
+so a coordination set-up or the issue set-up comes back in one call; `autocad_isolate_layers` hides
+everything but one service while you work on it, and puts it all back after.
 
 **Both default to `dry_run=true`.** Read the counts and `by_rule`, agree them, then run again with
 `dry_run=false`.
