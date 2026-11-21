@@ -166,6 +166,34 @@ banner on, because the banner is what shows the modeller that Heron is working.
   knowledge. Live rows AP1-AP11 in [NEEDS-CHECKING](NEEDS-CHECKING.md) compare each with AutoCAD's
   own command; all NOT RUN.
 
+## D-102 - A full-sheet preview says what it covered, and can add close-ups
+
+**Decided:** 2026-11-21, for issue #41. **Status:** in force; extends D-04 (the plot route) and
+leaves the default preview one picture, as before.
+On 2026-10-28 `autocad_preview(area='extents')` of an A1 schematic at 1:1 showed only the two frame
+rectangles, while windows over its parts showed everything. The cause could not be seen from here
+(no AutoCAD). The two found in the code and in Autodesk's behaviour:
+- **Too few pixels for the sheet (most likely).** AutoCAD's PNG plotter has fixed sizes; the
+  preview takes the one nearest `width_px` (1600 by default), and the chat app may shrink the
+  picture again. Which sizes AutoCAD 2027 offers is not yet known here (row AM5). A whole A1
+  (841 mm) fitted into 1600 pixels is about 0.5 mm a pixel: 2.5 mm text and thin lines turn to
+  specks while the heavy frame still shows. A window over one part gets the same pixels for less
+  paper, which is why windows showed everything.
+- **Extents bigger than the sheet.** EXTMIN/EXTMAX grow as things are drawn and shrink only on a
+  ZOOM All / Extents, and they count objects on layers that are off, not plotted or on Defpoints.
+  A stray or erased object far off makes the sheet small in the picture.
+
+What the code does now: an extents preview regenerates first (as `autocad_get_extents` does) and
+the answer says the area plotted (`plotted`), the picture's `pixels` and the smallest text height
+that reads (`smallest_clear_text`, 8 pixels a letter), with a `tip` when the drawing's TEXTSIZE is
+smaller. **`detail=2` (or 3)** adds 4 (or 9) overlapping close-ups of the same area, plotted as
+windows, because windows are the route that showed everything live; each is named (top left ...)
+with its corners. Not done: a bigger PNG (the pc3's pixel sizes cannot be changed over COM; a
+custom size is a pc3 edit by hand), and plotting the overview as a window (the extents read back
+could be staler than AutoCAD's own Extents plot). Close-ups are refused for `area='view'` (no
+corners) and skipped, with the reason, in a 3D view or a rotated UCS, where the plan box does not
+match the picture. Live rows AM1-AM6 NOT RUN; issue #41 stays open until AM1 says which cause it was.
+
 ## D-98 - The plug-in reports drawing events as they happen; a batch goes through it in pieces up to 1,500 characters
 
 **Decided:** 2026-11-21, issues #48 and #45. **Status:** in force (built and tested offline; live
@@ -219,6 +247,78 @@ rows AJ1-AJ10 NOT RUN).
   .NET object, and says a Save As made while closing before the close.
 - **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
   update live without a server of its own; the docked palette is the live list.
+
+## D-95 - Sections, flat views, surfaces, meshes and the new super hatch tiles are plug-in operations
+
+**Decided:** 2026-11-21, for issues #54, #109, #58 and #57. **Status:** in force; extends D-40 and
+D-33. None of FLATSHOT, SOLPROF, SECTIONPLANE, PLANESURF, SURFNETWORK, MESH or Express Tools'
+image / xref / wipeout SUPERHATCH has an ActiveX call, so each is a listed plug-in operation
+(`flat_views`, `section_plane`, `loft_surface`, `planar_surface`, `network_surface`, `add_mesh`,
+and `super_hatch` with a `tile_kind`), Change level, one transaction each. Every .NET call was
+checked against the AutoCAD 2027 reference assemblies before it was written (the signatures, by
+reflection; the plug-in compiles for all three builds).
+
+**One mechanism for a section and a flat view.** Both use AutoCAD's own section object (`Section`)
+and `GenerateSectionGeometry`, the call behind "Generate Section / Elevation". A section plane goes
+through the modeller's points and is kept; a flat view puts a temporary plane outside the solids'
+box on the viewer's side, so it cuts nothing and the 2D "background" it returns is the view with
+hidden lines removed, as FLATSHOT draws it. The plane is made with its viewing direction given
+explicitly (`Section(points, vertical, viewing)`), so which side is seen is Heron's choice, not
+AutoCAD's default. Where each view looks, the third / first angle layout, and where a plane through
+two or three points runs (two points: a vertical cut looking left of the line; three: the plane,
+a level one looking down with north up) are pure arithmetic in `Bridge/SectionMath.cs`, tested
+offline. The 2D lines are laid flat by what they are found to lie on (the plane, already flat, or
+neither and then projected), and the answer says which (`laid_flat_from`), because the reference
+does not say where GenerateSectionGeometry puts a 2D section's lines; rows AH3 and AH6 settle it.
+
+**What is left out, on purpose.** Hidden (obscured) lines in a flat view: the API gives visible and
+hidden lines in one list with no way to tell them apart, so a view shows visible lines only, as
+FLATSHOT does by default. Several solids are flattened each on its own unless `join=true`, which
+flattens one temporary union of copies: it hides what is behind a part, and loses the line where
+two flush faces meet; the modeller chooses. Jogged section lines (more than one segment): later.
+
+**Super hatch tiles.** An image or a wipeout is first made into a small tile block of its own; an
+xref is the tile as it is, attached from its `.dwg` if it is not already there. Then the one block
+tiling path of D-40 does the rest, so every kind is one object, clipped as XCLIP clips. An xref
+this call attached is detached again if the hatch is then refused, because attaching is not only
+a database change. Image tiles are capped at 2,000 (raster images are heavy), blocks at 10,000. A
+block hatch sends exactly what it sent before, so an older plug-in still does it.
+
+Rejected: typing FLATSHOT (a dialog) or SOLPROF (works only inside a layout viewport and asks
+questions); projecting the solid's Brep edges ourselves (no hidden-line removal and no silhouette
+lines on a pipe or a cylinder); one "make a surface" operation taking any arguments (each kind is
+listed and checked on its own, as D-40 asks).
+
+## D-94 - A 3D shape is pieces in their own frames, made where COM has no doubt and then moved
+
+**Decided:** 2026-11-21, for issue #53. **Status:** in force; extends D-30.
+`autocad_make_shape` takes two 3D shapes, `duct_run` and `pipe_spool`. A solid cannot go down the
+batch engine, so a 3D shape is generated as a list of **pieces** (straight, bend, flange), each in
+its own frame where AutoCAD makes it without any doubt - a box or a cylinder standing on the origin
+up +Z, or a profile at the origin revolved round an axis through (radius, 0, 0) along +Y - plus one
+4 x 4 matrix that puts it in place. The pieces and their matrices are pure Python
+(`acad/shapes3d.py`), so what matters is tested without AutoCAD: each piece ends where the next
+begins, each bend leaves the way the next straight runs and is tangent to both legs at
+radius x tan(angle / 2), the straights are the legs less the tangent lengths (a spool's cut
+lengths), a rectangular duct is carried round its bends without twisting, and every matrix is a
+move, never a mirror.
+
+The COM side (`tools/_solid_pieces.py`) uses only calls already in use (AddBox, AddCylinder,
+AddRegion, AddRevolvedSolid, Boolean) plus TransformBy with the matrix. Two of its steps check
+themselves, because neither convention is in Autodesk's reference: a bend that came out sweeping
+backwards (the revolve's sense) is made again the other way, and every piece's box is compared
+with the box it should fill, so a piece that landed anywhere else is reported (`verified: false`)
+rather than looking finished. A refusal half way takes out every piece already made.
+
+Defaults, said in the tool so nobody is misled: a rectangular bend's centreline radius is the
+duct's size in the plane it bends in (R/W = 1), a round duct's 1.5 x D, a spool's elbow 1.5 x the
+outside diameter (a long-radius elbow is 1.5 x the nominal size: give `bend_radius` from the
+catalogue when it matters). Flanges have no default size; a flange table is the modeller's.
+Pieces are separate solids, as they are fabricated, with `join=true` to union them.
+
+Rejected: one sweep along a filleted path (AutoCAD sweeps along a 2D polyline with arcs or a
+spline, not a 3D route with bends, and the result could not be checked piece by piece); Rotate3D
+and Move instead of TransformBy (two more sign conventions to trust, each failing silently).
 
 ## D-93 - The office check lists live in a folder the modeller names; sharing them is its own Publish tool
 

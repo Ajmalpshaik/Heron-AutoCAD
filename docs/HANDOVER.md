@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
 
-Four new tools (**175** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
 (xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
 `autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
 (DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
@@ -20,6 +20,35 @@ Four new tools (**175** in all) in `tools/draw_extra.py` (#173, #174, #177, #181
 outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
 when counted from the end) are the answers the code could not get from Autodesk's reference. Not
 built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
+
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
+
+Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
+only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
+pixels for the sheet (most likely), or extents stretched by something far off. `autocad_preview`
+now reports `plotted`, `pixels`, `smallest_clear_text` and a `tip`, and `detail=2` / `3` adds
+window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-known-limits.md#33-one-preview-picture-cannot-show-a-whole-big-sheets-small-text).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
+AM1 names the cause; close #41 only after AM1 and AM2 pass.
+
+## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
+
+Five issues built offline in one PR. `autocad_make_shape` has a 3D group: `duct_run` and
+`pipe_spool`, solids along a route, a bend at every corner, flanges with bolt holes, each pipe's cut
+length (pure geometry in `acad/shapes3d.py`, made over COM by `tools/_solid_pieces.py`). Four new
+tools done by the plug-in (**175** in all): `autocad_flatten_views` (FLATSHOT / SOLPROF),
+`autocad_section_plane` (SECTIONPLANE + 2D section block), `autocad_add_surface` (planar, network),
+`autocad_add_mesh`; `autocad_loft(surface=true)`; `autocad_super_hatch` takes an image, an xref or
+a wipeout as the tile. Plug-in: `Sections.cs`, `Surfaces.cs`, `SuperHatch.cs`, pure maths in
+`Bridge/SectionMath.cs`; every .NET signature was checked against the AutoCAD 2027 reference
+assemblies, and the add-in compiles for all three builds. Limits: [05 §32](05-known-limits.md#32-3d-for-mep-duct-runs-spools-flat-views-sections-surfaces-meshes-have-their-own-limits).
+
+**Next (on this PC):** pull, build and install the plug-in, restart Claude, then live rows AH1-AH15
+([NEEDS-CHECKING group AH](NEEDS-CHECKING.md)). The answers the reference could not give: which way
+AutoCAD revolves a bend (AH3), where GenerateSectionGeometry puts a 2D section's lines
+(`laid_flat_from`, AH4 and AH6), which side a section looks at (AH6), and whether XCLIP hides
+images inside a block (AH12).
 
 ## Earlier - 2026-11-21 (drawing events from the plug-in, fewer batch pieces: #48, #45; D-98)
 

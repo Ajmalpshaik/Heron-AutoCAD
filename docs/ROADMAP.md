@@ -76,6 +76,9 @@ done looks like here.
 - [ ] `autocad_preview` with `area='extents'` on an A1 schematic drawn at 1:1 showed only the two
   frame rectangles; `area='window'` over the same parts showed everything. Find out why before
   trusting an extents preview of a full sheet. ([#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41))
+  2026-11-21: most likely too few pixels for an A1 (about 0.5 mm a pixel), or extents stretched by
+  something far off. The answer now says the area plotted and the smallest text that reads, and
+  `detail=2` / `3` adds window close-ups ([D-102](DECISIONS.md)). Live row AM1 says which cause it was.
 - [x] A chat's server keeps the code it started with: `autocad_drawing_setup(scale='1:1')` failed
   with the fault already fixed in a2acf6a, because that server was older than the merge. Done:
   `autocad_status` reports `server_version` and `plugin_version`, and `autocad://diagnose` warns
@@ -109,11 +112,11 @@ done looks like here.
 
 - [x] **Super hatch** with a block: `autocad_super_hatch`, done by the plug-in (D-40, 2026-10-29).
   Built and compiled for every version; live rows H10-H12 NOT RUN.
-- [ ] Super hatch with an image, an xref or a wipeout as the tile (Express Tools offers them). ([#57](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/57))
+- [x] Super hatch with an image, an xref or a wipeout as the tile (Express Tools offers them): `autocad_super_hatch(image= / xref= / wipeout=)` (D-95); live rows AH12-AH14 NOT RUN. ([#57](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/57))
 - [x] **3D modelling commands** with no ActiveX call: loft, fillet / chamfer edges, shell,
   press-pull, thicken, and the face and edge listing they pick from - done by the plug-in (D-40,
   2026-10-29). Built and compiled; live rows H1-H9 and H13 NOT RUN, so **not yet proven**.
-- [ ] Loft to a surface (open outlines), surfaces from curves (PLANESURF, NETWORK) and meshes. ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58))
+- [x] Loft to a surface (open outlines), surfaces from curves (PLANESURF, NETWORK) and meshes: `autocad_loft(surface=true)`, `autocad_add_surface`, `autocad_add_mesh` (D-95); live rows AH9-AH11 NOT RUN. ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58))
 - [ ] `autocad_draw_multiline` close with a mitred corner (MLINE's own Close) - needs the plug-in. ([#55](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/55))
 - [ ] `autocad_draw_spline` by control points, and editing a spline's fit points. ([#56](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/56))
 
@@ -156,10 +159,14 @@ done looks like here.
   justification landed with the shape library (D-30); these three are what is left. ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51))
 - [ ] A hatch or solid fill for the furniture shapes: an arrowhead and a north point come out as
   outlines today, because a batch has no fill. ([#51](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/51))
-- [ ] `autocad_make_shape`: a 3D shape group (duct runs, pipe spools) once the solid tools have a
-  live check behind them. ([#53](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/53))
-- [ ] Flatten a 3D solid to 2D views for a shop drawing (AutoCAD's SOLPROF / FLATSHOT). No
-  Automation call, so it needs the plug-in or an Admin command. ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54))
+- [x] `autocad_make_shape`: a 3D shape group (duct runs, pipe spools): `duct_run`, `pipe_spool` (D-94);
+  live rows AH1-AH3 NOT RUN. ([#53](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/53))
+- [x] Flatten a 3D solid to 2D views for a shop drawing (AutoCAD's SOLPROF / FLATSHOT):
+  `autocad_flatten_views`, by the plug-in (D-95); live rows AH4-AH5 NOT RUN. ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54))
+- [x] A section plane and a 2D section from a 3D model: `autocad_section_plane`, by the plug-in
+  (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
+- [ ] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines: not in
+  D-95's first build (limit 32). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
 - [ ] Multileader, table and dimension **style** creation from `autocad_create_styles`: no
   Automation API for the first two, and a dimension style already works, so this is really
   "bring the office styles in" - `autocad_import_from_drawing` does it today. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))

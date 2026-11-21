@@ -5,11 +5,29 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
-  part 1 of #119).** Four new tools (**175** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
+  part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
   (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter
   and centre), `autocad_add_donut` (DONUT's closed polyline with width, Heron's maths, many centres
   in one undo step) and `autocad_divide_curve` (DIVIDE or MEASURE with points or a block, Heron's
   maths) ([D-108](docs/DECISIONS.md)). Live rows AP1-AP11 NOT RUN.
+
+- **A preview of a full sheet (2026-11-21, #41).** `autocad_preview` now says the area it plotted
+  (`plotted`, extents refreshed first), its `pixels` and the smallest text that reads
+  (`smallest_clear_text`), with a `tip` when the drawing's text is smaller. `detail=2` or `3` adds 4
+  or 9 overlapping close-ups of the same area, plotted as windows. A whole A1 in one picture is about
+  0.5 mm a pixel, so its 2.5 mm text could not show ([D-102](docs/DECISIONS.md)). Live rows AM1-AM6
+  NOT RUN; #41 stays open until AM1 names the cause.
+
+- **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
+  (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,
+  elbows, flanges with bolt holes, and each pipe's cut length) as solids, each piece checked against
+  the box it should fill ([D-94](docs/DECISIONS.md)). Four new tools done by the plug-in (**175** in
+  all): `autocad_flatten_views` (plan, front and side views as 2D lines, hidden lines removed, set
+  out third or first angle - FLATSHOT / SOLPROF), `autocad_section_plane` (a section plane through
+  two or three points and its 2D section as a block), `autocad_add_surface` (planar or network) and
+  `autocad_add_mesh` (MESH primitives, or a mesh made from a solid). `autocad_loft(surface=true)`
+  lofts open outlines into a surface; `autocad_super_hatch` takes an image, an xref or a wipeout as
+  the tile ([D-95](docs/DECISIONS.md)). Live rows AH1-AH16 NOT RUN.
 
 - **Drawing events from the plug-in, and fewer batch pieces (2026-11-21, #48, #45).** The plug-in
   now writes down what happens to the drawings the moment AutoCAD says it: opened, came to the

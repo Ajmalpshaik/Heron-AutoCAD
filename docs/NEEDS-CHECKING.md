@@ -692,6 +692,51 @@ were not checked against Autodesk's reference (D-108); each row compares with Au
 | AP10 | A line drawn in a UCS tilted out of plan, and a line sloping in Z: `autocad_divide_curve(segments=2)` on each; a polyline in paper space on a sheet | The first two refused plainly, nothing placed; the paper-space one gets its points on that sheet | NOT RUN |
 | AP11 | AutoCAD 2025 / 2026 and 2021-2024 builds: AP1, AP2, AP5, AP6 | As in AutoCAD 2027 | NO MACHINE |
 
+## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-102](DECISIONS.md), issue #41). Built and tested offline only
+(`tests/test_preview_extents.py`); server change only, no plug-in change. Restart the server first.
+Use the A1 automation room SLD from 2026-10-28 (or any A1 sheet at 1:1 with 2.5 mm text). AM1 is
+the row that says which cause #41 was. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AM1 | On the A1 SLD in Model: `autocad_preview()` (extents). Read `plotted`, `pixels`, `smallest_clear_text`, `tip` | Record all four and whether the picture shows the contents. **Tells the causes apart:** `plotted` about 841 x 594 and `smallest_clear_text` above 2.5 = too few pixels (go to AM2); `plotted` much bigger than the frame = something far off (find it with `autocad_get_extents`, ZOOM E; erase it and repeat); `plotted` right, picture shows the sheet full size and yet nothing but the frames = a third cause in AutoCAD's Extents plot itself (record it, the close-ups in AM2 still work round it) | NOT RUN |
+| AM2 | `autocad_preview(detail=2)`, then `detail=3` | 5 then 10 pictures: the overview, then the parts top left first, each with its `part` and corners; the 2.5 mm text reads in the detail=3 parts; parts overlap a little at the seams; `detail_smallest_clear_text` smaller than in AM1 | NOT RUN |
+| AM3 | After AM2: PAGESETUP on Model, and BACKGROUNDPLOT | Page setup as before (plotter, paper, area, scale, rotation); BACKGROUNDPLOT as before; one U in AutoCAD undoes nothing of the previews | NOT RUN |
+| AM4 | Draw a line at 100000,100000, then `autocad_preview()`; erase it, `autocad_preview()` again | First: `plotted` reaches 100000 and the sheet is small in the picture. Second: record whether `plotted` shrank back to the sheet (the regen refreshed the extents) or still reaches 100000 (stale until ZOOM E; then the code should do more) | NOT RUN |
+| AM5 | `autocad_preview(width_px=4000)` and `width_px=640` | Record the `size` and `pixels` AutoCAD chose each time: they are the PNG plotter's biggest and smallest sizes, not yet known here | NOT RUN |
+| AM6 | `autocad_set_3d_view(direction='sw_iso')`, `autocad_preview(detail=2)`; then `autocad_preview(area='view', detail=2)` | First: one picture and `detail_skipped` naming the plan view. Second: refused, naming area='extents' or 'window'; nothing plotted | NOT RUN |
+
+## Group AH - 3D for MEP: duct runs, pipe spools, flat views, sections, surfaces, meshes, super hatch tiles (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-94](DECISIONS.md), [D-95](DECISIONS.md); issues #53, #54, #109, #58,
+#57). Built and tested offline only (`tests/test_shapes3d.py`, `tests/test_model_views.py`,
+`SectionMathTests.cs`, `RunTests.cs`); the add-in **compiles** for all three AutoCAD builds. AH1-AH3
+are server only (restart the server); the rest need the plug-in built from this change (six new
+operations) installed. Changes padlock on, `autocad_status` first, a scratch drawing in mm. After
+each row press **Ctrl+Z once** and check the drawing is back as it was. **Every row below is NOT
+RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AH1 | `autocad_make_shape(shape="duct_run", settings={"points": [[0,0,3000],[5000,0,3000],[5000,4000,3000],[5000,4000,6000]], "width": 600, "height": 400}, layer="M-DUCT")`, then `autocad_set_3d_view(direction="sw_iso", visual_style="conceptual")` and `autocad_preview` | Five solids on M-DUCT meeting end to end: a level 90° bend (R600) and a bend up (R400), the 600 side level on the first leg; `verified: true`, no warning. `autocad_solid_properties` of the first straight: volume 600 x 400 x 4400 = 1,056,000,000. One Ctrl+Z removes all five | NOT RUN |
+| AH2 | `autocad_make_shape(shape="pipe_spool", settings={"points": [[0,0,0],[2000,0,0],[2000,0,1500]], "outside_diameter": 114.3, "wall": 6.02, "flange_diameter": 229, "flange_thickness": 24, "bolt_count": 8, "pitch_diameter": 190.5, "hole_diameter": 19})` | Flange, pipe, elbow, pipe, flange: the flange faces on 0,0,0 and 2000,0,1500; both flanges bored 102.26 and drilled 8 x 19 holes straddling the centrelines; `pipe_cut_lengths` 1804.55 and 1304.55 match DIST across each pipe. Again with `"join": true`: one solid | NOT RUN |
+| AH3 | Look at the AH1 and AH2 answers' pieces | Write down whether any bend says `revolved_the_other_way` (AutoCAD's revolve sense, not in its reference). Either way every bend must continue the run, not fold back over the straight | NOT RUN |
+| AH4 | Spool from AH2 (not joined): `autocad_flatten_views(handles=[its five handles], insert_at=[4000, 0], layer="M-SHOP")` | Three blocks FLATSHOT-1-FRONT, -TOP, -RIGHT on M-SHOP; plan above the front and the right view to its right, lined up (the pipe's centreline level across front and right); no hidden lines; the model untouched. Record `laid_flat_from` (expected `plane`). Compare with FLATSHOT done by hand on the same spool | NOT RUN |
+| AH5 | Two overlapping boxes: `autocad_flatten_views(views=["front"])` with `join=false`, then `join=true` | Without join the back box's lines show through the front one; with join they are hidden, and the line where the two meet on a flush face is gone | NOT RUN |
+| AH6 | The AH1 duct run: `autocad_section_plane(points=[[2500,-1000],[2500,5000]], insert_at=[8000, 0], layer="M-SECT")` | A section plane in the model through x=2500 (SECTIONPLANE's object), and block SECTION-1 at 8000,0: the duct's 600 x 400 cut outline, hatched, and the bend and riser beyond seen in elevation. It looks left of the line: from x=2500 towards -X (`looking` [-1,0,0]). Record `laid_flat_from` | NOT RUN |
+| AH7 | `autocad_section_plane(points=[[0,0,3200],[1000,0,3200],[0,1000,3200]], insert_at=[0,-6000], background=false)` | A plan cut at 3200 looking down, north up: the duct's cut outlines along the first leg and the riser's 600 x 400, hatched, nothing beyond | NOT RUN |
+| AH8 | `autocad_section_plane` with two points far from every solid, then with `keep_plane=false` | First: refused, "neither cuts nor sees ... Nothing was changed", and no section plane left. Second (through the duct): the block only, no plane in the model | NOT RUN |
+| AH9 | Two open arcs at z=0 and z=2000: `autocad_loft(sections=[a, b], surface=true)`; then `autocad_thicken_surface(<it>, thickness=3)` | A lofted surface through both arcs (`area` given), the arcs kept; thickening it makes a 3 mm solid. Without `surface=true` the loft is refused naming surface=true | NOT RUN |
+| AH10 | `autocad_add_surface(kind="planar", corners=[[0,0,2700],[3000,2000,2700]])`; then `kind="planar", outlines=[a closed polyline]`; then `kind="network"` with three curves each way crossing | A 3000 x 2000 plane surface at 2700 (area 6,000,000); one over the polyline; one network surface through the six curves. An open outline is refused | NOT RUN |
+| AH11 | `autocad_add_mesh(shape="box", base=[0,0,0], length=1000, width=600, height=400, smoothness=2)`; `shape="sphere", radius=300, base=[2000,0,0]`; `from_handle=<an AH1 straight>` | A smoothed mesh box sitting on z=0, centred on 0,0; a mesh sphere centred at 2000,0,0; a mesh of the straight with the solid still there. Record faces / vertices for each | NOT RUN |
+| AH12 | An L-shaped closed polyline: `autocad_super_hatch(boundary=<it>, image="<a .jpg on disk>", image_size=[600])` | One block reference (SUPERHATCH-n) holding the image tiled 600 wide, in proportion, showing only inside the outline. Record whether XCLIP clips the images inside the block (the reason for this row); one Ctrl+Z takes it all | NOT RUN |
+| AH13 | `autocad_super_hatch(boundary=<it>, xref="<a tile .dwg>")`; then again with the xref's name | The xref attached (External References lists it) and tiled, clipped to the outline; the second call reuses it. Then a refusal case (an outline too big for 10,000 tiles with a .dwg not yet attached): refused and the xref not left attached | NOT RUN |
+| AH14 | A 300 x 300 wipeout over some lines: `autocad_super_hatch(boundary=<it>, wipeout=<its handle>, spacing=[600, 600])` | A grid of masks inside the outline hiding the lines under them; the original wipeout untouched | NOT RUN |
+| AH15 | Ask to keep on: run AH4, AH6, AH10, AH11 and AH12, answering Discard each time | Each is taken back whole; PURGE finds no FLATSHOT, SECTION or SUPERHATCH block left; no section plane left | NOT RUN |
+| AH16 | AH1-AH15 on AutoCAD 2025/2026 and 2021-2024 | As AH1-AH15 | NOT RUN (no PC with those versions yet) |
+
 ## Group AG - Files with AutoCAD closed, standards against a reference drawing, shared check lists (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-92](DECISIONS.md), [D-93](DECISIONS.md); issues #71, #69, #135). Built and
