@@ -24,6 +24,37 @@ still **1.6.0** (no C# changed): restart Claude after pulling.
 **Next:** live rows Y1-Y6 with the others below. Still open from the comparison: #80 (row T7),
 #101.
 
+## Earlier - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
+
+A review of the docked palette (D-68) after plug-in 1.6.0 merged found one safety gap and three
+robustness gaps, all fixed in PR #137. Plug-in **1.6.0** already carries them if it is
+built from `main` after #137; no version change.
+- **Safety:** the palette's Run inherited AutoCAD's environment, so a developer's
+  `HERON_AUTOCAD_BRIDGE=off` or a chat id there would have reached it. Now forced on and dropped
+  (`PaletteServer.PrepareEnvironment`), and the server refuses `--run-saved` with the checks off.
+- **#138:** while a palette Undo waits for AutoCAD, the plug-in refuses a new job's begin with
+  "try again in a moment" (`BridgeProtocol.BlockedBy`, one minute at most).
+- An UNDO AutoCAD has not started in 30 s is given up; a job whose end never came stops blocking
+  the palette after 20 minutes.
+
+**Next:** as below, plus live rows X22-X24 (X23: whether zooming inside a layout viewport counts as
+a change, which would make Undo refuse there).
+
+## Earlier - 2026-11-21 (autocad_why after D-59, and Heron's folders, #134)
+
+Follow-up to PR #120, server only, no version change.
+- **Bug fixed:** since D-59 (padlocks in AutoCAD's memory) `diagnose.report()` has no padlocks,
+  so `autocad_why` said every padlock was off. It now names the padlocks a job needs as
+  non-blocking reasons (`needs_changes`, `needs_publish`, `needs_admin`) and never claims one
+  is off (D-67, last bullet). Live row W2 rewritten to match.
+- A `dry_run` refusal (D-63) is audited with the reason word `no_dry_run`.
+- **#134:** `core/folders.py` (`local_app_data`, `roaming_app_data`, `heron_local`) is the one
+  place that reads `%LOCALAPPDATA%` / `%APPDATA%`; `tests/test_folders.py` fails if a module
+  builds a folder from the bare variable again. `tests/conftest.py` now also moves `%APPDATA%`
+  to a temp folder.
+
+**Next:** unchanged: build and install plug-in 1.6.0, then the live rows (W included).
+
 ## Earlier - 2026-11-21 (the Revit batch is merged: server 1.8.0, plug-in 1.6.0; nothing live yet)
 
 Every PR from the seven cloud sessions is merged into `main`, on Ajmal's word: ribbon audit and
@@ -57,7 +88,7 @@ restart the server after pulling. 138 tools.
 - **One test changed on purpose:** a missing title block is now NO DATA, not NOT RUN.
 
 **Next:** in AutoCAD 2027, run group U rows U1-U10 (all NOT RUN); U8 first (does Excel open the
-report without a repair message). Server version bump (suggested 1.8.0) is still to do.
+report without a repair message). The server is now **1.8.0**, which includes these tools.
 Possible later: share an office list from a network folder; keep project changes in the project
 folder so the team shares them.
 
@@ -81,8 +112,9 @@ restart the server after pulling.
   `follow_host_chat()`, so it never takes the chat's id (D-61).
 
 **Next:** install the plug-in and, in AutoCAD 2027, run group X rows X1-X20 (all NOT RUN); **X4
-first** (whether the palette's Zoom leaves an undo step that would block Undo). Version bump
-still to do: suggested plug-in **1.6.0** (new command, protocol unchanged).
+first** (whether the palette's Zoom leaves an undo step that would block Undo). The plug-in is
+now **1.6.0**, which includes the palette (new command, protocol unchanged).
+
 ## Earlier - 2026-11-21 (why / gaps / question mode #88-#90 and #43 merged, PR #120)
 
 PR #120 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
@@ -101,8 +133,8 @@ failed as on every PR, #34). Server only, no plug-in change; restart the server 
   `core/bridge.py` has the same pattern and is not fixed (the plug-in writes that folder).
 - PR #125 then set docs/12's tool count to 137; it is 138 on `main` since PR #122.
 
-**Next:** in AutoCAD 2027, run group W rows W1-W8 (all NOT RUN). Server version bump (suggested
-1.8.0) is still to do.
+**Next:** in AutoCAD 2027, run group W rows W1-W8 (all NOT RUN). The server is now **1.8.0**,
+which includes these tools.
 
 ## Earlier - 2026-11-21 (server answers #78-#82 merged, PR #124)
 

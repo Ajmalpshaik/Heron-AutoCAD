@@ -24,6 +24,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .folders import heron_local
+
 REFRESH_SECONDS = 5
 KEEP_DAYS = 7
 MOST_ROWS = 50
@@ -33,7 +35,7 @@ _snapshot: dict[str, Any] | None = None
 
 
 def folder() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", "")) / "Heron" / "autocad" / "companion"
+    return heron_local() / "companion"
 
 
 def page_path(conversation: str) -> Path:

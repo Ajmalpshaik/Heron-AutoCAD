@@ -23,7 +23,10 @@ DIST_BUNDLE = ROOT / "dist" / "HeronAutoCAD.bundle"
 
 
 def plugins_dir() -> Path:
-    return Path(os.environ.get("APPDATA", "")) / "Autodesk" / "ApplicationPlugins"
+    """%APPDATA%\\Autodesk\\ApplicationPlugins; ~/AppData/Roaming when %APPDATA% is unset or relative (#134)."""
+    value = os.environ.get("APPDATA", "").strip()
+    root = Path(value) if value and Path(value).is_absolute() else Path.home() / "AppData" / "Roaming"
+    return root / "Autodesk" / "ApplicationPlugins"
 
 
 def autocad_running() -> bool:
