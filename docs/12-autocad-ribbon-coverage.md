@@ -148,13 +148,13 @@ numbers already, so the whole tab is low.
 | Solid | Extrude, Revolve, Sweep, Loft, Presspull | **Yes**: `extrude_profile` (extrude, revolve, sweep), `loft`, `press_pull_faces` | - | COM / .NET | - |
 | Boolean | Union, Subtract, Intersect, Interfere | **Yes**: `solid_boolean`, `check_interference` (clash check) | - | COM | - |
 | Solid Editing | Slice, Thicken, Shell, Fillet Edge, Chamfer Edge, Imprint, Separate, Check, Extract Edges, Offset / Taper / Move / Delete faces | **Part**: `slice_solid`, `thicken_surface`, `shell_solid`, `fillet_solid_edges`, `chamfer_solid_edges`, `list_solid_faces_and_edges` | Imprint, separate, check, extract edges; offset, taper, move and delete faces | .NET | low |
-| Section | Section Plane, Live Section, Generate Section, Flatshot | **No** (`SectionSolid` left out on purpose, [D-33](DECISIONS.md)) | **A section plane and a 2D section from the model**; Flatshot | .NET | **medium** ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54) covers Flatshot / SOLPROF; the section plane is [#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109)) |
+| Section | Section Plane, Live Section, Generate Section, Flatshot | **Yes** (by the plug-in, [D-95](DECISIONS.md)): `section_plane` (plane + 2D section block), `flatten_views` (Flatshot / SOLPROF); `SectionSolid` still left out ([D-33](DECISIONS.md)) | Live section, jogged section lines, hidden lines in a flat view | .NET | done ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54), [#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109)); live rows AH4-AH8 NOT RUN |
 
 ### Surface tab
 
 | Panel | Main commands | Heron | Missing | Can be done | Priority |
 |---|---|---|---|---|---|
-| Create | Network, Loft, Sweep, Planar, Extrude, Revolve, Blend, Patch, Offset | **No** (only `thicken_surface` uses a surface) | All | .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58)) |
+| Create | Network, Loft, Sweep, Planar, Extrude, Revolve, Blend, Patch, Offset | **Part** (by the plug-in, [D-95](DECISIONS.md)): `add_surface` (planar, network), `loft(surface=true)`; `thicken_surface` | Sweep, extrude and revolve to a surface; blend, patch, offset | .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58) done) |
 | Edit | Fillet, Trim, Untrim, Extend, Sculpt | **No** | All | .NET | low |
 | Control Vertices | Show / hide CVs, Rebuild, Add / remove CVs | **No** | All | .NET | low ([#56](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/56) for splines) |
 | Curves / Project Geometry | Spline CV, Extract isolines, Project to UCS / view | **Part**: `draw_spline` (fit points) | Projection onto a surface | .NET | low |
@@ -164,7 +164,7 @@ numbers already, so the whole tab is low.
 
 | Panel | Main commands | Heron | Missing | Can be done | Priority |
 |---|---|---|---|---|---|
-| Primitives | Mesh box, cylinder ...; Revolved, Edge, Ruled, Tabulated surfaces | **No** | All | Old polyface / 3D meshes: COM. Smooth mesh (SubD): .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58)) |
+| Primitives | Mesh box, cylinder ...; Revolved, Edge, Ruled, Tabulated surfaces | **Part** (by the plug-in, [D-95](DECISIONS.md)): `add_mesh` (box, wedge, cylinder, cone, sphere, torus, pyramid; or from a solid) | Revolved, edge, ruled, tabulated surfaces | Old polyface / 3D meshes: COM. Smooth mesh (SubD): .NET | low ([#58](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/58) done) |
 | Mesh | Smooth more / less, Refine, Crease | **No** | All | .NET | low |
 | Mesh Edit | Extrude face, Split, Merge, Close hole, Collapse | **No** | All | .NET | low |
 | Convert Mesh | Convert to solid / surface | **No** | Convert a mesh (an imported model) to a solid | .NET | low |

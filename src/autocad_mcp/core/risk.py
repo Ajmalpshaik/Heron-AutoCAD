@@ -58,6 +58,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "drawing_report",
         "why",
         "gaps",
+        "read_file",
         "list_groups",
         "list_annotation_scales",
     ),
@@ -143,6 +144,11 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "press_pull_faces",
         "thicken_surface",
         "super_hatch",
+        # A model cut and flattened to 2D, surfaces and meshes, by the plug-in (D-95).
+        "flatten_views",
+        "section_plane",
+        "add_surface",
+        "add_mesh",
         "add_light",
         "create_material",
         # Setting a render up, by the plug-in (D-86, D-87); none of them renders.
@@ -197,6 +203,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "create_linetype",
         "publish_pdf",
         "checklist_report",  # writes an .xlsx and an .html next to the drawing (D-65)
+        "share_checklist",  # writes the office folder or the project folder, where the team reads (D-93)
     ),
     Risk.ADMIN: (
         "send_command",
