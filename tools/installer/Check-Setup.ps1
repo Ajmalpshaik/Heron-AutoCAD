@@ -5,7 +5,9 @@
 #   1. the zip's Install.ps1 (Windows PowerShell 5.1), as Install.bat runs it
 #   2. the setup over that zip install, with a stale file in the old bundle
 #   3. the zip's Uninstall.bat route on a setup install: it must send you to Windows Apps
-#   4. the setup, and then its uninstaller, while a stand-in "acad.exe" runs: both must refuse
+#   4. a stand-in Heron server in another folder (a developer's .venv) must not stop the setup;
+#      one in the install folder must. Then the setup and its uninstaller while a stand-in
+#      "acad.exe" runs: both must refuse
 #   5. the uninstaller: Heron's files and Claude entries go, the modeller's own files stay
 # Claude Code is a stand-in claude.cmd that writes down how it was called; Claude Desktop is a
 # config file with one other entry, which must survive.
@@ -70,17 +72,17 @@ function Run-Uninstall([string]$name) {
     return $p.ExitCode
 }
 
-# A stand-in AutoCAD: ping.exe under the name acad.exe, waiting.
-function Start-FakeAutoCAD {
-    $dir = Join-Path $work 'fakeacad'
+# A stand-in program: ping.exe under another name in a folder, waiting.
+function Start-StandIn([string]$dir, [string]$name) {
     New-Item -ItemType Directory -Force (Join-Path $dir 'en-US') | Out-Null
-    $fake = Join-Path $dir 'acad.exe'
+    $fake = Join-Path $dir $name
     Copy-Item (Join-Path $env:windir 'System32\ping.exe') $fake -Force
     $mui = Join-Path $env:windir 'System32\en-US\ping.exe.mui'
-    if (Test-Path $mui) { Copy-Item $mui (Join-Path $dir 'en-US\acad.exe.mui') -Force }
+    if (Test-Path $mui) { Copy-Item $mui (Join-Path $dir "en-US\$name.mui") -Force }
     $p = Start-Process $fake -ArgumentList '-n', '600', '127.0.0.1' -WindowStyle Hidden -PassThru
     Start-Sleep -Seconds 2
-    Check ([bool](Get-Process acad -ErrorAction SilentlyContinue)) 'the stand-in acad.exe is running'
+    # Out-Host: a line written here would otherwise be returned along with the process.
+    Check (-not $p.HasExited) "the stand-in $name in $dir is running" | Out-Host
     return $p
 }
 
@@ -118,8 +120,23 @@ Check ((Select-String -Path (Join-Path $logs 'setup-over-zip.log') -Pattern 'Ins
 $out = & $winps -NoProfile -ExecutionPolicy Bypass -File (Join-Path $zip.FullName 'Install.ps1') -Uninstall 2>&1 | Out-String
 Check (($out -match 'installed with its setup program') -and (Test-Path $server)) 'Uninstall.bat on a setup install sends you to Windows Apps and removes nothing'
 
-# 4. both refuse while AutoCAD runs
-$acad = Start-FakeAutoCAD
+# 4. a server in another folder does not stop the setup; the installed server does
+$dev = Start-StandIn (Join-Path $work 'dev-venv') 'autocad-mcp.exe'
+$code = Run-Setup 'setup-while-dev-server'
+Check ($code -eq 0) "setup not stopped by a Heron server running from another folder (exit $code)"
+Stop-Process -Id $dev.Id -Force
+$real = Join-Path $work 'autocad-mcp.exe.installed'
+Move-Item $server $real -Force
+$running = Start-StandIn $app 'autocad-mcp.exe'
+$code = Run-Setup 'setup-while-server'
+Check ($code -ne 0) "setup refused while the installed server runs (exit $code)"
+Stop-Process -Id $running.Id -Force
+Start-Sleep -Seconds 1
+Move-Item $real $server -Force
+Remove-Item (Join-Path $app 'en-US') -Recurse -Force
+
+# ...and the setup and its uninstaller both refuse while AutoCAD runs
+$acad = Start-StandIn (Join-Path $work 'fakeacad') 'acad.exe'
 $before = (Get-Item $server).LastWriteTimeUtc
 $code = Run-Setup 'setup-while-acad'
 Check ($code -ne 0) "setup refused while acad.exe runs (exit $code)"

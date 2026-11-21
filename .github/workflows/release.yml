@@ -10,6 +10,8 @@ name: release
 # Code signing (#72) runs only when the repository has both secrets
 # HERON_SIGN_PFX_BASE64 and HERON_SIGN_PFX_PASSWORD; without them the build says
 # "Not signed" and goes on. docs/SETUP.md "Code signing" says what they hold.
+# A run started by hand also signs a second build with a throwaway test
+# certificate and checks every signature (signing-dry-run), publishing nothing.
 on:
   push:
     tags: ["v*"]
@@ -21,13 +23,6 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  # Inno Setup's compiler, pinned: the NuGet copy of 6.7.3, checked by its SHA-256 and by
-  # the signature of its authors (Pyrsys B.V.) on ISCC.exe before it is used.
-  INNO_URL: https://api.nuget.org/v3-flatcontainer/tools.innosetup/6.7.3/tools.innosetup.6.7.3.nupkg
-  INNO_SHA256: F780898E402FF80612CC8D9FCB8C6E02932BD1CB4C900FFDAA31F9341CFB49F4
-  INNO_SIGNER: Pyrsys B.V.
 
 jobs:
   build:
@@ -58,24 +53,9 @@ jobs:
             exit 1
           fi
       - name: Get Inno Setup (pinned and checked)
+        # Inno Setup 6.7.3, used only when its SHA-256 and its authors' signature check out.
         shell: pwsh
-        run: |
-          $pkg = Join-Path $env:RUNNER_TEMP 'innosetup.zip'
-          Invoke-WebRequest -Uri $env:INNO_URL -OutFile $pkg
-          $hash = (Get-FileHash $pkg -Algorithm SHA256).Hash
-          if ($hash -ne $env:INNO_SHA256) {
-            Write-Output "::error::Inno Setup's download is not the one pinned (SHA-256 $hash). Nothing was built with it."
-            exit 1
-          }
-          $dir = Join-Path $env:RUNNER_TEMP 'innosetup'
-          Expand-Archive $pkg $dir -Force
-          $iscc = Join-Path $dir 'tools\ISCC.exe'
-          $sig = Get-AuthenticodeSignature $iscc
-          if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch [regex]::Escape($env:INNO_SIGNER)) {
-            Write-Output "::error::ISCC.exe is not signed by $env:INNO_SIGNER ($($sig.Status)). Nothing was built with it."
-            exit 1
-          }
-          "HERON_ISCC=$iscc" >> $env:GITHUB_ENV
+        run: ./tools/installer/Get-InnoSetup.ps1
       - name: Code-signing certificate (skipped when the repository has none)
         id: certificate
         shell: pwsh
@@ -159,3 +139,42 @@ jobs:
             --title "Heron AI for AutoCAD ${GITHUB_REF_NAME}" \
             --prerelease \
             --notes "Not finished: for testing only. Close AutoCAD, then double-click HeronAutoCAD-${GITHUB_REF_NAME#v}-setup.exe (or unzip the zip and double-click Install.bat). Check the downloads against checksums.txt (SHA-256). What changed: CHANGELOG.md."
+
+  signing-dry-run:
+    name: Signing works (throwaway test certificate, nothing published)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Install Heron and PyInstaller
+        run: python -m pip install . pyinstaller
+      - name: Get Inno Setup (pinned and checked)
+        shell: pwsh
+        run: ./tools/installer/Get-InnoSetup.ps1
+      - name: Make a throwaway test certificate
+        # Made on this machine for this run only. Its password has a $ in it on purpose:
+        # the setup's sign command must carry one.
+        shell: powershell
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Heron signing dry run' -CertStoreLocation Cert:\CurrentUser\My
+          $password = 'dry$run-' + [guid]::NewGuid().ToString('N')
+          Write-Output "::add-mask::$password"
+          $pfx = Join-Path $env:RUNNER_TEMP 'dry-run.pfx'
+          Export-PfxCertificate -Cert $cert -FilePath $pfx -Password (ConvertTo-SecureString $password -AsPlainText -Force) | Out-Null
+          [IO.File]::AppendAllText($env:GITHUB_ENV, "HERON_SIGN_PFX=$pfx`nHERON_SIGN_PASSWORD=$password`n")
+      - name: Build the zip, signed
+        run: python tools/make_release.py
+      - name: Build the setup, signed
+        run: python tools/make_installer.py
+      - name: Every file that should be signed is
+        shell: pwsh
+        run: ./tools/installer/Check-Signing.ps1 -Dist dist

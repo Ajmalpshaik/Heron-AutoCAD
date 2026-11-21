@@ -119,10 +119,11 @@ def test_make_release_signs_the_dlls_the_server_and_install_ps1():
 
 
 def _steps() -> dict[str, str]:
-    """Each step's text, by its name (or its uses: line). PyYAML is not a dependency."""
+    """Each step of the build job, by its name (or its uses: line). PyYAML is not a dependency."""
     text = RELEASE_YML.read_text(encoding="utf-8")
+    build = text[text.index("\n  build:\n"):text.index("\n  signing-dry-run:\n")]
     steps = {}
-    for chunk in text.split("\n      - ")[1:]:
+    for chunk in build.split("\n      - ")[1:]:
         key = chunk.splitlines()[0].split(":", 1)[1].strip()
         steps[key] = chunk
     return steps
@@ -149,16 +150,28 @@ def test_signing_needs_both_secrets_and_is_skipped_with_a_note_without_them():
 
 
 def test_the_setup_is_built_with_a_pinned_checked_inno_setup_and_published():
-    text = RELEASE_YML.read_text(encoding="utf-8")
-    assert "INNO_URL: https://api.nuget.org/v3-flatcontainer/tools.innosetup/6.7.3/tools.innosetup.6.7.3.nupkg" in text
-    sha = text.split("INNO_SHA256:", 1)[1].split()[0]
+    get = (TOOLS / "installer" / "Get-InnoSetup.ps1").read_text(encoding="ascii")
+    assert "https://api.nuget.org/v3-flatcontainer/tools.innosetup/6.7.3/tools.innosetup.6.7.3.nupkg" in get
+    sha = get.split("$sha256 = '", 1)[1].split("'")[0]
     assert len(sha) == 64 and int(sha, 16) >= 0
+    assert get.index("Get-FileHash") < get.index("Expand-Archive") < get.index("Get-AuthenticodeSignature") < get.index("HERON_ISCC=")
     steps = _steps()
-    inno = steps["Get Inno Setup (pinned and checked)"]
-    assert "Get-FileHash" in inno and "INNO_SHA256" in inno and "Get-AuthenticodeSignature" in inno
-    assert "HERON_ISCC=" in inno
+    assert "run: ./tools/installer/Get-InnoSetup.ps1" in steps["Get Inno Setup (pinned and checked)"]
     assert "run: python tools/make_installer.py" in steps["Build the setup"]
     names = list(steps)
     assert names.index("Build the zip") < names.index("Build the setup"), "the setup is made from the zip's folder"
     assert "dist/HeronAutoCAD-*-setup.exe" in steps["actions/upload-artifact@v7"]
     assert "dist/HeronAutoCAD-*-setup.exe" in steps["Publish the pre-release"]
+
+
+def test_a_run_by_hand_proves_signing_with_a_throwaway_certificate():
+    text = RELEASE_YML.read_text(encoding="utf-8")
+    job = text[text.index("  signing-dry-run:"):]
+    assert "if: github.event_name == 'workflow_dispatch'" in job
+    assert "gh release" not in job and "upload-artifact" not in job, "nothing signed with a test certificate leaves the machine"
+    assert "secrets." not in job, "the dry run never touches the real certificate"
+    assert "::add-mask::" in job and "dry$run-" in job
+    assert "./tools/installer/Check-Signing.ps1 -Dist dist" in job
+    check = (TOOLS / "installer" / "Check-Signing.ps1").read_text(encoding="ascii")
+    for part in ("Heron.*.dll", "autocad-mcp.exe", "Install.ps1", "TimeStamperCertificate", "System.*.dll", "exit 1"):
+        assert part in check, part
