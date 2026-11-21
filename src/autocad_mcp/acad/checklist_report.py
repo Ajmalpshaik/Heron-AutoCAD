@@ -2,8 +2,8 @@
 
 Pure: it turns the run's answer into file contents and picks file names, so
 every rule is tested without AutoCAD. The workbook is written with the
-standard library (an .xlsx is a zip of a few XML files), so Heron needs no
-new package for it.
+standard library through acad/xlsx.py (an .xlsx is a zip of a few XML
+files), so Heron needs no new package for it.
 
 Never overwrite: an earlier report keeps its name. The next one gets a number
 (" (2)", " (3)" ...), and the files are opened in exclusive-create mode, so a
@@ -13,13 +13,11 @@ file that appeared a moment ago is not replaced either.
 from __future__ import annotations
 
 import html
-import io
 import re
-import zipfile
 from pathlib import Path
 from typing import Any
-from xml.sax.saxutils import escape
 
+from . import xlsx
 from .checklist import FAIL, NO_DATA, NOT_RUN, PASS, PASS_MEANS
 
 MOST_NUMBER = 999
@@ -86,99 +84,14 @@ def _heading(report: dict[str, Any], drawing: str, when: str) -> list[tuple[str,
 # ---------------------------------------------------------------------------
 
 
-def _column(index: int) -> str:
-    letters = ""
-    index += 1
-    while index:
-        index, rest = divmod(index - 1, 26)
-        letters = chr(65 + rest) + letters
-    return letters
-
-
-def _cell(ref: str, value: Any, style: int = 0) -> str:
-    styled = f' s="{style}"' if style else ""
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return f'<c r="{ref}"{styled}><v>{value}</v></c>'
-    text = escape(str(value))
-    # Excel refuses control characters other than tab and new line.
-    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
-    return f'<c r="{ref}" t="inlineStr"{styled}><is><t xml:space="preserve">{text}</t></is></c>'
-
-
 def workbook(report: dict[str, Any], drawing: str, when: str) -> bytes:
-    """The run as a one-sheet .xlsx: the heading, then one row per check."""
-    rows: list[list[tuple[Any, int]]] = [[(label, 1), (value, 0)] for label, value in _heading(report, drawing, when)]
-    rows.append([])
-    rows.append([(name, 1) for name in COLUMNS])
-    rows.extend([(value, 0) for value in _cells(result)] for result in report["results"])
-    sheet_rows = []
-    for number, row in enumerate(rows, 1):
-        cells = "".join(_cell(f"{_column(i)}{number}", value, style) for i, (value, style) in enumerate(row))
-        sheet_rows.append(f'<row r="{number}">{cells}</row>')
-    sheet = (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-        '<cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="11" width="22" customWidth="1"/></cols>'
-        f"<sheetData>{''.join(sheet_rows)}</sheetData></worksheet>"
-    )
-    parts = {
-        "[Content_Types].xml": (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-            '<Default Extension="xml" ContentType="application/xml"/>'
-            '<Override PartName="/xl/workbook.xml" '
-            'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-            '<Override PartName="/xl/worksheets/sheet1.xml" '
-            'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-            '<Override PartName="/xl/styles.xml" '
-            'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
-            "</Types>"
-        ),
-        "_rels/.rels": (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            '<Relationship Id="rId1" '
-            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
-            'Target="xl/workbook.xml"/></Relationships>'
-        ),
-        "xl/workbook.xml": (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            '<sheets><sheet name="Check list" sheetId="1" r:id="rId1"/></sheets></workbook>'
-        ),
-        "xl/_rels/workbook.xml.rels": (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            '<Relationship Id="rId1" '
-            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
-            'Target="worksheets/sheet1.xml"/>'
-            '<Relationship Id="rId2" '
-            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" '
-            'Target="styles.xml"/></Relationships>'
-        ),
-        "xl/styles.xml": (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
-            '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
-            '<fills count="2"><fill><patternFill patternType="none"/></fill>'
-            '<fill><patternFill patternType="gray125"/></fill></fills>'
-            '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
-            '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-            '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
-            '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
-            "</styleSheet>"
-        ),
-        "xl/worksheets/sheet1.xml": sheet,
-    }
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name, text in parts.items():
-            archive.writestr(name, text)
-    return buffer.getvalue()
+    """The run as an .xlsx: a Summary sheet, then one row per check (written by acad/xlsx.py)."""
+    summary = [["Item", "Value"], *[[label, value] for label, value in _heading(report, drawing, when)]]
+    checks = [list(COLUMNS), *[_cells(result) for result in report["results"]]]
+    return xlsx.write([
+        ("Summary", summary, [18, 100]),
+        ("Check list", checks, [10, 10, 26, 34, 30, 10, 24, 8, 34, 40, 30]),
+    ])
 
 
 # ---------------------------------------------------------------------------

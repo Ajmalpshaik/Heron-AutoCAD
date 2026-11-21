@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Release scripts get Windows line endings on every machine (2026-11-21).** The `.bat`, `.ps1`
+  and read-me files in `tools/release_files` were stored with Linux line endings and only got CRLF
+  in a Windows checkout, so a release made on Linux or a Mac would ship them broken for `cmd`.
+  `.gitattributes` now sets CRLF for them on every checkout (the stored files are unchanged), and
+  their line-ending test runs on Linux too ([D-72](docs/DECISIONS.md)).
+- **One Excel writer (2026-11-21).** The check list report's workbook is now written by
+  `acad/xlsx.py`, the writer the attribute sheets use, instead of a second copy: a Summary sheet
+  and a Check list sheet with its header row frozen ([D-65](docs/DECISIONS.md)).
+
 - **The dialog watch can press one named button (2026-11-21, #101).** `autocad_send_command` and
   `autocad_run_lisp` take `expect_box` and `press`: the plug-in presses that button only on a box
   with exactly that title, once, in that call; every other box is still cancelled. Admin only.

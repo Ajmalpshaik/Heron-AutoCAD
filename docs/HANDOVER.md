@@ -8,7 +8,18 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the dialog watch can press one named button, #101; plug-in 1.7.0)
+## Latest - 2026-11-21 (check lists: cut-off reads, one Excel writer, release line endings)
+
+- **PR #136 (merged):** a read cut off at `max_entities` is never a PASS. `title_block_filled` says
+  NO DATA, and `autocad_check_standards` says `passed: null`, when nothing was found in the part
+  read (D-64). The tool-finding test has four check list phrases (88 of 101 first, 101 of 101 in
+  the top three). New issue **#135**: share the office check list and project changes with the
+  team. It needs Ajmal's choice of shared folder.
+- **PR #147:** release scripts check out with Windows line endings on every machine
+  (`.gitattributes`), and the check list report uses `acad/xlsx.py` (one Excel writer).
+- Still NOT RUN: live rows U1-U10 (U8 first: Excel opens the report).
+
+## Earlier - 2026-11-21 (the dialog watch can press one named button, #101; plug-in 1.7.0)
 
 `autocad_send_command` / `autocad_run_lisp` take `expect_box` + `press` (D-74). The plug-in's
 `DialogWatch` presses that button only on a box with exactly that title, once, in that Admin job;
