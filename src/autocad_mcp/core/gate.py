@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .. import __version__
-from . import audit, connection, diagnose, progress, project_notes
+from . import answers, audit, connection, diagnose, progress, project_notes
 from . import bridge as bridge_module
 from .bridge import (
     NOT_CONNECTED,
@@ -354,7 +354,11 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 return _status_heron(
                     _versions({"connected": False, "message": refusal, "diagnose": DIAGNOSE_HINT}, None)
                 )
-            return f"Error: {refusal}"
+            refused = f"Error: {refusal}"
+            if risk in WATCHED and bridge_enabled():
+                facts = answers.Facts(refused, ok=False, outcome="refused", refused_by_heron=True)
+                return answers.with_line(refused, answers.line(facts))
+            return refused
 
         ok, outcome, result = False, "failed", None
         counted: dict[str, Any] | None = None
@@ -392,14 +396,26 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                     result = _with_changes(result, counted)
 
             asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES
+            said: tuple[str, str] | None = None
             if tool in UNDOES:
                 pass  # the modeller asked for exactly this undo: no question about it
             elif asked_keep:
-                result, outcome = await _keep_or_discard(job, result if isinstance(result, str) else text, marked)
+                result, outcome, said = await _keep_or_discard(
+                    job, result if isinstance(result, str) else text, marked
+                )
                 ok = outcome != "failed"
             elif counted and counted["erased"] > 0:
                 # Anything erased gets a human yes, whatever Ask to Keep says (D-50).
                 result = await _ask_erase(job, result, counted["erased"])
+
+            if job and risk in WATCHED:
+                # One plain line first: DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN (D-62).
+                facts = answers.Facts(
+                    text, ok=ok, outcome=outcome, counted=counted, wrote=wrote, marked=marked,
+                    can_count=risk is Risk.CHANGE,
+                    word=said[0] if said else None, note=said[1] if said else None,
+                )  # fmt: skip
+                result = answers.with_line(result, answers.line(facts))
 
             if ok and tool in _CHECKS_DRAWING:
                 if risk is Risk.VIEW:
@@ -416,36 +432,53 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
             _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked)
 
 
-async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str]:
-    """Ask the plug-in; act only on a clear answer. Returns (result, outcome)."""
+async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str, tuple[str, str] | None]:
+    """Ask the plug-in; act only on a clear answer.
+
+    Returns (result, outcome, and the plain line's word and reason when the
+    gate knows better than the tool's answer: a Discard that could not run).
+    """
     beat = progress.start(lambda seconds: KEEP_WAITING.format(what=job.title, seconds=int(seconds)))
     try:
         answer = await asyncio.to_thread(job.bridge.ask_keep, job.id, job.title, _handles(text))
     finally:
         progress.stop(beat)
     if answer in ("keep", "keep_rest"):
-        return text, "done"
+        return text, "done", None
     if answer != "discard":
-        return _with_note(text, COULD_NOT_ASK), "done"
+        return _with_note(text, COULD_NOT_ASK), "done", None
     if not marked:
         return (
             "Error: Discard not possible: UNDO is off in this drawing (UNDOCTL), so the change "
             "is still there. Remove it by hand, or turn UNDO on (UNDO > All).",
             "failed",
+            (answers.DONE, "the change is still in the drawing: Discard was not possible, because UNDO is off."),
         )
     try:
         await _discard()
         left = await _still_there(_created(text))
     except AutocadError as exc:
-        return f"Error: Discard failed, the change may still be in the drawing: {exc}", "failed"
+        return (
+            f"Error: Discard failed, the change may still be in the drawing: {exc}",
+            "failed",
+            (
+                answers.OUTCOME_UNKNOWN,
+                "Discard failed, so the change may still be in the drawing: look at it before anything else.",
+            ),
+        )
     if left:
         return (
             "Error: Discard did not take: these new objects are still in the drawing: "
             + ", ".join(left)
             + ". Check the drawing and remove them by hand if needed.",
             "failed",
+            (
+                answers.OUTCOME_UNKNOWN,
+                "Discard went back to Heron's UNDO mark, but some new objects are still in the drawing, "
+                "so the mark did not hold: remove them by hand.",
+            ),
         )
-    return DISCARDED, "discarded"
+    return DISCARDED, "discarded", None
 
 
 def _with_changes(result: Any, counted: dict[str, Any]) -> Any:

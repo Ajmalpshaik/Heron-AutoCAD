@@ -130,6 +130,25 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-62 - Every change answers with one plain line first
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-168, and its failure answers).
+**Status:** in force. A Change, Admin or Publish job's answer starts with one line: `DONE`,
+`NOTHING CHANGED`, `REFUSED` or `OUTCOME UNKNOWN`, a dash, one plain sentence; then a blank line and
+the tool's own answer, unchanged. It is added in one place, the gate (`core/answers.py`, called from
+`core/gate.py`), so no tool can forget it, and saved-command runs and sequences get it the same way.
+The word comes from facts, not from what the tool says it did: the plug-in's count of objects added,
+modified and erased (D-50), whether a write began at all, Keep or Discard, and whether Heron's UNDO
+mark (D-18) was down. Rules: a padlock or guard refusal is REFUSED (nothing was sent); a tool error
+with nothing counted is REFUSED; a tool error after objects changed, or "Outcome unknown", is OUTCOME
+UNKNOWN and says whether the UNDO mark is there; a Discard is NOTHING CHANGED; a Change job that
+began no write is NOTHING CHANGED. The count is of drawing objects only, so a job that wrote and
+counted nothing (a new layer, a variable) is DONE, said carefully, and Admin and Publish jobs are
+never NOTHING CHANGED (a save, a command or a variable is not counted). Only with the plug-in on:
+with `--no-bridge` there is no count, so there is no line. Reads and views have none. Scripts and
+tests that parse answers drop the line with `answers.body()`; steps inside a sequence still see the
+tool's own answer, so "Error:" still starts a failed step there.
+
 ## D-61 - A chat reopened after a restart keeps its hold
 
 **Decided:** 2026-11-21, from Heron AI for Revit (its D-188). **Status:** in force.
