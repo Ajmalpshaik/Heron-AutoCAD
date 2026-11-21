@@ -548,10 +548,17 @@ async def autocad_clip_reference(
                 if len(corners) != 2:
                     raise AutocadError("corners must be two opposite corners, [[x1, y1], [x2, y2]].")
                 ucs = ucs_for(doc, coords)
-                a, b = (world_coords(c, ucs) for c in corners)
-                points = clip_outline.check(clip_outline.rectangle(a, b))
+                # The rectangle is square to the axes it is given in; each corner then goes to the world.
+                box = clip_outline.rectangle(corners[0], corners[1])
+                points = clip_outline.check([world_coords(c, ucs)[:2] for c in box])
             else:
                 outline = resolve_handle(doc, str(boundary))
+                normal = _try(lambda: outline.Normal)
+                if normal is not None and not (abs(float(normal[0])) <= 1e-9 and abs(float(normal[1])) <= 1e-9 and float(normal[2]) > 0):
+                    raise AutocadError(
+                        f"The outline {outline.Handle} is not drawn flat in plan facing up, so its corners are "
+                        "not world points. Draw the outline in the World UCS, or give two corners."
+                    )
                 path = read_path(outline)
                 points = clip_outline.check(clip_outline.from_polyline(path["vertices"], path["bulges"], path["closed"]))
         result: dict[str, Any] = {"handle": str(entity.Handle), "kind": kind, "clipped": not remove, "points": len(points)}

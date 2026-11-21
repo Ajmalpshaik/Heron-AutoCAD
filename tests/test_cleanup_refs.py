@@ -176,15 +176,38 @@ class TestOverkillTool:
 
     def test_confirm_erases_and_stretches_in_one_undo_step(self, monkeypatch):
         doc = patch(monkeypatch, cleanup, self.drawing())
-        out = call(cleanup.autocad_overkill(confirm=True))
+        listed = call(cleanup.autocad_overkill())
+        out = call(cleanup.autocad_overkill(confirm=True, plan_id=listed["plan_id"]))
         assert out["confirmed"] is True and sorted(doc.deleted) == ["1B", "1C"]
         assert ("1A", "EndPoint", (1000.0, 0.0, 0.0)) in doc.set
         assert doc.marks == ["start", "end"] and "keep the erased ones erased" in out["note"]
 
     def test_a_locked_layer_stops_it_before_anything_changes(self, monkeypatch):
         doc = patch(monkeypatch, cleanup, self.drawing(locked={"A-WALL"}))
-        answer = refused(cleanup.autocad_overkill(confirm=True))
+        listed = call(cleanup.autocad_overkill())
+        answer = refused(cleanup.autocad_overkill(confirm=True, plan_id=listed["plan_id"]))
         assert "A-WALL" in answer and "locked" in answer and doc.deleted == [] and doc.set == []
+
+    def test_confirm_without_the_listing_plan_id_does_nothing(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing())
+        assert "plan_id" in refused(cleanup.autocad_overkill(confirm=True))
+        assert doc.deleted == [] and doc.set == [] and doc.marks == []
+
+    def test_confirm_after_the_drawing_changed_does_nothing(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing())
+        listed = call(cleanup.autocad_overkill())
+        doc.line("1F", (0, 0), (600, 0), "A-WALL")  # someone drew another copy since
+        assert "changed since" in refused(cleanup.autocad_overkill(confirm=True, plan_id=listed["plan_id"]))
+        assert doc.deleted == [] and doc.set == []
+
+    def test_a_handle_from_another_space_is_refused(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing())
+        doc.ModelSpace.ObjectID = 1
+        for handle in ("1A", "1C"):
+            doc.by_handle[handle].OwnerID = 1
+        Ent(doc, "9A", "AcDbLine", "A-WALL", StartPoint=(0.0, 0.0, 0.0), EndPoint=(600.0, 0.0, 0.0), OwnerID=2)
+        assert "not in model space" in refused(cleanup.autocad_overkill(handles=["1A", "9A"]))
+        assert call(cleanup.autocad_overkill(handles=["1A", "1C"]))["erase_count"] == 1
 
     def test_only_the_layers_asked_for(self, monkeypatch):
         patch(monkeypatch, cleanup, self.drawing())
@@ -200,7 +223,7 @@ class TestOverkillTool:
         doc = Doc()
         doc.line("1A", (0, 0), (10, 0))
         patch(monkeypatch, cleanup, doc)
-        out = call(cleanup.autocad_overkill(confirm=True))
+        out = call(cleanup.autocad_overkill(confirm=True, plan_id="anything"))
         assert out["erase_count"] == 0 and "Nothing" in out["note"] and doc.marks == []
 
     def test_too_many_curves_is_refused(self, monkeypatch):
@@ -257,9 +280,24 @@ class TestBoundaryTool:
                                                    most_objects=800, timeout=20, layer="A-AREA"))
         (operation, args, timeout), = plugin.calls
         assert operation == "trace_boundary" and timeout == 25.0
-        assert args["window"] == [[0.0, 0.0], [10000.0, 6000.0]] and args["most_objects"] == 800
+        assert args["window"] == [[0.0, 0.0], [10000.0, 0.0], [10000.0, 6000.0], [0.0, 6000.0]]
+        assert args["point"] == [5000.0, 3000.0, 0.0] and args["most_objects"] == 800
         assert args["layer"] == "A-AREA" and args["islands"] is True and args["make"] == "polyline"
         assert out["handle"] == "3F" and out["area"] == 12.0e6 and out["verified"] is True
+
+    def test_a_window_in_a_turned_ucs_is_checked_there_and_sent_as_four_world_corners(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, Doc())
+        turned = {"UCSORG": (0.0, 0.0, 0.0), "UCSXDIR": (math.cos(math.pi / 6), math.sin(math.pi / 6), 0.0),
+                  "UCSYDIR": (-math.sin(math.pi / 6), math.cos(math.pi / 6), 0.0)}
+        doc.GetVariable = lambda name: turned[name]
+        Ent(doc, "3F", "AcDbPolyline")
+        plugin = with_plugin(monkeypatch, Plugin({"handle": "3F"}))
+        # (1, 9) is inside the UCS square 0,0 - 10,10, though not inside its world box.
+        call(cleanup.autocad_trace_boundary(point_inside=[1, 9], window=[[0, 0], [10, 10]], coords="ucs"))
+        args = plugin.calls[0][1]
+        c, s = math.cos(math.pi / 6), math.sin(math.pi / 6)
+        assert args["window"][1] == pytest.approx([10 * c, 10 * s])
+        assert args["point"][:2] == pytest.approx([1 * c - 9 * s, 1 * s + 9 * c])
 
     def test_no_answer_in_time_says_what_to_do(self, monkeypatch):
         patch(monkeypatch, cleanup, Doc())
@@ -432,6 +470,22 @@ class TestClipReference:
         assert operation == "clip_reference" and args["handle"] == "5B" and len(args["points"]) == 4
         assert out["kind"] == "xref" and out["clipped"] is True
 
+    def test_corners_in_a_turned_ucs_make_a_turned_square(self, monkeypatch):
+        doc = self.drawing(monkeypatch)
+        turned = {"UCSORG": (0.0, 0.0, 0.0), "UCSXDIR": (math.cos(math.pi / 4), math.sin(math.pi / 4), 0.0),
+                  "UCSYDIR": (-math.sin(math.pi / 4), math.cos(math.pi / 4), 0.0)}
+        doc.GetVariable = lambda name: turned[name]
+        out = call(xrefs.autocad_clip_reference(handle="5A", corners=[[0, 0], [10, 10]], coords="ucs"))
+        ring = [s for s in doc.set if s[1] == "ClipBoundary"][0][2]
+        corners = list(zip(ring[0::2], ring[1::2], strict=True))[:-1]
+        sides = [math.dist(corners[i], corners[(i + 1) % 4]) for i in range(4)]
+        assert out["points"] == 4 and sides == pytest.approx([10, 10, 10, 10])
+
+    def test_an_outline_not_facing_up_is_refused(self, monkeypatch):
+        doc = self.drawing(monkeypatch)
+        doc.by_handle["5E"].Normal = (0.0, 0.0, -1.0)
+        assert "facing up" in refused(xrefs.autocad_clip_reference(handle="5A", boundary="5E"))
+
     def test_an_underlay_goes_to_the_plugin(self, monkeypatch):
         self.drawing(monkeypatch)
         plugin = with_plugin(monkeypatch, Plugin({}))
@@ -490,10 +544,18 @@ class TestTransmittalPlan:
         assert transmittal.find_file("nothere.shx", [str(tmp_path)]) == ""
 
     def test_an_earlier_pack_is_never_written_over(self, tmp_path):
-        (tmp_path / "M-101 - Transmittal.zip").write_bytes(b"old")
+        old = tmp_path / "M-101 - Transmittal.zip"
+        old.write_bytes(b"old")
         assert transmittal.free_target(tmp_path, "M-101 - Transmittal", True).name == "M-101 - Transmittal (2).zip"
         with pytest.raises(FileExistsError):
-            transmittal.write({"packed": []}, tmp_path / "M-101 - Transmittal.zip", True, "")
+            transmittal.write({"packed": []}, old, True, "")
+        assert old.read_bytes() == b"old"
+
+    def test_a_failed_zip_takes_away_only_its_own_file(self, tmp_path):
+        target = tmp_path / "pack.zip"
+        with pytest.raises(OSError):
+            transmittal.write({"packed": [{"from": str(tmp_path / "gone.dwg"), "to": "gone.dwg"}]}, target, True, "")
+        assert not target.exists()
 
 
 class XrefBlocks:
@@ -559,6 +621,29 @@ class TestETransmitTool:
         missing = {(m["kind"], m["name"]) for m in out["missing"]}
         assert missing == {("xref", "D:\\Gone\\S.dwg"), ("image", "D:\\Photos\\site.jpg")}
         assert out["system_fonts"] == ["Arial"] and "warning" in out
+        assert "not_looked_inside" not in out
+
+    def test_an_unloaded_xref_is_packed_and_named_as_not_looked_inside(self, monkeypatch, tmp_path):
+        doc, deps = self.project(tmp_path)
+        doc.Blocks.items[0].XRefDatabase = None  # ARCH is there but not loaded
+        monkeypatch.setattr(cleanup, "run", _now)
+        monkeypatch.setattr(cleanup, "get_doc", lambda: doc)
+        with_plugin(monkeypatch, Plugin(deps))
+        out = call(cleanup.autocad_etransmit(list_only=True))
+        assert out["not_looked_inside"] == ["ARCH"] and any(r["to"] == "A-101.dwg" for r in out["packed"])
+
+    def test_a_windows_font_is_listed_not_packed(self, monkeypatch, tmp_path):
+        doc, deps = self.project(tmp_path)
+        windows = tmp_path / "Windows"
+        (windows / "Fonts").mkdir(parents=True)
+        (windows / "Fonts" / "arial.ttf").write_bytes(b"ttf")
+        monkeypatch.setenv("WINDIR", str(windows))
+        deps["fonts"].append({"name": "arial.ttf", "found": str(windows / "Fonts" / "arial.ttf"), "used_by": "text style NOTES"})
+        monkeypatch.setattr(cleanup, "run", _now)
+        monkeypatch.setattr(cleanup, "get_doc", lambda: doc)
+        with_plugin(monkeypatch, Plugin(deps))
+        out = call(cleanup.autocad_etransmit(list_only=True))
+        assert "arial.ttf" in out["system_fonts"] and not any(r["to"] == "arial.ttf" for r in out["packed"])
 
     def test_list_only_writes_nothing(self, monkeypatch, tmp_path):
         doc, deps = self.project(tmp_path)

@@ -154,9 +154,13 @@ guessed.
 D-50.
 - **Overkill** (`autocad_overkill`) reads lines, arcs, circles and polylines over COM and works out
   in plain Python (`acad/overkill.py`, tested offline) what is a copy, what lies inside or overlaps
-  on one line or one circle, and what lies on a polyline. The first call lists it by handle; only
-  `confirm=true` erases and stretches, in one undo step, and then the plug-in's erase question asks
-  the modeller (D-50), as for every erase. The oldest object (lowest handle) is the one kept. A
+  on one line or one circle, and what lies on a polyline. The tolerance never adds up from one
+  piece to the next: everything erased or merged lies within it of the kept line (or circle), and
+  the kept one is only stretched along itself (found in review: a pair-by-pair check could turn a
+  curve of short lines into one straight line). The first call lists it by handle with a `plan_id`;
+  only `confirm=true` with that `plan_id` erases and stretches, so the confirm does exactly what was
+  listed or nothing, in one undo step, and then the plug-in's erase question asks the modeller
+  (D-50), as for every erase. The oldest object (lowest handle) is the one kept. A
   polyline is never broken or changed: Heron cannot do that in one safe step, so overlaps on
   polylines are listed, not fixed. Typing OVERKILL was not used: its dialog and prompts cannot be
   shown as a list first.

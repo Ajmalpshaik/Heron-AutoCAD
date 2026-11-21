@@ -193,6 +193,10 @@ def _pieces(items: Sequence[dict[str, Any]], plan: Plan, tol: float, layer_key: 
             else:
                 start = float(item["start_angle"]) % TAU
                 sweep = (float(item["end_angle"]) - float(item["start_angle"])) % TAU
+                if sweep <= 1e-12:
+                    # Its ends meet: AutoCAD may show it as a whole circle, so it is not "zero length".
+                    plan.skipped.append({"handle": handle, "type": kind, "why": "its start and end angles are the same"})
+                    continue
             if radius <= tol or radius * sweep <= tol:
                 plan.drop(handle, kind, "zero length")
                 continue
@@ -361,12 +365,18 @@ def _straight_groups(pieces: list[Piece], tol: float, join: bool, layer_key: Cal
     return out
 
 
-def _covered(span: tuple[float, float], cover: list[tuple[float, float]], tol: float) -> bool:
-    return any(c[0] <= span[0] + tol and c[1] >= span[1] - tol for c in cover)
+def _on_line(p: Piece, line: Piece, tol: float) -> bool:
+    """Both ends of p within tol of line's infinite line."""
+    return all(_distance_to_line(pt, line.p1, line.p2) <= tol for pt in (p.p1, p.p2))
 
 
-def _overlaps(span: tuple[float, float], cover: list[tuple[float, float]], tol: float) -> bool:
-    return any(min(span[1], c[1]) - max(span[0], c[0]) > tol for c in cover)
+def _span_on(p: Piece, line: Piece) -> tuple[float, float]:
+    a, b = _along(p.p1, line.p1, line.p2), _along(p.p2, line.p1, line.p2)
+    return (a, b) if a <= b else (b, a)
+
+
+def _touches(a: float, b: float, lo: float, hi: float, tol: float, join: bool) -> bool:
+    return (a <= hi + tol and b >= lo - tol) if join else (min(b, hi) - max(a, lo) > tol)
 
 
 def _merge_spans(spans: list[tuple[float, float]], tol: float) -> list[tuple[float, float]]:
@@ -380,69 +390,68 @@ def _merge_spans(spans: list[tuple[float, float]], tol: float) -> list[tuple[flo
 
 
 def _straight(group: list[Piece], plan: Plan, tol: float, join: bool) -> None:
-    ref = max(group, key=lambda p: p.length)
+    """Merge and erase loose lines in one group.
 
-    def span(p: Piece) -> tuple[tuple[float, float], tuple[tuple[float, float], tuple[float, float]]]:
-        a, b = _along(p.p1, ref.p1, ref.p2), _along(p.p2, ref.p1, ref.p2)
-        return ((a, b), (p.p1, p.p2)) if a <= b else ((b, a), (p.p2, p.p1))
-
+    The tolerance is never chained: every line erased or merged lies within
+    it of the line that is kept, and the kept line is only ever stretched
+    along itself. A line further off stays, for its own turn as a keeper.
+    """
     fixed = [p for p in group if not p.free]
-    loose = [p for p in group if p.free]
-    cover = _merge_spans([span(p)[0] for p in fixed], tol)
     for i, p in enumerate(fixed):
         for q in fixed[i + 1:]:
-            (sa, _), (sb, _) = span(p), span(q)
-            if min(sa[1], sb[1]) - max(sa[0], sb[0]) > tol:
+            if _collinear_overlap(p, q, tol, False):
                 why = (
                     f"polyline {p.handle} doubles back over itself"
                     if p.handle == q.handle
                     else "two polylines overlap here; Heron does not break polylines"
                 )
                 plan.leave([p.handle, q.handle], why)
-    # Loose lines, in runs that overlap (or touch, with join), each run in order along the line.
-    rows = sorted(((span(p), p) for p in loose), key=lambda r: r[0][0][0])
-    runs: list[list[Any]] = []
-    for row in rows:
-        (a, b), _ = row[0]
-        if runs:
-            end = max(r[0][0][1] for r in runs[-1])
-            if (a <= end + tol) if join else (a < end - tol):
-                runs[-1].append(row)
-                continue
-        runs.append([row])
-    for run in runs:
-        members = [r[1] for r in run]
-        low = min(run, key=lambda r: r[0][0][0])
-        high = max(run, key=lambda r: r[0][0][1])
-        extent = (low[0][0][0], high[0][0][1])
-        if cover and _covered(extent, cover, tol):
-            owner = next((p.handle for p in fixed if _overlaps(extent, [span(p)[0]], tol)), fixed[0].handle)
-            for p in members:
+    remaining = sorted((p for p in group if p.free), key=lambda p: handle_order(p.handle))
+    while remaining:
+        keeper = remaining[0]
+        # One sweep along the keeper's line: the stretch of touching spans that holds the keeper.
+        spans = sorted(
+            [((0.0, keeper.length), keeper)] + [(_span_on(p, keeper), p) for p in remaining[1:] if _on_line(p, keeper, tol)],
+            key=lambda s: s[0][0],
+        )
+        clusters: list[list[Any]] = []
+        for (a, b), p in spans:
+            if clusters and _touches(a, b, clusters[-1][0], clusters[-1][1], tol, join):
+                clusters[-1][1] = max(clusters[-1][1], b)
+                clusters[-1][2].append(p)
+            else:
+                clusters.append([a, b, [p]])
+        lo, hi, members = next(c for c in clusters if any(m is keeper for m in c[2]))
+        run = [keeper] + [m for m in members if m is not keeper]
+        taken = {id(m) for m in run}
+        remaining = [p for p in remaining if id(p) not in taken]
+        # A polyline segment covers the run only if every line in it lies on that segment's line.
+        carriers = [f for f in fixed if all(_on_line(m, f, tol) for m in run)]
+        cover = _merge_spans([_span_on(f, keeper) for f in carriers], tol)
+        if any(c[0] <= lo + tol and c[1] >= hi - tol for c in cover):
+            owner = next((f.handle for f in carriers if min(_span_on(f, keeper)[1], hi) - max(_span_on(f, keeper)[0], lo) > tol), carriers[0].handle)
+            for p in run:
                 plan.drop(p.handle, p.kind, f"lies on polyline {owner}", owner)
             continue
-        if cover and _overlaps(extent, cover, tol):
-            owners = [p.handle for p in fixed if _overlaps(extent, [span(p)[0]], tol)]
-            plan.leave([p.handle for p in members] + owners, "a line partly overlaps a polyline; Heron does not break polylines")
-        if len(members) < 2:
+        partly = sorted({f.handle for f in fixed for m in run if _collinear_overlap(f, m, tol, False)}, key=handle_order)
+        if partly:
+            plan.leave([p.handle for p in run] + partly, "a line partly overlaps a polyline; Heron does not break polylines")
+        if len(run) < 2:
             continue
-        keeper = min(members, key=lambda p: handle_order(p.handle))
-        (ka, kb), _ = span(keeper)
-        for p in members:
-            if p is keeper:
-                continue
-            (pa, pb), _ = span(p)
-            if abs(pa - ka) <= tol and abs(pb - kb) <= tol:
+        for p in run[1:]:
+            a, b = _span_on(p, keeper)
+            if abs(a) <= tol and abs(b - keeper.length) <= tol:
                 reason = f"a copy of line {keeper.handle}"
-            elif pa >= ka - tol and pb <= kb + tol:
+            elif a >= -tol and b <= keeper.length + tol:
                 reason = f"lies inside line {keeper.handle}"
             else:
                 reason = f"merged into line {keeper.handle}"
             plan.drop(p.handle, p.kind, reason, keeper.handle)
-        if extent[0] < ka - tol or extent[1] > kb + tol:
-            first, last = low[0][1][0], high[0][1][1]
-            # Keep the keeper's own direction.
-            forwards = _along(keeper.p2, ref.p1, ref.p2) >= _along(keeper.p1, ref.p1, ref.p2)
-            start, end = (first, last) if forwards else (last, first)
+        if lo < -tol or hi > keeper.length + tol:
+            ux = (keeper.p2[0] - keeper.p1[0]) / keeper.length
+            uy = (keeper.p2[1] - keeper.p1[1]) / keeper.length
+            start = (keeper.p1[0] + ux * lo, keeper.p1[1] + uy * lo)
+            end = (keeper.p1[0] + ux * hi, keeper.p1[1] + uy * hi)
             plan.change.append(
                 {
                     "handle": keeper.handle,
@@ -450,9 +459,10 @@ def _straight(group: list[Piece], plan: Plan, tol: float, join: bool) -> None:
                     "start": [start[0], start[1], keeper.z],
                     "end": [end[0], end[1], keeper.z],
                     "was": {"start": [*keeper.p1, keeper.z], "end": [*keeper.p2, keeper.z]},
-                    "why": f"stretched over the {len(members) - 1} line(s) merged into it",
+                    "why": f"stretched along itself over the {len(run) - 1} line(s) merged into it",
                 }
             )
+
 
 
 # ---- round pieces ------------------------------------------------------------------
@@ -485,120 +495,104 @@ def _ahead(a: float, b: float) -> float:
     return (b - a) % TAU
 
 
-def _arc_runs(items: list[tuple[float, float, Any]], step: float) -> list[list[Any]]:
-    """Circular runs of (start, sweep, payload) that overlap or touch within step: [start, sweep, payloads]."""
-    rows = sorted(items, key=lambda r: r[0])
-    runs: list[list[Any]] = []
-    for start, sweep, payload in rows:
-        if runs and start <= runs[-1][0] + runs[-1][1] + step:
-            runs[-1][1] = max(runs[-1][1], start + sweep - runs[-1][0])
-            runs[-1][2].append(payload)
-        else:
-            runs.append([start, sweep, [payload]])
-    # The last run may reach round past 0 into the first.
-    while len(runs) > 1 and runs[0][0] + TAU <= runs[-1][0] + runs[-1][1] + step:
-        first = runs.pop(0)
-        last = runs[-1]
-        last[1] = max(last[1], first[0] + TAU + first[1] - last[0])
-        last[2].extend(first[2])
-    for run in runs:
-        run[1] = min(run[1], TAU)
-    return runs
+def _same_circle(p: Piece, q: Piece, tol: float) -> bool:
+    return math.dist(p.centre, q.centre) <= tol and abs(p.radius - q.radius) <= tol
 
 
-def _arc_covered(start: float, sweep: float, cover: list[list[Any]], step: float) -> bool:
-    for c_start, c_sweep, _ in cover:
-        if c_sweep >= TAU - step:
-            return True
-        d = _ahead(c_start, start)
-        if d > TAU - step:
-            d -= TAU
-        if d >= -step and d + sweep <= c_sweep + step:
-            return True
-    return False
+def _placings(p: Piece, keeper: Piece) -> list[tuple[float, float]]:
+    """p's stretch of the circle measured from the keeper's start: once, and once a turn either side."""
+    d = _ahead(keeper.start, p.start)
+    return [(d + k * TAU, d + k * TAU + p.sweep) for k in (-1, 0, 1)]
 
 
-def _arc_overlaps(start: float, sweep: float, other_start: float, other_sweep: float, step: float) -> bool:
-    return _ahead(start, other_start) < sweep - step or _ahead(other_start, start) < other_sweep - step
+def _arc_overlaps(p: Piece, q: Piece, step: float) -> bool:
+    return any(min(b, q.sweep) - max(a, 0.0) > step for a, b in _placings(p, q))
 
 
 def _round(group: list[Piece], plan: Plan, tol: float, join: bool) -> None:
-    radius = max(p.radius for p in group)
-    step = tol / radius
+    """Erase and merge loose arcs and circles in one group, never chaining the tolerance (as _straight)."""
     fixed = [p for p in group if not p.free]
-    circles = sorted((p for p in group if p.free and p.kind == "circle"), key=lambda p: handle_order(p.handle))
-    arcs = [p for p in group if p.free and p.kind == "arc"]
-    cover = _arc_runs([(p.start, p.sweep, p) for p in fixed], step)
     for i, p in enumerate(fixed):
         for q in fixed[i + 1:]:
-            if _arc_overlaps(p.start, p.sweep, q.start, q.sweep, step):
+            if _same_circle(p, q, tol) and _arc_overlaps(p, q, tol / max(p.radius, q.radius)):
                 why = (
                     f"polyline {p.handle} doubles back over itself"
                     if p.handle == q.handle
                     else "two polylines overlap here; Heron does not break polylines"
                 )
                 plan.leave([p.handle, q.handle], why)
-    if circles:
-        keeper = circles[0]
-        for c in circles[1:]:
-            plan.drop(c.handle, "circle", f"a copy of circle {keeper.handle}", keeper.handle)
-        for a in arcs:
-            plan.drop(a.handle, "arc", f"lies on circle {keeper.handle}", keeper.handle)
-        if fixed and _arc_covered(0.0, TAU, cover, step):
-            owner = fixed[0].handle
-            plan.drop(keeper.handle, "circle", f"lies on polyline {owner}", owner)
-        elif fixed:
-            plan.leave([keeper.handle] + [p.handle for p in fixed], "a circle overlaps a polyline's arcs; Heron does not break polylines")
-        return
-    loose_step = step if join else -step
-    for start, sweep, members in _arc_runs([(p.start, p.sweep, p) for p in arcs], loose_step):
-        if cover and _arc_covered(start, sweep, cover, step):
-            owner = next((p.handle for p in fixed if _arc_overlaps(start, sweep, p.start, p.sweep, step)), fixed[0].handle)
-            for p in members:
-                plan.drop(p.handle, "arc", f"lies on polyline {owner}", owner)
+    loose = sorted((p for p in group if p.free), key=lambda p: (p.kind != "circle", handle_order(p.handle)))
+    remaining = list(loose)
+    while remaining:
+        keeper = remaining[0]
+        step = tol / keeper.radius
+        on = [p for p in remaining[1:] if _same_circle(p, keeper, tol)]
+        carriers = [f for f in fixed if _same_circle(f, keeper, tol)]
+        if keeper.kind == "circle":
+            remaining = [p for p in remaining if p is not keeper and all(p is not o for o in on)]
+            for p in on:
+                what = "a copy of circle" if p.kind == "circle" else "lies on circle"
+                plan.drop(p.handle, p.kind, f"{what} {keeper.handle}", keeper.handle)
+            cover = _merge_spans([s for f in carriers for s in _placings(f, keeper)], step)
+            if any(a <= step and b >= TAU - step for a, b in cover):
+                plan.drop(keeper.handle, "circle", f"lies on polyline {carriers[0].handle}", carriers[0].handle)
+            elif carriers:
+                plan.leave([keeper.handle] + [f.handle for f in carriers], "a circle overlaps a polyline's arcs; Heron does not break polylines")
             continue
-        if cover and any(_arc_overlaps(start, sweep, p.start, p.sweep, step) for p in fixed):
-            owners = [p.handle for p in fixed if _arc_overlaps(start, sweep, p.start, p.sweep, step)]
-            plan.leave([p.handle for p in members] + owners, "an arc partly overlaps a polyline; Heron does not break polylines")
-        if len(members) < 2:
+        lo, hi = 0.0, keeper.sweep
+        run = [keeper]
+        grown = True
+        while grown and hi - lo < TAU - step:
+            grown = False
+            for p in list(on):
+                for a, b in _placings(p, keeper):
+                    if _touches(a, b, lo, hi, step, join):
+                        run.append(p)
+                        on.remove(p)
+                        lo, hi = min(lo, a), max(hi, b)
+                        grown = True
+                        break
+        remaining = [p for p in remaining if all(p is not r for r in run)]
+        cover = _merge_spans([s for f in carriers for s in _placings(f, keeper)], step)
+        if any(a <= lo + step and b >= hi - step for a, b in cover):
+            for p in run:
+                plan.drop(p.handle, "arc", f"lies on polyline {carriers[0].handle}", carriers[0].handle)
             continue
-        keeper = min(members, key=lambda p: handle_order(p.handle))
-        if sweep >= TAU - step:
+        partly = sorted({f.handle for f in carriers for m in run if _arc_overlaps(m, f, step)}, key=handle_order)
+        if partly:
+            plan.leave([p.handle for p in run] + partly, "an arc partly overlaps a polyline; Heron does not break polylines")
+        if len(run) < 2:
+            continue
+        if hi - lo >= TAU - step:
             # Together they go all the way round: one arc cannot be a whole
-            # circle, so only arcs wholly inside another one go.
-            for p in members:
-                host = next(
-                    (q for q in members if q is not p and q.handle not in plan._erased
-                     and _arc_covered(p.start, p.sweep, [[q.start, q.sweep, q]], step)),
-                    None,
-                )
-                if host is not None:
-                    plan.drop(p.handle, "arc", f"lies inside arc {host.handle}", host.handle)
-            plan.leave([p.handle for p in members if p.handle not in plan._erased],
+            # circle, so only arcs wholly inside the keeper go.
+            for p in run[1:]:
+                if any(a >= -step and b <= keeper.sweep + step for a, b in _placings(p, keeper)):
+                    plan.drop(p.handle, "arc", f"lies inside arc {keeper.handle}", keeper.handle)
+            plan.leave([p.handle for p in run if p.handle not in plan._erased],
                        "these arcs together make a whole circle; draw a circle instead")
             continue
-        for p in members:
-            if p is keeper:
-                continue
-            same = abs(_ahead(keeper.start, p.start)) <= step or abs(_ahead(keeper.start, p.start) - TAU) <= step
-            if same and abs(p.sweep - keeper.sweep) <= step:
+        for p in run[1:]:
+            spans = _placings(p, keeper)
+            if any(abs(a) <= step and abs(b - keeper.sweep) <= step for a, b in spans):
                 reason = f"a copy of arc {keeper.handle}"
-            elif _arc_covered(p.start, p.sweep, [[keeper.start, keeper.sweep, keeper]], step):
+            elif any(a >= -step and b <= keeper.sweep + step for a, b in spans):
                 reason = f"lies inside arc {keeper.handle}"
             else:
                 reason = f"merged into arc {keeper.handle}"
             plan.drop(p.handle, "arc", reason, keeper.handle)
-        if not _arc_covered(start, sweep, [[keeper.start, keeper.sweep, keeper]], step):
+        if lo < -step or hi > keeper.sweep + step:
             plan.change.append(
                 {
                     "handle": keeper.handle,
                     "type": "arc",
-                    "start_angle": start % TAU,
-                    "end_angle": (start + sweep) % TAU,
+                    "start_angle": (keeper.start + lo) % TAU,
+                    "end_angle": (keeper.start + hi) % TAU,
                     "was": {"start_angle": keeper.start, "end_angle": (keeper.start + keeper.sweep) % TAU},
-                    "why": f"stretched over the {len(members) - 1} arc(s) merged into it",
+                    "why": f"stretched round its own circle over the {len(run) - 1} arc(s) merged into it",
                 }
             )
+
 
 
 def plan(

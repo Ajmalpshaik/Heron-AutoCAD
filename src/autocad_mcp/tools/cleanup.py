@@ -10,6 +10,8 @@
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -103,10 +105,21 @@ def read_curve(entity: Any) -> dict[str, Any] | None:
 def _curves_in(doc: Any, space: str, layers: list[str] | None, handles: list[str] | None) -> tuple[list[dict[str, Any]], int]:
     """The curves to look at, and how many objects were read to find them."""
     wanted = {name.strip().lower() for name in layers} if layers else None
+    container = get_space(doc, space)
     if handles:
-        entities = [resolve_handle(doc, h) for h in handles]
+        # Only objects in this space: one in another layout, or inside a block
+        # definition (every insert would change), is never looked at.
+        owner = _try(lambda: container.ObjectID)
+        entities = []
+        for h in handles:
+            entity = resolve_handle(doc, h)
+            if owner is not None and _try(lambda e=entity: e.OwnerID) != owner:
+                raise AutocadError(
+                    f"{entity.Handle} is not in {space} space (it is in another layout or inside a block). "
+                    "Give handles from one space only. Nothing was changed."
+                )
+            entities.append(entity)
     else:
-        container = get_space(doc, space)
         count = int(container.Count)
         if count > MOST_SCANNED:
             raise AutocadError(
@@ -147,6 +160,12 @@ def _short(rows: list[dict[str, Any]], most: int = MOST_LISTED) -> list[dict[str
     return rows[:most]
 
 
+def _fingerprint(found: dict[str, Any]) -> str:
+    """A short fingerprint of exactly what would be erased and stretched, to tie confirm to the list shown."""
+    text = json.dumps({"erase": found["erase"], "change": found["change"]}, sort_keys=True, default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
 @mcp.tool(name="autocad_overkill", **tool_meta("Overkill: Delete Duplicate And Overlapping Lines", destructive=True))
 @tool_errors
 async def autocad_overkill(
@@ -157,6 +176,7 @@ async def autocad_overkill(
     join_end_to_end: Annotated[bool, Field(default=False, description="true: lines (and arcs) that only touch end to end in one straight run are joined into one too, as OVERKILL's 'combine co-linear objects when aligned end to end'.")] = False,
     space: Annotated[str, SPACE_OPT] = "model",
     confirm: Annotated[bool, Field(default=False, description="false (the default) only lists what would be erased and stretched. true does it, in one undo step, after the modeller has seen the list.")] = False,
+    plan_id: Annotated[str | None, Field(default=None, description="With confirm=true: the plan_id the listing call gave. If the drawing changed since, nothing is done and it says so.")] = None,
 ) -> str:
     """Find and delete doubled and overlapping lines, arcs and circles - AutoCAD's OVERKILL.
 
@@ -171,8 +191,9 @@ async def autocad_overkill(
     Polylines are never broken or changed: where one overlaps another, or a
     loose line lies only partly on one, it is listed under 'left'.
 
-    The first call changes nothing. With confirm=true it erases and
-    stretches in one undo step, and AutoCAD then asks the modeller whether
+    The first call changes nothing and gives a plan_id. With confirm=true
+    and that plan_id it erases and stretches exactly what was listed (if
+    the drawing changed since, nothing is done) in one undo step, and AutoCAD then asks the modeller whether
     to keep the erased objects erased (Heron's erase question): anything
     but "keep them erased" brings them back.
 
@@ -184,9 +205,10 @@ async def autocad_overkill(
         join_end_to_end (bool): also join lines touching end to end.
         space (str): 'model' or 'paper'.
         confirm (bool): false lists, true does it.
+        plan_id (Optional[str]): the listing's plan_id, needed with confirm.
 
     Returns:
-        str: JSON: {"confirmed": bool, "looked_at": int, "erase_count": int,
+        str: JSON: {"confirmed": bool, "plan_id": str, "looked_at": int, "erase_count": int,
              "stretch_count": int, "erase": [{"handle", "type", "reason",
              "kept"}], "change": [{"handle", "type", "start", "end" |
              "start_angle", "end_angle", "was", "why"}],
@@ -194,7 +216,7 @@ async def autocad_overkill(
 
     Examples:
         - Use when: "the architect's import has doubled lines, clean them up"
-          — first call lists them, then confirm=true.
+          — first call lists them, then confirm=true with its plan_id.
         - Use when: "run overkill on the A-WALL layer" — layers=['A-WALL'].
         - Use when: "delete duplicate lines after the Revit export".
         - Use when: "merge the overlapping duct lines into one".
@@ -208,6 +230,8 @@ async def autocad_overkill(
           give layers or handles, or type OVERKILL in AutoCAD.
         - A locked layer among the objects to change is named, and nothing
           is changed.
+        - confirm=true without the listing's plan_id, or after the drawing
+          changed, does nothing and says to list again.
     """
 
     def work() -> dict[str, Any]:
@@ -215,8 +239,10 @@ async def autocad_overkill(
         require_idle(doc)
         items, scanned = _curves_in(doc, space, layers, handles)
         found = overkill_geometry.plan(items, tolerance, ignore_layer, join_end_to_end)
+        fingerprint = _fingerprint(found)
         result: dict[str, Any] = {
             "confirmed": False,
+            "plan_id": fingerprint,
             "objects_read": scanned,
             "looked_at": found["looked_at"],
             "erase_count": len(found["erase"]),
@@ -236,9 +262,18 @@ async def autocad_overkill(
         if not confirm:
             result["next_step"] = (
                 "Nothing was changed. Show the modeller this list (autocad_show can point at the "
-                "handles), and call again with the same options and confirm=true once they agree."
+                f"handles), and call again with the same options, confirm=true and plan_id='{fingerprint}' "
+                "once they agree."
             )
             return result
+        if plan_id != fingerprint:
+            raise AutocadError(
+                "Nothing was changed: "
+                + ("confirm=true needs the plan_id the listing call gave, so only what was listed is done. "
+                   if not plan_id else
+                   "the drawing (or the options) changed since that list, so it is not what the modeller saw. ")
+                + "Call again without confirm to list it, show it, then confirm with the new plan_id."
+            )
         acting_on = {r["handle"] for r in found["erase"] + found["change"]}
         touched = {str(i["layer"]) for i in items if i["handle"] in acting_on}
         locked = _locked(doc, touched)
@@ -285,7 +320,10 @@ def boundary_request(
     most_objects: int,
     timeout: float,
 ) -> dict[str, Any]:
-    """The plug-in's trace_boundary arguments, checked before AutoCAD is asked (world coordinates).
+    """The plug-in's trace_boundary arguments, checked before AutoCAD is asked.
+
+    In the axes the point and window are given in; the tool then turns them
+    into world points, the window into its four corners.
 
     Refused here: a point that is not [x, y], a window that is not two
     corners with a size, a point outside its window, an object limit or a
@@ -326,7 +364,7 @@ def boundary_request(
 @mcp.tool(name="autocad_trace_boundary", **tool_meta("Boundary: Closed Outline Round A Point"))
 @tool_errors
 async def autocad_trace_boundary(
-    point_inside: Annotated[list[float], Field(description="A point inside the room or zone, [x, y]. Like picking inside it at BOUNDARY's prompt.")],
+    point_inside: Annotated[list[float], Field(description="A point inside the room or zone, [x, y] (or [x, y, z]). Like picking inside it at BOUNDARY's prompt.")],
     window: Annotated[
         list[list[float]] | None,
         Field(default=None, description="Two opposite corners round the room, [[x1, y1], [x2, y2]]: AutoCAD zooms there, traces only what is in view, then zooms back. Strongly advised on a big plan. Omit to trace what is on screen now."),
@@ -390,9 +428,13 @@ async def autocad_trace_boundary(
         doc = get_doc()
         require_idle(doc)
         ucs = ucs_for(doc, coords)
-        seed = world_coords(point_inside, ucs)
-        corners = [world_coords(c, ucs)[:2] for c in window] if window else None
-        args = boundary_request(seed, corners, islands, make, most_objects, timeout)
+        # Checked in the axes the point and window are given in; then sent as world points,
+        # the window as its four corners (square to the UCS, so maybe turned in the world).
+        args = boundary_request(list(point_inside), window, islands, make, most_objects, timeout)
+        args["point"] = world_coords(args["point"], ucs)
+        if "window" in args:
+            (x1, y1), (x2, y2) = args["window"]
+            args["window"] = [world_coords(c, ucs)[:2] for c in ((x1, y1), (x2, y1), (x2, y2), (x1, y2))]
         args["layer"] = layer
         args["color"] = to_aci(color)
         try:
@@ -437,10 +479,23 @@ def _drawing_file(doc: Any) -> str:
     return full
 
 
-def gather(doc: Any, full: str, deps: dict[str, Any], plot_style_folders: list[str]) -> list[transmittal.Need]:
-    """Every file the drawing needs, found or not: the drawing, xrefs (nested too), images, underlays, fonts, plot styles."""
+def _windows_font(path: str) -> bool:
+    """True for a font in Windows' own Fonts folder: every PC has those, and they are not Heron's to hand out."""
+    fonts = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts")
+    return os.path.normcase(os.path.dirname(os.path.abspath(path))) == os.path.normcase(os.path.abspath(fonts))
+
+
+def gather(doc: Any, full: str, deps: dict[str, Any], plot_style_folders: list[str]) -> tuple[list[transmittal.Need], list[str], list[str]]:
+    """Every file the drawing needs, found or not; the Windows fonts it uses; the xrefs not looked inside.
+
+    Xrefs come nested too, then images, underlays, fonts and plot styles.
+    An xref that is not loaded is packed, but what it needs in turn
+    (its own xrefs, images and fonts) could not be read, so it is named.
+    """
     folder = os.path.dirname(full)
     needs = [transmittal.Need("drawing", os.path.basename(full), full)]
+    windows_fonts: list[str] = []
+    unread: list[str] = []
     loaded = {str(x.get("name", "")).lower(): str(x.get("file", "")) for x in deps.get("xrefs", [])}
     for node in _walk(_xref_nodes(doc.Blocks, folder, 1, {full.lower()})):
         found = node["found_path"]
@@ -448,18 +503,23 @@ def gather(doc: Any, full: str, deps: dict[str, Any], plot_style_folders: list[s
             file = loaded.get(node["name"].lower(), "")
             found = file if file and os.path.isfile(file) else ""
         needs.append(transmittal.Need("xref", node["saved_path"] or node["name"], found, node["name"]))
+        if node["status"] == "unloaded":
+            unread.append(node["name"])
     for kind, key in (("image", "images"), ("underlay", "underlays"), ("font", "fonts")):
         for row in deps.get(key, []):
             name = str(row.get("name", ""))
             found = str(row.get("found", "") or "")
             if not found or not os.path.isfile(found):
                 found = transmittal.find_file(name, [folder])
+            if kind == "font" and found and _windows_font(found):
+                windows_fonts.append(os.path.basename(found))
+                continue
             needs.append(transmittal.Need(kind, name, found, str(row.get("used_by", ""))))
     for row in deps.get("plot_styles", []):
         name = str(row.get("name", ""))
         if name:
             needs.append(transmittal.Need("plot style", name, transmittal.find_file(name, plot_style_folders), str(row.get("used_by", ""))))
-    return needs
+    return needs, windows_fonts, sorted(set(unread), key=str.lower)
 
 
 @mcp.tool(name="autocad_etransmit", **tool_meta("eTransmit: Pack A Drawing With Its Files"))
@@ -523,15 +583,21 @@ async def autocad_etransmit(
         full = _drawing_file(doc)
         deps = in_plugin("list_dependencies", {}, "eTransmit", changes=False)
         plot_folder = str(_try(lambda: doc.Application.Preferences.Files.PrinterStyleSheetPath, "") or "")
-        needs = gather(doc, full, deps, [f for f in plot_folder.split(";") if f.strip()])
+        needs, windows_fonts, unread = gather(doc, full, deps, [f for f in plot_folder.split(";") if f.strip()])
         found = transmittal.plan(needs)
         result: dict[str, Any] = {
             "drawing": full,
             "packed": found["packed"],
             "missing": found["missing"],
             "clashes": found["clashes"],
-            "system_fonts": sorted({str(f) for f in deps.get("system_fonts", [])}),
+            "system_fonts": sorted({str(f) for f in [*deps.get("system_fonts", []), *windows_fonts]}, key=str.lower),
         }
+        if unread:
+            result["not_looked_inside"] = unread
+            result["not_looked_inside_note"] = (
+                "These xrefs are not loaded, so the xrefs, images and fonts inside them were not looked "
+                "for. Reload them (autocad_manage_xref action='reload') and pack again to include those."
+            )
         stem = name.strip() if name else f"{Path(full).stem} - Transmittal {_dt.date.today().isoformat()}"
         target = transmittal.free_target(target_folder or Path(full).parent, stem, as_zip)
         result["pack"] = str(target)

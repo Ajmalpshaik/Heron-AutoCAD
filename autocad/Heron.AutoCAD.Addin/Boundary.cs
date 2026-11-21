@@ -38,27 +38,26 @@ namespace Heron.AutoCAD.Addin
             int inView;
             try
             {
-                Point3d low, high;
+                // The window comes as its corners in the world (square to the UCS it was
+                // given in, so maybe turned); without one, the view's own four corners.
+                var corners = window.ValueKind == System.Text.Json.JsonValueKind.Array ? Corners(window, world.Z) : ViewCorners(saved, world.Z);
                 if (window.ValueKind == System.Text.Json.JsonValueKind.Array)
                 {
-                    low = new Point3d(window[0][0].GetDouble(), window[0][1].GetDouble(), world.Z);
-                    high = new Point3d(window[1][0].GetDouble(), window[1][1].GetDouble(), world.Z);
-                    ZoomTo(ed, saved, low, high);
+                    ZoomTo(ed, saved, corners);
                     zoomed = true;
-                }
-                else
-                {
-                    ViewCorners(saved, out low, out high);
                 }
 
                 var toUcs = ed.CurrentUserCoordinateSystem.Inverse();
-                var found = ed.SelectCrossingWindow(low.TransformBy(toUcs), high.TransformBy(toUcs));
+                var polygon = new Point3dCollection();
+                foreach (var corner in corners) polygon.Add(corner.TransformBy(toUcs));
+                var found = ed.SelectCrossingPolygon(polygon);
                 inView = found.Status == PromptStatus.OK && found.Value != null ? found.Value.Count : 0;
                 if (inView == 0) throw new RunRefusal("Nothing is drawn in " + (zoomed ? "the window" : "view") + " round that point, so there is no outline to trace.");
                 if (inView > most)
                     throw new RunRefusal(inView + " objects are in " + (zoomed ? "the window" : "view") + ", over the limit of " + most +
                         ": a trace over that many can hang AutoCAD. Give a smaller window round the room, freeze layers that do not bound it, or raise most_objects.");
 
+                // TraceBoundary takes its seed point in the UCS.
                 loops = ed.TraceBoundary(world.TransformBy(toUcs), islands);
             }
             finally
@@ -174,30 +173,61 @@ namespace Heron.AutoCAD.Addin
             Matrix3d.Displacement(view.Target - Point3d.Origin) *
             Matrix3d.PlaneToWorld(view.ViewDirection);
 
-        private static void ViewCorners(ViewTableRecord view, out Point3d low, out Point3d high)
+        private static List<Point3d> Corners(System.Text.Json.JsonElement window, double z)
         {
-            var toWorld = ViewToWorld(view);
-            var half = new Vector2d(view.Width / 2.0, view.Height / 2.0);
-            var a = new Point3d(view.CenterPoint.X - half.X, view.CenterPoint.Y - half.Y, 0.0).TransformBy(toWorld);
-            var b = new Point3d(view.CenterPoint.X + half.X, view.CenterPoint.Y + half.Y, 0.0).TransformBy(toWorld);
-            low = new Point3d(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Min(a.Z, b.Z));
-            high = new Point3d(Math.Max(a.X, b.X), Math.Max(a.Y, b.Y), Math.Max(a.Z, b.Z));
+            var points = new List<Point3d>();
+            foreach (var pair in window.EnumerateArray())
+            {
+                if (pair.ValueKind != System.Text.Json.JsonValueKind.Array || pair.GetArrayLength() < 2) throw new RunRefusal("Each window corner must be [x, y].");
+                points.Add(new Point3d(pair[0].GetDouble(), pair[1].GetDouble(), z));
+            }
+            if (points.Count == 2)
+            {
+                var a = points[0];
+                var b = points[1];
+                points = new List<Point3d> { a, new Point3d(b.X, a.Y, z), b, new Point3d(a.X, b.Y, z) };
+            }
+            if (points.Count < 3) throw new RunRefusal("The window needs two opposite corners.");
+            return points;
         }
 
-        /// <summary>Zoom so the window fills the view, with a little room round it, keeping the view's shape.</summary>
-        private static void ZoomTo(Editor ed, ViewTableRecord current, Point3d low, Point3d high)
+        /// <summary>The four corners of what is on screen, in the world.</summary>
+        private static List<Point3d> ViewCorners(ViewTableRecord view, double z)
+        {
+            var toWorld = ViewToWorld(view);
+            var hx = view.Width / 2.0;
+            var hy = view.Height / 2.0;
+            var c = view.CenterPoint;
+            var points = new List<Point3d>();
+            foreach (var (dx, dy) in new[] { (-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy) })
+            {
+                var p = new Point3d(c.X + dx, c.Y + dy, 0.0).TransformBy(toWorld);
+                points.Add(new Point3d(p.X, p.Y, z));
+            }
+            return points;
+        }
+
+        /// <summary>Zoom so every corner of the window is in view, with a little room round it, keeping the view's shape.</summary>
+        private static void ZoomTo(Editor ed, ViewTableRecord current, List<Point3d> corners)
         {
             var toView = ViewToWorld(current).Inverse();
-            var a = low.TransformBy(toView);
-            var b = high.TransformBy(toView);
-            var width = Math.Abs(b.X - a.X) * 1.1;
-            var height = Math.Abs(b.Y - a.Y) * 1.1;
+            double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+            foreach (var corner in corners)
+            {
+                var p = corner.TransformBy(toView);
+                minX = Math.Min(minX, p.X);
+                minY = Math.Min(minY, p.Y);
+                maxX = Math.Max(maxX, p.X);
+                maxY = Math.Max(maxY, p.Y);
+            }
+            var width = (maxX - minX) * 1.1;
+            var height = (maxY - minY) * 1.1;
             var shape = current.Height > 0 ? current.Width / current.Height : 1.0;
             if (width / Math.Max(height, 1e-12) > shape) height = width / shape;
             else width = height * shape;
             using (var view = (ViewTableRecord)current.Clone())
             {
-                view.CenterPoint = new Point2d((a.X + b.X) / 2.0, (a.Y + b.Y) / 2.0);
+                view.CenterPoint = new Point2d((minX + maxX) / 2.0, (minY + maxY) / 2.0);
                 view.Width = width;
                 view.Height = height;
                 ed.SetCurrentView(view);

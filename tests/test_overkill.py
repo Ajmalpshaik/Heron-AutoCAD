@@ -217,3 +217,75 @@ class TestPlan:
         out = overkill.plan(items)
         assert len(out["erase"]) == 3000 and len(out["change"]) == 3000
         assert time.perf_counter() - began < 10
+
+
+def _dist_to_line(p, a, b):
+    length = math.dist(a, b)
+    return abs((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / length
+
+
+class TestTheToleranceNeverChains:
+    """From the review of PR #150: a pair-by-pair check let a whole curve become one line."""
+
+    def kept_line(self, items, out, handle):
+        row = changed(out).get(handle)
+        if row:
+            return row["start"][:2], row["end"][:2]
+        item = next(i for i in items if i["handle"] == handle)
+        return item["start"][:2], item["end"][:2]
+
+    def check_within(self, items, out, tol):
+        by_handle = {i["handle"]: i for i in items}
+        for row in out["erase"]:
+            if "kept" not in row or by_handle[row["kept"]]["kind"] != "line":
+                continue
+            a, b = self.kept_line(items, out, row["kept"])
+            gone = by_handle[row["handle"]]
+            for end in (gone["start"], gone["end"]):
+                assert _dist_to_line(end[:2], a, b) <= tol * (1 + 1e-9), (row, end)
+
+    def curve(self, radius, count, step_length, piece_length):
+        items = []
+        for i in range(count):
+            a0 = i * step_length / radius
+            a1 = a0 + piece_length / radius
+            p = (radius * math.sin(a0), radius - radius * math.cos(a0))
+            q = (radius * math.sin(a1), radius - radius * math.cos(a1))
+            items.append(line(f"{0x100 + i:X}", *p, *q))
+        return items
+
+    def test_a_curve_drawn_as_short_lines_end_to_end_is_not_straightened(self):
+        items = self.curve(3000.0, 60, 5.0, 5.0)
+        out = overkill.plan(items, tolerance=0.01, join_end_to_end=True)
+        self.check_within(items, out, 0.01)
+        assert len(out["erase"]) < 59
+
+    def test_kinked_overlapping_pieces_are_not_straightened(self):
+        items = self.curve(3000.0, 40, 5.0, 10.0)
+        out = overkill.plan(items, tolerance=0.05)
+        self.check_within(items, out, 0.05)
+
+    def test_parallel_lines_each_within_tolerance_of_the_next_are_not_all_one(self):
+        items = [line("10", 0, 0, 100, 0), line("11", 0, 0.9, 50, 0.9), line("12", 0, 1.8, 25, 1.8), line("13", 0, 2.7, 12, 2.7)]
+        out = overkill.plan(items, tolerance=1.0)
+        self.check_within(items, out, 1.0)
+        assert {h: r["kept"] for h, r in erased(out).items()} == {"11": "10", "13": "12"}
+
+    def test_concentric_arcs_creeping_out_are_not_all_one(self):
+        items = [arc(f"{0x20 + i:X}", 0, 0, 500 + 0.9 * i, 0, 90) for i in range(4)]
+        out = overkill.plan(items, tolerance=1.0)
+        for row in out["erase"]:
+            kept = next(i for i in items if i["handle"] == row["kept"])
+            gone = next(i for i in items if i["handle"] == row["handle"])
+            assert abs(kept["radius"] - gone["radius"]) <= 1.0
+
+    def test_a_stretched_line_stays_on_its_own_line(self):
+        out = overkill.plan([line("A", 0, 0, 1000, 0.0004), line("B", 500, 0.0002, 2000, 0.0009)], tolerance=0.001)
+        stretch = changed(out)["A"]
+        # Along A's own direction, not through B's far end.
+        assert stretch["end"][1] == pytest.approx(2000 * 0.0004 / 1000, abs=1e-9)
+
+    def test_an_arc_whose_ends_meet_is_left_alone(self):
+        item = arc("A", 0, 0, 500, 0, 360)
+        out = overkill.plan([item])
+        assert out["erase"] == [] and out["skipped"][0]["handle"] == "A"

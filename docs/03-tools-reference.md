@@ -76,7 +76,7 @@ The group headings below give the level.
 
 | Tool | Level | Purpose |
 |---|---|---|
-| `autocad_overkill` | Change | OVERKILL: doubled and overlapping lines, arcs and circles, zero-length lines, copies of polylines, loose lines lying on a polyline. The first call lists by handle what would go and why; `confirm=true` erases and stretches in one undo step, then Heron's erase question asks the modeller. Polylines are never broken: overlaps on them are listed under `left` ([D-84](DECISIONS.md)) |
+| `autocad_overkill` | Change | OVERKILL: doubled and overlapping lines, arcs and circles, zero-length lines, copies of polylines, loose lines lying on a polyline. The first call lists by handle what would go and why, with a `plan_id`; `confirm=true` with that `plan_id` erases and stretches exactly that in one undo step (nothing, if the drawing changed), then Heron's erase question asks the modeller. Polylines are never broken: overlaps on them are listed under `left` ([D-84](DECISIONS.md)) |
 | `autocad_trace_boundary` | Change | BOUNDARY / BPOLY round a point, by the plug-in's `Editor.TraceBoundary`, never typed: zooms to a `window` first, counts what is in it (refused over `most_objects`), waits at most `timeout` s. A polyline per loop, or one region with the islands cut out; returns the handle and area |
 | `autocad_etransmit` | Publish | eTransmit: the saved drawing with its xrefs (nested too), images, underlays, font files and plot styles in one .zip or folder beside it, with `transmittal report.txt`; what was not found is listed under `missing`. An unsaved drawing is refused; `list_only=true` writes nothing ([D-85](DECISIONS.md)) |
 

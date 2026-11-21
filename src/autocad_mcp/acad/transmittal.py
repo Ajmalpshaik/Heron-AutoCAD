@@ -152,8 +152,11 @@ def write(result: dict[str, Any], target: Path, as_zip: bool, report: str) -> li
     written: list[str] = []
     if as_zip:
         target.parent.mkdir(parents=True, exist_ok=True)
+        # "x" refuses a file that appeared since free_target; only a zip Heron
+        # itself began is ever removed when the packing fails.
+        pack = zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED)
         try:
-            with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as pack:
+            with pack:
                 for row in result["packed"]:
                     pack.write(row["from"], row["to"])
                     written.append(row["to"])
