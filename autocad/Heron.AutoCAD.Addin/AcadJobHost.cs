@@ -37,6 +37,9 @@ namespace Heron.AutoCAD.Addin
         /// <summary>What the running job really did, from AutoCAD's own events (ChangeWatch feeds it).</summary>
         public static JobChanges Counter { get; } = new JobChanges();
 
+        /// <summary>Heron's recent change jobs, for the palette's Activity tab (D-68).</summary>
+        public static ActivityLog Activity { get; } = new ActivityLog();
+
         public void Begin(JobInfo job)
         {
             HeronLog.Write("begin " + job.Tool + " (" + job.Risk + ") on " + job.Drawing);
@@ -45,6 +48,7 @@ namespace Heron.AutoCAD.Addin
             _undo.Begin(job);
             // Every window open now is the modeller's: the watch never touches it (D-66).
             DialogGuard.Begin(job.Job);
+            Activity.Begin(job, DateTime.Now);
             if (_config().ActivityBanner) _banner.Begin(job);
         }
 
@@ -54,6 +58,7 @@ namespace Heron.AutoCAD.Addin
             Guard.End(end.Job);
             Counter.End(end.Job);
             DialogGuard.End(end.Job);
+            Activity.End(end, Counter.Read(end.Job));
             // Before the reply, so the next job never starts with recording off.
             _undo.End(end.Job);
             _banner.End(end);

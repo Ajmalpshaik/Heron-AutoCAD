@@ -33,7 +33,10 @@ async def main() -> int:
         return 1
 
     print(f"launching {SERVER}\n")
-    params = StdioServerParameters(command=SERVER, args=[], env=dict(os.environ))
+    # Run from inside a chat, the server would otherwise speak for that chat (D-61).
+    env = {key: value for key, value in os.environ.items() if key != "CLAUDE_CODE_SESSION_ID"}
+    env.setdefault("HERON_CONVERSATION_ID", "protocol-check")
+    params = StdioServerParameters(command=SERVER, args=[], env=env)
 
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:

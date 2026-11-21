@@ -18,6 +18,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from autocad_mcp.core.answers import body  # noqa: E402
 from autocad_mcp.tools import (  # noqa: E402
     advanced,
     batch,
@@ -40,7 +41,11 @@ def report(ok: bool, label: str, detail: str = "") -> None:
 
 
 def parse(raw: str) -> dict[str, Any]:
-    """Tool results are JSON on success and 'Error: ...' text on failure."""
+    """Tool results are JSON on success and 'Error: ...' text on failure.
+
+    A change job's answer starts with one plain line (DONE, REFUSED, ...: D-62): it is dropped here.
+    """
+    raw = body(raw)
     if raw.startswith("Error:"):
         raise AssertionError(raw)
     return json.loads(raw)
@@ -336,10 +341,10 @@ async def main() -> int:
         f"{no_handles['created']} created, no handles returned",
     )
 
-    bad_batch = await batch.autocad_batch_draw(operations=[
+    bad_batch = body(await batch.autocad_batch_draw(operations=[
         {"type": "line", "start": [0, 0], "end": [1, 1]},
         {"type": "banana"},
-    ])
+    ]))
     report(
         bad_batch.startswith("Error:") and "Operation 1" in bad_batch,
         "guard: batch names the bad operation",
@@ -391,24 +396,24 @@ async def main() -> int:
     report(zoom["zoomed"] == "extents", "autocad_zoom")
 
     # --- guard rails: these must FAIL cleanly, not crash ------------------
-    bad_dialog = await advanced.autocad_send_command(command="PURGE")
+    bad_dialog = body(await advanced.autocad_send_command(command="PURGE"))
     report(
         bad_dialog.startswith("Error:") and "-PURGE" in bad_dialog,
         "guard: dialog command refused",
         bad_dialog[:70],
     )
 
-    bad_lisp = await advanced.autocad_run_lisp(expression='(getvar "INSUNITS"')
+    bad_lisp = body(await advanced.autocad_run_lisp(expression='(getvar "INSUNITS"'))
     report(
         bad_lisp.startswith("Error:") and "arenthes" in bad_lisp,
         "guard: unbalanced parens refused",
         bad_lisp[:70],
     )
 
-    bad_handle = await query.autocad_get_entity(handle="ZZZZZZ")
+    bad_handle = body(await query.autocad_get_entity(handle="ZZZZZZ"))
     report(bad_handle.startswith("Error:"), "guard: bad handle refused", bad_handle[:70])
 
-    bad_circle = await draw.autocad_draw_circle(center=[0, 0], radius=10, diameter=20)
+    bad_circle = body(await draw.autocad_draw_circle(center=[0, 0], radius=10, diameter=20))
     report(
         bad_circle.startswith("Error:") and "only one" in bad_circle,
         "guard: radius+diameter refused",

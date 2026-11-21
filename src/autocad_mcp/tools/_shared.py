@@ -234,3 +234,46 @@ def plugin_created(doc: Any, report: dict[str, Any]) -> dict[str, Any]:
                 "(AutoCAD may still be busy). Look at the drawing; do not make it again."
             ),
         }
+
+
+# ---- before / after (D-62) -----------------------------------------------------
+
+MOST_BEFORE_AFTER = 50
+
+
+def plain_value(value: Any) -> Any:
+    """A COM value as the chat reads it: a point as a list, a float without noise."""
+    if isinstance(value, tuple):
+        return [plain_value(v) for v in value]
+    if isinstance(value, float):
+        return round(value, 6)
+    return value
+
+
+def same_value(before: Any, after: Any) -> bool:
+    """True when writing ``after`` would change nothing: names ignore case, numbers a hair's width."""
+    if isinstance(before, bool) or isinstance(after, bool):
+        numbers = (bool, int)
+        return isinstance(before, numbers) and isinstance(after, numbers) and bool(before) == bool(after)
+    if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+        return abs(float(before) - float(after)) < 1e-9
+    if isinstance(before, str) and isinstance(after, str):
+        return before.strip().casefold() == after.strip().casefold()
+    return before == after
+
+
+def before_after(rows: list[dict[str, Any]], most: int = MOST_BEFORE_AFTER) -> dict[str, Any]:
+    """Every value a job changed, old -> new, one row each (Heron for Revit's D-156).
+
+    Each row names the object ("handle", or "layer" / "variable" for a table
+    entry or a setting), the "property", and "from" and "to". The first
+    ``most`` rows are listed; "before_after_more" counts the rest, so a big job
+    stays short. An empty list means the job changed nothing.
+    """
+    shown = [
+        {**row, "from": plain_value(row.get("from")), "to": plain_value(row.get("to"))} for row in rows[:most]
+    ]
+    result: dict[str, Any] = {"before_after": shown}
+    if len(rows) > most:
+        result["before_after_more"] = len(rows) - most
+    return result

@@ -22,6 +22,7 @@ from ..acad.selection import discard_selection_set, iter_selection, select_filte
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
+from ._shared import before_after, same_value
 
 BlockGroup = Literal["name", "name_layer", "name_visibility", "name_properties"]
 LengthGroup = Literal["layer", "type", "none"]
@@ -327,7 +328,8 @@ async def autocad_set_dynamic_properties(
     cannot be set are listed in 'failed' with the reason. One undo step.
 
     Returns:
-        JSON: {"handle", "changed": {name: value}, "failed": {name: reason}}
+        JSON: {"handle", "changed": {name: value}, "failed": {name: reason},
+        "before_after": [{handle, property, from, to}], "already": [names already so]}
 
     Examples:
         - Use when: "switch those doors to the 900 leaf" -> the width
@@ -345,22 +347,42 @@ async def autocad_set_dynamic_properties(
             raise AutocadError(f"'{handle}' is not a dynamic block reference.")
         changed: dict[str, Any] = {}
         failed: dict[str, str] = {}
-        with undo_mark(doc):
-            for name, new in values.items():
-                prop = props.get(str(name).lower())
-                if prop is None:
-                    failed[name] = "no such property; see autocad_get_dynamic_properties"
-                    continue
-                label = str(prop.PropertyName)
-                if prop.ReadOnly:
-                    failed[label] = "read-only"
-                    continue
-                try:
-                    value = coerce_value(prop.Value, new, _plain(list(prop.AllowedValues or ())))
-                    prop.Value = value
-                    changed[label] = value
-                except BaseException as exc:  # noqa: BLE001 - report and carry on
-                    failed[label] = str(exc)
-        return {"handle": str(ref.Handle), "changed": changed, "failed": failed}
+        already: list[str] = []
+        rows: list[dict[str, Any]] = []
+        # First look: the value now. Only what differs is written; nothing to
+        # write opens no undo step (D-62).
+        planned: list[tuple[str, Any, Any, Any]] = []
+        for name, new in values.items():
+            prop = props.get(str(name).lower())
+            if prop is None:
+                failed[name] = "no such property; see autocad_get_dynamic_properties"
+                continue
+            label = str(prop.PropertyName)
+            if prop.ReadOnly:
+                failed[label] = "read-only"
+                continue
+            try:
+                old = _plain(prop.Value)
+                value = coerce_value(prop.Value, new, _plain(list(prop.AllowedValues or ())))
+            except BaseException as exc:  # noqa: BLE001 - report and carry on
+                failed[label] = str(exc)
+                continue
+            if same_value(old, _plain(value)):
+                already.append(label)
+            else:
+                planned.append((label, prop, old, value))
+        if planned:
+            with undo_mark(doc):
+                for label, prop, old, value in planned:
+                    try:
+                        prop.Value = value
+                        changed[label] = value
+                        rows.append({"handle": str(ref.Handle), "property": label, "from": old, "to": _plain(value)})
+                    except BaseException as exc:  # noqa: BLE001 - report and carry on
+                        failed[label] = str(exc)
+        result = {"handle": str(ref.Handle), "changed": changed, "failed": failed, **before_after(rows)}
+        if already:
+            result["already"] = already
+        return result
 
     return dumps(await run(work))

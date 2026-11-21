@@ -11,6 +11,7 @@ from ..acad.tables import describe_layer, ensure_layer, ensure_linetype, validat
 from ..core.connection import get_doc, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
+from ._shared import before_after, same_value
 
 
 @mcp.tool(
@@ -136,7 +137,8 @@ async def autocad_create_layer(
 
     Returns:
         str: JSON: {"name": str, "created": bool, "current": bool,
-             "color": int, "linetype": str, "lineweight": int, ...}
+             "color": int, "linetype": str, "lineweight": int, ...,
+             "before_after": [{layer, property, from, to}]}
              "created" is false when the layer already existed and was updated.
 
     Examples:
@@ -149,8 +151,31 @@ async def autocad_create_layer(
 
     def work() -> dict[str, Any]:
         doc = get_doc()
+        rows: list[dict[str, Any]] = []
+        existing = _existing_layer(doc, name)
+        now: dict[str, Any] | None = None
+        if existing is not None:
+            try:
+                now = {"color": int(existing.Color), "linetype": str(existing.Linetype),
+                       "lineweight": int(existing.Lineweight), "name": str(existing.Name),
+                       "current": str(doc.ActiveLayer.Name)}  # fmt: skip
+            except BaseException:  # noqa: BLE001 - could not look: write as before, list nothing
+                now = None
+        if existing is not None and now is not None:
+            # First look: what the layer has now. Asked for what it already has,
+            # nothing is written and no empty undo step is left (D-62).
+            wanted = {"color": aci, "linetype": linetype.strip() if linetype else None, "lineweight": lineweight}
+            rows = [{"layer": now["name"], "property": key, "from": now[key], "to": value}
+                    for key, value in wanted.items() if value is not None and not same_value(now[key], value)]  # fmt: skip
+            current = same_value(now["current"], now["name"])
+            if not rows and (not make_current or current):
+                info = describe_layer(existing)
+                info.update(created=False, current=current, **before_after([]))
+                return info
         with undo_mark(doc):
             layer, created = ensure_layer(doc, name)
+            if make_current:
+                previous = str(doc.ActiveLayer.Name)
             if aci is not None:
                 layer.Color = aci
             if linetype:
@@ -169,10 +194,13 @@ async def autocad_create_layer(
                     ) from exc
             if make_current:
                 doc.ActiveLayer = layer
+                if not same_value(previous, str(layer.Name)):
+                    rows.append({"variable": "CLAYER", "property": "current layer", "from": previous, "to": str(layer.Name)})
 
         info = describe_layer(layer)
         info["created"] = created
         info["current"] = make_current
+        info.update(before_after(rows))
         return info
 
     return dumps(await run(work))
@@ -240,6 +268,7 @@ async def autocad_set_layer_state(
 
     Returns:
         str: JSON: {"matched": int, "changed": [str], "state": {...},
+             "before_after": [{layer, property, from, to}], "already": int,
              "failed": [{"name": str, "reason": str}]}
 
     Examples:
@@ -283,27 +312,39 @@ async def autocad_set_layer_state(
 
         changed: list[str] = []
         failed: list[dict[str, str]] = []
-        with undo_mark(doc):
-            for layer in targets:
-                layer_name = str(layer.Name)
-                try:
-                    if on is not None:
-                        layer.LayerOn = bool(on)
-                    if frozen is not None:
-                        layer.Freeze = bool(frozen)
-                    if locked is not None:
-                        layer.Lock = bool(locked)
-                    if plottable is not None:
-                        layer.Plottable = bool(plottable)
-                    changed.append(layer_name)
-                except BaseException as exc:  # noqa: BLE001
-                    failed.append({"name": layer_name, "reason": com_message(exc)})
+        rows: list[dict[str, Any]] = []
+        names = {"on": "LayerOn", "frozen": "Freeze", "locked": "Lock", "plottable": "Plottable"}
+        # First look: each layer's state now. Only a state that differs is
+        # written; nothing to write opens no undo step (D-62).
+        plans = []
+        for layer in targets:
+            todo = [(key, bool(getattr(layer, names[key])), bool(value))
+                    for key, value in wanted.items() if value is not None]  # fmt: skip
+            todo = [(key, old, new) for key, old, new in todo if old != new]
+            if todo:
+                plans.append((layer, todo))
+        if plans:
+            with undo_mark(doc):
+                for layer, todo in plans:
+                    layer_name = str(layer.Name)
+                    try:
+                        for key, old, new in todo:
+                            setattr(layer, names[key], new)
+                            rows.append({"layer": layer_name, "property": key, "from": old, "to": new})
+                        changed.append(layer_name)
+                    except BaseException as exc:  # noqa: BLE001
+                        failed.append({"name": layer_name, "reason": com_message(exc)})
 
         result: dict[str, Any] = {
             "matched": len(targets),
             "changed": changed,
             "state": {k: v for k, v in wanted.items() if v is not None},
+            **before_after(rows),
         }
+        already = len(targets) - len(plans)
+        if already:
+            result["already"] = already
+            result["already_note"] = f"{already} layer(s) were already in that state; nothing was written to them."
         if failed:
             result["failed"] = failed
             result["hint"] = (
@@ -351,15 +392,22 @@ async def autocad_set_current_layer(
     def work() -> dict[str, Any]:
         doc = get_doc()
         previous = str(doc.ActiveLayer.Name)
+        if same_value(previous, name.strip()):
+            # Already current (and so not frozen): nothing written, no empty undo step (D-62).
+            return {"current_layer": previous, "created": False, "previous": previous, **before_after([])}
+        rows: list[dict[str, Any]] = []
         with undo_mark(doc):
             layer, created = ensure_layer(doc, name)
             if bool(layer.Freeze):
                 layer.Freeze = False
+                rows.append({"layer": str(layer.Name), "property": "frozen", "from": True, "to": False})
             doc.ActiveLayer = layer
+        rows.append({"variable": "CLAYER", "property": "current layer", "from": previous, "to": str(doc.ActiveLayer.Name)})
         return {
             "current_layer": str(doc.ActiveLayer.Name),
             "created": created,
             "previous": previous,
+            **before_after(rows),
         }
 
     return dumps(await run(work))
@@ -476,16 +524,26 @@ async def autocad_delete_layer(
                     )
                 layer.Delete()
 
+            row = {"layer": target, "property": "layer", "from": f"there, {entity_count} object(s) on it", "to": "deleted"}
             return {
                 "deleted": True,
                 "layer": target,
                 "entities_deleted": deleted_entities,
                 "confirmed": True,
+                **before_after([row]),
             }
         finally:
             discard_selection_set(doc, "MCP_LAYER_DELETE")
 
     return dumps(await run(work))
+
+
+def _existing_layer(doc: Any, name: str) -> Any:
+    """The layer of that name, or None when it is not there (or AutoCAD would not say)."""
+    try:
+        return doc.Layers.Item(name.strip())
+    except BaseException:  # noqa: BLE001 - ensure_layer then decides, busy signals included
+        return None
 
 
 def _count_by_effective_name(doc: Any) -> dict[str, int]:

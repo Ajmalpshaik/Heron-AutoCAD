@@ -8,7 +8,26 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (every open item is a GitHub issue; seven cloud sessions build the Revit ideas)
+## Latest - 2026-11-21 (server answers #78-#82 merged, PR #124)
+
+PR #124 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
+failed as on every PR, #34). Server only, no plug-in change; restart the server after pulling.
+- **D-61 (#78):** the server's chat id comes from `HERON_CONVERSATION_ID`, else Claude Code's
+  `CLAUDE_CODE_SESSION_ID` (hashed), else a new one, so a resumed chat keeps its hold. Only
+  `server.main` follows the host; scripts stay their own chat.
+- **D-62 (#79, #82):** every Change / Admin / Publish answer starts with DONE, NOTHING CHANGED,
+  REFUSED or OUTCOME UNKNOWN (`core/answers.py`, added by the gate). Scripts drop it with
+  `answers.body()`. The modify, attribute, find-replace, dynamic block, layer and variable tools
+  add `before_after` (old -> new, first 50) and write only what differs.
+- **D-63 (#81):** `dry_run=true` on any Change tool, given by `tool_errors`; Publish, Admin and
+  `autocad_undo_last` refuse it.
+- **#80 stays open:** the tools above leave no undo step when nothing differs; taking back an
+  empty job afterwards waits for live row T7 ([05 §26](05-known-limits.md)).
+
+**Next:** in AutoCAD 2027, run group T rows T1-T7 (all NOT RUN). T7 decides #80. Server version
+bump (suggested 1.8.0) is still to do.
+
+## Earlier - 2026-11-21 (every open item is a GitHub issue; seven cloud sessions build the Revit ideas)
 
 Every open [ROADMAP](ROADMAP.md) item became a GitHub issue (#39-#75), and the ROADMAP links each
 one. Two items were already built and are ticked: texture size (D-46) and the server version in

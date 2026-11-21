@@ -12,6 +12,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 |---|---|---|
 | **Heron** (top half) | Connect, or disconnect. No pop-up when it works: the icon is the answer (orange heron = connected, black = not) | `HERON` |
 | **Heron** (arrow) -> Bridge Status | The state, the Changes card, and Connect / Disconnect | `HERONSTATUS` |
+| **Heron** (arrow) -> Heron palette | Opens or closes the docked Heron palette: Activity and Saved commands ([section 10](#10-the-heron-palette-d-68)) | `HERONPALETTE` |
 | **Heron** (arrow) -> Stop Heron now | The emergency stop ([D-51](DECISIONS.md)): every chat is refused at once, a running job stops at its next request to the plug-in, and Esc is pressed for the command running now. Sticky until picked again. What AutoCAD already has queued (one batch) still finishes | `HERONSTOP` |
 | **Heron** (arrow) -> Free this AutoCAD | Lets another chat use this AutoCAD now, whichever chat holds it (not while one of its jobs is running). Changes nothing in a drawing | `HERONFREE` |
 | **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep; HELD when a Windows policy holds it off) | `HERONSETTINGS` |
@@ -203,6 +204,9 @@ If no answer comes within 300 s the result is "Outcome unknown": the operation m
 | Address files | `%LOCALAPPDATA%\Heron\autocad\bridges\` |
 | Add-in log | `%LOCALAPPDATA%\Heron\autocad\logs\addin-YYYYMMDD.log` |
 | Audit (server) | `%LOCALAPPDATA%\Heron\autocad\audit\audit-YYYYMM.jsonl` |
+| Saved commands (server) | `%LOCALAPPDATA%\Heron\autocad\commands\*.json` |
+| Where the server runs from (for the palette) | `%LOCALAPPDATA%\Heron\autocad\server.json` |
+| A palette Run's request, deleted after | `%LOCALAPPDATA%\Heron\autocad\palette\` |
 
 ## 8. Versions
 
@@ -227,3 +231,84 @@ in a Heron box, **whether Ask to Keep is on or off**: *Bring them back* (Enter, 
 or no answer in 9 minutes) or *Keep them erased*. When Ask to Keep is on, its Keep or Discard
 question already covers the erase, so it is not asked twice. A chat can set `confirm=true` by
 itself; it cannot answer this box.
+
+## The plain line a change job answers with ([D-62](DECISIONS.md))
+
+Every Change, Admin or Publish answer starts with one line, before anything else:
+
+| Line | Means |
+|---|---|
+| `DONE - 2 added, 1 changed, 0 erased.` | The job ran and was kept. The numbers are the plug-in's own count above. |
+| `NOTHING CHANGED - ...` | The job ran and changed nothing, was a dry run, or the modeller chose Discard. The drawing is as it was. |
+| `REFUSED - ...` | Nothing was done: Heron or the plug-in said no before anything was sent, or the tool turned the job down. |
+| `OUTCOME UNKNOWN - ...` | It went wrong after a write began, so part of it may be in the drawing. The line says whether Heron's UNDO mark is there to go back to. |
+
+The count is of drawing objects only. A job that made a layer or set a variable wrote something the
+count cannot see, so it says `DONE - no drawing object was added, changed or erased (...)`, never
+NOTHING CHANGED. With `--no-bridge` there is no count and no line.
+
+## A dry run of any change ([D-63](DECISIONS.md))
+
+`dry_run=true` on any change tool runs the job for real inside Heron's UNDO mark, reports what it
+did, then goes back to the mark and checks the new objects are gone. Nothing is asked and nothing is
+kept: the answer starts `NOTHING CHANGED - a dry run: it would have made ...`. Tools that had a dry
+run of their own keep it (a preview that writes nothing). A save, an export, a publish, a command or
+AutoLISP refuses a dry run, because an UNDO mark cannot take back a file or a command. UNDO must be
+on in the drawing.
+
+## 10. The Heron palette ([D-68](DECISIONS.md))
+
+`HERONPALETTE`, or Heron (arrow) -> **Heron palette**, opens one palette docked on the right with two
+tabs, in Heron's window style. Press it again to close it. The palette's own title bar is
+AutoCAD's.
+
+### Activity
+
+Heron's recent changes in this AutoCAD, newest first, from every chat (30 kept; reads and zooms are
+left out). Each row: what the job was, the time, the drawing, what became of it (done, discarded,
+stopped, undone), and what the plug-in counted: *made 3, changed 1, erased 0*.
+
+| Button | What it does | When it says no |
+|---|---|---|
+| **Select** | Selects what the job made or changed (up to 500) | a job is running; another drawing is in front; the job only erased, was discarded or was undone |
+| **Zoom** | The same, and zooms to it. Leaves no undo step of its own | the same |
+| **Undo** | Undoes the job: `UNDO Back` to its mark when Ask to Keep was on, else one `UNDO 1`; then checks that what it made is gone | see below |
+
+Select and Zoom work whichever chat holds this AutoCAD. **Undo is yours**, like Ctrl+Z: no padlock is
+needed and it works on any chat's job, but only by the D-54 rule, so your own work is never taken
+with it. It refuses, and says why, when:
+
+- it is not Heron's newest change here, or a job is running;
+- it ran an AutoCAD command, AutoLISP or a save (Admin or Publish), was discarded, did not finish
+  cleanly, changed nothing, or was itself an undo;
+- the drawing in front is another one;
+- anything changed in a drawing outside Heron's jobs since it ended (your own work, or another
+  program), or Heron cannot tell;
+- UNDO is off or keeps one step only (UNDOCTL);
+- Ask to Keep was off for it and Heron zoomed or showed objects since (one step back would undo the
+  zoom).
+
+After a palette Undo, a chat's `autocad_undo_last` is refused: the drawing changed since.
+
+### Saved commands
+
+The commands saved in a chat (`autocad_saved_command`, D-55). One saved in a chat shows here within
+about 2 seconds, without a restart. Type in **Search** to narrow the list; pick one; fill its inputs
+(a starred one has no default and must be filled; the grey hint is the example); press **Run** (or
+Enter in a box).
+
+A value takes its example's type: a number box takes a number ("1200", always with a dot for
+decimals), a list box takes the list as in the example (`[0, 0]`), a yes/no box takes yes or no. A
+wrong value is named and nothing is sent.
+
+**Run goes through Heron's gate, the same as a chat.** The palette starts a copy of Heron's server
+for that one run, which comes to the plug-in as a chat of its own: it checks the units with
+`autocad_status`, then runs the command with the Changes padlock, Ask to Keep, the erase question and
+Stop Heron now all in force, and frees this AutoCAD when done. So:
+
+- Heron must be connected (pressed), and Heron's server must have run once on this PC (any chat): it
+  writes where it runs from to `server.json`, which is how the palette finds it.
+- While a chat holds this AutoCAD, Run is refused with "in use by another chat"; press
+  **Free this AutoCAD**, or wait 3 quiet minutes.
+- The answer is one line under the header: *Done: 'plinth', 2 of 2 step(s).*, or the refusal in the
+  gate's own words.

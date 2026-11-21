@@ -17,6 +17,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from ..acad import geometry
+from ..acad.checklist import PASS_MEANS
 from ..acad.entities import read_attributes
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import describe_layer
@@ -150,8 +151,14 @@ async def autocad_check_standards(
 ) -> str:
     """Check the drawing's layers and objects against layer standards.
 
+    "passed": true means every rule given was met for what Heron read,
+    against the rules named in "source" (the file, or the rules given in the
+    chat). It never means the drawing complies with a code or standard:
+    Heron does not sign drawings off, and the answer must not say so (D-64).
+
     Returns:
-        JSON: {"checked", "passed", "summary" {rule: count}, "findings" [...], "truncated"}
+        JSON: {"checked", "passed", "source", "pass_means", "summary" {rule: count},
+               "findings" [...], "truncated"}
 
     Examples:
         - Use when: "does this drawing follow our layer standard" - before
@@ -196,6 +203,8 @@ async def autocad_check_standards(
             finally:
                 discard_selection_set(doc)
         report = check(layers, entities, wanted)
+        report["source"] = f"the rules file {rules_path}" if not rules and rules_path else "the rules given in this chat"
+        report["pass_means"] = PASS_MEANS
         if capped:
             report["warning"] = f"Only the first {max_entities} objects were read; raise max_entities to read more."
         return report
