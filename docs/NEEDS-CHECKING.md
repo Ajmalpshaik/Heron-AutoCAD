@@ -669,6 +669,30 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 | AC17 | After AC3, make a SKID block holding one VALVE TAG insert, insert SKID twice. Change VALVE TAG's definition again; `autocad_sync_attributes(block='VALVE TAG', nested=true, dry_run=true)`, then without (#156) | The dry run lists the insert inside SKID with `"inside": "SKID"`; after the sync both SKID copies show the nested tag with its new attributes and its typed value kept; without `nested` it is not listed | NOT RUN |
 
+## Group AS - Reads the plug-in does in one go: the entity summary and a layer's extents (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-114](DECISIONS.md), issue #74). Built and tested offline only
+(`tests/test_plugin_reads.py` compares the plug-in and COM answers on one fake drawing;
+`EntityReadsTests.cs` the plug-in's counting and filter). The plug-in operations `count_entities` and
+`entity_extents` build for all three targets but have never run. Needs the plug-in rebuilt and
+reinstalled at **1.8.0 or newer** (an older one is read over COM), and the server restarted. "Over
+COM" below means the same call to a second server started with `--no-bridge` (developer use: it
+reads over COM only); the plug-in's log (`%LOCALAPPDATA%\Heron\autocad\logs`) shows
+`operation count_entities` / `operation entity_extents` when the plug-in read it. **Every row below
+is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AS1 | A real project drawing with model space and two sheets (title blocks, viewports). `autocad_list_entities(summary_only=true)`, then the same over COM | The log shows `operation count_entities`; `total_matching`, `by_type` and `by_layer` are the same both ways, key order too, paper-space objects (viewports, title blocks) included in both | NOT RUN |
+| AS2 | Same drawing: `summary_only=true` with `layer='M-*'`, `layer='m-duct'` (other case), `entity_type='dimension'`, `block_name='<a block>'`, `color='red'`, and a layer that does not exist | Each the same as over COM; the missing layer is a count of 0, not an error | NOT RUN |
+| AS3 | A drawing with 20,000 or more objects: time `autocad_list_entities(summary_only=true)` with the plug-in and over COM | Same answer; write both times in the result. Pass: the plug-in is clearly faster | NOT RUN |
+| AS4 | `autocad_get_extents(layer=<a layer with lines, text, a block and a 3D solid>)`, then over COM | The log shows `operation entity_extents`; `min`, `max`, `width`, `height`, `center` and `entity_count` are the same to the last digit | NOT RUN |
+| AS5 | A layer holding one XLINE and one RAY: `autocad_get_extents(layer=...)` both ways; and a layer with nothing on it | Both: "has 2 object(s), but none with extents"; the empty layer: "has no geometry", as before | NOT RUN |
+| AS6 | Draw a line yourself, run AS1 and AS4, then press Ctrl+Z once | The Ctrl+Z takes away **your line**: the reads left no undo step (the plug-in's transaction is aborted; COM's reused selection set adds none) | NOT RUN |
+| AS7 | Install plug-in 1.7.0 (or any older one), run AS1 and AS4 | Both answer over COM (no `operation` line in the log), no error, the same answers as with 1.8.0 | NOT RUN |
+| AS8 | Select two objects yourself, run AS1, then type SELECT and P (previous) | Note what is selected before and after, with the plug-in and over COM; Pass: the read does not leave AutoCAD's own selection or "previous" set different from what COM leaves | NOT RUN |
+| AS9 | Start LINE and leave it waiting for a point; run AS1 | The read answers, or gives the busy answer naming LINE; no error box; LINE is still waiting | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

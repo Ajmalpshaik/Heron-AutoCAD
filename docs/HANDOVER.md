@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
+## Latest - 2026-11-21 (tools into the plug-in where it pays off: #74, D-114)
+
+The first two reads moved into the plug-in for speed, with COM kept as the fallback:
+`autocad_list_entities(summary_only=true)` (`count_entities`) and `autocad_get_extents(layer=...)`
+(`entity_extents`). Same filter, same answer either way (`tests/test_plugin_reads.py` runs each
+tool both ways over one fake drawing and compares the text; `EntityReadsTests.cs` for the plug-in
+side). The server uses them only with plug-in **1.8.0** or newer (`READS_SINCE` in `core/bridge.py`;
+a test fails if the version is bumped to anything between 1.7.0 and that). No new tool, no version
+bump. The ranking of what to move next, with each tool's session area:
+[13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md); one issue per tool,
+linked from #74, which stays open as the umbrella.
+
+**Next (on this PC):** rebuild and reinstall the plug-in, restart AutoCAD and Claude, then live rows
+AS1-AS9 against a real project drawing. AS3 is the one that says whether it was worth it: write
+both times in the result.
+
+## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
 Eleven new tools in `tools/edit2d.py` (**169** in all, with the other sessions' work): trim /
