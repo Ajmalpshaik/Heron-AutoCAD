@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
 
-Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**180** in all):
+Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**184** in all):
 `autocad_add_pyramid`, `autocad_add_polysolid`, `autocad_edit_solid_faces` (offset, taper, move,
 delete), `autocad_imprint_solid`, `autocad_separate_solid`. Plug-in: `SolidPrimitives.cs` and
 `SolidFaceEdits.cs`, eight new operations; pure maths in `Bridge/SolidShapeMath.cs`. Every .NET
@@ -25,6 +25,30 @@ None of it has run in AutoCAD. Versions not bumped (the parent does).
 ([NEEDS-CHECKING group AR](NEEDS-CHECKING.md)). The answers the reference could not give: whether
 AutoCAD reads the pyramid's radius as its reference says (`remade_to_size`, AR1), and which way a
 positive taper leans (AR9).
+
+## Earlier - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
+
+Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+(xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
+`autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
+(DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
+`tests/test_draw_extra.py`. Server only, no plug-in change. #119 stays open for its parts 2 and 3.
+
+**Next (on this PC):** pull, restart Claude, then live rows AP1-AP10. AP2 (does AddRegion keep the
+outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
+when counted from the end) are the answers the code could not get from Autodesk's reference. Not
+built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
+
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
+
+Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
+only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
+pixels for the sheet (most likely), or extents stretched by something far off. `autocad_preview`
+now reports `plotted`, `pixels`, `smallest_clear_text` and a `tip`, and `detail=2` / `3` adds
+window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-known-limits.md#33-one-preview-picture-cannot-show-a-whole-big-sheets-small-text).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
+AM1 names the cause; close #41 only after AM1 and AM2 pass.
 
 ## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
 
