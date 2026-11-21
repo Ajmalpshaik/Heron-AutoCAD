@@ -48,6 +48,9 @@ DISCARDED = "Discarded: nothing was kept."
 STATUS_TOOL = "autocad_status"
 # Says which AutoCAD to work in: needs no drawing, and no plug-in job (D-49).
 SESSION_TOOLS = {"autocad_use_autocad"}
+# Read only Heron's own files (the tool index, the audit log, the install), never
+# AutoCAD: they must answer exactly when AutoCAD is closed or not connected (D-67).
+NO_AUTOCAD_TOOLS = {"autocad_why", "autocad_gaps"}
 # The calls that tell Heron a drawing's units. Nothing is changed in a drawing
 # until one of them has run on it (Ajmal, 2026-10-26: "the first time in a
 # drawing, you have to understand the unit").
@@ -295,18 +298,20 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         refusal: str | None = None
         probed = False
 
-        if tool in SESSION_TOOLS:
+        if tool in SESSION_TOOLS or tool in NO_AUTOCAD_TOOLS:
             # Picking which AutoCAD to work in touches no drawing, and must
             # answer exactly when the gate cannot tell which AutoCAD is meant
-            # (D-49). Audited like any call.
-            ok, outcome = False, "failed"
+            # (D-49); explaining why a job cannot run must answer when AutoCAD
+            # is closed (D-67). Audited like any call.
+            ok, outcome, message = False, "failed", ""
             try:
                 result = await work()
                 ok = not (isinstance(result, str) and result.startswith("Error:"))
                 outcome = "done" if ok else "failed"
+                message = "" if ok else str(result)
                 return result
             finally:
-                _record(tool, risk, "", ok, outcome, started)
+                _record(tool, risk, "", ok, outcome, started, message)
 
         try:
             pid, drawing = await _probe()
@@ -347,7 +352,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 refusal = str(exc)
 
         if refusal is not None:
-            _record(tool, risk, drawing, False, "refused", started)
+            _record(tool, risk, drawing, False, "refused", started, refusal)
             if tool == STATUS_TOOL:
                 # Status still answers, but says nothing about a drawing in
                 # an AutoCAD that is not connected.
@@ -418,7 +423,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         finally:
             if job and job.bridge:
                 await asyncio.to_thread(job.bridge.end, job.id, ok, outcome, job.title, _ms(started))
-            _record(tool, risk, drawing, ok, outcome, started)
+            _record(tool, risk, drawing, ok, outcome, started, "" if ok or not isinstance(result, str) else result)
             _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked)
 
 
@@ -582,7 +587,11 @@ def _ms(started: float) -> int:
     return int((time.monotonic() - started) * 1000)
 
 
-def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float) -> None:
+def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float, message: str = "") -> None:
+    """One audit line. A failure keeps only a reason word from a fixed list, never its message (D-67)."""
+    fields: dict[str, Any] = {}
+    if not ok and outcome != "cancelled":
+        fields["reason"] = audit.reason_of(message) or "other"
     audit.record(
         conversation=CONVERSATION,
         tool=tool,
@@ -591,4 +600,5 @@ def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started
         ok=ok,
         outcome=outcome,
         ms=_ms(started),
+        **fields,
     )

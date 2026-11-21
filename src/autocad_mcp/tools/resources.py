@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from ..acad.findtool import Entry, search, split_bullets
+from ..acad.findtool import Entry, is_question, rank, split_bullets
 from ..core import diagnose
 from ..core.registry import dumps, mcp
 from ..core.risk import RISK, Risk
@@ -168,31 +168,57 @@ async def find_tool(phrase: str) -> str:
     puts the wrong tool first, the fix is usually that tool's own "Use when"
     line, not the scoring.
 
+    A plain question ("how many...", "what is...", "is there...") never
+    gets a tool that changes the drawing first (D-67): the tools that only
+    read are the matches, and anything else that matched is listed apart,
+    under "would_change_the_drawing", to use only when the modeller asks for
+    that job.
+
     It touches no drawing, so like autocad://tools it is **not gated**.
     """
     entries = await _entries()
-    hits = search(entries, phrase, limit=5)
+    question = is_question(phrase)
+    hits = rank(entries, phrase, limit=len(entries), reads=_only_reads)
     by_name = {entry.tool: entry for entry in entries}
-    return dumps({
-        "phrase": phrase,
-        "count": len(hits),
-        "matches": [
-            {
-                "tool": hit.tool,
-                "needs": _PADLOCK[RISK.get(hit.tool, Risk.ADMIN)],
-                "summary": by_name[hit.tool].summary,
-                "use_when": list(by_name[hit.tool].use_when),
-                "matched_words": list(hit.matched),
-                "score": hit.score,
-            }
-            for hit in hits
-        ],
-        "note": (
-            "Best first, but read the summary before you call it: the second one is "
-            "sometimes the right one. Nothing found? Read autocad://tools, the whole "
-            "catalogue."
-        ),
-    })
+
+    def row(hit) -> dict[str, object]:
+        return {
+            "tool": hit.tool,
+            "needs": _PADLOCK[RISK.get(hit.tool, Risk.ADMIN)],
+            "summary": by_name[hit.tool].summary,
+            "use_when": list(by_name[hit.tool].use_when),
+            "matched_words": list(hit.matched),
+            "score": hit.score,
+        }
+
+    note = (
+        "Best first, but read the summary before you call it: the second one is "
+        "sometimes the right one. Nothing found? Read autocad://tools, the whole "
+        "catalogue."
+    )
+    if not question:
+        return dumps({"phrase": phrase, "question": False, "count": len(hits[:5]),
+                      "matches": [row(hit) for hit in hits[:5]], "note": note})  # fmt: skip
+    reads = [hit for hit in hits if _only_reads(hit.tool)][:5]
+    others = [hit for hit in hits if not _only_reads(hit.tool)][:3]
+    answer: dict[str, object] = {"phrase": phrase, "question": True, "count": len(reads),
+                                 "matches": [row(hit) for hit in reads]}  # fmt: skip
+    if others:
+        answer["would_change_the_drawing"] = [row(hit) for hit in others]
+    answer["note"] = (
+        "This reads as a question, so only tools that read are offered as the answer. "
+        + ("" if reads else "No tool that only reads matched it. ")
+        + "The tools under would_change_the_drawing do a job instead: use one only if the "
+        "modeller asks for that job. " + note
+        if others
+        else note
+    )
+    return dumps(answer)
+
+
+def _only_reads(tool: str) -> bool:
+    """A tool that only reads the drawing: the one kind a plain question may get first."""
+    return RISK.get(tool) is Risk.READ
 
 
 @mcp.prompt(name="check_standards", description="Check the open drawing against a layer standard and show the result.")

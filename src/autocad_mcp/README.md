@@ -20,6 +20,7 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/modify.py` | move, copy, rotate, scale, mirror, offset, array, modify, delete |
 | `tools/layers.py` | layers, blocks, styles |
 | `tools/advanced.py` | send command, run LISP, purge, regen, audit |
+| `tools/explain.py` | `autocad_why` (why one job cannot run) and `autocad_gaps` (what failed and was slow, from the audit log): both need no AutoCAD (D-67) |
 | `tools/standards.py` | standards check, attribute extraction |
 | `tools/coordinates.py` | the UCS: read it, set it, convert points through it |
 | `tools/sheets.py` | layouts, page setup, title blocks, viewports |
