@@ -456,9 +456,8 @@ def clip_outline(points: Sequence[Sequence[float]]) -> dict[str, Any]:
         raise ValueError("a clip outline needs at least three different corners")
     if len(clean) > MOST_CLIP_CORNERS:
         raise ValueError(f"a clip outline takes at most {MOST_CLIP_CORNERS} corners")
-    area = _signed_area(clean)
-    if abs(area) < 1e-9:
-        raise ValueError("that clip outline has no area: its corners are on one line")
+    # Crossing first: a figure of eight can add up to no area, and "crosses
+    # itself" is what is wrong with it.
     crossing = _first_crossing(clean)
     if crossing is not None:
         a, b = crossing
@@ -466,6 +465,9 @@ def clip_outline(points: Sequence[Sequence[float]]) -> dict[str, Any]:
             f"that clip outline crosses itself (side {a + 1} crosses side {b + 1}); "
             "AutoCAD clips only to an outline that does not"
         )
+    area = _signed_area(clean)
+    if abs(area) < 1e-9:
+        raise ValueError("that clip outline has no area: its corners are on one line")
     box = (
         min(p[0] for p in clean),
         min(p[1] for p in clean),

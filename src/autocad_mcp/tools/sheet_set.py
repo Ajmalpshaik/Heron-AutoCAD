@@ -38,6 +38,7 @@ from .sheets import (
     title_block_source,
 )
 
+DEFAULT_PAPER = "A1"
 ROW_KEYS = (
     "number", "title", "scale", "view", "corner1", "corner2", "handles", "centre",
     "twist", "paper_size", "orientation", "attributes",
@@ -66,9 +67,15 @@ async def autocad_sheet_set(
             ),
         ),
     ],
-    paper_size: Annotated[str, Field(default="A1", description="Sheet size for every row that does not give its own: 'A1', 'A3', 'ANSI D'...")] = "A1",
+    paper_size: Annotated[
+        str | None,
+        Field(default=None, description="Sheet size for every row that does not give its own: 'A1', 'A3', 'ANSI D'... Omit for A1, or for the template_layout's own sheet."),
+    ] = None,
     orientation: Annotated[Literal["portrait", "landscape"], Field(default="landscape", description="Which way round the sheets go.")] = "landscape",
-    plotter: Annotated[str | None, Field(default=PDF_PLOTTER, description=f"Plotter for every sheet. Defaults to '{PDF_PLOTTER}'.")] = PDF_PLOTTER,
+    plotter: Annotated[
+        str | None,
+        Field(default=None, description=f"Plotter for every sheet. Omit for '{PDF_PLOTTER}', or for the template_layout's own plotter."),
+    ] = None,
     plot_style_table: Annotated[str | None, Field(default=None, description="Plot style table for every sheet, e.g. 'monochrome.ctb'.")] = None,
     template_layout: Annotated[
         str | None,
@@ -108,9 +115,11 @@ async def autocad_sheet_set(
 
     Args:
         sheets (list[dict]): the drawing list, one row per sheet.
-        paper_size (str), orientation (str), plotter (Optional[str]),
-            plot_style_table (Optional[str]): the page setup of every sheet.
-        template_layout (Optional[str]): a sheet to copy for each new one.
+        paper_size (Optional[str]), orientation (str), plotter (Optional[str]),
+            plot_style_table (Optional[str]): the page setup of every sheet
+            (A1 on DWG To PDF unless named, or the template's own).
+        template_layout (Optional[str]): a sheet to copy for each new one,
+            with everything on it (by the plug-in; over COM its page setup).
         title_block (Optional[str]): block name or .dwg path.
         title_block_width (Optional[float]), title_block_layer (Optional[str]).
         number_tag / title_tag / scale_tag (Optional[str]): which attributes
@@ -180,8 +189,9 @@ async def autocad_sheet_set(
                 "would_make": [
                     {
                         "number": row["number"], "title": row["title"],
-                        "scale": row["scale"] or "fit", "looks_at": _aim_text(row),
-                        "paper_size": row["paper_size"] or paper_size,
+                        "scale": row["scale"] or ("fit" if row["aim"] else None),
+                        "looks_at": _aim_text(row),
+                        "paper_size": row["paper_size"] or paper_size or ("the template's" if template else DEFAULT_PAPER),
                         "orientation": row["orientation"] or orientation,
                     }
                     for row in plans
@@ -228,9 +238,11 @@ async def autocad_sheet_set(
 
     def _make_one(doc: Any, row: dict[str, Any], block: str | None, template: Any) -> tuple[dict[str, Any], str | None]:
         number = row["number"]
+        # A template keeps its own page setup unless the call names one.
         made = make_layout(
-            doc, number, paper_size=row["paper_size"] or paper_size,
-            orientation=row["orientation"] or orientation, plotter=plotter,
+            doc, number, paper_size=row["paper_size"] or paper_size or (None if template else DEFAULT_PAPER),
+            orientation=row["orientation"] or orientation,
+            plotter=plotter or (None if template else PDF_PLOTTER),
             plot_style_table=plot_style_table, copy_from=str(template) if template else None,
             margins=margins, title_block_width=title_block_width, activate=False,
         )  # fmt: skip

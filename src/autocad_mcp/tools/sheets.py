@@ -537,7 +537,7 @@ async def autocad_create_layout(
     ] = None,
     copy_from: Annotated[
         str | None,
-        Field(default=None, description="Copy an existing layout as the template, title block and all, instead of starting empty."),
+        Field(default=None, description="Copy an existing layout as the template, title block and all, instead of starting empty. (With a Heron plug-in older than this, over COM, only its page setup is copied.)"),
     ] = None,
     margins: Annotated[
         list[float] | None,
