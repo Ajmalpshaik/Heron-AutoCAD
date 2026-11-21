@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
 
-Four new tools in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+Four new tools (**175** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
 (xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
 `autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
 (DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
@@ -20,6 +20,40 @@ Four new tools in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_c
 outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
 when counted from the end) are the answers the code could not get from Autodesk's reference. Not
 built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
+
+## Earlier - 2026-11-21 (drawing events from the plug-in, fewer batch pieces: #48, #45; D-98)
+
+Branch `claude/plugin-events`. No new tool. **Plug-in change**: `DrawingEvents` (bridge) and
+`DrawingWatch` (add-in) record each drawing opened, brought to the front, saved / saved as, closed;
+new op `drawings`; `send_quiet` refuses after a switch mid-job and lines over `quietLimit` (1,500,
+said in ping). Server: the guard reads the events (`core/drawing_events.py`); the batch goes in
+longer pieces through the plug-in (`acad/lisp.py` `quiet_pieces`). The palette's Activity shows
+the drawing events live. An independent review found six gaps, all fixed with tests (D-98, last
+bullet): a drawing opened since the check, history that dropped off, bare-name matches, the status
+mark, `send_quiet` now answering only after AutoCAD got to the input, old names keyed by database.
+Built for all three targets and tested offline; none of it has run in AutoCAD. Versions not bumped
+(the parent does). Follow-up: #165 (a sequence's COM steps after a mid-job switch).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude; live
+rows **AJ1-AJ10**. AJ6 first (count the `Command:` prompts for the 41-object batch), then AJ7
+(every 1,500-character piece arrives); if one is lost, lower `QUIET_CHUNK_LIMIT`.
+
+## Earlier - 2026-11-21 (files with AutoCAD closed, standards against a reference, shared check lists: #71, #69, #135; D-92, D-93)
+
+Two new tools (**171** with the 2D edits and `autocad_render` removed): `autocad_read_file` (Read, needs no
+AutoCAD: a DXF with ezdxf, a DWG / DWS / DWT through the ODA File Converter only when it is
+installed) and `autocad_share_checklist` (Publish: the office list into the office folder, a
+project's changes into `Heron check list changes.json` in the drawing's folder).
+`autocad_check_standards` takes `reference=` (a `.dws`, `.dwt`, `.dwg` or `.dxf`; read by Heron, or
+by AutoCAD's ObjectDBX when it is a DWG and the converter is not there). `autocad_checklist` has
+`action='office_folder'` and names the file every check came from. The DXF reader is proved
+offline on DXF files made by ezdxf; the converter, ObjectDBX on a `.dws` and a real network share
+are not. Versions not bumped (the parent does).
+
+**Next (on this PC):** close Claude, `.venv\Scripts\python.exe -m pip install ezdxf`, start
+Claude, then live rows **AG1-AG15**. AG3 needs the ODA File Converter installed by hand; AG9-AG13
+need a real share and a second PC. If Ajmal wants the office folder set in `.mcp.json` instead, or
+roles for who may change the office list, that is a new decision on top of D-93.
 
 ## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
