@@ -388,3 +388,46 @@ def test_the_disclaimer_is_at_the_root_in_plain_words():
     text = (ROOT / "DISCLAIMER.md").read_text(encoding="utf-8")
     assert "checked value is met" in text
     assert "never says a drawing complies" in text
+
+
+# ---------------------------------------------------------------------------
+# Found in review: a read cut short at max_entities is not a PASS anywhere
+# ---------------------------------------------------------------------------
+
+
+def test_title_blocks_read_from_part_of_the_drawing_are_not_a_pass():
+    data = {**CLEAN, "capped": 2}
+    report = checklist.run("t", checklist.validate([{"check": "title_block_filled", "params": {"block": "TITLE*"}}]), data)
+    row = report["results"][0]
+    assert row["state"] == "NO DATA" and "only the first 2 objects" in row["note"]
+
+
+def test_an_empty_title_block_found_in_part_of_the_drawing_is_still_a_failure():
+    data = {**CLEAN, "capped": 2, "blocks": [{"handle": "T9", "name": "TITLE-A1", "attributes": {"DATE": ""}}]}
+    report = checklist.run("t", checklist.validate([{"check": "title_block_filled", "params": {"block": "TITLE*"}}]), data)
+    assert report["results"][0]["state"] == "FAIL"
+
+
+def test_check_standards_on_part_of_the_drawing_does_not_say_passed(monkeypatch):
+    class Entity:
+        Handle, ObjectName, Layer, Color, Linetype = "E1", "AcDbLine", "M-DUCT", 256, "ByLayer"
+
+    class LayerTable:
+        Count = 1
+
+        def Item(self, i):
+            return object()
+
+    class Doc:
+        Layers = LayerTable()
+
+    monkeypatch.setattr(standards, "run", _direct)
+    monkeypatch.setattr(standards, "get_doc", lambda: Doc())
+    monkeypatch.setattr(standards, "describe_layer", lambda layer: {"name": "M-DUCT"})
+    monkeypatch.setattr(standards, "select_filtered", lambda doc: None)
+    monkeypatch.setattr(standards, "iter_selection", lambda sel: iter([Entity(), Entity()]))
+    monkeypatch.setattr(standards, "discard_selection_set", lambda doc: None)
+    answer = asyncio.run(standards.autocad_check_standards(rules={"forbid_entities_on_layer_0": True}, max_entities=1))
+    report = json.loads(answer)
+    assert report["passed"] is None and "decided" in report["warning"]
+    _says_no_compliance(answer)
