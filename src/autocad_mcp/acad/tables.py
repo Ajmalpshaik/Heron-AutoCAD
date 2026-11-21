@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..core.errors import AutocadError, com_message, is_retryable
+from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 
 # Characters AutoCAD rejects in symbol-table names.
 INVALID_NAME_CHARS = set('<>/\\":;?*|,=`')
@@ -71,7 +71,8 @@ def ensure_linetype(doc: Any, name: str) -> None:
         try:
             doc.Linetypes.Load(clean, source)
             return
-        except BaseException:  # noqa: BLE001 - try the next definition file
+        except BaseException as exc:  # noqa: BLE001 - try the next definition file
+            raise_if_busy(exc)
             continue
     raise AutocadError(
         f"Linetype '{clean}' is not in the drawing and was not found in "
@@ -112,7 +113,8 @@ def describe_layer(layer: Any) -> dict[str, Any]:
     def _try(getter, default=None):
         try:
             return getter()
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             return default
 
     return {

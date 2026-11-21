@@ -39,7 +39,7 @@ from ..acad.render import (
     unit_vector,
 )
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import (
     COORDS_OPT,
@@ -278,7 +278,8 @@ async def autocad_add_light(
 
         try:
             units = doc.GetVariable("LIGHTINGUNITS")
-        except BaseException:  # noqa: BLE001 - reported as unknown below
+        except BaseException as exc:  # noqa: BLE001 - reported as unknown below
+            raise_if_busy(exc)
             units = None
         payload = plugin_created(doc, in_plugin("add_light", args, "A light"))
         payload["intensity_unit"] = unit
@@ -334,7 +335,8 @@ PRESS_RENDER = "This does not render: press Render in AutoCAD (Visualize tab) wh
 def _read_var(doc: Any, name: str) -> Any:
     try:
         return doc.GetVariable(name)
-    except BaseException:  # noqa: BLE001 - a variable this AutoCAD lacks reads as None
+    except BaseException as exc:  # noqa: BLE001 - a variable this AutoCAD lacks reads as None
+        raise_if_busy(exc)
         return None
 
 
@@ -448,6 +450,7 @@ def _set_var(doc: Any, name: str, value: Any, done: list[str], not_set: list[str
     try:
         doc.SetVariable(name, value)
     except BaseException as exc:  # noqa: BLE001 - one refusal is said, the rest still go
+        raise_if_busy(exc)
         not_set.append(f"{name} ({com_message(exc)})")
     else:
         done.append(name)

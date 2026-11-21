@@ -41,6 +41,14 @@ BUSY_REFUSAL_HRESULTS = {
 }
 
 
+# What is_busy goes by (D-100): the two refusals, and a modal dialog open. All
+# three mean AutoCAD did not carry the call out. RPC_E_SERVERFAULT is left out:
+# it says the call itself threw, which a "not there" fallback may rightly take.
+BUSY_HRESULTS = BUSY_REFUSAL_HRESULTS | {
+    -2146777998,  # 0x800AC472 VBA_E_IGNORE - AutoCAD is in a modal dialog
+}
+
+
 # HRESULTs meaning the pointer itself is dead: AutoCAD dropped the proxy (seen
 # while a drawing opens). The cure is a fresh dispatch, same as StaleDispatchError.
 DEAD_POINTER_HRESULTS = {
@@ -121,14 +129,12 @@ def is_dispatch_failure(exc: BaseException) -> bool:
     return False
 
 
-def is_retryable(exc: BaseException) -> bool:
-    """True when the error means "AutoCAD is busy", not "this cannot work"."""
-    if is_dispatch_failure(exc):
-        return True
-    if hresult_of(exc) in RETRYABLE_HRESULTS:
-        return True
-    # The busy state also arrives wrapped in DISP_E_EXCEPTION, where only the
-    # description distinguishes it from a real failure.
+def _says_busy(exc: BaseException) -> bool:
+    """True when a COM error's description says AutoCAD was busy.
+
+    The busy state also arrives wrapped in DISP_E_EXCEPTION, where only the
+    description distinguishes it from a real failure.
+    """
     if isinstance(exc, pythoncom.com_error) and len(exc.args) >= 3 and exc.args[2]:
         desc = str(exc.args[2][2] or "").lower()
         return any(
@@ -136,6 +142,39 @@ def is_retryable(exc: BaseException) -> bool:
             for phrase in ("rejected by callee", "busy", "retry later")
         )
     return False
+
+
+def is_retryable(exc: BaseException) -> bool:
+    """True when the error means "AutoCAD is busy", not "this cannot work"."""
+    if is_dispatch_failure(exc):
+        return True
+    if hresult_of(exc) in RETRYABLE_HRESULTS:
+        return True
+    return _says_busy(exc)
+
+
+def is_busy(exc: BaseException) -> bool:
+    """True only when AutoCAD turned this call away because it was busy (D-100).
+
+    Narrower than is_retryable on purpose. A member pywin32 could not resolve
+    is left out: asking an entity for a property its kind does not have (a
+    line's Radius) gives the same AttributeError a busy AutoCAD can, and the
+    tools rightly read that one as "not there".
+    """
+    return hresult_of(exc) in BUSY_HRESULTS or _says_busy(exc)
+
+
+def raise_if_busy(exc: BaseException) -> None:
+    """Let a busy refusal go up as it is; do nothing for any other error (D-100).
+
+    Call it first in an ``except`` that would otherwise take a COM error for
+    "not there", "use the default", or wrap it in a plain AutocadError. Up at
+    connection._with_retry the refusal is asked again while nothing has been
+    written yet, or becomes "Outcome unknown" once a write has begun: never a
+    false failure, and never a quiet carry-on.
+    """
+    if is_busy(exc):
+        raise exc
 
 
 def com_message(exc: BaseException) -> str:

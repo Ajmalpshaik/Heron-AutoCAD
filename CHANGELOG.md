@@ -18,6 +18,15 @@ Newest first. Dates are when the change was made.
   0.5 mm a pixel, so its 2.5 mm text could not show ([D-102](docs/DECISIONS.md)). Live rows AM1-AM6
   NOT RUN; #41 stays open until AM1 names the cause.
 
+- **A busy AutoCAD is never a false failure (2026-11-21, #36).** When AutoCAD stays busy past the
+  message filter's 3 s (a dialog left open, a heavy redraw), every tool now lets the refusal go up
+  as it is, so the answer is "AutoCAD stayed busy ... press Esc" or "Outcome unknown, look before
+  retrying". Before, about 250 places turned it into "Could not ...", or carried on with a wrong
+  value: a layer read as off, the world UCS used instead of yours, "UNDO is off" after Discard. One
+  helper, `raise_if_busy`, one line per place; about 40 places carry on through it on purpose (putting
+  variables back, Esc, redraws) and are listed with their reasons. A new test reads the source so
+  new code cannot bring the old way back ([D-100](docs/DECISIONS.md)). Live rows AL1-AL7 NOT RUN.
+
 - **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
   (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,
   elbows, flanges with bolt holes, and each pipe's cut length) as solids, each piece checked against

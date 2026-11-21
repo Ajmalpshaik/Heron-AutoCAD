@@ -40,7 +40,7 @@ from ..acad.entities import resolve_handles, short_type
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import describe_layer, ensure_layer, ensure_linetype, validate_name
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
 
@@ -317,7 +317,8 @@ def load_rules(
 def _read(target: Any, name: str, default: Any = None) -> Any:
     try:
         return getattr(target, name)
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 
@@ -441,7 +442,8 @@ def _set(target: Any, name: str, value: Any) -> bool:
     try:
         setattr(target, name, value)
         return True
-    except BaseException:  # noqa: BLE001 - a refusal is the answer
+    except BaseException as exc:  # noqa: BLE001 - a refusal is the answer
+        raise_if_busy(exc)
         return False
 
 
@@ -575,6 +577,7 @@ async def autocad_remap_layers(
                 try:
                     entity.Layer = move["to"]
                 except BaseException as exc:  # noqa: BLE001 - usually a locked layer
+                    raise_if_busy(exc)
                     failed.append({"handle": move["handle"], "to": move["to"], "reason": com_message(exc)})
                     continue
                 moved += 1
@@ -706,6 +709,7 @@ async def autocad_tidy_entities(
                         deleted += 1
                         done[kind] = done.get(kind, 0) + 1
                     except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         failed.append({"handle": job["handle"], "do": kind, "reason": com_message(exc)})
                     continue
                 ok = {
