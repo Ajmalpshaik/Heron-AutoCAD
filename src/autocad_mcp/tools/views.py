@@ -20,6 +20,7 @@ area the modeller actually meant.
 
 from __future__ import annotations
 
+import math
 import time
 from typing import Annotated, Any
 
@@ -32,7 +33,7 @@ from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
-from ._shared import COORDS_OPT, ucs_for, world_coords
+from ._shared import COORDS_OPT, in_plugin, ucs_for, world_coords
 
 # How long -VIEW gets to finish saving before a prompt still open means it did
 # not take the answer.
@@ -370,3 +371,138 @@ def _save_screen(doc: Any, clean: str, replace: bool) -> dict[str, Any]:
         "from": "the screen",
         "view": _describe(view),
     }
+
+
+# ---------------------------------------------------------------------------
+# A camera view for a render (D-86)
+# ---------------------------------------------------------------------------
+
+# AutoCAD's own default lens (LENSLENGTH), a normal eye on a 35 mm camera.
+DEFAULT_LENS_MM = 50.0
+
+
+@mcp.tool(name="autocad_add_camera_view", **tool_meta("Add A Camera View"))
+@tool_errors
+async def autocad_add_camera_view(
+    name: Annotated[
+        str,
+        Field(min_length=1, description="What to call the camera view, e.g. 'LIVING-CAM-1'. Spaces are fine."),
+    ],
+    eye: Annotated[
+        list[float],
+        Field(description="Where the camera stands, [x, y, z]. Give z: eye height inside a room is about 1600."),
+    ],
+    target: Annotated[
+        list[float],
+        Field(description="The point it looks at, [x, y, z], e.g. the far wall at 1200 high."),
+    ],
+    lens: Annotated[
+        float,
+        Field(
+            default=DEFAULT_LENS_MM, ge=10, le=600,
+            description="Lens length in mm on a 35 mm camera: 24 for a whole room, 35 a wide view, 50 a normal eye (AutoCAD's default), 85 and up a close detail.",
+        ),
+    ] = DEFAULT_LENS_MM,
+    look_through: Annotated[
+        bool,
+        Field(default=True, description="Also put the camera's view on screen, so the modeller sees it and can press Render."),
+    ] = True,
+    replace: Annotated[
+        bool,
+        Field(default=False, description="Move a view of this name that is already saved."),
+    ] = False,
+    coords: Annotated[str, COORDS_OPT] = "world",
+) -> str:
+    """Make a named perspective camera view at an eye point, looking at a target, through a lens.
+
+    The view for a render, as AutoCAD's CAMERA command makes one: perspective
+    on, the lens set (24 mm inside a room), saved under a name so it can be
+    rendered and gone back to (VIEW, or the render window's view list). By
+    default it is also put on screen.
+
+    Made by Heron's plug-in as one saved view with perspective and the lens
+    set, never by DVIEW (which waits for picks and hangs). The view is sized
+    to the lens's field at the target, so the two agree. No camera glyph is
+    drawn.
+
+    One undo step. Heron does not render: press Render in AutoCAD.
+
+    Args:
+        name (str): the view's name.
+        eye (list[float]): the camera, [x, y, z].
+        target (list[float]): what it looks at, [x, y, z].
+        lens (float): mm, 10 to 600.
+        look_through (bool): put it on screen too.
+        replace (bool): move a view of this name.
+        coords (str): 'world' or 'ucs' for eye and target.
+
+    Returns:
+        str: JSON: {"created" | "replaced": true, "name", "handle", "eye",
+             "target", "lens_mm", "perspective": true,
+             "field_of_view_degrees", "distance", "view_width",
+             "view_height", "on_screen": bool, "in_drawing": bool,
+             "warning"?: str}
+
+    Examples:
+        - Use when: "a camera in the living room corner looking at the
+          kitchen, wide angle" — eye at 1600 high, lens=24.
+        - Use when: "save three camera views of the villa for the client
+          renders" — one call each, then the modeller renders each.
+        - Use when: "move LIVING-CAM-1 a bit to the left" — the new eye with
+          replace=true.
+        - Don't use when: the angle you want is already on screen —
+          autocad_save_view(from_screen=true) keeps exactly that.
+        - Don't use when: you only want an isometric look —
+          autocad_set_3d_view(direction='sw_iso').
+
+    Error Handling:
+        - The same eye and target, or a lens outside 10-600 mm, is refused.
+        - A name already saved is refused unless replace=true.
+        - It works on the Model tab only: a layout is refused.
+        - Needs the Heron plug-in with the add_camera_view operation.
+    """
+    clean = validate_name(name, "view")
+    if not 10 <= lens <= 600:
+        raise AutocadError("The lens must be 10-600 mm (24 mm is a wide room shot, 50 mm a normal eye).")
+    for label, point in (("eye", eye), ("target", target)):
+        if len(point) != 3:
+            raise AutocadError(f"{label} must be [x, y, z]: a camera needs its height.")
+
+    def work() -> dict[str, Any]:
+        doc = get_doc()
+        require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        at = list(world_coords(eye, ucs))
+        aim = list(world_coords(target, ucs))
+        if math.dist(at, aim) < 1e-9:
+            raise AutocadError("The eye and the target are the same point, so the camera looks nowhere.")
+        report = in_plugin(
+            "add_camera_view",
+            {
+                "name": clean,
+                "eye": at,
+                "target": aim,
+                "lens": float(lens),
+                "look_through": bool(look_through),
+                "replace": bool(replace),
+            },
+            "A camera view",
+        )
+        payload: dict[str, Any] = dict(report)
+        try:
+            there = any(k.lower() == clean.lower() for k in _views(doc))
+        except BaseException:  # noqa: BLE001 - made is made; only the read-back failed
+            there = False
+        payload["in_drawing"] = there
+        if not there:
+            payload["warning"] = (
+                f"Heron in AutoCAD saved '{clean}', but it could not be read back from the drawing's "
+                "views straight away. Check autocad_list_views; do not make it again."
+            )
+        payload["note"] = (
+            "Heron does not render: press Render in AutoCAD with this view on screen. "
+            "Set the sun with autocad_set_sun and the lights with autocad_switch_lights first."
+        )
+        return payload
+
+    return dumps(await run(work))
