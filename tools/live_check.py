@@ -42,9 +42,11 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import live_check_blocks  # noqa: E402
+import live_check_drawing  # noqa: E402
 import live_check_edits  # noqa: E402
 import live_check_heron  # noqa: E402
 import live_check_layers  # noqa: E402
+import live_check_mep3d  # noqa: E402
 import live_check_render  # noqa: E402
 import live_common as lc  # noqa: E402
 from live_common import (  # noqa: E402
@@ -1304,8 +1306,8 @@ OWN_BY_EYE: dict[str, str] = {
 # The later groups, one file per area. Run in this order; the Heron file goes
 # last because its V4 row types CLOSE in the scratch drawing.
 MODULES = (
-    live_check_edits, live_check_layers, live_check_blocks, live_check_render,
-    live_check_heron,
+    live_check_edits, live_check_layers, live_check_blocks, live_check_render, live_check_drawing,
+    live_check_mep3d, live_check_heron,
 )
 
 CHECKS: tuple[Check, ...] = OWN_CHECKS + tuple(c for m in MODULES for c in m.CHECKS)
