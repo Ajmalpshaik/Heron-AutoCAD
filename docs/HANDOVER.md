@@ -8,7 +8,22 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (review fixes for the new tools, D-75)
+## Latest - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
+
+Seven new tools (**149**): `autocad_layer_states`, `autocad_isolate_layers`,
+`autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,
+`autocad_annotation_scales`, `autocad_list_annotation_scales`; `annotative=true` on `add_text`,
+`add_mtext`, `add_dimension`, `dimension_run`, `add_multileader`; `dim_style` on
+`dimension_run`; `autocad_list_layers` lists the layer states. Six new plug-in operations
+(`layer_state`, `layer_state_names`, `dimension_lines`, `move_dimension_lines`,
+`annotation_scales`, `set_annotation_scales`), checked against Autodesk's reference assemblies and
+compiled for all three builds; the plug-in version is not bumped here (the parent does it).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then
+live rows **AB1-AB11**. AB1 (the 1:5 style size) and AB9 (what height an annotative text gets)
+decide whether the two size rules in D-80 / D-81 hold.
+
+## Earlier - 2026-11-21 (review fixes for the new tools, D-75)
 
 An independent review of PRs #124, #143 and #146 found six real problems; all fixed with tests:
 Excel's date / time / percent typing written as numbers (now refused, `excel_converted`), a tag

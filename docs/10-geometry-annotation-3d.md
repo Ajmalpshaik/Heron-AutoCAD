@@ -78,6 +78,8 @@ autocad_dimension_run(points=[[0,0],[3000,0],[7500,0],[12000,0]],
 | `autocad_dimension_run` | Change | A whole run at once: `chain` (AutoCAD's Continue), `baseline` (each back to the first, stepped clear of each other), `overall`, or `ordinate` from a datum. Horizontal, vertical or aligned |
 | `autocad_add_centre_marks` | Change | The cross a drawing office expects on every circle and arc, by handle or by layer; `extend` turns it into full centre lines |
 | `autocad_add_dimension` | Change | Still there for one dimension: aligned, horizontal, vertical, radial, diametric, angular |
+| `autocad_space_dimensions` | Change | DIMSPACE on dimensions already there: a stack moved to an even spacing off a base dimension, or lined up (spacing 0) |
+| `autocad_break_dimensions` | Change | DIMBREAK, automatic: a gap wherever another object crosses a dimension; `remove` takes it off |
 
 The points are **put in order along the run** first, which is what a drafter
 does without thinking. A baseline set steps each dimension line clear of the
@@ -91,6 +93,19 @@ quietly does not add up.
 There is no Automation call for a centre mark, so those are drawn as lines.
 That is a feature: they land on the layer you ask for and plot the way that
 layer does.
+
+**A detail at another scale takes its own style.** `dim_style="DIM-1-5"` draws
+the run in that style at the style's own scale. The style is set on each
+dimension; the drawing's current style and DIMSCALE are never touched, because
+making a style current and putting the old one back wipes the DIMSCALE that
+`autocad_drawing_setup` left on it ([D-80](DECISIONS.md), issue #37).
+
+**Spacing a stack that is already drawn.** COM cannot move a rotated
+dimension's line without moving its extension line origins too, so the
+plug-in reads where each dimension line is and moves it; Heron works out the
+spacing. The base stays put; every other dimension keeps its side of it and
+its order out from it. A dimension break has no API call at all, so DIMBREAK
+is typed, each dimension picked by its handle ([D-80](DECISIONS.md)).
 
 ---
 
@@ -107,6 +122,15 @@ bulges. Its arcs come out an even size because the spacing is adjusted to
 divide the boundary exactly, so the last arc is never a stub, and the bulge is
 **signed from the direction the boundary is traced** so the arcs always bulge
 outward. Its rise is a quarter of its chord, which is what REVCLOUD looks like.
+
+**Annotative.** `annotative=true` on `autocad_add_text`, `autocad_add_mtext`,
+`autocad_add_dimension`, `autocad_dimension_run` and `autocad_add_multileader`
+makes the new object annotative at the drawing's current annotation scale;
+`autocad_annotation_scales` adds and removes scales on objects already there,
+and `autocad_list_annotation_scales` reads them. Only .NET reaches an object's
+scales, so the plug-in does it ([D-81](DECISIONS.md)). Sizes stay in drawing
+units at the current scale (125 for 2.5 mm at 1:50); the reply gives the paper
+height to check against.
 
 Multileader styles and table styles have **no Automation call to create them**.
 Make them in AutoCAD, or bring yours in with `autocad_import_from_drawing`;

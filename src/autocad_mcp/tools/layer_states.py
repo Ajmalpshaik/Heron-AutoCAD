@@ -406,30 +406,43 @@ async def autocad_isolate_layers(
             result["failed"] = failed
         return result
 
+    def back_to(doc: Any, was: str | None) -> bool:
+        """Make the layer that was current before isolating current again, if it can be now."""
+        if not was or str(doc.ActiveLayer.Name).casefold() == was.casefold():
+            return False
+        try:
+            target = doc.Layers.Item(was)
+            if bool(_try(lambda: target.Freeze, False)):
+                return False  # AutoCAD will not make a frozen layer current
+            doc.ActiveLayer = target
+            return True
+        except BaseException:  # noqa: BLE001 - the layer has gone since: keep the current one
+            return False
+
     def unisolate() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
         listed = layer_state_list().get("layer_states") or []
-        if not any(str(s.get("name", "")).casefold() == ISOLATE_STATE.casefold() for s in listed):
+        state = next((s for s in listed if str(s.get("name", "")).casefold() == ISOLATE_STATE.casefold()), None)
+        if state is None:
             raise AutocadError(
                 "Nothing is isolated by Heron in this drawing (there is no HERON-ISOLATE layer state). "
                 "If layers were isolated with AutoCAD's own LAYISO, type LAYUNISO. Nothing was changed."
             )
+        was = current_from(str(state.get("description", "")))
+        before = str(doc.ActiveLayer.Name)
         with undo_mark(doc):
+            # The old current layer first where it can be (the restore may freeze the one current
+            # now), and again after the restore, which thaws it if it was frozen.
+            back_to(doc, was)
             report = in_plugin("layer_state", {"action": "restore", "name": ISOLATE_STATE, "delete_after": True},
                                "Putting the layers back")
-            rows = list(report.get("changes") or [])
-            was = current_from(str(report.get("description", "")))
-            now = str(doc.ActiveLayer.Name)
-            if was and was.casefold() != now.casefold():
-                try:
-                    target = doc.Layers.Item(was)
-                    if bool(_try(lambda: target.LayerOn, True)) and not bool(_try(lambda: target.Freeze, False)):
-                        doc.ActiveLayer = target
-                        rows.append({"variable": "CLAYER", "property": "current layer", "from": now, "to": was})
-                except BaseException:  # noqa: BLE001 - the layer has gone since: keep the current one
-                    pass
-        return {"action": "unisolate", "current_layer": str(doc.ActiveLayer.Name), **before_after(rows)}
+            back_to(doc, was)
+        rows = list(report.get("changes") or [])
+        now = str(doc.ActiveLayer.Name)
+        if now.casefold() != before.casefold():
+            rows.append({"variable": "CLAYER", "property": "current layer", "from": before, "to": now})
+        return {"action": "unisolate", "current_layer": now, **before_after(rows)}
 
     return dumps(await run(isolate if action == "isolate" else unisolate))
 

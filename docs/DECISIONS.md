@@ -130,6 +130,62 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-81 - Layer states and annotation scales go through the plug-in; isolate and merge are COM
+
+**Decided:** 2026-11-21, building issues #107 and #108. **Status:** in force.
+- **Layer states** (`autocad_layer_states`; listed by `autocad_list_layers`) are saved, restored
+  and deleted by the plug-in with .NET's `LayerStateManager` (`layer_state`, `layer_state_names`).
+  The issue said COM; COM's manager is reached only through a ProgID with AutoCAD's version in it
+  and has no call that lists the states, and its calls could not be checked here, while the .NET
+  calls (`SaveLayerState`, `RestoreLayerState`, `GetLayerStateNames`, the `LayerStateMasks`
+  numbers) were read out of Autodesk's own reference assemblies for 2021 and 2027 (D-33).
+- **Isolate** (`autocad_isolate_layers`) turns the other layers off, frozen or locked over COM,
+  after saving the layers as they were as the layer state `HERON-ISOLATE` (on, frozen, locked, and
+  the current layer in its description). Isolating again keeps that first state; `unisolate`
+  restores it, puts the current layer back and deletes it. `autocad_layer_states` will not restore
+  or save over that name, so the two cannot get mixed up.
+- **Merge** (`autocad_merge_layers`) needs `confirm=true`. It moves objects on the old layers in
+  model space and every layout (one selection per layer, the name escaped so `-`, `#`, `.` are not
+  wildcards, then matched exactly), inside block definitions (not xrefs) and in block attributes.
+  An old layer is deleted only when nothing failed to move off it, and is relocked if it is kept.
+  Layer 0 and xref layers are refused; the target must already exist.
+- **Annotative** (`autocad_annotation_scales`, `autocad_list_annotation_scales`, and
+  `annotative=true` on `add_text`, `add_mtext`, `add_dimension`, `dimension_run`,
+  `add_multileader`): the plug-in uses `DBObject.Annotative`, `AddContext`, `RemoveContext`,
+  `HasContext` and the `ACDB_ANNOTATIONSCALES` collection (`annotation_scales`,
+  `set_annotation_scales`), all in the reference assemblies. A scale is found by name, else by its
+  paper : drawing ratio; a missing 1:N is added to the drawing only when asked. An annotative object
+  keeps at least one scale (a removal leaving none is refused, nothing changed). Made annotative
+  with no scale given, an object gets the current one. Heights stay in drawing units at the current
+  scale, and the reply gives the paper height, so a wrong assumption shows at once (live row AB9).
+- **A drawing tool's annotative step never fails the call** once the object is drawn: what did not
+  happen comes back as a warning, so the chat does not draw it twice. Without the plug-in the tool
+  refuses before drawing anything. The object is drawn over COM and made annotative by the plug-in
+  inside the same undo mark (live row AB10 proves the one Ctrl+Z).
+
+## D-80 - A dimension run takes a named style per dimension; spacing is Heron's maths, the break is typed
+
+**Decided:** 2026-11-21, building issues #37 and #116. **Status:** in force.
+- **`dim_style` on `autocad_dimension_run` (#37).** The name is checked against the drawing's
+  dimension styles before anything is drawn (an unknown one is refused, naming those it has), set as
+  `StyleName` on each dimension, and the drawing's DIMSCALE is then **not** written over it: the
+  style's own scale wins (`scale_to_write`). The style is never made current, because putting the old
+  one back afterwards wipes the DIMSCALE override `autocad_drawing_setup` left on it. A dimension
+  that will not take the style is deleted and listed in `failed`, not left at the wrong size. An
+  annotative run is not given DIMSCALE either. The scale the first dimension took from the style
+  comes back as `style_scale`, for live row AB1.
+- **Dimension space (#116).** COM has no definition points on a rotated dimension, so it cannot move
+  the dimension line without moving the extension line origins. The plug-in reads each dimension's
+  direction and line point (`dimension_lines`, Read) and sets `DimLinePoint`
+  (`move_dimension_lines`, Change); where each goes is `plan_spacing`, tested offline. The base stays
+  put; every other parallel dimension keeps its side and its order out from the base and goes to
+  1, 2, 3 ... spacings; 0 lines them up; one not parallel is skipped and named.
+- **Dimension break (#116).** Neither COM nor .NET has a call for a break, so DIMBREAK is typed:
+  Multiple, each dimension as `(handent "...")` (the handle checked as hex first, so nothing else
+  reaches the command line), then Break or Remove. Anything not a dimension, or in the other space,
+  is refused before anything is typed; a prompt still open is cancelled and said. The breaks are not
+  read back: the reply says to look with `autocad_preview`.
+
 ## D-75 - What a review of the new tools found, and the rules added
 
 **Decided:** 2026-11-21, after an independent review of the code of PRs #124, #143 and #146.

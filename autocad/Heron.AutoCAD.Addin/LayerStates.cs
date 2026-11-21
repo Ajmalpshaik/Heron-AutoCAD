@@ -138,17 +138,29 @@ namespace Heron.AutoCAD.Addin
         private static int CountLayers(Database db, Transaction tr)
         {
             var count = 0;
-            foreach (ObjectId _ in (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead)) count++;
+            using (var look = db.TransactionManager.StartOpenCloseTransaction())
+            {
+                foreach (ObjectId _ in (LayerTable)look.GetObject(db.LayerTableId, OpenMode.ForRead)) count++;
+                look.Commit();
+            }
             return count;
         }
 
+        /// <summary>
+        /// Each layer's on, frozen and locked, read through an open-close
+        /// transaction so no layer is still held open when the restore writes it.
+        /// </summary>
         private static Dictionary<string, (bool on, bool frozen, bool locked)> Snapshot(Database db, Transaction tr)
         {
             var states = new Dictionary<string, (bool, bool, bool)>(StringComparer.OrdinalIgnoreCase);
-            foreach (ObjectId id in (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead))
+            using (var look = db.TransactionManager.StartOpenCloseTransaction())
             {
-                var layer = (LayerTableRecord)tr.GetObject(id, OpenMode.ForRead);
-                states[layer.Name] = (!layer.IsOff, layer.IsFrozen, layer.IsLocked);
+                foreach (ObjectId id in (LayerTable)look.GetObject(db.LayerTableId, OpenMode.ForRead))
+                {
+                    var layer = (LayerTableRecord)look.GetObject(id, OpenMode.ForRead);
+                    states[layer.Name] = (!layer.IsOff, layer.IsFrozen, layer.IsLocked);
+                }
+                look.Commit();
             }
             return states;
         }

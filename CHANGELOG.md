@@ -4,6 +4,18 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Layers and annotation (2026-11-21, #37, #107, #108, #116).** Seven new tools (149 in all):
+  `autocad_layer_states` saves, restores and deletes named layer states (listed by
+  `autocad_list_layers`); `autocad_isolate_layers` isolates the layers of picked objects and puts
+  them all back; `autocad_merge_layers` moves everything off old layers, inside blocks too, and
+  removes them once empty (`confirm=true`); `autocad_space_dimensions` spaces a stack of dimensions
+  evenly; `autocad_break_dimensions` breaks dimensions where other objects cross them;
+  `autocad_annotation_scales` and `autocad_list_annotation_scales` make objects annotative and add,
+  remove and read their scales. `annotative=true` on the text, mtext, dimension, dimension run and
+  multileader tools. `autocad_dimension_run` takes `dim_style`, set on each dimension with the
+  style's own scale. Six new plug-in operations ([D-80](docs/DECISIONS.md),
+  [D-81](docs/DECISIONS.md)). Live rows AB1-AB11 NOT RUN.
+
 - **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
   fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,
   BLOCK or LAYOUT keeps its own column; a row whose Block is another block here is not used, and a

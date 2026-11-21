@@ -82,22 +82,46 @@ namespace Heron.AutoCAD.Addin
                     continue;
                 }
                 var heldBefore = Held(obj, scales);
-                obj.UpgradeOpen();
+                // Opened for write only when something changes, so an object already as asked is left untouched.
+                void Write()
+                {
+                    if (!obj.IsWriteEnabled) obj.UpgradeOpen();
+                }
                 if (annotative == false)
                 {
-                    if (was == "yes") obj.Annotative = AnnotativeStates.False;
+                    if (was == "yes")
+                    {
+                        Write();
+                        obj.Annotative = AnnotativeStates.False;
+                    }
                 }
                 else
                 {
-                    if ((annotative == true || add.Count > 0) && was != "yes") obj.Annotative = AnnotativeStates.True;
+                    if ((annotative == true || add.Count > 0) && was != "yes")
+                    {
+                        Write();
+                        obj.Annotative = AnnotativeStates.True;
+                    }
                     if (State(obj) == "yes")
                     {
                         foreach (var scale in add)
-                            if (!obj.HasContext(scale)) obj.AddContext(scale);
+                            if (!obj.HasContext(scale))
+                            {
+                                Write();
+                                obj.AddContext(scale);
+                            }
                         // Made annotative with no scale asked for: the current one, as AutoCAD does.
-                        if (Held(obj, scales).Count == 0 && currentScale != null) obj.AddContext(currentScale);
+                        if (Held(obj, scales).Count == 0 && currentScale != null)
+                        {
+                            Write();
+                            obj.AddContext(currentScale);
+                        }
                         foreach (var scale in remove)
-                            if (obj.HasContext(scale)) obj.RemoveContext(scale);
+                            if (obj.HasContext(scale))
+                            {
+                                Write();
+                                obj.RemoveContext(scale);
+                            }
                         if (Held(obj, scales).Count == 0)
                             throw new RunRefusal(handle + " would be left with no annotation scale; an annotative object keeps at least one. "
                                 + "Leave one on it, or make it not annotative with annotative=false.");

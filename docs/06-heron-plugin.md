@@ -197,6 +197,12 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `press_pull` | `autocad_press_pull_faces` | `Solid3d.ExtrudeFaces` |
 | `thicken` | `autocad_thicken_surface` | `Surface.Thicken` |
 | `super_hatch` | `autocad_super_hatch` | a block of tiles, one reference, a spatial filter (XCLIP) |
+| `layer_state_names` (Read) | `autocad_list_layers`, `autocad_isolate_layers` | `LayerStateManager.GetLayerStateNames`, its mask and description ([D-81](DECISIONS.md)) |
+| `layer_state` | `autocad_layer_states`, `autocad_isolate_layers` | `LayerStateManager.SaveLayerState` / `RestoreLayerState` / `DeleteLayerState` |
+| `dimension_lines` (Read) | `autocad_space_dimensions` | `RotatedDimension` / `AlignedDimension`: direction and `DimLinePoint` ([D-80](DECISIONS.md)) |
+| `move_dimension_lines` | `autocad_space_dimensions` | `DimLinePoint`, then `RecomputeDimensionBlock` |
+| `annotation_scales` (Read) | `autocad_list_annotation_scales` | the `ACDB_ANNOTATIONSCALES` collection, `Database.Cannoscale`, `DBObject.HasContext` |
+| `set_annotation_scales` | `autocad_annotation_scales` and `annotative=true` on the text, dimension and multileader tools | `DBObject.Annotative`, `AddContext`, `RemoveContext` |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.

@@ -235,6 +235,7 @@ class FakePlugin:
         self.calls: list = []
         self.states: dict[str, dict] = {}
         self.restore_changes: list = []
+        self.on_restore = None
 
     def __call__(self, operation, args):
         self.calls.append((operation, dict(args)))
@@ -249,6 +250,8 @@ class FakePlugin:
                 return {"action": "save", "name": name, "replaced": False, "remembers": ["on"], "layers": 3}
             if args["action"] == "restore":
                 state = self.states[name]
+                if self.on_restore:
+                    self.on_restore()
                 if args.get("delete_after"):
                     del self.states[name]
                 return {"action": "restore", "name": name, "description": state["description"],
@@ -368,6 +371,20 @@ class TestIsolateTool:
         assert ("layer_state", {"action": "restore", "name": ISOLATE_STATE, "delete_after": True}) in cad.calls
         assert ISOLATE_STATE not in cad.states
         assert doc.ActiveLayer.Name == "0" and out["current_layer"] == "0"
+
+    def test_a_current_layer_frozen_by_the_isolate_comes_back_after_the_restore_thaws_it(self, cad):
+        cad.holder["doc"] = doc = self.doc()
+        call(layer_states.autocad_isolate_layers(handles=["2A"], others="freeze"))
+        assert doc.Layers.Item("0").Freeze is True and doc.ActiveLayer.Name == "M-DUCT"
+
+        def thaw():
+            for layer in doc.Layers.items:
+                layer.Freeze = False
+
+        cad.on_restore = thaw
+        out = call(layer_states.autocad_isolate_layers(action="unisolate"))
+        assert doc.ActiveLayer.Name == "0" and out["current_layer"] == "0"
+        assert {"variable": "CLAYER", "property": "current layer", "from": "M-DUCT", "to": "0"} in out["before_after"]
 
     def test_unisolate_with_nothing_isolated_changes_nothing(self, cad):
         cad.holder["doc"] = self.doc()

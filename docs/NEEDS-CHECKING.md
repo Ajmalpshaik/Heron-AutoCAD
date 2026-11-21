@@ -538,6 +538,29 @@ pulling. **Every row below is NOT RUN.**
 | Y6 | `autocad_companion`, open the page in a browser; select 3 objects, ask the chat to draw a line, then to refresh the companion page | The page shows the drawing, units, layout, view; within 5 s of the draw a new row "Draw Line ... done +1"; after the refresh the selection reads 3 objects; the browser's dev tools show no script and no request | NOT RUN |
 | Y7 | After Y1, type `1:100` in a SCALE cell and a date in a DATE cell in Excel (no leading '), and a value in a row's Block column that is not that block; apply with `dry_run=true` | Those cells are in `excel_converted` and that row in `other_block`; none of them is in `changes`; with `'1:100` typed instead it is written as `1:100` | NOT RUN |
 
+## Group AB - Layers and annotation: layer states, isolate, merge, dimension style, space, break, annotative (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-80](DECISIONS.md), [D-81](DECISIONS.md); issues #37, #107, #108, #116).
+Built and tested offline (`tests/test_dim_style_run.py`, `tests/test_dimensions_edit.py`,
+`tests/test_layer_states.py`, `tests/test_annotation_scales.py`, `RunTests.cs`); the plug-in
+**compiles** against AutoCAD 2021-2024, 2025-2026 and 2027. Six new plug-in operations: build and
+install the plug-in (`tools/build_plugin.py`, close AutoCAD, `tools/install_plugin.py`) and restart
+the server. Changes on. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AB1 | In a 1:50 drawing (`autocad_drawing_setup(scale="1:50")`) with a dimension style `DIM-1-5` whose DIMSCALE is 5: `autocad_dimension_run(points=[[0,0],[300,0],[750,0]], offset=50, dim_style="DIM-1-5")`, then a run with no style | The styled run's arrows and text are a tenth the size of the plain run's; LIST shows style DIM-1-5 and no DIMSCALE override; `style_scale` is 5; DIMSTYLE afterwards still shows the old current style with its DIMSCALE 50 override; `dim_style="NOPE"` is refused and nothing is drawn | NOT RUN |
+| AB2 | Three stacked horizontal dimensions about 200, 450 and 1300 off a base dimension: `autocad_space_dimensions(handles=[base, a, b, c], spacing=400, dry_run=true)`, then without dry_run; then `spacing=0` | Dry run moves nothing; then the dimension lines sit exactly 400, 800, 1200 off the base (measure), extension lines still start on the geometry, text moved with them; one Ctrl+Z puts them back; spacing 0 lines them all up on the base line | NOT RUN |
+| AB3 | Same with an aligned stack on a 30-degree slope, and one radius dimension in the list | The aligned ones step out square to the slope; the radius dimension is in `skipped` and has not moved | NOT RUN |
+| AB4 | Two dimensions crossed by two pipe lines: `autocad_break_dimensions(handles=[...])`, then `remove=true` | A gap (DIMBREAK size) where each line crosses each dimension; AutoCAD back at `Command:`; move a pipe and the gap follows; `remove` takes the gaps off; a line's handle in the list is refused and nothing typed | NOT RUN |
+| AB5 | Turn some layers off and freeze one: `autocad_layer_states(action="save", name="COORD")`; change the layers; `action="restore"`; `autocad_list_layers` | LAYERSTATE dialog shows COORD; restore brings back every layer as saved and `before_after` lists exactly the layers that changed; `list_layers` gives COORD in `layer_states`; saving COORD again without overwrite is refused | NOT RUN |
+| AB6 | Current layer 0: `autocad_isolate_layers(handles=[a duct])`, then again with a pipe, then `action="unisolate"`; then with `others="lock"` and `others="freeze"` | Only the duct's layer shows and becomes current; the second isolate keeps the first state (`already_isolated`); unisolate puts every layer and current layer 0 back and HERON-ISOLATE is gone from LAYERSTATE; lock mode greys the others and they cannot be picked; freeze works with the current layer moved first | NOT RUN |
+| AB7 | Layers DUCT (locked, objects in model space, on a layout, inside a block definition and one block attribute) and M-DUCT: `autocad_merge_layers(layers=["DUCT"], into="M-DUCT")`, then with `confirm=true` | First call changes nothing and counts drawing / blocks / attributes right; then every one is on M-DUCT (also inside the block, the attribute too), DUCT is gone from the layer list; one Ctrl+Z brings it all back | NOT RUN |
+| AB8 | Same, but DUCT frozen in one layout viewport (VP freeze) | Either DUCT is removed, or it is kept with AutoCAD's reason; no object is left on it | NOT RUN |
+| AB9 | 1:50 drawing: `autocad_add_text(text="NOTE", height=125, annotative=true)`; `autocad_list_annotation_scales(handles=[it])`; then `autocad_annotation_scales(handles=[it], add=["1:100"])` and look in a 1:50 and a 1:100 viewport | The text shows the annotative icon; Properties shows Paper text height 2.5 and Model 125 (if it shows 6250 or 2.5 the height rule in D-81 is wrong: record which); `paper_height` is 2.5; after the add it is 2.5 mm on paper in both viewports | NOT RUN |
+| AB10 | `autocad_add_dimension(..., annotative=true)`, `autocad_dimension_run(..., annotative=true)`, `autocad_add_multileader(..., annotative=true)`, then one Ctrl+Z each | Each is annotative at 1:50 (OBJECTSCALE lists 1:50), arrows and text sized from the scale, not doubled by DIMSCALE; one Ctrl+Z removes the object and its annotative state together | NOT RUN |
+| AB11 | `autocad_annotation_scales(handles=[it], add=["1:25"])`, then with `add_missing_to_drawing=true`; then `remove=["1:25","1:50","1:100"]` | First is refused (no 1:25); second adds 1:25 to SCALELISTEDIT and to the object (`scales_created`); removing every scale is refused and nothing changes | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
