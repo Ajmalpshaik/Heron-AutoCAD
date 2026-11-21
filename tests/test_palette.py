@@ -20,6 +20,8 @@ REPORT = {"dry_run": False, "ran": 2, "failed": 0, "skipped": 0,
 
 @pytest.fixture
 def fake(monkeypatch):
+    # A real palette run always has the plug-in's checks on (PaletteServer.PrepareEnvironment).
+    monkeypatch.setenv("HERON_AUTOCAD_BRIDGE", "on")
     seen: dict = {"calls": [], "released": []}
 
     async def status():
@@ -135,3 +137,10 @@ def test_the_gates_plain_line_first_is_read_not_shown_as_the_answer():
     assert discarded == {"ok": False, "message": "Discarded: nothing was kept."}
     unknown = palette.outcome("Plinth", "OUTCOME UNKNOWN - look at the drawing.\n\nError: Outcome unknown: AutoCAD went busy.")
     assert unknown["ok"] is False and unknown["message"].startswith("Outcome unknown: look at the drawing.")
+
+
+def test_the_palette_never_runs_with_the_plug_in_checks_switched_off(fake, monkeypatch):
+    monkeypatch.setenv("HERON_AUTOCAD_BRIDGE", "off")
+    answer = asyncio.run(palette.run_saved({"name": "Plinth", "inputs": {}}, 4242))
+    assert answer["ok"] is False and "HERON_AUTOCAD_BRIDGE=off" in answer["message"]
+    assert fake["calls"] == []

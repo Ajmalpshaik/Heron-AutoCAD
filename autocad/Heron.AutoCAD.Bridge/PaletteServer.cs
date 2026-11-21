@@ -68,6 +68,23 @@ namespace Heron.AutoCAD.Bridge
             }
         }
 
+        /// <summary>
+        /// The runner's environment, from AutoCAD's: always with the plug-in's
+        /// checks on, and never speaking for another chat. A developer's
+        /// HERON_AUTOCAD_BRIDGE=off, or a chat id, left in the environment
+        /// AutoCAD was started from must not reach the palette's run.
+        /// </summary>
+        public static void PrepareEnvironment(IDictionary<string, string?> environment)
+        {
+            environment["HERON_AUTOCAD_BRIDGE"] = "on";
+            foreach (var name in ChatVariables) environment.Remove(name);
+            environment["HERON_CLIENT_ID"] = "Heron palette";
+            environment["PYTHONIOENCODING"] = "utf-8";
+        }
+
+        /// <summary>Variables that would make the run speak for an existing chat (D-61).</summary>
+        public static readonly string[] ChatVariables = { "HERON_CONVERSATION_ID", "CLAUDE_CODE_SESSION_ID" };
+
         /// <summary>The runner's arguments, quoted as Windows reads them.</summary>
         public static string Arguments(string requestFile, int acadPid) =>
             Join(new[] { "-m", "autocad_mcp", "--run-saved", requestFile, "--acad-pid", acadPid.ToString() });

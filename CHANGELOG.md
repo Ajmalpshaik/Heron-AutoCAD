@@ -4,6 +4,14 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The palette's Run can never skip the plug-in's checks (2026-11-21).** If AutoCAD was started
+  with `HERON_AUTOCAD_BRIDGE=off` or a chat id in its environment, the palette's run used to inherit
+  them. It now always runs with the checks on and as its own chat, and the server refuses a palette
+  run with them off ([D-68](docs/DECISIONS.md)). An Undo AutoCAD has not started in 30 s is given
+  up with a plain line, and a job whose end never came stops blocking the palette after 20 minutes.
+  While a palette Undo waits for AutoCAD, a chat's new job is refused with "try again in a moment",
+  so the UNDO never lands inside it (#138). Live rows X22-X24 NOT RUN.
+
 - **`autocad_why` never guesses a padlock; Heron's folders never become relative (2026-11-21,
   #134).** Since the padlocks moved into AutoCAD's memory (D-59), `autocad_why` could no longer
   read them and said every padlock was off. It now names the padlocks a job needs and says it

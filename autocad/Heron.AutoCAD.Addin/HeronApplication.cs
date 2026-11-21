@@ -67,7 +67,11 @@ namespace Heron.AutoCAD.Addin
                 AcadVersion = Convert.ToString(AcApp.GetSystemVariable("ACADVER")) ?? "";
                 var banner = new HeronActivityBanner(AcApp.MainWindow.Handle);
                 DialogGuard.Init(AcApp.MainWindow.Handle);
-                Server = new BridgeServer(new AcadJobHost(banner, LoadConfig), LoadConfig, AcadVersion, AddinVersion);
+                Server = new BridgeServer(new AcadJobHost(banner, LoadConfig), LoadConfig, AcadVersion, AddinVersion)
+                {
+                    // No job begins while the palette's Undo waits for AutoCAD (D-68, #138).
+                    BlockedBy = AcadJobHost.Activity.Blocking,
+                };
                 IdleQueue.Hook();
                 CommandWatch.Hook();
                 PublishVeto.Hook();
