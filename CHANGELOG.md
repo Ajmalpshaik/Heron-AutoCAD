@@ -13,6 +13,14 @@ Newest first. Dates are when the change was made.
   Infinity. Which tools come next, ranked: [docs/13](docs/13-moving-tools-into-the-plug-in.md).
   No new tool. Live rows AS1-AS9 NOT RUN.
 
+- **PDF Import (2026-11-21, #113).** `autocad_import_pdf` turns one page of a vendor's or
+  consultant's PDF into lines, text and hatches (choose with `what`), at a point, scale and
+  rotation, all on one layer if asked, and says what came in: counts by type, the box round it, the
+  layers AutoCAD made. There is no API for it, so it types `-PDFIMPORT` with every answer in one
+  form after checking the release (2021-2027), the file and the page, and cancels the command if
+  AutoCAD still asks something; it is never left open. Pictures in the PDF are left out. 191 tools
+  ([D-106](docs/DECISIONS.md)). Live rows AO1-AO10 NOT RUN.
+
 - **The live-check runner covers group AD too (2026-11-21, D-118).** Overkill's list, a room traced
   round a column, eTransmit's refusal and list: 3 rows measured, 9 with their reason (the confirm step
   erases, the rest need files, the big plan or an eye). 197 rows measured in all, 183 with a reason.

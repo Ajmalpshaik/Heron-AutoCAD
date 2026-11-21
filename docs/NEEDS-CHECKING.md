@@ -698,6 +698,29 @@ is NOT RUN.**
 | AS8 | Select two objects yourself, run AS1, then type SELECT and P (previous) | Note what is selected before and after, with the plug-in and over COM; Pass: the read does not leave AutoCAD's own selection or "previous" set different from what COM leaves | NOT RUN |
 | AS9 | Start LINE and leave it waiting for a point; run AS1 | The read answers, or gives the busy answer naming LINE; no error box; LINE is still waiting | NOT RUN |
 
+## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only
+(`tests/test_pdf_import.py`). Server only, no plug-in change: restart the server after pulling.
+The six questions and the three variables were read from Autodesk's help **through a search**
+(the help site could not be opened from the session that wrote this): AO1 and AO2 prove them.
+Use a PDF printed from AutoCAD (two pages, a few lines and some TrueType text) and a scanned
+one-page PDF. `autocad_status` first. After each row press **Ctrl+Z once** and check the drawing
+is back as it was (one undo step). **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AO1 | Before anything else, type `-PDFIMPORT` by hand with FILEDIA 0 and choose File, and write down every prompt it shows, in order, up to the end; then the same on a **one-page** PDF | Exactly: underlay or [File] / file name / page number / insertion point / scale factor / rotation, and nothing after. If the one-page PDF skips the page prompt, or any prompt differs, this row is **FAIL**: write the prompts here; the fix is in `acad/pdf_import.py` (`command_form`) | NOT RUN |
+| AO2 | `(getvar "PDFIMPORTFILTER")`, `(getvar "PDFIMPORTMODE")` before; then `autocad_import_pdf(path=<two-page PDF>, page=2, insertion=[1000,1000], scale=1, layer='M-PDF')` | Page 2 comes in at 1000,1000 on M-PDF (lines, text as MTEXT or TEXT, fills as hatches), `imported`, `by_type` and `box` match what is seen; afterwards both variables, FILEDIA, OSMODE, AUNITS, ANGBASE and ANGDIR are what they were; `Command:` is free; one Ctrl+Z takes all of it away, M-PDF too | NOT RUN |
+| AO3 | Same PDF, `what=['lines']`, then `what=['text']` | First: no text, no hatches; second: only text | NOT RUN |
+| AO4 | `autocad_import_pdf` with `page=3` on the two-page PDF | Refused before AutoCAD is asked ("has 2 pages"); nothing sent | NOT RUN |
+| AO5 | Tick **Import as block** in the PDF Import dialog once (PDFIMPORTMODE then has bit 1), cancel it; run AO2 again | The page comes in as loose objects, not one block, `"release": 2027`; afterwards PDFIMPORTMODE is what it was, bit 1 still on | NOT RUN |
+| AO6 | The scanned one-page PDF | Nothing comes in (or only what AutoCAD makes of the picture: nothing, since pictures are left out); the answer says it is most likely a scan; `Command:` is free | NOT RUN |
+| AO7 | A UCS turned 30 degrees (`autocad_set_ucs`), `autocad_import_pdf(insertion=[0,5000], rotation=0)` (world) | The page's lower-left corner is at world 0,5000 and its bottom edge runs along world X, not the UCS X | NOT RUN |
+| AO8 | `autocad_import_pdf` on a PDF whose name and folder have spaces and an Arabic or accented letter | It comes in; the path is not cut at the space | NOT RUN |
+| AO9 | Scale: import a 1:100 A1 PDF of a mm drawing at `scale=1`, measure one known dimension with `autocad_measure`, work out the scale that makes it true, import again with it | Write the scale that was right here (it says how AutoCAD sizes a page at 1), so the tool's help can say it plainly | NOT RUN |
+| AO10 | On AutoCAD 2025 or 2026, and on 2021-2024: AO1 and AO2 | Same prompts and result | NO MACHINE |
+
 ## Group AP - The smaller draw gaps: construction line and ray, region, donut, divide / measure (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-108](DECISIONS.md); issues #173, #174, #177, #181, part 1 of #119). Built and

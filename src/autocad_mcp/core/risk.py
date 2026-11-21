@@ -202,6 +202,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "space_dimensions",
         "break_dimensions",
         "annotation_scales",
+        # PDF Import: a PDF page as lines, -PDFIMPORT typed in one form (D-106).
+        "import_pdf",
         # The smaller draw gaps from the ribbon audit (D-108): COM, and Heron's own maths.
         "add_construction_line",
         "add_region",
