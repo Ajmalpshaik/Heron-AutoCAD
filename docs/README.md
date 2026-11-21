@@ -1,10 +1,10 @@
 # Heron AI for AutoCAD - Documentation index
 
-> **Status, 2026-10-26:** the server (tools gated by the Heron plug-in) passes its offline tests;
-> the plug-in builds for AutoCAD 2021-2027 and its bridge passes its offline tests, including the
-> real Python client against the real C# server. **The plug-in has not yet run inside a real
-> AutoCAD**: every live row in [NEEDS-CHECKING](NEEDS-CHECKING.md) is NOT RUN. Where work stopped:
-> [HANDOVER](HANDOVER.md).
+> **Status, 2026-11-21:** the server passes its offline tests and the plug-in builds for AutoCAD
+> 2021-2027. **Only AutoCAD 2027 has been checked live**, and only for the rows marked PASS in
+> [NEEDS-CHECKING](NEEDS-CHECKING.md) (most of group A, a few rows of D, J and L). AutoCAD
+> 2021-2026 have no machine yet (groups B and C). The README's install table says the same per piece.
+> Where work stopped: [HANDOVER](HANDOVER.md).
 >
 > Counts typed on these pages go stale. Derive them: `.venv\Scripts\autocad-mcp.exe --list-tools`
 > for tools, `pytest --collect-only -q` and `dotnet test --list-tests` for tests.
