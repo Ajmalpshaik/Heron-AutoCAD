@@ -16,6 +16,8 @@ classifiers = [
 ]
 dependencies = [
     "mcp>=2.0",
+    # Reads DXF files with AutoCAD closed (autocad_read_file, the standards reference; D-92).
+    "ezdxf>=1.1",
     "pywin32>=306; sys_platform == 'win32'",
 ]
 

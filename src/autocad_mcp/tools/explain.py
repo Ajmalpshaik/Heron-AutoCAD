@@ -90,6 +90,7 @@ async def autocad_why(
         bridge_on=bridge_enabled(),
         chosen_pid=sessions.chosen(),
         drawing_checked=gate._last_drawing is not None,
+        no_autocad=gate.NO_AUTOCAD_TOOLS,
     )
     return dumps(answer)
 

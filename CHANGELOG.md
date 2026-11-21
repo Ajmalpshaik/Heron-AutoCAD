@@ -18,6 +18,37 @@ Newest first. Dates are when the change was made.
   unsigned, and a modeller trusts the plug-in once at its first AutoCAD load (`docs/SETUP.md`,
   Code signing). **Tests** now always import this checkout's own `src`, also in a worktree (#35).
 
+- **Drawing events from the plug-in, and fewer batch pieces (2026-11-21, #48, #45).** The plug-in
+  now writes down what happens to the drawings the moment AutoCAD says it: opened, came to the
+  front, saved (a Save As with its old name), closed. The wrong-drawing guard asks for them at the
+  next change: the checked drawing closed and opened again, or a restarted AutoCAD, needs
+  `autocad_status` again; a Save As is followed with no new check. A batch's input is refused
+  once another drawing came to the front during the job, and never typed into the wrong drawing.
+  The docked palette's Activity list shows the drawing in front and the drawing events live. A
+  batch through the plug-in goes in pieces up to 1,500 characters (its ping says `quietLimit`):
+  about 9 `Command:` prompts instead of 25 for 41 objects, offline; over COM it stays at 600. A
+  batch that came back with results missing says so (`missing`). New protocol op `drawings`; no
+  new tool ([D-98](docs/DECISIONS.md)). Live rows AJ1-AJ10 NOT RUN.
+
+- **Files with AutoCAD closed, standards against a reference drawing, check lists shared with the
+  team (2026-11-21, #71, #69, #135).** Two new tools (**171** in all, with the 2D edits).
+  `autocad_read_file` reads a `.dxf` on disk with AutoCAD closed - layers with object counts,
+  blocks with placed counts and attribute tags, text, attribute values (JSON or CSV), extents,
+  styles - and a `.dwg` / `.dws` / `.dwt` when the free ODA File Converter is installed (Heron
+  finds it, never downloads it; without it, it says so plainly). It never changes the file.
+  `autocad_check_standards` takes `reference=`: the office `.dws`, a template or any drawing; it
+  lists the layers, text styles, dimension styles and linetypes that are missing, differ or are
+  not in the standard ([D-92](docs/DECISIONS.md)). Check lists: `autocad_checklist(action=
+  'office_folder')` points a PC at a shared folder for the office lists, with this PC's copy used
+  (and said) when the folder cannot be reached; `autocad_share_checklist` (Publish) puts a list in
+  the office folder or a project's changes in the drawing's folder, never over a teammate's file
+  silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
+  closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
+
+- **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
+  syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
+  listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
+
 - **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
   all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
   `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,

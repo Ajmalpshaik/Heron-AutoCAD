@@ -24,6 +24,14 @@ SECURELOAD then asks "Unsigned Executable File" for every batch, because the
 file sits in %TEMP% (live check A21, 2026-10-26). So the batch is now sent as a
 series of short expressions (``build_chunks``), each under CHUNK_LIMIT
 characters. Nothing is loaded from a file, so SECURELOAD never applies.
+
+Every top-level expression leaves one ``Command:`` prompt in the command
+history, even typed with echo off (about 27 for 41 objects, live 2026-10-26,
+#45). Through the Heron plug-in the pieces may be longer: its ping says how
+long a line it types (``quietLimit``), and ``quiet_pieces`` builds the batch
+in pieces up to that (at most QUIET_CHUNK_LIMIT), packing the short set-up
+pieces together, so the same batch leaves a few prompts. Over COM the pieces
+stay under CHUNK_LIMIT, as measured (D-98).
 """
 
 from __future__ import annotations
@@ -54,6 +62,11 @@ SUCCESS_MARKER = "OK"
 # Longest expression sent in one SendCommand. Expressions near 3,600 characters
 # fail silently; chunks under about 700 were used for the whole CCTV package.
 CHUNK_LIMIT = 600
+
+# Longest piece typed through the Heron plug-in's quiet input (#45, D-98), when
+# its ping says it takes that much: below the 2,000 characters that worked all
+# day over COM (known limits 3), far from the 3,000 that arrived as nothing.
+QUIET_CHUNK_LIMIT = 1500
 
 
 def lisp_string(value: str) -> str:
@@ -200,6 +213,50 @@ def build_chunks(
     return chunks
 
 
+def quiet_pieces(
+    entities: Sequence[Sequence[str]],
+    capture_handle: bool,
+    output_path: str,
+    plugin_limit: int,
+) -> list[str]:
+    """The batch in as few pieces as the plug-in's quiet input takes (#45, D-98).
+
+    The same expressions as ``build_chunks``, built up to ``plugin_limit``
+    characters (at most QUIET_CHUNK_LIMIT), then every run of pieces before
+    the last packed into one ``(progn ...)`` while it fits: each top-level
+    expression is one ``Command:`` prompt in the history. The last piece (close
+    the undo group, write DONE) always stays on its own, so an error in the
+    pieces before it can never leave the undo group open. Order and content
+    are exactly those of the separate pieces, so the output file is the same.
+    """
+    limit = max(CHUNK_LIMIT, min(int(plugin_limit), QUIET_CHUNK_LIMIT))
+    chunks = build_chunks(entities, capture_handle, output_path, limit)
+    *body, finish = chunks
+    return [*pack(body, limit), finish]
+
+
+def pack(chunks: Sequence[str], limit: int) -> list[str]:
+    """Join neighbouring top-level expressions into one ``(progn ... (princ))`` while it fits ``limit``.
+
+    A piece already too long to share stays as it is. Evaluated in order, as
+    if typed one after the other, and the whole returns nothing printable.
+    """
+    packed: list[str] = []
+    group: list[str] = []
+
+    def joined(items: list[str]) -> str:
+        return items[0] if len(items) == 1 else f"(progn {' '.join(items)} (princ))"
+
+    for chunk in chunks:
+        if group and len(joined(group + [chunk])) > limit:
+            packed.append(joined(group))
+            group = []
+        group.append(chunk)
+    if group:
+        packed.append(joined(group))
+    return packed
+
+
 def _built_up(index: int, pairs: list[str], capture_handle: bool, limit: int) -> list[str]:
     """One entity too long for a single expression, assembled in *heron-p*."""
     # (princ) at the end: the command line prints whatever comes back, and a
@@ -255,6 +312,11 @@ def parse_output(text: str, expected: int) -> dict[str, Any]:
         "handles": handles,
         "completed": completed,
     }
+    # Every operation writes one line. Fewer, with DONE written, means a piece
+    # never reached AutoCAD's LISP (dropped on the way): never a quiet success.
+    missing = expected - len(results) if completed and not error_line else 0
+    if missing > 0:
+        outcome["missing"] = missing
 
     if error_line:
         outcome["error"] = error_line[len("ERROR ") :].strip()
@@ -266,6 +328,12 @@ def parse_output(text: str, expected: int) -> dict[str, Any]:
         outcome["hint"] = (
             "The batch script did not run to completion. Check AutoCAD's "
             "command line (F2) for a prompt or error waiting there."
+        )
+    elif missing > 0:
+        outcome["hint"] = (
+            f"{missing} operation(s) never reached AutoCAD: a piece of the batch was lost on the "
+            "way, so the objects made are fewer than asked. Read the drawing back (the handles "
+            "above are what landed) and send only what is missing."
         )
     elif failed:
         outcome["hint"] = (

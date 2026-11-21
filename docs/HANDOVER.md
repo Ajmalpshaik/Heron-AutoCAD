@@ -22,6 +22,40 @@ pytest now has `pythonpath = ["src"]`. Versions not bumped (the parent does).
 **Next (on this PC):** run Group **AK**. AK10-AK11 record what AutoCAD asks the first time it loads
 the unsigned plug-in, and that it asks only once. Keep the zip until AK1-AK8 pass.
 
+## Earlier - 2026-11-21 (drawing events from the plug-in, fewer batch pieces: #48, #45; D-98)
+
+Branch `claude/plugin-events`. No new tool. **Plug-in change**: `DrawingEvents` (bridge) and
+`DrawingWatch` (add-in) record each drawing opened, brought to the front, saved / saved as, closed;
+new op `drawings`; `send_quiet` refuses after a switch mid-job and lines over `quietLimit` (1,500,
+said in ping). Server: the guard reads the events (`core/drawing_events.py`); the batch goes in
+longer pieces through the plug-in (`acad/lisp.py` `quiet_pieces`). The palette's Activity shows
+the drawing events live. An independent review found six gaps, all fixed with tests (D-98, last
+bullet): a drawing opened since the check, history that dropped off, bare-name matches, the status
+mark, `send_quiet` now answering only after AutoCAD got to the input, old names keyed by database.
+Built for all three targets and tested offline; none of it has run in AutoCAD. Versions not bumped
+(the parent does). Follow-up: #165 (a sequence's COM steps after a mid-job switch).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude; live
+rows **AJ1-AJ10**. AJ6 first (count the `Command:` prompts for the 41-object batch), then AJ7
+(every 1,500-character piece arrives); if one is lost, lower `QUIET_CHUNK_LIMIT`.
+
+## Earlier - 2026-11-21 (files with AutoCAD closed, standards against a reference, shared check lists: #71, #69, #135; D-92, D-93)
+
+Two new tools (**171** with the 2D edits and `autocad_render` removed): `autocad_read_file` (Read, needs no
+AutoCAD: a DXF with ezdxf, a DWG / DWS / DWT through the ODA File Converter only when it is
+installed) and `autocad_share_checklist` (Publish: the office list into the office folder, a
+project's changes into `Heron check list changes.json` in the drawing's folder).
+`autocad_check_standards` takes `reference=` (a `.dws`, `.dwt`, `.dwg` or `.dxf`; read by Heron, or
+by AutoCAD's ObjectDBX when it is a DWG and the converter is not there). `autocad_checklist` has
+`action='office_folder'` and names the file every check came from. The DXF reader is proved
+offline on DXF files made by ezdxf; the converter, ObjectDBX on a `.dws` and a real network share
+are not. Versions not bumped (the parent does).
+
+**Next (on this PC):** close Claude, `.venv\Scripts\python.exe -m pip install ezdxf`, start
+Claude, then live rows **AG1-AG15**. AG3 needs the ODA File Converter installed by hand; AG9-AG13
+need a real share and a second PC. If Ajmal wants the office folder set in `.mcp.json` instead, or
+roles for who may change the office list, that is a new decision on top of D-93.
+
 ## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 
 Issues #103, #49, #105, #111 and #110 built offline in one PR, from the ribbon audit (docs/12).
@@ -90,8 +124,11 @@ for all three with no warning; none has run in AutoCAD. Planning is offline and 
 (`acad/block_attributes.py`, `acad/table_cells.py`, `acad/drawing_copy.py`). Versions not bumped
 (the parent session does it).
 
+Merged as PR #155. Follow-up #156 (ATTSYNC for nested inserts, `nested=true`) on the same branch,
+restarted from `main`.
+
 **Next (on this PC, AutoCAD closed):** pull, `tools/build_plugin.py` + `tools/install_plugin.py`,
-restart Claude; live rows **AC1-AC16**. AC7 first: whether AutoCAD's data link needs Excel
+restart Claude; live rows **AC1-AC17**. AC7 first: whether AutoCAD's data link needs Excel
 installed, and whether the connection string `file!sheet!range` is read as hoped.
 
 ## Earlier - 2026-11-21 (server core 2: #42, #44, #46, #47; D-76, D-77)
