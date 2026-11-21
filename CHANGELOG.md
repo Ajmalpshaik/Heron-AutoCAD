@@ -13,8 +13,17 @@ Newest first. Dates are when the change was made.
   with the plug-in's `Editor.TraceBoundary` (never -BOUNDARY or BPOLY typed), inside a window, with
   an object limit and a timeout. `autocad_etransmit` packs the saved drawing with its xrefs, images,
   underlays, fonts and plot styles into a zip or folder and lists what was missing (Publish). Five
-  new tools, 163 in all with main. Needs the next plug-in ([D-84](docs/DECISIONS.md), [D-85](docs/DECISIONS.md)). Live rows
+  new tools, 174 in all with main. Needs the next plug-in ([D-84](docs/DECISIONS.md), [D-85](docs/DECISIONS.md)). Live rows
   AD1-AD12 NOT RUN.
+
+- **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
+  all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
+  `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,
+  `autocad_explode`, `autocad_draw_order`, `autocad_match_properties`, `autocad_list_groups` and
+  `autocad_group`; `autocad_modify_entity` also sets lineweight and transparency. The geometry is
+  worked out in Python (`acad/edit2d.py`, tested offline) and written by setting each object's own
+  points over COM, so no command waits for a pick. One undo step each; locked layers refused before
+  anything is written ([D-78](docs/DECISIONS.md), [D-79](docs/DECISIONS.md)). Live rows AA1-AA20 NOT RUN.
 
 - **`autocad_render` removed (2026-11-21, #158).** Heron never runs the render: `-render` waits on
   prompts and can stall AutoCAD, and a scripted render has been reported to drop objects. Heron
