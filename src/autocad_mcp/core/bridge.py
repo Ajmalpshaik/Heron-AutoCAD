@@ -32,6 +32,7 @@ import win32pipe
 import win32process
 
 from .errors import AutocadError
+from .folders import heron_local
 
 PROTOCOL_VERSION = 1
 NOTHING_SENT = "Nothing was sent to AutoCAD."
@@ -117,7 +118,7 @@ def bridge_enabled() -> bool:
 
 
 def bridges_dir() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", "")) / "Heron" / "autocad" / "bridges"
+    return heron_local() / "bridges"
 
 
 def acad_pid(app: Any) -> int:

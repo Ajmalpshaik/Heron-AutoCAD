@@ -15,6 +15,8 @@ def _bridge_off_by_default(monkeypatch, tmp_path):
     monkeypatch.setenv("HERON_AUTOCAD_BRIDGE", "off")
     # Keep audit lines and address files out of the real user profile.
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    # And the plug-in folder (%APPDATA%) away from the real profile too (#134).
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
     # Never let an offline test reach a real AutoCAD that happens to be open:
     # the gate's own look at AutoCAD reports "none" (tests/test_gate.py fakes it).
     from autocad_mcp.core import gate

@@ -2,10 +2,12 @@
 
 The idea is Heron AI for Revit's heron_why: for one job, the real reason it
 cannot run and what the modeller does about it. Everything here comes from
-Heron's own files - the tool index, the install and connection report of
-core/diagnose.py - and, when an AutoCAD is connected, the padlocks its plug-in
-holds in memory (D-59), asked over the pipe, never COM; so it answers with
-AutoCAD closed.
+Heron's own files - the tool index and the install and connection report of
+core/diagnose.py - never from AutoCAD over COM, so it answers with AutoCAD
+closed. The padlocks live inside AutoCAD (D-59): when one AutoCAD is connected
+for this chat, its plug-in says over the pipe which are on and which a Windows
+policy holds (D-60); otherwise it names the ones a job needs and never claims
+whether they are on.
 
 What it cannot see from here, it says so: an open command or dialog box, a
 locked layer, another chat holding AutoCAD.
@@ -39,9 +41,10 @@ _PADLOCK_NAME = {"changes": ("Changes", "HERONCHANGES"), "publish": ("Publish", 
                  "admin": ("Admin", "HERONADMIN")}  # fmt: skip
 _NEEDS_PLUGIN = re.compile(r"plug-in (\d+\.\d+\.\d+) or newer|plug-in older than (\d+\.\d+\.\d+)")
 CANNOT_SEE = (
-    "Heron cannot see from here whether a command or a dialog box is open in AutoCAD, whether a "
-    "layer is locked or frozen, or whether another chat holds AutoCAD; the tool's own refusal says "
-    "so if one of those is the reason."
+    "Heron cannot see from here whether a padlock is on (unless this chat's AutoCAD answered), "
+    "whether a command or a dialog box is open "
+    "in AutoCAD, whether a layer is locked or frozen, or whether another chat holds AutoCAD; the "
+    "tool's own refusal says so if one of those is the reason."
 )
 
 
@@ -163,24 +166,33 @@ def explain(
             reasons.append(_reason("restart_autocad", check["detail"], "Close and restart AutoCAD.", blocks=False))
 
     if level is not None and bridge_on:
-        # From the connected AutoCAD's memory (D-59); None when it cannot tell,
-        # which reads as off, as every padlock is when AutoCAD starts.
-        locks = report.get("padlocks") or {}
-        held = set(locks.get("held") or ())
+        locks = report.get("padlocks")
+        held = set((locks or {}).get("held") or ())
         for padlock in PADLOCKS[level]:
-            if not locks.get(padlock):
-                name, command = _PADLOCK_NAME[padlock]
-                if padlock in held:
-                    reasons.append(_reason(
-                        f"{padlock}_held",
-                        f"{best.tool} needs the {name} padlock, and a Windows policy on this PC holds it off.",
-                        "Only the PC's administrator can lift it (HKLM\\SOFTWARE\\Policies\\Heron\\AutoCAD): "
-                        "ask whoever looks after this PC.",
-                    ))  # fmt: skip
-                    continue
+            name, command = _PADLOCK_NAME[padlock]
+            if locks is None:
+                # Nothing answered for this chat's AutoCAD (none, several and none picked, an
+                # older plug-in): the padlocks live inside AutoCAD (D-59), so never guess.
+                reasons.append(_reason(
+                    f"needs_{padlock}",
+                    f"{best.tool} needs the {name} padlock. Heron cannot see from here whether it is on: "
+                    "the padlocks live inside AutoCAD, and are off each time AutoCAD starts.",
+                    f"If {name} is off, turn it on in Settings on the Heron tab in AutoCAD (or type {command}). "
+                    "If the job is then refused, the refusal names the padlock.",
+                    blocks=False,
+                ))  # fmt: skip
+            elif padlock in held:
+                reasons.append(_reason(
+                    f"{padlock}_held",
+                    f"{best.tool} needs the {name} padlock, and a Windows policy on this PC holds it off.",
+                    "Only the PC's administrator can lift it (HKLM\\SOFTWARE\\Policies\\Heron\\AutoCAD): "
+                    "ask whoever looks after this PC.",
+                ))  # fmt: skip
+            elif not locks.get(padlock):
+                # This AutoCAD's plug-in said so (its ping).
                 reasons.append(_reason(
                     f"{padlock}_off",
-                    f"{best.tool} needs the {name} padlock, and it is off.",
+                    f"{best.tool} needs the {name} padlock, and it is off in this AutoCAD.",
                     f"Turn {name} on in Settings on the Heron tab in AutoCAD (or type {command}).",
                 ))  # fmt: skip
 

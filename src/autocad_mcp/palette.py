@@ -30,10 +30,11 @@ from . import __version__
 from .core import answers, sessions
 from .core.bridge import NOT_CONNECTED, Bridge
 from .core.errors import AutocadError
+from .core.folders import heron_local
 
 
 def server_file() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", "")) / "Heron" / "autocad" / "server.json"
+    return heron_local() / "server.json"
 
 
 def write_server_file() -> None:
