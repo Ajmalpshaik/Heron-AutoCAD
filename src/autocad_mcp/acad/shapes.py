@@ -978,7 +978,8 @@ def build(kind: str, params: dict[str, Any]) -> list[Op]:
     name = str(kind).strip().lower().replace("-", "_").replace(" ", "_")
     if name not in SHAPES:
         raise ValueError(
-            f"'{kind}' is not a shape this server knows. Shapes: {', '.join(sorted(SHAPES))}"
+            f"'{kind}' is not a shape this server knows. Shapes: {', '.join(sorted(SHAPES))}. "
+            "3D shapes, made as solids: duct_run, pipe_spool"
         )
     maker = SHAPES[name]
     given = {k: v for k, v in (params or {}).items() if v is not None}

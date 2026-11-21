@@ -32,8 +32,12 @@ def drawings_in(folder: Path, subfolders: bool, most: int) -> tuple[list[Path], 
 
 
 def short(report: dict[str, Any], drawing: str) -> dict[str, Any]:
-    """One drawing's line: its verdict, coverage, and the checks that did not pass."""
-    return {
+    """One drawing's line: its verdict, coverage, the checks that did not pass, and any warning.
+
+    The warning is never dropped (D-93): an office folder that could not be
+    reached, a copy used, or project changes that differ from this PC's own.
+    """
+    line = {
         "drawing": drawing,
         "verdict": report["verdict"],
         "coverage": report["coverage"],
@@ -43,6 +47,12 @@ def short(report: dict[str, Any], drawing: str) -> dict[str, Any]:
         ],
         "no_data": [r["label"] for r in report["results"] if r["state"] == NO_DATA],
     }
+    if report.get("warning"):
+        line["warning"] = report["warning"]
+    project_file = (report.get("lists") or {}).get("project_file")
+    if project_file:
+        line["project_changes"] = project_file
+    return line
 
 
 def summary(lines: list[dict[str, Any]]) -> dict[str, Any]:

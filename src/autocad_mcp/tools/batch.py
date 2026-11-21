@@ -23,18 +23,20 @@ from pydantic import Field
 
 from ..acad.coords import Ucs
 from ..acad.lisp import (
+    CHUNK_LIMIT,
     build_chunks,
     dotted,
     lisp_number,
     lisp_point,
     lisp_string,
     parse_output,
+    quiet_pieces,
 )
 from ..acad.tables import ensure_layer
 from ..acad.units import rad
 from ..core.connection import get_doc, mark_writing, require_idle, run
 from ..core.errors import AutocadError
-from ..core.gate import quiet_sender
+from ..core.gate import quiet_limit, quiet_sender
 from ..core.quiet import QUIET_FIELD
 from ..core.quiet import quiet as quieted
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta
@@ -766,6 +768,26 @@ async def autocad_batch_draw(
     return dumps(result)
 
 
+def _sent_quietly(
+    entities: Sequence[Sequence[str]], return_handles: bool, output_path: str, chunks: list[str]
+) -> bool:
+    """The batch typed by the plug-in, in as few pieces as it takes (#45). False: send it over COM.
+
+    The plug-in refuses a line longer than it types before typing anything,
+    so a refusal leaves nothing half-sent, and COM then sends the short pieces.
+    """
+    sender = quiet_sender()
+    if sender is None:
+        return False
+    limit = quiet_limit()
+    pieces = (
+        quiet_pieces(entities, return_handles, output_path, limit)
+        if limit is not None and limit > CHUNK_LIMIT
+        else chunks
+    )
+    return bool(sender(pieces))
+
+
 async def draw_operations(
     operations: Sequence[dict[str, Any]],
     return_handles: bool = True,
@@ -839,10 +861,10 @@ async def draw_operations(
         started = time.monotonic()
         # Short expressions, never a loaded file: a .lsp loaded from %TEMP%
         # makes AutoCAD's SECURELOAD ask about an unsigned executable. The
-        # Heron plug-in types them with echo off; without it (or an older
-        # plug-in) they go over COM and show in the command history.
-        sender = quiet_sender()
-        if not (sender and sender(chunks)):
+        # Heron plug-in types them with echo off, in pieces as long as it says
+        # it takes (fewer Command: prompts, #45); without it (or an older
+        # plug-in) they go over COM in the short pieces and show in the history.
+        if not _sent_quietly(entities, return_handles, output_path, chunks):
             for chunk in chunks:
                 doc.SendCommand(chunk + "\n")
 

@@ -20,6 +20,9 @@ namespace Heron.AutoCAD.Addin
         // then, it never runs; once started it runs to the end (the server
         // waits longer, and says "outcome unknown" if even that runs out).
         private static readonly TimeSpan RunStartWait = TimeSpan.FromSeconds(30);
+        // How long quiet input waits for AutoCAD to get to it. Not started by
+        // then, it is abandoned and never typed; the server waits longer (#48).
+        private static readonly TimeSpan QuietStartWait = TimeSpan.FromSeconds(10);
         private readonly HeronActivityBanner _banner;
         private readonly Func<HeronConfig> _config;
         // A read leaves no undo step, so one Ctrl+Z still undoes the last change.
@@ -39,6 +42,9 @@ namespace Heron.AutoCAD.Addin
 
         /// <summary>Heron's recent change jobs, for the palette's Activity tab (D-68).</summary>
         public static ActivityLog Activity { get; } = new ActivityLog();
+
+        /// <summary>What happened to the drawings, as AutoCAD said it (DrawingWatch feeds it, #48).</summary>
+        public static DrawingEvents Drawings { get; } = new DrawingEvents();
 
         public void Begin(JobInfo job)
         {
@@ -93,18 +99,44 @@ namespace Heron.AutoCAD.Addin
             return asked ? answer : "discard";
         }
 
-        public void SendQuiet(string[] lines)
+        public QuietAnswer SendQuiet(string[] lines, string drawing)
         {
             HeronLog.Write("quiet input: " + lines.Length + " line(s)");
             // On the main thread, in order. Typed input, not a loaded file, so
             // SECURELOAD does not apply; echoCommand=false keeps the command
-            // history clean (live check, 2026-10-26).
-            IdleQueue.Post(() =>
+            // history clean (live check, 2026-10-26). Waited for, so the chat
+            // is told the truth: typed, or why not (#48).
+            var started = IdleQueue.TryInvoke(() =>
             {
                 var doc = AcApp.DocumentManager.MdiActiveDocument;
-                if (doc == null) return;
-                foreach (var line in lines) doc.SendStringToExecute(line + "\n", true, false, false);
-            });
+                // Checked again when AutoCAD gets to it: a switch since the
+                // request must not put the job's input in another drawing.
+                if (doc == null || !DrawingNames.Same(doc.Name, drawing))
+                {
+                    var front = doc?.Name ?? "";
+                    HeronLog.Write("quiet input not typed: " + (front.Length > 0 ? front : "no drawing") + " is in front, the job is in " + drawing);
+                    return QuietAnswer.Refused("Drawing", Texts.DrawingChangedInJob(drawing, front));
+                }
+                var sent = 0;
+                try
+                {
+                    foreach (var line in lines)
+                    {
+                        doc.SendStringToExecute(line + "\n", true, false, false);
+                        sent++;
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    HeronLog.Error("Quiet input", ex);
+                    if (sent == 0) return QuietAnswer.Refused("Error", "Heron in AutoCAD could not type the input: " + ex.Message + " " + Texts.NothingSent);
+                    return QuietAnswer.NotKnown(ex.Message);
+                }
+                return QuietAnswer.Typed;
+            }, QuietStartWait, out var answer);
+            if (started && answer != null) return answer;
+            // Not started in time: abandoned, so it is never typed later (OneShotWork).
+            return QuietAnswer.Refused("NotStarted", Texts.QuietNotStarted((int)QuietStartWait.TotalSeconds, CommandWatch.Current));
         }
 
         public ChangeReport? Changes(string job) => Counter.Read(job);
