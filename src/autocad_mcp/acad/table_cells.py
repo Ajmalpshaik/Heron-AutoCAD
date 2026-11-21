@@ -20,6 +20,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from ..core.errors import raise_if_busy
 from .xlsx import Converted, column, column_index
 
 # A table bigger than this is not a drawing table; give a smaller range.
@@ -247,6 +248,7 @@ def middle_rows(table: Any) -> int:
         try:
             table.SetAlignment(row_type, middle_of(table.GetAlignment(row_type)))
             done += 1
-        except Exception:  # noqa: BLE001 - only a nicety
+        except Exception as exc:  # noqa: BLE001 - only a nicety
+            raise_if_busy(exc)
             continue
     return done

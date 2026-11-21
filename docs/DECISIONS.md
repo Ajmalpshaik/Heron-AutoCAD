@@ -283,6 +283,44 @@ could be staler than AutoCAD's own Extents plot). Close-ups are refused for `are
 corners) and skipped, with the reason, in a 3D view or a rotated UCS, where the plan box does not
 match the picture. Live rows AM1-AM6 NOT RUN; issue #41 stays open until AM1 says which cause it was.
 
+## D-100 - A busy refusal goes up as it is from every `except`; a source test keeps it so
+
+**Decided:** 2026-11-21, for issue #36. **Status:** in force. Finishes what D-57 began in
+`ensure_layer` and `ensure_linetype`.
+After the message filter's 3 s (D-57), AutoCAD's refusal ("Call was rejected by callee") still
+reached about 300 `except` blocks in the tools that took it for "not there", "use the default",
+"skip it", or wrapped it in a plain `AutocadError`. So a busy AutoCAD gave a false failure ("Could
+not ..."), or a quiet wrong answer: a layer reported off, the world UCS used instead of his, "UNDO is
+off" offered after Discard, an object called gone after an UNDO.
+- **One helper, one line per place:** `raise_if_busy(exc)` in `core/errors.py`, first in each such
+  `except` (after any clean-up in it). Up at `_with_retry` the refusal is asked again while nothing
+  has been written, or becomes "Outcome unknown" once a write began (D-15). Nothing else in those
+  blocks changed, so many sessions could edit the same modules at once.
+- **What counts as busy (`is_busy`):** the two refusals (RPC_E_CALL_REJECTED,
+  RPC_E_SERVERCALL_RETRYLATER), VBA_E_IGNORE (a modal dialog open), or a COM description that says
+  "rejected by callee", "busy" or "retry later". It is narrower than `is_retryable` on purpose:
+  pywin32's `AttributeError` for a member it cannot resolve is left out, because asking a line for
+  its Radius gives the same error, and the tools rightly read that one as "not there".
+  RPC_E_SERVERFAULT is left out too: it says the call itself threw.
+- **Left as they are, each named with its reason** in `ALLOWED` in `tests/test_busy_sweep.py`:
+  putting things back (variables, page setup, locked layers, table redraw, undo groups), presses of
+  Esc on the way to the real error, the waits that deliberately read through a busy AutoCAD
+  (D-58), reads after the plug-in made something ("do not make it again"), and code with no COM
+  call. Raising there would hide the real answer or skip the rest of the clean-up.
+- **The gate:** a busy UNDOCTL read before an Ask-to-Keep job is no longer "UNDO is off": if
+  AutoCAD stays busy through the retry, the job is refused in words ("AutoCAD stayed busy ... nothing
+  was changed") before anything is sent, instead of a bare tool error.
+- **The source test:** `tests/test_busy_sweep.py` reads every module in `acad/` and `tools/` and
+  the three core modules that call COM. An `except` that can catch a COM error (bare,
+  `BaseException`, `Exception`, `com_error`) must call `raise_if_busy` / `is_busy` /
+  `is_retryable`, re-raise as it is, or be in `ALLOWED`. One directly in an `async def` is not
+  swept: COM runs on the worker thread only, so those reach AutoCAD through `run`, whose retry has
+  already answered. New code cannot bring the old way back without the test saying where.
+- **What changes for the modeller:** a long busy spell (a dialog left open, a heavy redraw) now
+  ends in "AutoCAD stayed busy ... press Esc" or "Outcome unknown, look before retrying", never in
+  a made-up failure or a wrong value. Tested offline with fake COM (`tests/test_busy_refusals.py`).
+  Not proven in AutoCAD: [NEEDS-CHECKING group AL](NEEDS-CHECKING.md).
+
 ## D-98 - The plug-in reports drawing events as they happen; a batch goes through it in pieces up to 1,500 characters
 
 **Decided:** 2026-11-21, issues #48 and #45. **Status:** in force (built and tested offline; live

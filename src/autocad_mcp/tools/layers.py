@@ -9,7 +9,7 @@ from pydantic import Field, StrictInt
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import describe_layer, ensure_layer, ensure_linetype, validate_name
 from ..core.connection import get_doc, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ._shared import before_after, same_value
 from .layer_states import layer_state_list
@@ -167,7 +167,8 @@ async def autocad_create_layer(
                 now = {"color": int(existing.Color), "linetype": str(existing.Linetype),
                        "lineweight": int(existing.Lineweight), "name": str(existing.Name),
                        "current": str(doc.ActiveLayer.Name)}  # fmt: skip
-            except BaseException:  # noqa: BLE001 - could not look: write as before, list nothing
+            except BaseException as exc:  # noqa: BLE001 - could not look: write as before, list nothing
+                raise_if_busy(exc)
                 now = None
         if existing is not None and now is not None:
             # First look: what the layer has now. Asked for what it already has,
@@ -193,6 +194,7 @@ async def autocad_create_layer(
                 try:
                     layer.Lineweight = int(lineweight)
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(
                         f"'{lineweight}' is not a lineweight AutoCAD accepts. "
                         "Use one of 0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, "
@@ -341,6 +343,7 @@ async def autocad_set_layer_state(
                             rows.append({"layer": layer_name, "property": key, "from": old, "to": new})
                         changed.append(layer_name)
                     except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
                         failed.append({"name": layer_name, "reason": com_message(exc)})
 
         result: dict[str, Any] = {
@@ -475,7 +478,8 @@ async def autocad_delete_layer(
         target = name.strip()
         try:
             layer = doc.Layers.Item(target)
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"No layer named '{target}' exists. List them with "
                 "autocad_list_layers."
@@ -521,8 +525,8 @@ async def autocad_delete_layer(
                         try:
                             sel.Item(i).Delete()
                             deleted_entities += 1
-                        except BaseException:  # noqa: BLE001 - locked entity
-                            pass
+                        except BaseException as exc:  # noqa: BLE001 - locked entity
+                            raise_if_busy(exc)
                 elif entity_count:
                     raise AutocadError(
                         f"Layer '{target}' still holds {entity_count} entities, "
@@ -550,7 +554,8 @@ def _existing_layer(doc: Any, name: str) -> Any:
     """The layer of that name, or None when it is not there (or AutoCAD would not say)."""
     try:
         return doc.Layers.Item(name.strip())
-    except BaseException:  # noqa: BLE001 - ensure_layer then decides, busy signals included
+    except BaseException as exc:  # noqa: BLE001 - not there: ensure_layer then decides
+        raise_if_busy(exc)
         return None
 
 
@@ -567,7 +572,8 @@ def _count_by_effective_name(doc: Any) -> dict[str, int]:
         for ref in iter_selection(sel):
             try:
                 name = str(getattr(ref, "EffectiveName", None) or ref.Name).lower()
-            except BaseException:  # noqa: BLE001 - not a block reference after all
+            except BaseException as exc:  # noqa: BLE001 - not a block reference after all
+                raise_if_busy(exc)
                 continue
             counts[name] = counts.get(name, 0) + 1
     finally:
@@ -635,23 +641,26 @@ async def autocad_list_blocks(
             try:
                 if bool(block.IsLayout):
                     continue
-            except BaseException:  # noqa: BLE001
-                pass
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
 
             info: dict[str, Any] = {"name": name}
             try:
                 info["entity_count"] = int(block.Count)
-            except BaseException:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 info["entity_count"] = None
             try:
                 info["is_xref"] = bool(block.IsXRef)
                 if info["is_xref"]:
                     info["path"] = str(block.Path)
-            except BaseException:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 info["is_xref"] = False
             try:
                 info["dynamic"] = bool(block.IsDynamicBlock)
-            except BaseException:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 info["dynamic"] = False
 
             # Attribute definitions inside the block tell the caller which tags
@@ -662,8 +671,8 @@ async def autocad_list_blocks(
                     item = block.Item(j)
                     if str(item.ObjectName) == "AcDbAttributeDefinition":
                         tags.append(str(item.TagString))
-            except BaseException:  # noqa: BLE001
-                pass
+            except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
             if tags:
                 info["attribute_tags"] = tags
 
@@ -721,8 +730,8 @@ async def autocad_list_styles() -> str:
             ):
                 try:
                     entry[key] = getter()
-                except BaseException:  # noqa: BLE001
-                    pass
+                except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
             text_styles.append(entry)
 
         dim_styles = [
@@ -739,12 +748,12 @@ async def autocad_list_styles() -> str:
         }
         try:
             result["current_text_style"] = str(doc.ActiveTextStyle.Name)
-        except BaseException:  # noqa: BLE001
-            pass
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
         try:
             result["current_dimension_style"] = str(doc.ActiveDimStyle.Name)
-        except BaseException:  # noqa: BLE001
-            pass
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
         return result
 
     return dumps(await run(work))

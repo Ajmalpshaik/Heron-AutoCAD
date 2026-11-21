@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.variants import group_coordinates
 from . import geometry
 
@@ -43,7 +43,8 @@ def curve_length(entity: Any) -> float | None:
     for attr in ("Length", "ArcLength", "Circumference"):
         try:
             return float(getattr(entity, attr))
-        except BaseException:  # noqa: BLE001 - this type has no such property
+        except BaseException as exc:  # noqa: BLE001 - this type has no such property
+            raise_if_busy(exc)
             continue
     try:
         if kind == "AcDbSpline":
@@ -52,6 +53,7 @@ def curve_length(entity: Any) -> float | None:
         if kind == "AcDbEllipse":
             return geometry.ellipse_length(float(entity.MajorRadius), float(entity.MinorRadius),
                                            float(entity.StartParameter), float(entity.EndParameter))
-    except BaseException:  # noqa: BLE001 - leave it unmeasured
+    except BaseException as exc:  # noqa: BLE001 - leave it unmeasured
+        raise_if_busy(exc)
         return None
     return None

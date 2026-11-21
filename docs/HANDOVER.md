@@ -60,6 +60,22 @@ window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-k
 **Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
 AM1 names the cause; close #41 only after AM1 and AM2 pass.
 
+## Earlier - 2026-11-21 (a busy AutoCAD is never a false failure, #36, D-100)
+
+Issue #36 built offline. Past the D-57 message filter's 3 s, a refused COM call ("Call was rejected
+by callee") now goes up as it is from every tool: `raise_if_busy(exc)` (`core/errors.py`) is the
+first line of about 250 `except` blocks in `acad/`, `tools/` and the core. It is narrower than
+`is_retryable`: pywin32's "no such member" `AttributeError` still means "not there". About 40 places carry
+on through a refusal on purpose (restores, Esc, redraws, the D-58 waits, reads after the plug-in made
+something); each is in `ALLOWED` in `tests/test_busy_sweep.py` with its reason. Four shared `_try`
+readers (drafting, solids, sheets, dimensions_edit) take `busy_ok=True` for their restore, Esc and
+redraw calls. The gate: a busy UNDO mark before an Ask-to-Keep job is refused in words, not "UNDO is
+off" later. Tests: `tests/test_busy_refusals.py` (fake COM), `tests/test_busy_sweep.py` (reads the
+source; a new `except` that can swallow a busy refusal fails it, with how to fix it).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AL1-AL7 with the Options
+dialog left open.
+
 ## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
 
 Five issues built offline in one PR. `autocad_make_shape` has a 3D group: `duct_run` and
