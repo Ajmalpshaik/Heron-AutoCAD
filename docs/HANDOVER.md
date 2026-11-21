@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (overkill, boundary, eTransmit, underlays and clips: #112, #104, #118, #114)
+## Latest - 2026-11-21 (PDF Import, #113, D-106)
+
+One new Change tool, `autocad_import_pdf` (**191** in all, with the other sessions' work): one page of a PDF as lines, text and
+hatches, at a point, scale and rotation, on one layer, with a report of what came in. No API exists
+(COM or .NET), so it types `-PDFIMPORT` with every answer in one AutoLISP form, through the sender
+`autocad_run_lisp` uses (now `advanced.send_lisp_pieces`): snaps off, a command still asking is
+cancelled and named, one undo step. It checks the release (2021-2027), the file and the page count
+first, and puts back every variable it sets. Server only, no plug-in change. Offline tests:
+`tests/test_pdf_import.py`. Limits: [05 §36](05-known-limits.md#36-pdf-import-has-its-own-limits).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AO1-AO9. **AO1 first**:
+type `-PDFIMPORT` by hand on a two-page and a one-page PDF and write the prompts down. The six
+questions were read from Autodesk's help through a search only, and whether a one-page PDF still
+asks for the page is not known; if it differs, the fix is `command_form` in `acad/pdf_import.py`.
+AO9 says what scale 1 means, so the help can say it plainly.
+
+## Earlier - 2026-11-21 (overkill, boundary, eTransmit, underlays and clips: #112, #104, #118, #114)
 
 Five new tools, built and tested offline only: `autocad_overkill` (geometry in `acad/overkill.py`),
 `autocad_trace_boundary` (plug-in `trace_boundary`, `Editor.TraceBoundary`, never the typed

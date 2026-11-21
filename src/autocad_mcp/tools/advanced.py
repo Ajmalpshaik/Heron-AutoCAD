@@ -501,59 +501,7 @@ async def autocad_run_lisp(
         doc = get_doc()
         require_idle(doc)
         expect(wanted)
-
-        previous: dict[str, str] = {}
-        for var in (LISP_RESULT_VAR, LISP_CANCELLED_VAR):
-            try:
-                previous[var] = str(doc.GetVariable(var))
-            except BaseException as exc:  # noqa: BLE001
-                raise_if_busy(exc)
-                previous[var] = ""
-
-        # Before the undo mark: a refusal here is still asked again, nothing sent.
-        doc.SetVariable(LISP_RESULT_VAR, LISP_SENTINEL)
-        try:
-            doc.SetVariable(LISP_CANCELLED_VAR, "")
-        except BaseException:  # noqa: BLE001
-            pass
-        # Running object snaps catch the points an expression types into
-        # (command ...) ("Too many objects selected for INTERSECT", 2026-11-05).
-        # Off for the call, and put back through COM even if the LISP fails.
-        not_put_back: list[str] = []
-        osmode = None
-        try:
-            osmode = doc.GetVariable("OSMODE")
-            doc.SetVariable("OSMODE", 0)
-        except BaseException:  # noqa: BLE001
-            osmode = None
-        runs: list[dict[str, Any]] = []
-        try:
-            # One undo mark round every piece: one Ctrl+Z for the whole call.
-            with undo_mark(doc):
-                for number, chunk in enumerate(chunks, start=1):
-                    if number > 1 and not _set_patiently(doc, LISP_RESULT_VAR, LISP_SENTINEL):
-                        note_busy()
-                        runs.append({"number": number, "value": LISP_SENTINEL, "answered": False,
-                                     "cancelled": "", "sent": False})
-                        break
-                    if number > 1:
-                        _set_patiently(doc, LISP_CANCELLED_VAR, "")
-                    try:
-                        doc.SendCommand(lisp_wrapper(chunk))
-                    except BaseException as exc:  # noqa: BLE001
-                        raise AutocadError(_refused(exc, number, total)) from exc
-                    value, answered = _wait_for_result(doc)
-                    cancelled = _get_patiently(doc, LISP_CANCELLED_VAR) or ""
-                    runs.append({"number": number, "value": value, "answered": answered,
-                                 "cancelled": cancelled, "sent": True})
-                    if value == LISP_SENTINEL or cancelled:
-                        break
-        finally:
-            if osmode is not None and not _set_patiently(doc, "OSMODE", osmode):
-                not_put_back.append(f"OSMODE (it was {osmode})")
-            for var, old in previous.items():
-                if not _set_patiently(doc, var, old):
-                    not_put_back.append(var)
+        runs, not_put_back = send_lisp_pieces(doc, chunks)
 
         restore_note = (
             f" AutoCAD stayed too busy to put back {', '.join(not_put_back)}: "
@@ -611,6 +559,72 @@ async def autocad_run_lisp(
         return answer
 
     return dumps(await run(work))
+
+
+def send_lisp_pieces(doc: Any, chunks: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+    """Send each piece in ``lisp_wrapper``, in order, inside one undo mark; (runs, variables not put back).
+
+    What autocad_run_lisp does once its code is cut, kept here so another tool
+    (autocad_import_pdf, D-106) types a command the same safe way: running
+    object snaps off, a command left open cancelled and named, USERS1, USERS2
+    and OSMODE put back patiently. Each run is {"number", "value", "answered",
+    "cancelled", "sent"}; the pieces after one that fails, times out or leaves
+    a command open are not sent.
+    """
+    total = len(chunks)
+    previous: dict[str, str] = {}
+    for var in (LISP_RESULT_VAR, LISP_CANCELLED_VAR):
+        try:
+            previous[var] = str(doc.GetVariable(var))
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
+            previous[var] = ""
+
+    # Before the undo mark: a refusal here is still asked again, nothing sent.
+    doc.SetVariable(LISP_RESULT_VAR, LISP_SENTINEL)
+    try:
+        doc.SetVariable(LISP_CANCELLED_VAR, "")
+    except BaseException:  # noqa: BLE001
+        pass
+    # Running object snaps catch the points an expression types into
+    # (command ...) ("Too many objects selected for INTERSECT", 2026-11-05).
+    # Off for the call, and put back through COM even if the LISP fails.
+    not_put_back: list[str] = []
+    osmode = None
+    try:
+        osmode = doc.GetVariable("OSMODE")
+        doc.SetVariable("OSMODE", 0)
+    except BaseException:  # noqa: BLE001
+        osmode = None
+    runs: list[dict[str, Any]] = []
+    try:
+        # One undo mark round every piece: one Ctrl+Z for the whole call.
+        with undo_mark(doc):
+            for number, chunk in enumerate(chunks, start=1):
+                if number > 1 and not _set_patiently(doc, LISP_RESULT_VAR, LISP_SENTINEL):
+                    note_busy()
+                    runs.append({"number": number, "value": LISP_SENTINEL, "answered": False,
+                                 "cancelled": "", "sent": False})
+                    break
+                if number > 1:
+                    _set_patiently(doc, LISP_CANCELLED_VAR, "")
+                try:
+                    doc.SendCommand(lisp_wrapper(chunk))
+                except BaseException as exc:  # noqa: BLE001
+                    raise AutocadError(_refused(exc, number, total)) from exc
+                value, answered = _wait_for_result(doc)
+                cancelled = _get_patiently(doc, LISP_CANCELLED_VAR) or ""
+                runs.append({"number": number, "value": value, "answered": answered,
+                             "cancelled": cancelled, "sent": True})
+                if value == LISP_SENTINEL or cancelled:
+                    break
+    finally:
+        if osmode is not None and not _set_patiently(doc, "OSMODE", osmode):
+            not_put_back.append(f"OSMODE (it was {osmode})")
+        for var, old in previous.items():
+            if not _set_patiently(doc, var, old):
+                not_put_back.append(var)
+    return runs, not_put_back
 
 
 def lisp_chunks(text: str) -> list[str]:

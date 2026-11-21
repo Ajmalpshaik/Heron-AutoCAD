@@ -88,8 +88,12 @@ ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
         1, "deliberately keeps reading while AutoCAD is busy redrawing, up to its bound (D-58)"),
     ("tools/advanced.py", "autocad_send_command.work"): (
         2, "FILEDIA and ATTDIA: raising part-way through turning them off would leave FILEDIA at 0 with nothing to put it back, and the finally that puts them back must not be cut short"),
-    ("tools/advanced.py", "autocad_run_lisp.work"): (
-        3, "USERS1 already holds the marker, so running the call again would save the marker in place of his own value; a refused send already gives its own 'Outcome unknown' that says which pieces ran"),
+    ("tools/advanced.py", "send_lisp_pieces"): (
+        3, "autocad_run_lisp's sender, moved out for autocad_import_pdf (D-106): USERS1 already holds the marker, so running the call again would save the marker in place of his own value; a refused send already gives its own 'Outcome unknown' that says which pieces ran"),
+    ("tools/pdf_import.py", "_layer_names"): (
+        1, "a courtesy list of layer names, also read after the import is in; a refusal there must not turn a finished import into a failure"),
+    ("tools/pdf_import.py", "_space"): (
+        1, "a courtesy field read after the import is in; a refusal there must not turn a finished import into a failure"),
     ("tools/annotate.py", "autocad_add_table.work"): (
         1, "turns table redraw back on after the table is filled; the table is made, so a refusal there must not turn the answer into a failure"),
     ("tools/check_folder.py", "_full_name"): (
