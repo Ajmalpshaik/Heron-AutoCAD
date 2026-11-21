@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The live-check runner covers groups AS and AO too (2026-11-21, D-118).** AS5 is measured (a
+  layer of rays and an empty layer say why they have no extents); the other AS rows compare the plug-in
+  with a second server started with --no-bridge, and the AO rows need the PDFs they name, so they have
+  their reason. 198 rows measured in all, 201 with a reason.
+
 - **The entity summary and a layer's extents are read by the plug-in in one go (2026-11-21, #74).**
   `autocad_list_entities(summary_only=true)` and `autocad_get_extents(layer=...)` looked at every
   object over COM, one or more round trips each. Plug-in 1.8.0 does both reads itself

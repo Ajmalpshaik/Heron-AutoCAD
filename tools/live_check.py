@@ -48,6 +48,7 @@ import live_check_edits  # noqa: E402
 import live_check_heron  # noqa: E402
 import live_check_layers  # noqa: E402
 import live_check_mep3d  # noqa: E402
+import live_check_reads  # noqa: E402
 import live_check_render  # noqa: E402
 import live_check_ribbon2  # noqa: E402
 import live_check_styles  # noqa: E402
@@ -1303,15 +1304,6 @@ OWN_BY_EYE: dict[str, str] = {
     "F18": "needs a drawing with materials already in it, and a look at the counts",
     "F20": "whether it looks like steel is a judgement, not a measurement",
     "F22": "autocad_render was removed on 2026-11-21 (D-87, #158), so there is nothing to run",
-    # Group AS (D-114): each row compares the plug-in's read with the same call to a second
-    # server started with --no-bridge, which one runner cannot be both of.
-    **{f"AS{n}": "compares the plug-in's read with a second server started with --no-bridge (COM only)"
-       for n in (1, 2, 4, 5)},
-    "AS3": "times the same read with the plug-in and over COM on a drawing of 20,000 objects or more",
-    "AS6": "needs a line drawn by hand first, then one Ctrl+Z read off the drawing",
-    "AS7": "needs a plug-in older than 1.8.0 installed",
-    "AS8": "needs your own selection made first, then SELECT and P typed by hand",
-    "AS9": "needs LINE started by hand and left waiting for a point",
 }
 
 
@@ -1320,7 +1312,7 @@ OWN_BY_EYE: dict[str, str] = {
 MODULES = (
     live_check_edits, live_check_layers, live_check_blocks, live_check_render, live_check_drawing,
     live_check_mep3d, live_check_styles, live_check_ribbon2, live_check_cleanup,
-    live_check_heron,
+    live_check_reads, live_check_heron,
 )
 
 CHECKS: tuple[Check, ...] = OWN_CHECKS + tuple(c for m in MODULES for c in m.CHECKS)
@@ -1332,7 +1324,7 @@ BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, wh
 # S were written before the runner covered them.
 RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
-    "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AP", "AQ", "AS", "RV",
+    "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "AS", "RV",
 )
 
 CHANGES_OFF = (

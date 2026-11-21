@@ -60,10 +60,10 @@ when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Ve
 
 ## Earlier - 2026-11-21 (the live-check runner covers the new groups, D-118)
 
-`tools/live_check.py` now measures 197 rows (131 new, in groups M-Z, AA-AP, RV) and names the
-reason for the other 183 of its groups. One file per area: `live_check_edits.py` (AA),
+`tools/live_check.py` now measures 198 rows (132 new, in groups M-Z, AA-AP, RV) and names the
+reason for the other 201 of its groups. One file per area: `live_check_edits.py` (AA),
 `live_check_layers.py` (AB), `live_check_blocks.py` (AC, Y), `live_check_render.py` (AE),
-`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_ribbon2.py` (AQ), `live_check_cleanup.py` (AD), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
+`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_ribbon2.py` (AQ), `live_check_cleanup.py` (AD), `live_check_reads.py` (AS, AO), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
 a bad recorded answer into each check. Nothing has run in AutoCAD: every row is still NOT RUN.
 
 **Next (on this PC):** pull, restart Claude, press Heron, turn Changes on in Settings (Ask to Keep
