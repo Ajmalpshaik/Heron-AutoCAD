@@ -2,7 +2,8 @@
 
 The three things a draftsman does that a drawing tool on its own cannot: **work in the coordinate
 system the modeller set**, **lay a sheet out**, and **turn somebody else's model into an issued
-drawing**. Decisions: [D-27](DECISIONS.md), [D-28](DECISIONS.md), [D-29](DECISIONS.md).
+drawing**. Decisions: [D-27](DECISIONS.md), [D-28](DECISIONS.md), [D-29](DECISIONS.md),
+[D-90](DECISIONS.md), [D-91](DECISIONS.md).
 
 ---
 
@@ -69,7 +70,34 @@ autocad_list_views()                                              # read the cor
 | `autocad_create_layout` | Change | The sheet: layout, paper size, orientation, plotter, plot style table. Optionally copied from an existing layout. Returns the sheet's arithmetic — frame, drawing space, where the title block goes |
 | `autocad_page_setup` | Change | AutoCAD's Page Setup on one sheet or `all_layouts`: plotter, paper, plot area, scale, `monochrome.ctb`, lineweights. Only what you pass is written |
 | `autocad_place_title_block` | Change | The title block in the corner of one sheet or every sheet, with its attributes filled — including `per_layout_attributes` for sheet numbers |
-| `autocad_add_viewport` | Change | A viewport at a real scale, looking where you say, twisted if the plan is on a slant, and locked |
+| `autocad_add_viewport` | Change | A viewport at a real scale, looking where you say, twisted if the plan is on a slant, clipped to a shape if asked, with its annotation scale, and locked |
+| `autocad_sheet_set` | Change | A whole drawing list (number, title, scale, view) made into sheets, viewports and filled title blocks in one call and one undo step ([§8](#8-a-whole-drawing-list-in-one-call)) |
+
+### Made by the plug-in
+
+`autocad_create_layout` and `autocad_add_viewport` are done by Heron's plug-in in .NET
+([D-90](DECISIONS.md)): the layout and its page setup in one transaction, the viewport in the
+layout's own block. Over COM both went through `doc.PaperSpace`, which threw on a sheet made with
+`Layouts.Add`, and the page setup went busy part-way ([05 §23](05-known-limits.md#23-sheets-with-a-heavy-3d-xref-and-a-paper-space-that-will-not-answer)).
+The arithmetic is still worked out here, and the plug-in is handed the numbers. With a plug-in older
+than this the work is done over COM as before; every answer's `made_by` says which (`plugin` or
+`com`). `copy_from` copies a sheet with everything on it when the plug-in does it; COM only copies
+its page setup.
+
+A new sheet gets no viewport of AutoCAD's own (LAYOUTCREATEVIEWPORT is off while it first opens):
+the viewports are cut by `autocad_add_viewport`, at a real scale.
+
+### Clipped viewports and annotation scale
+
+`clip_outline=[[x, y], ...]` (corners on the paper) or `clip_handle` (a closed polyline, circle,
+ellipse, spline or region already on that sheet) clips the viewport the way VPCLIP does; the
+viewport takes the box round the outline as its place, so leave `paper_centre` / `paper_width` /
+`paper_height` out. An outline is checked first: at least three corners, not crossing itself, with
+an area. Clipping needs the plug-in; without it the call is refused and nothing is made.
+
+`annotation_scale="match"` (the default) gives the viewport its own scale as its annotation scale,
+adding it to the drawing's scale list if it is missing, so annotative text and dimensions inside
+show at their paper size. Give a scale name to use another, or `"none"` to leave it.
 
 ### What makes the scale right
 
@@ -217,3 +245,52 @@ autocad_sequence(steps=[
 autocad_preview()                                             # look before saying it is done
 autocad_export(path="...A-101.pdf", area="layout", scale="1:1", paper_size="A1")
 ```
+
+---
+
+## 8. A whole drawing list in one call
+
+`autocad_sheet_set` takes the drawing list a coordinator keeps and makes the sheets:
+
+```
+autocad_sheet_set(
+  sheets=[
+    {"number": "M-101", "title": "GROUND FLOOR HVAC", "scale": "1:100", "view": "GF-HVAC"},
+    {"number": "M-102", "title": "FIRST FLOOR HVAC",                  "view": "FF-HVAC"},
+    {"number": "M-001", "title": "COVER SHEET"},
+  ],
+  paper_size="A1", title_block="TTLB-A1", title_block_width=180,
+  attributes={"PROJECT": "VILLA 12", "DATE": "2026-11-21", "REV": "P01"},
+  viewport_layer="G-VPRT", title_block_layer="G-TTLB",
+)
+```
+
+For each row: a layout named by the number, set up for plotting; a viewport at the row's scale on
+its view, locked, with its annotation scale; the title block in the corner with `DWG_NO`, `TITLE` and
+`SCALE` filled (the tags are `number_tag`, `title_tag`, `scale_tag`). A row without a scale gets the
+largest standard scale that fits, and that scale goes in its title block. A row without a view gets
+a sheet and title block only (a cover or a legend).
+
+- **Checked first, all at once.** A number used twice or already a layout, a scale it cannot read, a
+  saved view the drawing does not have, a title block it cannot find: every problem is said and
+  nothing is made. `dry_run=true` shows the plan without making anything.
+- **One undo step.** One Ctrl+Z, or Discard, takes the whole set back. If AutoCAD refuses a sheet
+  part-way, the run stops and the answer lists the sheets made and why.
+- **A template sheet.** `template_layout` copies an existing sheet for each new one, title block and
+  all, keeping its own paper and plotter unless the call names them; the copy's title block is filled
+  in rather than a second one placed.
+
+Save the views first (`autocad_save_view`), then make the set, then `autocad_preview` a sheet, then
+`autocad_publish_pdf` to issue them.
+
+## 9. One PDF of many drawings
+
+`autocad_publish_pdf(path=..., folder="D:\Job\Issue")` publishes every drawing in a folder into one
+PDF (`recursive=true` for sub-folders), or `drawings=[...]` a list in the order given
+([D-91](DECISIONS.md)). Drawings go in name order the way sheets are numbered (M-2 before M-10),
+each with its sheets in tab order; `layouts` picks the same-named sheets from every drawing.
+
+Every drawing is checked before anything is plotted: one open in AutoCAD with unsaved changes, or
+one that attaches an xref whose file cannot be found, is refused by name, and nothing is published.
+An unloaded xref is left as it is. Save, repath (`autocad_manage_xref`) or unload, then publish again.
+

@@ -45,6 +45,14 @@ ROW_KEYS = (
 )  # fmt: skip
 
 
+class SheetStopped(AutocadError):
+    """A sheet that is made but not as asked: listed with the ones made, and the run stops."""
+
+    def __init__(self, message: str, entry: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.entry = entry
+
+
 def _views_of(doc: Any) -> list[str]:
     return [str(doc.Views.Item(i).Name) for i in range(int(doc.Views.Count))]
 
@@ -211,6 +219,8 @@ async def autocad_sheet_set(
                 try:
                     entry, current_block = _make_one(doc, row, current_block, template)
                 except Exception as exc:  # noqa: BLE001 - the set so far is reported, not lost
+                    if isinstance(exc, SheetStopped):
+                        made.append(exc.entry)
                     stopped = {
                         "row": index,
                         "number": row["number"],
@@ -247,7 +257,9 @@ async def autocad_sheet_set(
             margins=margins, title_block_width=title_block_width, activate=False,
         )  # fmt: skip
         if made.get("warning"):
-            raise AutocadError(made["warning"])
+            # The sheet is there, but not as asked (AutoCAD went busy, or its paper
+            # would not read back): it is listed as made, and the run stops.
+            raise SheetStopped(made["warning"], {"number": number, "layout": made["layout"], "warning": made["warning"]})
         layout = _pick_layout(doc, made["layout"])
         info = made.get("paper") or _paper_of(layout)
         entry: dict[str, Any] = {

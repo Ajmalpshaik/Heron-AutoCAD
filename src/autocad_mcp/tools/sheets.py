@@ -643,17 +643,29 @@ def make_layout(
         "Making the sheet",
     )  # fmt: skip
     if report is not None:
-        info = _paper_from_plugin(report.get("paper") or {})
+        made = str(report.get("layout") or clean)
         page = dict(report.get("page_setup") or {})
         result: dict[str, Any] = {
             "created": True,
-            "layout": str(report.get("layout") or clean),
+            "layout": made,
             "tab_order": int(report.get("tab_order") or 0),
             "page_setup": page,
-            "paper": info,
-            "sheet": _sheet_of(info, margins, title_block_width),
             "made_by": "plugin",
         }
+        # The sheet is made: from here nothing raises, or a retry would only
+        # be told the name is taken. A paper the answer lacks is read over COM.
+        try:
+            info = _paper_from_plugin(report.get("paper") or {})
+        except AutocadError:
+            info = _try(lambda: _paper_of(_pick_layout(doc, made)))
+        if info:
+            result["paper"] = info
+            result["sheet"] = _sheet_of(info, margins, title_block_width)
+        else:
+            result["warning"] = (
+                f"The sheet '{made}' is made, but its paper size could not be read back, so the "
+                "frame is not worked out. Check it with autocad_list_layouts."
+            )
         if report.get("copied_from"):
             result["copied_from"] = report["copied_from"]
         if activate:

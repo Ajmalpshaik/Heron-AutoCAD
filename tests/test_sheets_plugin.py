@@ -643,3 +643,27 @@ class TestPublishSeveralDrawings:
         plugin, _, _, tmp_path = pdf
         call(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf")))
         assert "drawings" not in plugin.calls[0][1]
+
+
+def test_a_dimension_edit_on_a_sheet_tab_uses_the_layouts_block():
+    # #169: dimensions_edit picked doc.PaperSpace itself.
+    from autocad_mcp.tools import dimensions_edit
+
+    class PaperTab(SheetTab):
+        ActiveSpace = 0
+        MSpace = False
+
+    tab = PaperTab(block_count=4)
+    space, label = dimensions_edit._space_of(tab)
+    assert label == "paper" and space is tab.ActiveLayout.Block
+
+
+def test_a_sheet_made_but_not_as_asked_is_listed_and_stops_the_set(drawing, monkeypatch):
+    # AutoCAD busy over COM after the layout was added: the sheet is there, so it counts as made.
+    doc, _ = drawing
+    monkeypatch.setattr(_shared, "plugin_runner", lambda: None)
+    monkeypatch.setattr(sheets, "_set_page", lambda *a, **k: (_ for _ in ()).throw(BUSY))
+    out = call(sheet_set.autocad_sheet_set(sheets=LIST))
+    assert out["complete"] is False and out["count"] == 1
+    assert out["sheets"][0]["layout"] == "M-101" and "went busy" in out["sheets"][0]["warning"]
+    assert out["stopped"]["number"] == "M-101"

@@ -42,15 +42,21 @@ namespace Heron.AutoCAD.Addin
                     if (viewports) doc.Editor.UpdateTiledViewportsInDatabase();
                     RunResult result;
                     _afterCommit = null;
+                    var committed = false;
                     using (var tr = doc.Database.TransactionManager.StartTransaction())
                     {
                         result = Dispatch(request.Operation, doc, tr, args);
                         // A read leaves nothing behind, not even an empty undo step.
                         if (level == Risk.Read) tr.Abort();
-                        else tr.Commit();
+                        else
+                        {
+                            tr.Commit();
+                            committed = true;
+                        }
                     }
                     if (viewports) doc.Editor.UpdateTiledViewportsFromDatabase();
-                    RunAfterCommit();
+                    if (committed) RunAfterCommit();
+                    else _afterCommit = null;
                     return result;
                 }
             }
