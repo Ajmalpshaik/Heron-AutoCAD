@@ -964,6 +964,9 @@ async def autocad_set_3d_view(
           visual_style='2dwireframe'.
         - Don't use when: you want a viewport on a sheet
           (autocad_add_viewport).
+        - Don't use when: the view is for a render for the client —
+          autocad_add_camera_view sets the camera up; Heron does not render,
+          the modeller presses Render.
 
     Error Handling:
         - An unknown direction or visual style is named, with the list of real

@@ -174,9 +174,9 @@ numbers already, so the whole tab is low.
 | Named Views / Visual Styles | Views, visual style, X-ray, shadows | **Part**: `save_view`, `set_3d_view` (reads the style back, [D-86](DECISIONS.md)) | X-ray and shadows | COM (system variables) | low |
 | Lights | Point, Spot, Distant, Web light; Default lighting; Exposure | **Yes**: `add_light`, `list_lights`, `switch_lights` (lights, sun, default lighting), `set_render_exposure` ([D-87](DECISIONS.md)) | Exposure if 2027 has no EXPVALUE (AE14) | COM / .NET | low |
 | Sun & Location | Sun status, date, time, location | **Yes**: `set_sun` (date, time, place, on), `list_lights` reads it ([D-86](DECISIONS.md)) | Sky and shadow settings | COM (system variables) / .NET | low |
-| Materials | Materials Browser, Material Editor, Mapping | **Part**: `list_materials`, `apply_material`, `create_material` | Autodesk's material library ([03](03-tools-reference.md#materials-and-rendering-change-listing-is-read-rendering-is-admin)); mapping | Library: No. Mapping: .NET (unsure) | low |
+| Materials | Materials Browser, Material Editor, Mapping | **Part**: `list_materials`, `apply_material`, `create_material` | Autodesk's material library ([03](03-tools-reference.md#materials-change-listing-is-read)); mapping | Library: No. Mapping: .NET (unsure) | low |
 | Camera | Create Camera, Show Cameras | **Yes**: `add_camera_view` (a perspective view with a lens, [D-86](DECISIONS.md)) | The camera glyph (not drawn) | .NET | low |
-| Render | Render, Render presets, Environment | **Part**: `render` (Admin, by typing `-render`); Heron sets the render up and the modeller presses Render ([D-87](DECISIONS.md)) | Presets and environment | Typed only ([03](03-tools-reference.md#materials-and-rendering-change-listing-is-read-rendering-is-admin)) | low |
+| Render | Render, Render presets, Environment | **No, on purpose**: Heron sets the render up (camera, sun, lights, exposure) and the modeller presses Render; `autocad_render` was removed because `-render` can stall AutoCAD ([D-87](DECISIONS.md), [#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)) | Presets and environment | Typed only ([03](03-tools-reference.md#materials-change-listing-is-read)) | - |
 
 ---
 

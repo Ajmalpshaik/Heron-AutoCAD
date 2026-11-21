@@ -113,7 +113,8 @@ CASES = [
     ("copy this floor up 12 times at 3600", "autocad_transform_3d"),
     ("what materials does this drawing have", "autocad_list_materials"),
     ("make those beams look like steel", "autocad_apply_material"),
-    ("render this view for the client", "autocad_render"),
+    # autocad_render was removed (D-87, #158): a render is set up, then the modeller presses Render.
+    ("render this view for the client", "autocad_add_camera_view"),
     ("run that duct section along the route I drew", "autocad_extrude_profile"),
     ("a 400 x 200 oval duct standing up", "autocad_add_solid"),
     # The drafting objects added on 2026-10-28.
