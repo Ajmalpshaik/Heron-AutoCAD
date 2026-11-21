@@ -23,6 +23,10 @@ namespace Heron.AutoCAD.Bridge
             ["super_hatch"] = Risk.Change,
             ["add_light"] = Risk.Change,
             ["create_material"] = Risk.Change,
+            // ATTSYNC and the Excel data link: COM can add neither (D-82, D-83).
+            ["sync_attributes"] = Risk.Change,
+            ["excel_table"] = Risk.Change,
+            ["update_table_links"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

@@ -197,6 +197,9 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `press_pull` | `autocad_press_pull_faces` | `Solid3d.ExtrudeFaces` |
 | `thicken` | `autocad_thicken_surface` | `Surface.Thicken` |
 | `super_hatch` | `autocad_super_hatch` | a block of tiles, one reference, a spatial filter (XCLIP) |
+| `sync_attributes` | `autocad_sync_attributes` | `AttributeReference.SetAttributeFromBlock`, `AttributeCollection.AppendAttribute` (ATTSYNC, [D-82](DECISIONS.md)) |
+| `excel_table` | `autocad_table_from_excel` | `DataLinkManager.AddDataLink`, `Cell.SetDataLink` ([D-83](DECISIONS.md)) |
+| `update_table_links` | `autocad_update_table_links` | `Table.UpdateDataLink(SourceToData, SkipFormat)` |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.

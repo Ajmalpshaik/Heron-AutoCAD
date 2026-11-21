@@ -98,6 +98,9 @@ namespace Heron.AutoCAD.Addin
                 case "super_hatch": return SuperHatch.Make(db, tr, args);
                 case "add_light": return RenderSetup.AddLight(db, tr, args);
                 case "create_material": return RenderSetup.CreateMaterial(db, tr, args);
+                case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
+                case "excel_table": return ExcelTables.Make(db, tr, args);
+                case "update_table_links": return ExcelTables.Update(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }

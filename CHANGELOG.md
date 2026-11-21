@@ -4,6 +4,20 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Blocks, attributes and tables (2026-11-21, #115, #117, #106).** Five new tools, **147** in all.
+  `autocad_make_block` takes attribute definitions (tag, prompt, default, position, height;
+  invisible, constant, preset). `autocad_sync_attributes` is ATTSYNC, done by the plug-in: every
+  insert gets the block's attributes again, keeping the values already typed
+  ([D-82](docs/DECISIONS.md)). `autocad_table_from_excel` puts an Excel range on the drawing as a
+  table, linked with AutoCAD's Data Link by the plug-in, or filled from the sheet with the reason
+  when it cannot be linked; `autocad_update_table_links` updates linked tables;
+  `autocad_set_table_cells` changes cells by address (`B3`), old -> new.
+  `autocad_copy_from_drawing` copies objects from another open drawing into the active one at a
+  base point, saying which layers, styles and blocks came with them ([D-83](docs/DECISIONS.md)).
+  Heron's tables keep text in the vertical middle of each cell, and `autocad_add_table` with no
+  title no longer writes into the merged title row. Three new plug-in operations
+  (`sync_attributes`, `excel_table`, `update_table_links`). Live rows AC1-AC16 NOT RUN.
+
 - **Safer undo commands, long AutoLISP in pieces, quiet answers, busy answers that name the
   command (2026-11-21, #42 #44 #46 #47).** An UNDO, U, REDO, MREDO or OOPS sent with
   `autocad_send_command` is never sent a second time by a busy retry: the answer is OUTCOME UNKNOWN
