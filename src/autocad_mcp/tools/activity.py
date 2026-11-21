@@ -16,7 +16,7 @@ from pydantic import Field
 
 from ..core import gate
 from ..core.connection import get_doc, mark_writing, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 
 
@@ -122,8 +122,8 @@ async def autocad_undo_last() -> str:
             try:
                 doc.HandleToObject(handle)
                 left.append(handle)
-            except Exception:  # noqa: BLE001 - gone is what we want
-                pass
+            except Exception as exc:  # noqa: BLE001 - gone is what we want
+                raise_if_busy(exc)
         return {"left": left}
 
     done = await run(undo)

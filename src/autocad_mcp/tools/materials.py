@@ -43,7 +43,7 @@ from ..acad.render import (
 from ..acad.selection import select_filtered
 from ..acad.tables import validate_name
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import in_plugin
 
@@ -51,7 +51,8 @@ from ._shared import in_plugin
 def _try(getter, default=None):
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 
@@ -227,6 +228,7 @@ async def autocad_apply_material(
                 try:
                     entity.Material = real
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     failed.append({"handle": handle, "reason": com_message(exc)})
                     continue
                 applied.append(handle)

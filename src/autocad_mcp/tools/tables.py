@@ -41,7 +41,7 @@ from ..acad.table_cells import (
 from ..acad.tables import apply_properties, ensure_layer
 from ..core.bridge import OLD_PLUGIN
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import (
     COORDS_OPT,
@@ -137,11 +137,13 @@ def fill_table(
     try:
         table = target.AddTable(at, layout["total_rows"], columns, row_h, widths[0] if widths else row_h * 6)
     except Exception as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         raise AutocadError(f"AutoCAD would not add the table ({com_message(exc)}).") from exc
     if style:
         try:
             table.StyleName = style.strip()
         except Exception as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(
                 f"This drawing has no table style called '{style}' ({com_message(exc)}). Make it with "
                 "autocad_create_styles(table_styles=...), copy it in with autocad_import_from_drawing, "
@@ -152,32 +154,36 @@ def fill_table(
         # for, else the table style's own (read once the style is set).
         try:
             style_height = float(table.GetTextHeight(DATA_ROW))
-        except Exception:  # noqa: BLE001 - a plain guess, AutoCAD wraps what does not fit
+        except Exception as exc:  # noqa: BLE001 - a plain guess, AutoCAD wraps what does not fit
+            raise_if_busy(exc)
             style_height = 0.0
         widths = column_widths_for(grid, height or style_height or 2.5)
     try:
         table.RegenerateTableSuppressed = True
-    except Exception:  # noqa: BLE001 - only a speed-up
-        pass
+    except Exception as exc:  # noqa: BLE001 - only a speed-up
+        raise_if_busy(exc)
     # A table starts with a title row and a header row; with no title (or no
     # header) asked for, those rows hold the sheet's rows like any other.
     for flag, wanted in (("TitleSuppressed", bool(title)), ("HeaderSuppressed", bool(layout["header_rows"]))):
         if not wanted:
             try:
                 setattr(table, flag, True)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 not_set.append(flag)
     for index, width in enumerate(widths[:columns] + [widths[-1]] * (columns - len(widths))):
         try:
             table.SetColumnWidth(index, width)
-        except Exception:  # noqa: BLE001 - the column keeps the default width
+        except Exception as exc:  # noqa: BLE001 - the column keeps the default width
+            raise_if_busy(exc)
             not_set.append(f"width of column {index + 1}")
     written = 0
     if title:
         try:
             table.SetText(0, 0, title)
             written += 1
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             not_set.append("title")
     for r, row in enumerate(grid, layout["first_sheet_row"]):
         for c, value in enumerate(row):
@@ -186,12 +192,14 @@ def fill_table(
             try:
                 table.SetText(r, c, value)
                 written += 1
-            except Exception:  # noqa: BLE001 - one cell, not the table
+            except Exception as exc:  # noqa: BLE001 - one cell, not the table
+                raise_if_busy(exc)
                 not_set.append(f"cell {r + 1},{c + 1}")
     if height:
         try:
             table.SetTextHeight(sum(ROW_TYPES), height)
         except Exception as exc:  # noqa: BLE001 - the style keeps its own
+            raise_if_busy(exc)
             not_set.append(f"text_height ({com_message(exc)})")
     aligned = middle_rows(table)
     try:
@@ -394,20 +402,23 @@ async def autocad_update_table_links(
 def _cell_text(table: Any, row: int, col: int) -> str:
     try:
         return str(table.GetText(row, col))
-    except Exception:  # noqa: BLE001 - an empty cell AutoCAD will not read
+    except Exception as exc:  # noqa: BLE001 - an empty cell AutoCAD will not read
+        raise_if_busy(exc)
         return ""
 
 
 def _blocked(table: Any, row: int, col: int) -> str | None:
     try:
         reason = locked_reason(table.GetCellState(row, col))
-    except Exception:  # noqa: BLE001 - an older AutoCAD without cell states
+    except Exception as exc:  # noqa: BLE001 - an older AutoCAD without cell states
+        raise_if_busy(exc)
         reason = None
     if reason:
         return reason
     try:
         merged = table.IsMergedCell(row, col)
-    except Exception:  # noqa: BLE001 - AutoCAD would not say; SetText decides
+    except Exception as exc:  # noqa: BLE001 - AutoCAD would not say; SetText decides
+        raise_if_busy(exc)
         return None
     if isinstance(merged, tuple) and merged and merged[0] and len(merged) >= 5:
         first_row, first_col = int(merged[1]), int(merged[3])
@@ -513,13 +524,14 @@ async def autocad_set_table_cells(
                 try:
                     table.SetText(edit["row"], edit["column"], edit["value"])
                 except Exception as exc:  # noqa: BLE001 - one cell, not the job
+                    raise_if_busy(exc)
                     refused.append({"cell": edit["cell"], "why": f"AutoCAD refused it ({com_message(exc)})"})
                     continue
                 try:
                     alignment = table.GetCellAlignment(edit["row"], edit["column"])
                     table.SetCellAlignment(edit["row"], edit["column"], middle_of(alignment))
-                except Exception:  # noqa: BLE001 - the text is written; the alignment is a nicety
-                    pass
+                except Exception as exc:  # noqa: BLE001 - the text is written; the alignment is a nicety
+                    raise_if_busy(exc)
                 written.append(edit)
         done = [row for row in listed if row["property"] in {f"cell {e['cell']}" for e in written}]
         return {**result, "changed": len(written), "dry_run": False, **before_after(done)}

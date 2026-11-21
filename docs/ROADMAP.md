@@ -207,10 +207,12 @@ done looks like here.
   `autocad_drawing_setup` left on the active style. Likely shape: set `StyleName` per dimension and
   skip the `ScaleFactor` write when a style is given; check the size live before trusting it. ([#37](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/37))
   Built 2026-11-21 in that shape ([D-80](DECISIONS.md)); the size in a 1:5 detail is live row AB1, NOT RUN.
-- [ ] About 70 places turn a COM error into a plain `AutocadError`, and a few `except` blocks take
+- [x] About 70 places turn a COM error into a plain `AutocadError`, and a few `except` blocks take
   any error for "not there" (as `ensure_layer` did until D-57). The message filter now hides short
   busy spells from all of them; a refusal longer than its 3 s still reads as a failure there, not
   as busy. Go through them and let a busy refusal up as it is, as `tables.py` now does. ([#36](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/36))
+  Done 2026-11-21 ([D-100](DECISIONS.md)): `raise_if_busy` in about 250 places, about 40 left on purpose with
+  their reasons, and `tests/test_busy_sweep.py` so new code cannot bring it back. Live rows AL1-AL7 NOT RUN.
 
 ## Repository
 
