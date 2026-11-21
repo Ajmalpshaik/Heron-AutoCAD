@@ -53,6 +53,13 @@ class FakeBridge:
         FakeBridge.calls.append(("ask_erase", job, summary))
         return FakeBridge.erase_answer
 
+    boxes: list = []
+    dialogs_asked: list = []
+
+    def dialogs(self, job):
+        FakeBridge.dialogs_asked.append(job)
+        return FakeBridge.boxes
+
 
 @pytest.fixture
 def env(monkeypatch):
@@ -63,6 +70,8 @@ def env(monkeypatch):
     FakeBridge.calls = []
     FakeBridge.counted = None
     FakeBridge.erase_answer = {"answer": "restored", "restored": 0}
+    FakeBridge.boxes = []
+    FakeBridge.dialogs_asked = []
     state = {"drawing": r"C:\a.dwg", "marks": 0, "discards": 0, "undo_on": True, "left": []}
 
     async def probe():
@@ -569,3 +578,73 @@ def test_an_older_plug_in_that_cannot_count_changes_nothing(env):
     FakeBridge.counted = None
     draw, _ = make_tool("autocad_draw_line")
     assert json.loads(call(draw)) == {"created": True, "handle": "2A"}
+
+
+# ---------------------------------------------------------------------------
+# The dialog watch: a box AutoCAD opened mid-job is named (D-66)
+# ---------------------------------------------------------------------------
+
+
+def test_a_box_the_plug_in_closed_is_named_in_the_result(env):
+    FakeBridge.boxes = [{"title": "Select File", "pressed": "Cancel", "closed": True}]
+    send, _ = make_tool("autocad_send_command", '{"sent": "_OPEN"}')
+    result = json.loads(call(send))
+    assert result["sent"] == "_OPEN"
+    assert result["heron_dialogs"] == [
+        "AutoCAD showed 'Select File'; Heron closed it with Cancel, nothing was kept from that step."
+    ]
+    assert FakeBridge.dialogs_asked == ["job1"]
+
+
+def test_every_job_asks_even_a_read(env):
+    read, _ = make_tool("autocad_list_layers", "[]", writes=False)
+    assert call(read) == "[]"  # no box: the result is untouched
+    assert FakeBridge.dialogs_asked == ["job1"]
+
+
+def test_a_box_named_on_an_error_keeps_the_error_first(env):
+    FakeBridge.boxes = [{"title": "AutoCAD Message", "pressed": "Esc", "closed": True}]
+    tool, _ = make_tool("autocad_draw_line", "Error: AutoCAD stayed busy.")
+    result = call(tool)
+    assert result.startswith("Error: AutoCAD stayed busy.")
+    assert "heron_dialog: AutoCAD showed 'AutoCAD Message'; Heron closed it with Esc" in result
+
+
+def test_a_box_that_would_not_close_says_what_to_do():
+    said = gate.dialog_sentence({"title": "Stubborn", "pressed": "Cancel", "closed": False})
+    assert said.startswith("AutoCAD showed 'Stubborn'; Heron pressed Cancel but it is still open.")
+    assert "read the drawing back" in said
+    many = gate.dialog_sentence({"title": "Again", "pressed": "none", "closed": False})
+    assert "Heron stopped closing them" in many
+
+
+def test_bridge_dialogs_reads_the_plug_ins_answer(monkeypatch):
+    from autocad_mcp.core.bridge import Bridge
+
+    reply = {
+        "ok": True,
+        "dialogs": [
+            {"title": "Select File", "pressed": "Cancel", "closed": True},
+            {"title": "", "pressed": "No", "closed": None},
+            "junk",
+        ],
+    }
+    monkeypatch.setattr(Bridge, "call", lambda self, op, **fields: reply if op == "dialogs" else {})
+    assert Bridge(1).dialogs("j1") == [
+        {"title": "Select File", "pressed": "Cancel", "closed": True},
+        {"title": "a box with no title", "pressed": "No", "closed": None},
+    ]
+
+
+def test_an_older_or_unreachable_plug_in_gives_no_boxes(monkeypatch):
+    from autocad_mcp.core.bridge import Bridge
+
+    older = {"ok": False, "refusedBy": "BadRequest", "message": "Heron in AutoCAD does not know the request 'dialogs'."}
+    monkeypatch.setattr(Bridge, "call", lambda self, op, **fields: older)
+    assert Bridge(1).dialogs("j1") == []
+
+    def unreachable(self, op, **fields):
+        raise BridgeRefused("Could not reach Heron in AutoCAD.")
+
+    monkeypatch.setattr(Bridge, "call", unreachable)
+    assert Bridge(1).dialogs("j1") == []

@@ -48,6 +48,9 @@ DISCARDED = "Discarded: nothing was kept."
 STATUS_TOOL = "autocad_status"
 # Says which AutoCAD to work in: needs no drawing, and no plug-in job (D-49).
 SESSION_TOOLS = {"autocad_use_autocad"}
+# Read only Heron's own files (the tool index, the audit log, the install), never
+# AutoCAD: they must answer exactly when AutoCAD is closed or not connected (D-67).
+NO_AUTOCAD_TOOLS = {"autocad_why", "autocad_gaps"}
 # The calls that tell Heron a drawing's units. Nothing is changed in a drawing
 # until one of them has run on it (Ajmal, 2026-10-26: "the first time in a
 # drawing, you have to understand the unit").
@@ -295,18 +298,20 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         refusal: str | None = None
         probed = False
 
-        if tool in SESSION_TOOLS:
+        if tool in SESSION_TOOLS or tool in NO_AUTOCAD_TOOLS:
             # Picking which AutoCAD to work in touches no drawing, and must
             # answer exactly when the gate cannot tell which AutoCAD is meant
-            # (D-49). Audited like any call.
-            ok, outcome = False, "failed"
+            # (D-49); explaining why a job cannot run must answer when AutoCAD
+            # is closed (D-67). Audited like any call.
+            ok, outcome, message = False, "failed", ""
             try:
                 result = await work()
                 ok = not (isinstance(result, str) and result.startswith("Error:"))
                 outcome = "done" if ok else "failed"
+                message = "" if ok else str(result)
                 return result
             finally:
-                _record(tool, risk, "", ok, outcome, started)
+                _record(tool, risk, "", ok, outcome, started, message)
 
         try:
             pid, drawing = await _probe()
@@ -347,7 +352,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 refusal = str(exc)
 
         if refusal is not None:
-            _record(tool, risk, drawing, False, "refused", started)
+            _record(tool, risk, drawing, False, "refused", started, refusal)
             if tool == STATUS_TOOL:
                 # Status still answers, but says nothing about a drawing in
                 # an AutoCAD that is not connected.
@@ -391,6 +396,12 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
                 if counted is not None:
                     result = _with_changes(result, counted)
 
+            if job and job.bridge:
+                # A box AutoCAD opened mid-job was closed by the plug-in (D-66): say so.
+                boxes = await asyncio.to_thread(job.bridge.dialogs, job.id)
+                if boxes:
+                    result = _with_dialogs(result, boxes)
+
             asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES
             if tool in UNDOES:
                 pass  # the modeller asked for exactly this undo: no question about it
@@ -412,7 +423,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]]) -> Any:
         finally:
             if job and job.bridge:
                 await asyncio.to_thread(job.bridge.end, job.id, ok, outcome, job.title, _ms(started))
-            _record(tool, risk, drawing, ok, outcome, started)
+            _record(tool, risk, drawing, ok, outcome, started, "" if ok or not isinstance(result, str) else result)
             _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked)
 
 
@@ -460,6 +471,34 @@ def _with_changes(result: Any, counted: dict[str, Any]) -> Any:
     if result.startswith("Error:") and not any(shown.values()):
         return result
     return f"{result}\n\nheron_changes: {json.dumps(shown)}"
+
+
+def dialog_sentence(box: dict[str, Any]) -> str:
+    """One box the plug-in answered, in the words the chat passes on (D-66)."""
+    title, pressed, closed = box.get("title", ""), box.get("pressed", "Esc"), box.get("closed")
+    if pressed == "none":
+        return (
+            f"AutoCAD kept opening boxes ('{title}' and more); Heron stopped closing them. Close "
+            "what is open in AutoCAD (Esc), then read the drawing back before trying again."
+        )
+    if closed is False:
+        return (
+            f"AutoCAD showed '{title}'; Heron pressed {pressed} but it is still open. Close it in "
+            "AutoCAD (Esc), then read the drawing back before trying again."
+        )
+    return f"AutoCAD showed '{title}'; Heron closed it with {pressed}, nothing was kept from that step."
+
+
+def _with_dialogs(result: Any, boxes: list[dict[str, Any]]) -> Any:
+    """Add a plain sentence per box the plug-in closed, so the chat knows the step did not finish."""
+    if not isinstance(result, str):
+        return result
+    said = [dialog_sentence(box) for box in boxes]
+    payload = _payload(result)
+    if isinstance(payload, dict):
+        payload["heron_dialogs"] = said
+        return json.dumps(payload, indent=2, default=str)
+    return result + "".join(f"\n\nheron_dialog: {line}" for line in said)
 
 
 async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
@@ -548,7 +587,11 @@ def _ms(started: float) -> int:
     return int((time.monotonic() - started) * 1000)
 
 
-def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float) -> None:
+def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float, message: str = "") -> None:
+    """One audit line. A failure keeps only a reason word from a fixed list, never its message (D-67)."""
+    fields: dict[str, Any] = {}
+    if not ok and outcome != "cancelled":
+        fields["reason"] = audit.reason_of(message) or "other"
     audit.record(
         conversation=CONVERSATION,
         tool=tool,
@@ -557,4 +600,5 @@ def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started
         ok=ok,
         outcome=outcome,
         ms=_ms(started),
+        **fields,
     )

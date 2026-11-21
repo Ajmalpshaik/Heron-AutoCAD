@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -48,6 +49,12 @@ namespace Heron.AutoCAD.Bridge
         /// job and this one's begin (the modeller's own work)? Null when not known.
         /// </summary>
         bool? ChangedBefore(string job);
+
+        /// <summary>
+        /// The boxes AutoCAD showed during this job that Heron closed (the
+        /// dialog watch, <see cref="DialogWatch"/>, D-66). Empty when none.
+        /// </summary>
+        IReadOnlyList<DialogNote> Dialogs(string job);
     }
 
     public sealed class JobInfo

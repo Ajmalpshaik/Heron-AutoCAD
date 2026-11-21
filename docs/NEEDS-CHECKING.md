@@ -420,6 +420,38 @@ tested offline (bridge `PadlockTests`, `ConfigTests`; `tests/test_padlock_guard.
 | R7 | `AllowAdmin` and `AllowPublish` set to 0, Changes on | Admin and Publish show HELD; `autocad_run_lisp` and a save are refused with the policy words; drawing still works | NOT RUN |
 | R8 | In Claude Code in this folder on this PC, ask it to set `"write.enabled": true` in the config file (and, separately, to `reg add` the policy key to 1) | Each step is refused "Heron's padlock guard refused this step"; nothing written | NOT RUN |
 
+## Group V - The dialog watch (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-66](DECISIONS.md), issue #83). Built and tested offline
+(`DialogWatchTests.cs`, `tests/test_gate.py`). Needs the new plug-in build and a server restart.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| V1 | Admin ON: `autocad_send_command("_OPEN\n")` (FILEDIA 1, so the Select File dialog opens) | Within about 1 s the dialog closes by itself; the answer has `heron_dialogs`: "AutoCAD showed 'Select File'; Heron closed it with Cancel, nothing was kept from that step."; no drawing opens; the next call works without pressing Esc | NOT RUN |
+| V2 | Open AutoCAD's Options dialog yourself and leave it open; then `autocad_list_layers` | Options is **not** closed; the answer is the Q3 "AutoCAD stayed busy" one; no `heron_dialogs` | NOT RUN |
+| V3 | Ask to Keep ON: `autocad_draw_line`, then wait at Keep or Discard for 5 s | The Keep or Discard box stays up until you answer it; it is never closed by the watch | NOT RUN |
+| V4 | Admin ON: change something in a drawing, then `autocad_send_command("_CLOSE\n")` | The "Save changes?" box gets **Cancel**, never Yes or No; the drawing stays open with the change; the answer names the box | NOT RUN |
+| V5 | With no Heron job running, open the Select File dialog yourself (Ctrl+O) and wait 10 s | It stays open: the watch never acts outside a job | NOT RUN |
+| V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`) | One line "dialog watch: 'Select File' -> Cancel"; no error lines | NOT RUN |
+
+## Group W - Finding and explaining: why, gaps, question mode (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-67](DECISIONS.md)). Built and tested offline
+(`tests/test_why_and_gaps.py`, `tests/test_find_tool.py`). Server only: restart the server after
+pulling; no plug-in build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| W1 | AutoCAD closed: "why can't you save this as PDF?" (`autocad_why`) | Answers at once, no error: cannot run, first reason "No AutoCAD is connected", what to do says press Heron | NOT RUN |
+| W2 | AutoCAD open, Heron pressed, Changes ON, Publish OFF: `autocad_why("save this as PDF")` | Cannot run; one reason "needs the Publish padlock, and it is off" with HERONPUBLISH; Changes not named | NOT RUN |
+| W3 | Same, all padlocks ON: `autocad_why("draw a 200 flange with 8 bolt holes")` | `can_run: true`, tool `autocad_make_shape`, "should run" | NOT RUN |
+| W4 | `autocad_why("make me a cup of tea")` | "Heron has no tool for this job" with "do it by hand" | NOT RUN |
+| W5 | Turn Changes OFF, ask the chat to draw a line (refused), then `autocad_gaps(days=1)` | `autocad_draw_line` shows 1 refused; the failure reason is "The Changes padlock was off" with HERONCHANGES | NOT RUN |
+| W6 | `autocad_gaps(days=30)` after a week of real work | Counts per tool look right; slowest jobs are the ones you remember as slow; drawings by file name only, no folder anywhere in the answer | NOT RUN |
+| W7 | Read `autocad://tools/find/is that polyline closed` and `.../how many diffusers on this floor` | First match is a Read tool (`autocad_polyline_info`, `autocad_count_blocks`); no tool needing Changes in `matches` | NOT RUN |
+| W8 | Read `autocad://tools/find/is there a clash between the duct and the steel` | `matches` holds only Read tools; `autocad_check_interference` is under `would_change_the_drawing` | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
