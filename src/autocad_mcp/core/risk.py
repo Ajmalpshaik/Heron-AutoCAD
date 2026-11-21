@@ -58,6 +58,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "drawing_report",
         "why",
         "gaps",
+        "read_file",
         "list_annotation_scales",
     ),
     Risk.VIEW: (
@@ -183,6 +184,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "create_linetype",
         "publish_pdf",
         "checklist_report",  # writes an .xlsx and an .html next to the drawing (D-65)
+        "share_checklist",  # writes the office folder or the project folder, where the team reads (D-93)
     ),
     Risk.ADMIN: (
         "render",
