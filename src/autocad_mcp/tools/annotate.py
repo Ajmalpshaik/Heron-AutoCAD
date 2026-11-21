@@ -28,7 +28,7 @@ from ..acad.entities import bounding_box, resolve_handle, short_type
 from ..acad.table_cells import middle_rows
 from ..acad.tables import apply_properties, ensure_layer
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
 from ._shared import COLOR_OPT, COORDS_OPT, LAYER_OPT, point, ucs_for, world_coords
@@ -178,7 +178,7 @@ async def autocad_add_multileader(
     ] = None,
     style: Annotated[
         str | None,
-        Field(default=None, description="Multileader style name. It must already be in the drawing — there is no Automation call to create one; bring yours in with autocad_import_from_drawing."),
+        Field(default=None, description="Multileader style name, already in the drawing: make one with autocad_create_styles(multileader_styles=...), or bring yours in with autocad_import_from_drawing."),
     ] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
@@ -247,7 +247,8 @@ async def autocad_add_multileader(
         if block:
             try:
                 doc.Blocks.Item(str(block).strip())
-            except BaseException:  # noqa: BLE001 - name it rather than half-make a leader
+            except BaseException as exc:  # noqa: BLE001 - name it rather than half-make a leader
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"No block named '{block}' is in this drawing. autocad_list_blocks shows "
                     "what there is, and autocad_insert_block can bring one in from a .dwg."
@@ -267,17 +268,19 @@ async def autocad_add_multileader(
                 try:
                     mleader.StyleName = str(style).strip()
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(
                         f"This drawing has no multileader style called '{style}' "
-                        f"({com_message(exc)}). There is no Automation call to create one: "
-                        "make it in AutoCAD, or copy it in with autocad_import_from_drawing."
+                        f"({com_message(exc)}). Make it with autocad_create_styles(multileader_styles=...), "
+                        "or copy it in with autocad_import_from_drawing."
                     ) from exc
 
             if block:
                 mleader.ContentType = AC_BLOCK_CONTENT
                 try:
                     mleader.ContentBlockName = str(block).strip()
-                except BaseException:  # noqa: BLE001 - reported, the leader still exists
+                except BaseException as exc:  # noqa: BLE001 - reported, the leader still exists
+                    raise_if_busy(exc)
                     not_set.append("ContentBlockName")
             else:
                 mleader.ContentType = AC_MTEXT_CONTENT
@@ -291,7 +294,8 @@ async def autocad_add_multileader(
                     continue
                 try:
                     setattr(mleader, prop, float(value))
-                except BaseException:  # noqa: BLE001 - a locked style keeps its own
+                except BaseException as exc:  # noqa: BLE001 - a locked style keeps its own
+                    raise_if_busy(exc)
                     not_set.append(prop)
 
             # Every further arrow is another leader line on the same note.
@@ -302,6 +306,7 @@ async def autocad_add_multileader(
                     mleader.AddLeaderLine(cluster, double_array(_flat3([arrow, land])))
                     extra += 1
                 except BaseException as exc:  # noqa: BLE001 - report, keep what worked
+                    raise_if_busy(exc)
                     not_set.append(f"leader line to {list(arrow)} ({com_message(exc)})")
             scaled = make_new_annotative([str(mleader.Handle)]) if annotative else {}
 
@@ -377,7 +382,7 @@ async def autocad_add_table(
     ] = None,
     style: Annotated[
         str | None,
-        Field(default=None, description="Table style name, already in the drawing. There is no Automation call to create one; copy yours in with autocad_import_from_drawing."),
+        Field(default=None, description="Table style name, already in the drawing: make one with autocad_create_styles(table_styles=...), or copy yours in with autocad_import_from_drawing."),
     ] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     space: Annotated[str, Field(default="model", description="'model' or 'paper'. A schedule normally belongs on the sheet, so 'paper'.", pattern="^(model|paper)$")] = "model",
@@ -471,6 +476,7 @@ async def autocad_add_table(
                     point(position, "position", ucs), total_rows, columns, row_h, widths[0]
                 )
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"AutoCAD would not add the table ({com_message(exc)}). Check the row "
                     "height clears the text height plus the cell margins in the table style."
@@ -480,9 +486,11 @@ async def autocad_add_table(
                 try:
                     table.StyleName = str(style).strip()
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(
                         f"This drawing has no table style called '{style}' ({com_message(exc)}). "
-                        "Make it in AutoCAD, or copy it in with autocad_import_from_drawing."
+                        "Make it with autocad_create_styles(table_styles=...), or copy it in with "
+                        "autocad_import_from_drawing."
                     ) from exc
 
             # A new table starts with a title row (merged across) and a header
@@ -495,27 +503,29 @@ async def autocad_add_table(
                     try:
                         setattr(table, flag, True)
                         suppressed.append(flag)
-                    except BaseException:  # noqa: BLE001 - the style's own rows stay
-                        pass
+                    except BaseException as exc:  # noqa: BLE001 - the style's own rows stay
+                        raise_if_busy(exc)
 
             for index, width in enumerate(widths):
                 try:
                     table.SetColumnWidth(index, width)
-                except BaseException:  # noqa: BLE001 - the column keeps the default width
+                except BaseException as exc:  # noqa: BLE001 - the column keeps the default width
+                    raise_if_busy(exc)
                     not_set.append(f"width of column {index}")
 
             if height or text_style:
                 try:
                     table.RegenerateTableSuppressed = True
-                except BaseException:  # noqa: BLE001 - only a speed-up
-                    pass
+                except BaseException as exc:  # noqa: BLE001 - only a speed-up
+                    raise_if_busy(exc)
 
             def put(row: int, column: int, value: str) -> None:
                 nonlocal written
                 try:
                     table.SetText(row, column, value)
                     written += 1
-                except BaseException:  # noqa: BLE001 - one cell, not the table
+                except BaseException as exc:  # noqa: BLE001 - one cell, not the table
+                    raise_if_busy(exc)
                     not_set.append(f"cell {row},{column}")
 
             at = 0
@@ -535,11 +545,13 @@ async def autocad_add_table(
                 try:
                     table.SetTextStyle(TABLE_ALL_ROWS, str(text_style).strip())
                 except BaseException as exc:  # noqa: BLE001 - the style keeps its own
+                    raise_if_busy(exc)
                     not_set.append(f"text_style ({com_message(exc)})")
             if height:
                 try:
                     table.SetTextHeight(TABLE_ALL_ROWS, height)
                 except BaseException as exc:  # noqa: BLE001 - the style keeps its own
+                    raise_if_busy(exc)
                     not_set.append(f"text_height ({com_message(exc)})")
             # Heron's tables keep their text in the vertical middle of each cell (D-83).
             aligned = middle_rows(table)

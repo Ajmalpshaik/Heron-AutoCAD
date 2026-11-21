@@ -48,6 +48,9 @@ namespace Heron.AutoCAD.Bridge
             ["planar_surface"] = Risk.Change,
             ["network_surface"] = Risk.Change,
             ["add_mesh"] = Risk.Change,
+            // Multileader and table styles: COM can make neither (D-104).
+            ["multileader_style"] = Risk.Change,
+            ["table_style"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

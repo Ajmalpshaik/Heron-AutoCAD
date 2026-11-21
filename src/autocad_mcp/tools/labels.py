@@ -23,7 +23,7 @@ from pydantic import Field, StrictInt
 
 from ..acad.tables import apply_properties
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
 from ._shared import COLOR_OPT, LAYER_OPT, point
@@ -111,7 +111,8 @@ def _place(doc: Any, space: Any, spec: dict[str, Any], scale: float) -> dict[str
         for prop, value in (("TextHeight", height), ("ArrowheadSize", height), ("DoglegLength", height)):
             try:
                 setattr(mleader, prop, float(value))
-            except Exception:  # noqa: BLE001 - a style that locks it keeps its own
+            except Exception as exc:  # noqa: BLE001 - a style that locks it keeps its own
+                raise_if_busy(exc)
                 notes.setdefault("not_set", []).append(prop)
         return {"created": True, "kind": "mleader", "handle": str(mleader.Handle),
                 "handles": [str(mleader.Handle)], "points": [list(p) for p in pts], **notes}

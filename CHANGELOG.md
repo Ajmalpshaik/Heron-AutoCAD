@@ -5,12 +5,22 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
-  measures 113 rows of groups M to Z, AA to AP and RV as well as D, E and F (179 in all), and gives
-  the other 130 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
+  measures 122 rows of groups M to Z, AA to AP and RV as well as D, E and F (188 in all), and gives
+  the other 140 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
   or Ask to Keep on stops it, saying what to do; it never switches one. A row can need Admin or
   Publish on or off; a NOT RUN reason never overwrites a result written by hand. Every new check is
   tested offline against a good and a bad recorded answer (`tests/live_fakes.py`). Found: V1, V4 and
   V7 cannot open their box as written (#213).
+- **Multileader and table styles (2026-11-21, #68).** `autocad_create_styles` takes
+  `multileader_styles` and `table_styles`, made by Heron's plug-in because COM has no call for
+  either. A multileader style is Ajmal's TLD label unless asked otherwise (text style, height,
+  arrow, dogleg, landing gap; the leader ends under the text; sizes as they plot with the style's
+  scale). A table style sets title, header and data text heights and margins for the sheet scale,
+  with text in the vertical middle of every cell. The rules are in the Bridge with their own tests
+  ([D-104](docs/DECISIONS.md)). A plot style table cannot be made: AutoCAD's .NET API cannot write
+  the file ([D-105](docs/DECISIONS.md), 05 §34). Two new plug-in operations, no new tool. Live rows
+  AN1-AN12 NOT RUN.
+
 - **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
   part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
   (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter
@@ -24,6 +34,15 @@ Newest first. Dates are when the change was made.
   or 9 overlapping close-ups of the same area, plotted as windows. A whole A1 in one picture is about
   0.5 mm a pixel, so its 2.5 mm text could not show ([D-102](docs/DECISIONS.md)). Live rows AM1-AM6
   NOT RUN; #41 stays open until AM1 names the cause.
+
+- **A busy AutoCAD is never a false failure (2026-11-21, #36).** When AutoCAD stays busy past the
+  message filter's 3 s (a dialog left open, a heavy redraw), every tool now lets the refusal go up
+  as it is, so the answer is "AutoCAD stayed busy ... press Esc" or "Outcome unknown, look before
+  retrying". Before, about 250 places turned it into "Could not ...", or carried on with a wrong
+  value: a layer read as off, the world UCS used instead of yours, "UNDO is off" after Discard. One
+  helper, `raise_if_busy`, one line per place; about 40 places carry on through it on purpose (putting
+  variables back, Esc, redraws) and are listed with their reasons. A new test reads the source so
+  new code cannot bring the old way back ([D-100](docs/DECISIONS.md)). Live rows AL1-AL7 NOT RUN.
 
 - **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
   (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,

@@ -19,7 +19,7 @@ from typing import Annotated, Any
 from pydantic import Field
 
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from . import _shared
 from ._shared import PLUGIN_ONLY, before_after, in_plugin
@@ -179,7 +179,8 @@ def make_new_annotative(handles: Sequence[str]) -> dict[str, Any]:
 def _cannoscale(doc: Any) -> str | None:
     try:
         return str(doc.GetVariable("CANNOSCALE"))
-    except BaseException:  # noqa: BLE001 - an old drawing may not say
+    except BaseException as exc:  # noqa: BLE001 - an old drawing may not say
+        raise_if_busy(exc)
         return None
 
 

@@ -21,7 +21,7 @@ from pydantic import Field
 
 from ..acad.drawing_copy import empty_uses, find_open, offset, what_comes_along
 from ..core.connection import get_app, get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, object_array
 
@@ -36,7 +36,8 @@ MOST_SCANNED = 20000
 def _read(obj: Any, name: str) -> str:
     try:
         return str(getattr(obj, name) or "")
-    except Exception:  # noqa: BLE001 - an object without that property
+    except Exception as exc:  # noqa: BLE001 - an object without that property
+        raise_if_busy(exc)
         return ""
 
 
@@ -70,7 +71,8 @@ def _definitions(source: Any, top: set[str]) -> tuple[dict[str, dict[str, set[st
         try:
             block = source.Blocks.Item(name)
             count = int(block.Count)
-        except Exception:  # noqa: BLE001 - CopyObjects still brings it; only the list is shorter
+        except Exception as exc:  # noqa: BLE001 - CopyObjects still brings it; only the list is shorter
+            raise_if_busy(exc)
             continue
         for i in range(count):
             scanned += 1
@@ -185,7 +187,8 @@ async def autocad_copy_from_drawing(
         for handle in wanted:
             try:
                 objects.append(from_doc.HandleToObject(handle))
-            except Exception:  # noqa: BLE001 - listed below
+            except Exception as exc:  # noqa: BLE001 - listed below
+                raise_if_busy(exc)
                 missing.append(handle)
         if missing:
             raise AutocadError(
@@ -201,7 +204,8 @@ async def autocad_copy_from_drawing(
                 top_blocks.add(block)
             try:
                 owner = obj.OwnerID
-            except Exception:  # noqa: BLE001 - one group then
+            except Exception as exc:  # noqa: BLE001 - one group then
+                raise_if_busy(exc)
                 owner = None
             groups[owner].append(obj)
         inside, cut_short = _definitions(from_doc, top_blocks)
@@ -230,6 +234,7 @@ async def autocad_copy_from_drawing(
                 try:
                     made = source_copy(from_doc, group, owner_space)
                 except Exception as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(f"AutoCAD would not copy them ({com_message(exc)}).") from exc
                 new.extend(made)
             if any(abs(v) > 1e-12 for v in move):
