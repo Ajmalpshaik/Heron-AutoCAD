@@ -281,3 +281,49 @@ def test_a_sequence_step_cannot_be_a_dry_run_on_its_own():
     register_all()
     with pytest.raises(AutocadError, match="cannot be a dry run on its own"):
         sequence.plan_steps([{"tool": "autocad_draw_line", "args": {"start": [0, 0], "end": [1, 0], "dry_run": True}}])
+
+
+# --- found in review (2026-11-21) -------------------------------------------------------
+
+
+def test_a_dry_run_that_wrote_nothing_sends_no_undo_back(env):
+    FakeBridge.counted = NONE
+    tool, _ = make_tool("autocad_modify_entity", "Error: AutoCAD is in the middle of a command.", writes=False)
+    result = call(tool, dry_run=True)
+    assert env["marks"] == 1 and env["discards"] == 0
+    assert result.startswith("REFUSED - the job failed in the dry run before it wrote anything.")
+    quiet, _ = make_tool("autocad_modify_entity", '{"modified": 0, "before_after": []}', writes=False)
+    assert call(quiet, dry_run=True).startswith("NOTHING CHANGED - a dry run that wrote nothing")
+    assert env["discards"] == 0
+
+
+def test_a_cancelled_dry_run_still_goes_back_to_its_mark(env):
+    import pytest
+
+    tool, _ = make_tool("autocad_draw_line", raises=asyncio.CancelledError())
+    with pytest.raises(asyncio.CancelledError):
+        call(tool, dry_run=True)
+    assert env["marks"] == 1 and env["discards"] == 1
+
+
+def test_no_mark_is_put_down_while_autocad_is_in_a_command(monkeypatch):
+    from autocad_mcp.core import gate
+
+    class Doc:
+        sent: list[str] = []
+
+        def GetVariable(self, name):
+            return {"UNDOCTL": 5, "CMDACTIVE": 1}[name]
+
+        def SendCommand(self, text):
+            Doc.sent.append(text)
+
+    class App:
+        ActiveDocument = Doc()
+
+    async def now(fn):
+        return fn()
+
+    monkeypatch.setattr(gate, "get_app", App)
+    monkeypatch.setattr(gate, "run", now)
+    assert asyncio.run(gate._mark()) is False and Doc.sent == []

@@ -277,11 +277,20 @@ From [docs/13](13-sheets-folders-companion.md); all NOT RUN live (NEEDS-CHECKING
 - **A number the modeller types in Excel comes back as Excel shows it.** Typed `1.50` reads `1.5`.
   Cells Heron wrote stay text; only a cell typed over is a number. Type a leading `'` in Excel to
   keep `1.50`.
+- **What Excel turns into a date, a time, a fraction or a percent is not written** ([D-75](DECISIONS.md)).
+  `1:100` becomes a time, `05.01` or `1/50` a date, `50%` the number 0.5; the answer lists those
+  cells (`excel_converted`) and writes none of them. Type them with a leading `'` (`'1:100`).
+- **A row is used only when its Block matches the block with that handle here** ([D-75](DECISIONS.md)).
+  A sheet from another drawing is mostly caught that way; the workbook also names the drawing it
+  came from, and the answer warns when it is not this one. A CSV names none, so it gets only the
+  Block check.
 - **A blank cell never empties an attribute.** That is on purpose (Revit's rule): use
   `autocad_set_attributes` to set one to nothing.
 - **A CSV has no "As exported" copy**, so a value changed in the drawing since the export is
   overwritten by an older one in the CSV if they differ. Use the `.xlsx`.
 - **An attribute tag used twice in one block** is written to both.
+- **The folder check never closes a drawing that was open before,** even under another name for
+  the same file (a mapped drive and its UNC path); it closes only what it opened itself.
 - **The folder check opens each drawing in AutoCAD,** so the office start-up (acaddoc.lsp, a
   missing-font box) runs for each; the dialog watch (D-66) closes a box it shows, and that drawing
   may then be NOT RUN. Xrefs load as usual. It is slower than one drawing: about the time AutoCAD

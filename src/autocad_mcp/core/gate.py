@@ -70,8 +70,9 @@ NO_DRY_RUN = (
     "back. Call it without dry_run when the modeller is sure. Nothing was sent to AutoCAD."
 )
 DRY_RUN_NEEDS_UNDO = (
-    "A dry run needs UNDO on in this drawing (UNDOCTL), so Heron can go back afterwards. Nothing was "
-    "run. Turn UNDO on (UNDO > All) or call it without dry_run."
+    "A dry run needs UNDO on in this drawing (UNDOCTL) and AutoCAD at its Command: prompt, so Heron "
+    "can put a mark down and go back to it afterwards. Nothing was run. Press Esc in AutoCAD, turn "
+    "UNDO on (UNDO > All) if it is off, or call it without dry_run."
 )
 DRY_RUN_HANDLES = "A dry run: the handles above were taken back with it and no longer exist."
 COULD_NOT_ASK = (
@@ -181,12 +182,19 @@ async def _probe() -> tuple[int, str]:
 
 
 async def _mark() -> bool:
-    """Put an UNDO mark down before a job. False when UNDO is off in this drawing."""
+    """Put an UNDO mark down before a job. False when UNDO is off, or AutoCAD is in a command.
+
+    In a command, "_.UNDO _Mark " would be typed into that command's prompt and
+    no mark made; a later UNDO Back would then go past the job, into the
+    modeller's own work. So no mark, and nothing that needs one.
+    """
 
     def mark() -> bool:
         doc = get_app().ActiveDocument
         try:
             control = int(doc.GetVariable("UNDOCTL"))
+            if int(doc.GetVariable("CMDACTIVE")) != 0:
+                return False
         except Exception:  # noqa: BLE001 - cannot tell: treat as off, never guess
             return False
         # Bit 1: undo on. Bit 2: only one step kept, so a mark means nothing.
@@ -432,6 +440,13 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 result = await work()
             except asyncio.CancelledError:
                 outcome = "cancelled"
+                if dry_run and marked:
+                    # The work may still finish on the COM thread; going back is queued after it,
+                    # so a cancelled dry run keeps nothing either (D-63).
+                    try:
+                        await asyncio.shield(_discard())
+                    except Exception:  # noqa: BLE001 - cancelled already; the drawing is said below
+                        outcome = "cancelled_dry_run_not_undone"
                 raise
             finally:
                 _current = None
@@ -462,7 +477,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
             said: tuple[str, str] | None = None
             if dry_run:
                 # No question: whatever it did is taken back now (D-63).
-                result, outcome, said = await _roll_back(result, text, ok, counted)
+                result, outcome, said = await _roll_back(result, text, ok, counted, wrote)
                 ok = ok and outcome == "dry_run"
             elif tool in UNDOES:
                 pass  # the modeller asked for exactly this undo: no question about it
@@ -504,12 +519,18 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
 
 
 async def _roll_back(
-    result: Any, text: str, ok: bool, counted: dict[str, Any] | None
+    result: Any, text: str, ok: bool, counted: dict[str, Any] | None, wrote: bool = True
 ) -> tuple[Any, str, tuple[str, str]]:
     """The end of a dry run: back to Heron's UNDO mark, then check the new objects are gone (D-63).
 
+    A job that began no write, and of which the plug-in counted nothing, has
+    nothing to take back: no UNDO Back is sent, as Keep or Discard sends none.
     Returns (result, outcome, the plain line's word and reason).
     """
+    if not wrote and not (counted and any(int(counted.get(k, 0)) for k in ("added", "modified", "erased"))):
+        if not ok:
+            return result, "dry_run", (answers.REFUSED, "the job failed in the dry run before it wrote anything.")
+        return result, "dry_run", (answers.NOTHING_CHANGED, "a dry run that wrote nothing, so there was nothing to take back.")
     try:
         await _discard()
         left = await _still_there(_created(text))

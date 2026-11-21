@@ -130,6 +130,29 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-75 - What a review of the new tools found, and the rules added
+
+**Decided:** 2026-11-21, after an independent review of the code of PRs #124, #143 and #146.
+**Status:** in force; adds to D-63, D-69 and D-70, which stand.
+- **Excel's own typing is never written (D-69).** A number cell whose format shows it as a date, a
+  time, a fraction or a percent (built-in formats 9-22, 27-36, 45-47, 50-58, or a custom format with
+  d, m, y, h, s or %, quoted text left out) is read as `xlsx.Converted` and listed in
+  `excel_converted`, not written: "1:100" typed in Excel would otherwise become "0.0694".
+- **A tag named HANDLE, BLOCK or LAYOUT** gets " (tag)" after its column heading, and only the first
+  column of each of those names is Heron's own. A row with values but no handle is listed.
+- **A row is used only when its Block matches** the block that has that handle in this drawing; the
+  workbook names the drawing it came from ("Exported from" on Read me), and the answer warns when
+  it is applied to another one.
+- **The folder check closes only what it opened (D-70):** decided by what AutoCAD had open before
+  and after, never by the path alone.
+- **Dry runs (D-63):** no UNDO mark is put down while AutoCAD is in a command (the mark would be
+  typed into that command, and UNDO Back would then go past the job); a dry run that began no write
+  and changed nothing counted sends no UNDO Back; a cancelled dry run still goes back to its mark,
+  queued after the work on the COM thread.
+- A cell reference with no column letter, a row past 50,000 or a column past Excel's last is a
+  plain refusal, not a crash or a runaway list. A named button (D-74) goes to the first box with
+  that title, so the field says to avoid a title many boxes share.
+
 ## D-74 - A command or expression may name one button for one box it expects
 
 **Decided:** 2026-11-21, from Heron AI for Revit (issue #101, follow-up to D-66). **Status:** in

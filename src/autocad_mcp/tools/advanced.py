@@ -191,7 +191,9 @@ def _get_patiently(doc: Any, name: str) -> str | None:
 # on it (#101). Every other box is still cancelled by the dialog watch (D-66).
 EXPECT_BOX = Field(description=(
     "The exact title of ONE box this is expected to open, e.g. 'Purge - Confirm Purge'. Heron "
-    "presses 'press' on that box, once; every other box is still cancelled. Give both or neither."
+    "presses 'press' on the first box with that title, once; every other box is still cancelled. "
+    "Give both or neither. Avoid a title many boxes share, such as 'AutoCAD' or 'AutoCAD Message': "
+    "the first box with it gets the button, whatever it asks."
 ))
 PRESS = Field(description="The button to press on that box, as it reads, e.g. 'Yes' or 'OK'.")
 

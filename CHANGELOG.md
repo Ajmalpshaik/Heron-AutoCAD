@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
+  fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,
+  BLOCK or LAYOUT keeps its own column; a row whose Block is another block here is not used, and a
+  sheet from another drawing is warned about. The folder check never closes a drawing that was
+  already open under another name. A dry run puts no UNDO mark down mid-command, sends no UNDO Back
+  when it wrote nothing, and goes back even when cancelled ([D-75](docs/DECISIONS.md)).
+
 - **The dialog watch can press one named button (2026-11-21, #101).** `autocad_send_command` and
   `autocad_run_lisp` take `expect_box` and `press`: the plug-in presses that button only on a box
   with exactly that title, once, in that call; every other box is still cancelled. Admin only.

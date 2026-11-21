@@ -536,6 +536,7 @@ pulling. **Every row below is NOT RUN.**
 | Y4 | A folder with 3 drawings, one of them open, one a newer-format or damaged file: `autocad_check_folder` | Each opens read only (title bar says read-only) and closes unsaved; the open one stays open; the bad one is NOT RUN with AutoCAD's reason; the modeller's drawing is active again at the end; no drawing's file date changes | NOT RUN |
 | Y5 | During Y4 press HERONSTOP after the first drawing | The rest are not opened; the answer says HERONSTOP; the modeller's drawing is active | NOT RUN |
 | Y6 | `autocad_companion`, open the page in a browser; select 3 objects, ask the chat to draw a line, then to refresh the companion page | The page shows the drawing, units, layout, view; within 5 s of the draw a new row "Draw Line ... done +1"; after the refresh the selection reads 3 objects; the browser's dev tools show no script and no request | NOT RUN |
+| Y7 | After Y1, type `1:100` in a SCALE cell and a date in a DATE cell in Excel (no leading '), and a value in a row's Block column that is not that block; apply with `dry_run=true` | Those cells are in `excel_converted` and that row in `other_block`; none of them is in `changes`; with `'1:100` typed instead it is written as `1:100` | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

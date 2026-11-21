@@ -8,7 +8,16 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (the dialog watch can press one named button, #101; plug-in 1.7.0)
+## Latest - 2026-11-21 (review fixes for the new tools, D-75)
+
+An independent review of PRs #124, #143 and #146 found six real problems; all fixed with tests:
+Excel's date / time / percent typing written as numbers (now refused, `excel_converted`), a tag
+named HANDLE / BLOCK / LAYOUT breaking the sheet, no Block check (now per row, plus "Exported from"),
+the folder check able to close an already-open drawing under another path, and three dry-run gaps
+(a mark typed into a running command, UNDO Back after nothing was written, a cancelled dry run not
+going back). D-75; known limits §27 updated; live row Y7. Server **1.10.1**, plug-in unchanged.
+
+## Earlier - 2026-11-21 (the dialog watch can press one named button, #101; plug-in 1.7.0)
 
 `autocad_send_command` / `autocad_run_lisp` take `expect_box` + `press` (D-74). The plug-in's
 `DialogWatch` presses that button only on a box with exactly that title, once, in that Admin job;
