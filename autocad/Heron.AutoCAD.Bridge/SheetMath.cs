@@ -90,6 +90,22 @@ namespace Heron.AutoCAD.Bridge
             dy = x * sin + y * cos;
         }
 
+        /// <summary>
+        /// A layout's sheet and margins as paper space sees them. AutoCAD keeps them in
+        /// millimetres and the media's own way round: divide by <paramref name="perUnit"/>
+        /// (25.4 for an inch layout) and swap the sides when the plot is turned 90 or 270
+        /// degrees. Margins come back as left, bottom, right, top.
+        /// </summary>
+        public static void PaperInUnits(double width, double height, double left, double bottom, double right, double top,
+            double perUnit, bool turned, out double[] sheet, out double[] margins)
+        {
+            var per = perUnit > 0 ? perUnit : 1.0;
+            sheet = turned ? new[] { height / per, width / per } : new[] { width / per, height / per };
+            margins = turned
+                ? new[] { bottom / per, left / per, top / per, right / per }
+                : new[] { left / per, bottom / per, right / per, top / per };
+        }
+
         /// <summary>A scale as it goes on the sheet: 0.02 is "1:50", 2 is "2:1".</summary>
         public static string ScaleName(double ratio)
         {

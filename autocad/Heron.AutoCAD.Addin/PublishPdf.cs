@@ -132,7 +132,23 @@ namespace Heron.AutoCAD.Addin
         private static PublishPlan.Drawing Facts(Database db, string path, bool unsaved)
         {
             var missing = new List<string>();
+            MissingXrefs(db, path, "", missing, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Path.GetFullPath(path) }, 0);
+            return new PublishPlan.Drawing(path, Layouts(db), unsaved, missing);
+        }
+
+        // How deep nested xrefs are followed: an xref of an xref of an xref.
+        private const int XrefDepth = 4;
+
+        /// <summary>
+        /// The loaded xrefs of a drawing whose file cannot be found, and those of every
+        /// xref it does find, read from the xref's own file (a nested xref shows in the
+        /// host as HOST|NAME and is checked there, through the xref that holds it).
+        /// An overlay inside an xref is not loaded by AutoCAD, so it is not checked.
+        /// </summary>
+        private static void MissingXrefs(Database db, string path, string prefix, List<string> missing, HashSet<string> seen, int depth)
+        {
             var folder = Path.GetDirectoryName(path) ?? "";
+            var found = new List<(string name, string file)>();
             using (var tr = db.TransactionManager.StartOpenCloseTransaction())
             {
                 var table = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
@@ -140,27 +156,50 @@ namespace Heron.AutoCAD.Addin
                 {
                     var record = (BlockTableRecord)tr.GetObject(id, OpenMode.ForRead);
                     if (!record.IsFromExternalReference || record.IsUnloaded) continue;
-                    // A nested xref shows as HOST|NAME; it is checked through the xref that holds it.
                     if (record.Name.Contains("|")) continue;
-                    if (!PublishPlan.XrefFound(record.PathName, folder, File.Exists) && !Searched(record.PathName, db)) missing.Add(record.Name);
+                    if (depth > 0 && record.IsFromOverlayReference) continue;
+                    var file = PublishPlan.XrefPath(record.PathName, folder, File.Exists) ?? Searched(record.PathName, db);
+                    if (file == null) missing.Add(prefix + record.Name);
+                    else found.Add((record.Name, file));
                 }
                 tr.Abort();
             }
-            return new PublishPlan.Drawing(path, Layouts(db), unsaved, missing);
+            if (depth + 1 >= XrefDepth) return;
+            foreach (var (name, file) in found)
+            {
+                if (!seen.Add(Path.GetFullPath(file))) continue;
+                try
+                {
+                    using (var side = new Database(false, true))
+                    {
+                        side.ReadDwgFile(file, FileOpenMode.OpenForReadAndAllShare, true, "");
+                        MissingXrefs(side, file, prefix + name + "|", missing, seen, depth + 1);
+                    }
+                }
+                catch (Autodesk.AutoCAD.Runtime.Exception ex)
+                {
+                    HeronLog.Error("Read the xref " + file + " for publishing", ex);
+                    missing.Add(prefix + name + " (its file " + file + " could not be read: " + ex.ErrorStatus + ")");
+                }
+                catch (IOException ex)
+                {
+                    missing.Add(prefix + name + " (its file " + file + " could not be read: " + ex.Message + ")");
+                }
+            }
         }
 
-        /// <summary>AutoCAD's own search for an xref file: support paths, project paths.</summary>
-        private static bool Searched(string savedPath, Database db)
+        /// <summary>AutoCAD's own search for an xref file (support paths, project paths): the file, or null.</summary>
+        private static string? Searched(string savedPath, Database db)
         {
-            if (string.IsNullOrWhiteSpace(savedPath)) return false;
+            if (string.IsNullOrWhiteSpace(savedPath)) return null;
             try
             {
                 var found = HostApplicationServices.Current.FindFile(savedPath, db, FindFileHint.XRefDrawing);
-                return !string.IsNullOrEmpty(found) && File.Exists(found);
+                return !string.IsNullOrEmpty(found) && File.Exists(found) ? found : null;
             }
             catch (Autodesk.AutoCAD.Runtime.Exception)
             {
-                return false;
+                return null;
             }
         }
 
@@ -177,13 +216,14 @@ namespace Heron.AutoCAD.Addin
                 using (var list = new DsdEntryCollection())
                 using (var dsd = new DsdData())
                 {
-                    foreach (var entry in entries)
+                    var titles = PublishPlan.Titles(entries);
+                    for (var i = 0; i < entries.Count; i++)
                     {
                         list.Add(new DsdEntry
                         {
-                            DwgName = entry.Path,
-                            Layout = entry.Layout,
-                            Title = Path.GetFileNameWithoutExtension(entry.Path) + "-" + entry.Layout,
+                            DwgName = entries[i].Path,
+                            Layout = entries[i].Layout,
+                            Title = titles[i],
                             Nps = "",
                             NpsSourceDwg = "",
                         });

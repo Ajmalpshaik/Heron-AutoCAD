@@ -331,7 +331,8 @@ def _paper_space_count(doc: Any) -> int | None:
     except BaseException:  # noqa: BLE001 - the plug-in is asked next
         pass
     report, _ = plugin_read("active_sheet")
-    if report and isinstance(report.get("entities"), int):
+    # On the Model tab the plug-in counts model space, which is not a paper count.
+    if report and report.get("model") is False and isinstance(report.get("entities"), int):
         return int(report["entities"])
     return None
 

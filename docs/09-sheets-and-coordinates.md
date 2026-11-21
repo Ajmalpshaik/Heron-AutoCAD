@@ -112,9 +112,11 @@ draftsman does when the sheet size is fixed.
 
 ### A rotated plan on an upright sheet
 
-`twist` turns the view inside the viewport. `align_to_ucs=true` takes the angle from the drawing's
-current UCS, so a wing set up on a 23 degree grid reads square on the sheet. The area AutoCAD is
-told to fit is the upright box around the turned one, so nothing falls outside the frame.
+`twist` turns the view inside the viewport: the picture turns anticlockwise by it on the sheet
+(AutoCAD's view twist). So a wing drawn on a 23 degree grid reads square at `twist=-23` (or 337).
+`align_to_ucs=true` works that out from the drawing's current UCS. The area AutoCAD is told to fit
+is the upright box around the turned one, so nothing falls outside the frame. The sign is reasoned
+from AutoCAD's display-coordinate rule, not yet measured (NEEDS-CHECKING AF6).
 
 ### Viewports lock by default
 
@@ -292,5 +294,7 @@ each with its sheets in tab order; `layouts` picks the same-named sheets from ev
 
 Every drawing is checked before anything is plotted: one open in AutoCAD with unsaved changes, or
 one that attaches an xref whose file cannot be found, is refused by name, and nothing is published.
-An unloaded xref is left as it is. Save, repath (`autocad_manage_xref`) or unload, then publish again.
+An unloaded xref is left as it is; an xref's own xrefs are checked too. Save, repath
+(`autocad_manage_xref`) or unload, then publish again. A Heron plug-in older than this is refused
+before anything is published (it would publish the open drawing instead).
 

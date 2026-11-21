@@ -1107,7 +1107,7 @@ async def autocad_add_viewport(
     gap: Annotated[float, Field(default=0.0, ge=0, description="Extra clearance inside the frame, in paper units.")] = 0.0,
     twist: Annotated[
         float | None,
-        Field(default=None, description="Turn the view inside the viewport, in degrees, so a wing drawn on a slant reads upright on the sheet."),
+        Field(default=None, description="Turn the view inside the viewport, in degrees anticlockwise on the sheet (AutoCAD's view twist). A wing drawn at 23 degrees reads square with twist=-23 (or 337); align_to_ucs works it out from the UCS."),
     ] = None,
     align_to_ucs: Annotated[
         bool,
@@ -1316,14 +1316,15 @@ def make_viewport(
     model_box, look_at = _target_area(doc, centre, corner1, corner2, view_name, handles, ucs)
 
     # 3. The twist, and the area a twisted view has to cover. A viewport's
-    #    twist is its view rotation against the world (VIEWTWIST), and a
-    #    plan view of a UCS turned 23 degrees carries a twist of 23 - which
-    #    is what makes a plan drawn on that grid read upright. An explicit
-    #    twist wins over align_to_ucs.
+    #    twist is its view twist (VIEWTWIST): the picture turns anticlockwise
+    #    by it on the sheet (display = world turned by +twist, the rule of the
+    #    view centre too, SheetMath.ViewCentre). So a plan drawn on a grid
+    #    turned 23 degrees reads square at a twist of -23 (337), which is what
+    #    PLAN leaves on such a UCS. An explicit twist wins over align_to_ucs.
     if twist is not None:
         angle = float(twist)
     elif align_to_ucs:
-        angle = current_ucs(doc).rotation_degrees
+        angle = -current_ucs(doc).rotation_degrees
     else:
         angle = 0.0
     fitting_box = rotated_box(model_box, angle) if angle and model_box else model_box

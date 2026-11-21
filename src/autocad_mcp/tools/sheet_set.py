@@ -231,18 +231,29 @@ async def autocad_sheet_set(
 
         if not made and stopped is not None:
             raise AutocadError(f"No sheet was made: sheet {stopped['number']}: {stopped['error']}")
+        result_count = sum(1 for entry in made if not entry.get("unfinished"))
         result: dict[str, Any] = {
-            "count": len(made),
+            "count": result_count,
             "complete": stopped is None,
             "sheets": made,
             "undo": "One Ctrl+Z takes back every sheet this call made.",
         }
         if stopped is not None:
             result["stopped"] = stopped
+            unfinished = bool(made) and made[-1].get("number") == stopped["number"]
+            # The rows still to make: from the stopped one on, unless its layout is already there.
+            rest = [row["number"] for row in plans[stopped["row"] - (0 if unfinished else 1) :]]
             result["warning"] = (
-                f"Made {len(made)} of {len(plans)} sheets, then stopped at {stopped['number']}: "
-                f"{stopped['error']} The sheets made are kept; one Ctrl+Z takes them all back, or fix "
-                "the row and call again with only the rows not made."
+                f"Stopped at {stopped['number']}: {stopped['error']} "
+                + (
+                    "Its layout is made but not finished (see 'sheets'): finish it with "
+                    "autocad_add_viewport and autocad_place_title_block, or delete it. "
+                    if unfinished
+                    else ""
+                )
+                + "The sheets made are kept, and one Ctrl+Z takes them all back. To go on, fix the "
+                "problem and call again with the rows not made"
+                + (f": {', '.join(rest)}." if rest else ".")
             )
         return result
 
@@ -258,8 +269,11 @@ async def autocad_sheet_set(
         )  # fmt: skip
         if made.get("warning"):
             # The sheet is there, but not as asked (AutoCAD went busy, or its paper
-            # would not read back): it is listed as made, and the run stops.
-            raise SheetStopped(made["warning"], {"number": number, "layout": made["layout"], "warning": made["warning"]})
+            # would not read back): it is listed, and the run stops.
+            raise SheetStopped(
+                made["warning"],
+                {"number": number, "layout": made["layout"], "warning": made["warning"], "unfinished": True},
+            )
         layout = _pick_layout(doc, made["layout"])
         info = made.get("paper") or _paper_of(layout)
         entry: dict[str, Any] = {
@@ -269,6 +283,23 @@ async def autocad_sheet_set(
             "made_by": made.get("made_by"),
         }
 
+        try:
+            return _finish(doc, row, layout, info, entry, block, template)
+        except Exception as exc:  # noqa: BLE001 - the layout is made: it is listed, then the run stops
+            entry["error"] = str(exc) if isinstance(exc, AutocadError) else com_message(exc)
+            entry["unfinished"] = True
+            raise SheetStopped(entry["error"], entry) from exc
+
+    def _finish(
+        doc: Any,
+        row: dict[str, Any],
+        layout: Any,
+        info: dict[str, Any],
+        entry: dict[str, Any],
+        block: str | None,
+        template: Any,
+    ) -> tuple[dict[str, Any], str | None]:
+        """The viewport and the title block of a sheet whose layout is made."""
         scale = row["scale"]
         if row["aim"]:
             viewport = make_viewport(

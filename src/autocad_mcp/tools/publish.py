@@ -21,10 +21,11 @@ from typing import Annotated, Any
 from pydantic import Field
 
 from ..acad.publish_files import pdf_drawings, unsaved_among
+from ..core.bridge import OLD_PLUGIN
 from ..core.connection import get_app, get_doc, require_idle, run
 from ..core.errors import AutocadError
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
-from ._shared import in_plugin
+from ._shared import in_plugin, plugin_read
 
 
 def _expand(path: str) -> str:
@@ -129,6 +130,16 @@ async def autocad_publish_pdf(
         doc = get_doc()
         require_idle(doc)
         if files:
+            # A plug-in from before #67 does not read "drawings" and would publish the
+            # open drawing in their place. It does not have active_sheet either (added
+            # with it), so that read tells, before anything is published.
+            _, why_not = plugin_read("active_sheet")
+            if why_not and ("does not have the operation" in why_not or why_not == OLD_PLUGIN):
+                raise AutocadError(
+                    "Publishing several drawings needs the Heron plug-in built from #67, and the one "
+                    "running in AutoCAD is older. Rebuild and reinstall it, then restart AutoCAD. "
+                    "Nothing was published."
+                )
             unsaved = unsaved_among(files, _open_drawings())
             if unsaved:
                 raise AutocadError(
@@ -147,6 +158,12 @@ async def autocad_publish_pdf(
         return in_plugin("publish_pdf", args, "Publishing sheets to one PDF", changes=False)
 
     result = await run(work)
+    if files and "pages" not in result:
+        raise AutocadError(
+            f"Heron in AutoCAD published, but not the drawings asked: an older plug-in published the "
+            f"open drawing's sheets to '{target}' instead. That PDF is not the set: delete it, update "
+            "Heron, and publish again."
+        )
     if not os.path.isfile(target):
         result["warning"] = (
             f"Heron in AutoCAD said it published, but no file is at '{target}' from here. "

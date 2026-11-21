@@ -151,7 +151,12 @@ the open drawing).
   three drawings in one go beats three tries.
 - The pages go drawing by drawing, each in tab order; `layouts` picks the same-named sheets from
   every drawing that has them. The level stays Publish (D-41).
-Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF12-AF15).
+- Found in review (2026-11-21): a plug-in from before this would ignore `drawings` and publish the
+  open drawing in their place, so the server first asks it for `active_sheet` (added with this): one
+  without it is refused before anything is published, and an answer without `pages` is not taken
+  for the set. Nested xrefs are followed from the xref's own file, up to four deep. Page titles are
+  made unique, so two `M-101.dwg` in different folders do not share one.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF12-AF15, AF18).
 
 ## D-90 - Sheets and viewports are made by the plug-in in .NET; COM stays the fallback; a drawing list is one call and one undo step
 
@@ -162,8 +167,10 @@ D-40; known limit 23 is the reason.
 D33), and every `autocad_create_layout` answered "Outcome unknown: AutoCAD went busy" although its tab
 was made (row D8). So:
 - **The plug-in makes the sheet** (`create_layout`, Change): every refusal (name taken, no such
-  plotter, sheet size or plot style table, copy source missing) comes before the layout is made,
-  because AutoCAD's layout manager is not trusted to take a layout back when a transaction aborts;
+  plotter, sheet size or plot style table, a .ctb in a named-style drawing, copy source missing)
+  comes before the layout is made, tried first on a page setup that is not in the drawing, because
+  AutoCAD's layout manager is not trusted to take a layout back when a transaction aborts; should the
+  page setup still fail, the layout is deleted once the transaction is aborted;
   the page setup is written through `PlotSettingsValidator` in the same transaction; `copy_from`
   copies the layout **with everything on it** (`CopyLayout`), which COM's `CopyFrom` never did (it
   copies the page setup only). The sheet is put on screen only after the commit, and with
@@ -173,6 +180,12 @@ was made (row D8). So:
   the server works out as before (paper place, look-at point, twist, scale): the view centre is the
   look-at point turned by the twist (`SheetMath.ViewCentre`, bridge tests), the scale is
   `CustomScale`, then it is turned on and locked. No zoom, no model space through the viewport.
+  The paper it reports is in the layout's paper units and the way round it plots (AutoCAD keeps it
+  in millimetres and the media's own orientation).
+- **The twist is the view twist** (VIEWTWIST): the picture turns anticlockwise by it, by the same
+  rule as the view centre. So `align_to_ucs` on a UCS turned 23 degrees now gives 337 (-23), what
+  PLAN leaves on that UCS; before, it gave +23, which by that rule turns the plan 46 degrees off.
+  Found in review and reasoned from AutoCAD's display-coordinate rule, not measured: AF6 (and D15).
 - **Clip** (`clip_outline` corners, checked here: closed, not crossing itself, with area; or
   `clip_handle`, a closed shape already on that sheet) sets the viewport's non-rectangular clip, as
   VPCLIP does, and the viewport takes the box round the outline as its place. Plug-in only: with an
@@ -193,9 +206,10 @@ was made (row D8). So:
   layouts, viewports and filled title blocks. The whole list is checked first and every problem said
   at once; the run is one undo mark (the plug-in's steps run inside it), so one Ctrl+Z or Discard takes
   the set back. A sheet AutoCAD refuses part-way stops the run and the answer lists what was made,
-  rather than undoing by itself. Not built on `autocad_sequence`: the sequence keeps one undo step per
+  rather than undoing by itself; a sheet whose layout was made but whose viewport or title block was
+  refused is listed too, as unfinished, so a retry is never told its name is taken. Not built on `autocad_sequence`: the sequence keeps one undo step per
   step (D-29), and a sheet's title block needs its viewport's fitted scale.
-Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF1-AF11). Whether the
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF1-AF11, AF17). Whether the
 plug-in's transactions land in the server's one undo mark is AF9.
 
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables

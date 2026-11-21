@@ -42,20 +42,32 @@ namespace Heron.AutoCAD.Addin
                     if (viewports) doc.Editor.UpdateTiledViewportsInDatabase();
                     RunResult result;
                     _afterCommit = null;
+                    _afterAbort = null;
                     var committed = false;
-                    using (var tr = doc.Database.TransactionManager.StartTransaction())
+                    try
                     {
-                        result = Dispatch(request.Operation, doc, tr, args);
-                        // A read leaves nothing behind, not even an empty undo step.
-                        if (level == Risk.Read) tr.Abort();
-                        else
+                        using (var tr = doc.Database.TransactionManager.StartTransaction())
                         {
-                            tr.Commit();
-                            committed = true;
+                            result = Dispatch(request.Operation, doc, tr, args);
+                            // A read leaves nothing behind, not even an empty undo step.
+                            if (level == Risk.Read) tr.Abort();
+                            else
+                            {
+                                tr.Commit();
+                                committed = true;
+                            }
                         }
                     }
+                    catch
+                    {
+                        // The transaction is aborted and closed: now what it could not take back.
+                        _afterCommit = null;
+                        RunAfter(ref _afterAbort);
+                        throw;
+                    }
+                    _afterAbort = null;
                     if (viewports) doc.Editor.UpdateTiledViewportsFromDatabase();
-                    if (committed) RunAfterCommit();
+                    if (committed) RunAfter(ref _afterCommit);
                     else _afterCommit = null;
                     return result;
                 }
@@ -63,11 +75,13 @@ namespace Heron.AutoCAD.Addin
             catch (RunRefusal refusal)
             {
                 _afterCommit = null;
+                _afterAbort = null;
                 return RunResult.Failed(refusal.Message + " " + Texts.NothingChanged);
             }
             catch (AcException ex)
             {
                 _afterCommit = null;
+                _afterAbort = null;
                 HeronLog.Error("Operation " + request.Operation, ex);
                 if (ex.ErrorStatus == ErrorStatus.OnLockedLayer)
                     return RunResult.Failed("An object this needs is on a locked layer. Unlock the layer first. " + Texts.NothingChanged);
@@ -76,22 +90,28 @@ namespace Heron.AutoCAD.Addin
             catch (System.Exception ex)
             {
                 _afterCommit = null;
+                _afterAbort = null;
                 HeronLog.Error("Operation " + request.Operation, ex);
                 return RunResult.Failed("Heron in AutoCAD hit an error: " + ex.Message + " " + Texts.NothingChanged);
             }
         }
 
-        // What an operation leaves for after its transaction is committed (a new
-        // sheet put on screen, a regen): only ever for one that landed. Main thread only.
+        // What an operation leaves for after its transaction (main thread only): a new
+        // sheet put on screen or a regen once it is committed, a half-made layout
+        // deleted once it is aborted (AutoCAD's layout manager is not undone by the abort).
         private static List<Action>? _afterCommit;
+        private static List<Action>? _afterAbort;
 
         /// <summary>Do this once the operation's transaction is committed; never when it is aborted.</summary>
         public static void AfterCommit(Action action) => (_afterCommit ??= new List<Action>()).Add(action);
 
-        private static void RunAfterCommit()
+        /// <summary>Do this, still under the document lock, if the operation fails and its transaction is aborted.</summary>
+        public static void AfterAbort(Action action) => (_afterAbort ??= new List<Action>()).Add(action);
+
+        private static void RunAfter(ref List<Action>? list)
         {
-            var pending = _afterCommit;
-            _afterCommit = null;
+            var pending = list;
+            list = null;
             if (pending == null) return;
             foreach (var action in pending)
             {

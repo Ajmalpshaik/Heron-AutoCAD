@@ -124,6 +124,32 @@ public class SheetMathTests
     }
 
     [Fact]
+    public void A_millimetre_sheet_plotted_upright_is_as_AutoCAD_keeps_it()
+    {
+        SheetMath.PaperInUnits(420, 297, 5, 7.5, 6, 8, 1.0, false, out var sheet, out var margins);
+        Assert.Equal(new[] { 420.0, 297.0 }, sheet);
+        Assert.Equal(new[] { 5.0, 7.5, 6.0, 8.0 }, margins);
+    }
+
+    [Fact]
+    public void An_inch_sheet_comes_back_in_inches()
+    {
+        // ANSI D is kept as 863.6 x 558.8 mm; an inch layout's paper space is 34 x 22.
+        SheetMath.PaperInUnits(863.6, 558.8, 6.35, 6.35, 6.35, 6.35, 25.4, false, out var sheet, out var margins);
+        Assert.Equal(34.0, sheet[0], 9);
+        Assert.Equal(22.0, sheet[1], 9);
+        Assert.Equal(0.25, margins[0], 9);
+    }
+
+    [Fact]
+    public void A_sheet_plotted_at_90_degrees_has_its_sides_swapped()
+    {
+        SheetMath.PaperInUnits(297, 420, 5, 7.5, 6, 8, 1.0, true, out var sheet, out var margins);
+        Assert.Equal(new[] { 420.0, 297.0 }, sheet);
+        Assert.Equal(new[] { 7.5, 5.0, 8.0, 6.0 }, margins);
+    }
+
+    [Fact]
     public void A_closed_outline_drops_its_repeated_last_corner()
     {
         var points = SheetMath.Outline(new double[] { 0, 0, 100, 0, 100, 50, 0, 50, 0, 0 }, out var refusal);
@@ -288,6 +314,26 @@ public class PublishAcrossDrawingsTests
         Assert.False(PublishPlan.XrefFound(System.IO.Path.Combine(Job, "ARCH.dwg"), Job, _ => false));
         Assert.False(PublishPlan.XrefFound("", Job, _ => true));
         Assert.False(PublishPlan.XrefFound(null, Job, _ => true));
+    }
+
+    [Fact]
+    public void The_found_xref_file_is_given_back_so_its_own_xrefs_can_be_read()
+    {
+        var beside = System.IO.Path.Combine(Job, "ARCH.dwg");
+        Assert.Equal(beside, PublishPlan.XrefPath(System.IO.Path.Combine(Job, "old", "ARCH.dwg"), Job, f => f == beside));
+        Assert.Null(PublishPlan.XrefPath("ARCH.dwg", Job, _ => false));
+    }
+
+    [Fact]
+    public void Page_titles_never_repeat()
+    {
+        var a = System.IO.Path.Combine(Job, "L1", "M-101.dwg");
+        var b = System.IO.Path.Combine(Job, "L2", "M-101.dwg");
+        var titles = PublishPlan.Titles(new[]
+        {
+            new PublishPlan.Entry(a, "SHEET"), new PublishPlan.Entry(b, "SHEET"), new PublishPlan.Entry(b, "OTHER"), new PublishPlan.Entry(a, "sheet"),
+        });
+        Assert.Equal(new[] { "M-101-SHEET", "M-101-SHEET (2)", "M-101-OTHER", "M-101-sheet (3)" }, titles);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ Newest first. Dates are when the change was made.
   refusing an unsaved one or a missing xref by name. Title blocks go into the layout's own block;
   `autocad_status` names a fact it cannot read instead of failing on a sheet tab; `space="paper"`
   falls back to the active layout's block. Three new plug-in operations
-  ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). Live rows AF1-AF16 NOT RUN.
+  ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). `align_to_ucs` now twists the view the other way (337 for a UCS turned 23; reasoned, AF6). Live rows AF1-AF18 NOT RUN.
 
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),

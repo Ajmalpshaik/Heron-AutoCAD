@@ -19,8 +19,8 @@ takes `folder` / `drawings`. Compiled for all three builds and checked offline o
 version is not bumped here (the parent does it). #39 and #40 stay open until their live rows run.
 
 **Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then live
-rows **AF1-AF15**. AF9 decides whether the sheet set really is one undo step; AF6 checks which way a
-viewport twist turns (the same in the old COM path); AF10 is row D33 again.
+rows **AF1-AF15, AF17, AF18**. AF9 decides whether the sheet set really is one undo step; AF6 checks the twist sign,
+which this PR flipped from the code (the old COM path too); AF10 is row D33 again.
 
 ## Earlier - 2026-11-21 (the everyday 2D edits, D-78 and D-79)
 

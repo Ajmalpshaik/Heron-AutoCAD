@@ -393,6 +393,19 @@ class TestAddViewport:
         assert args["clip_handle"] == "2F1" and args["paper_centre"] == [200.0, 160.0]
         assert out["clipped"] is True
 
+    def test_align_to_ucs_turns_the_view_back_by_the_ucs_angle(self, drawing, monkeypatch):
+        # A plan on a grid turned +23 reads square at a view twist of -23 (337), as PLAN leaves it.
+        _, plugin = drawing
+        monkeypatch.setattr(sheets, "current_ucs", lambda doc: type("U", (), {"rotation_degrees": 23.0})())
+        out = call(sheets.autocad_add_viewport(layout="Layout1", centre=[0, 0], scale="1:50", align_to_ucs=True))
+        assert plugin.calls[0][1]["twist"] == pytest.approx(337.0)
+        assert out["twist_degrees"] == pytest.approx(337.0)
+
+    def test_an_explicit_twist_is_the_view_twist_as_given(self, drawing):
+        _, plugin = drawing
+        call(sheets.autocad_add_viewport(layout="Layout1", centre=[0, 0], scale="1:50", twist=-23, align_to_ucs=True))
+        assert plugin.calls[0][1]["twist"] == pytest.approx(337.0)
+
     def test_an_older_plug_in_falls_back_to_com_with_the_scale_by_cannoscale(self, drawing, monkeypatch):
         doc, plugin = drawing
         plugin.refuse["add_viewport"] = OLD_PLUGIN
@@ -457,6 +470,10 @@ class TestStatusOnASheet:
     def test_last_of_all_the_plug_in_counts_the_sheet(self, monkeypatch):
         monkeypatch.setattr(document, "plugin_read", lambda op, args=None: ({"layout": "E-101", "model": False, "entities": 12, "viewports": 2}, None))
         assert document._paper_space_count(SheetTab()) == 12
+
+    def test_the_plug_ins_count_of_model_space_is_not_a_paper_count(self, monkeypatch):
+        monkeypatch.setattr(document, "plugin_read", lambda op, args=None: ({"layout": "Model", "model": True, "entities": 900, "viewports": 0}, None))
+        assert document._paper_space_count(SheetTab()) is None
 
     def test_nothing_answers_gives_none(self, monkeypatch):
         monkeypatch.setattr(document, "plugin_read", lambda op, args=None: (None, "no plug-in"))
@@ -542,7 +559,18 @@ class TestSheetSet:
         out = call(sheet_set.autocad_sheet_set(sheets=LIST))
         assert out["complete"] is False and out["count"] == 1
         assert out["stopped"]["number"] == "M-102" and "eInvalidInput" in out["stopped"]["error"]
-        assert "one Ctrl+Z takes them all back" in out["warning"]
+        assert "one Ctrl+Z takes them all back" in out["warning"] and "M-102, M-001" in out["warning"]
+
+    def test_a_sheet_whose_viewport_is_refused_is_listed_as_made_but_unfinished(self, drawing, monkeypatch):
+        # Review: its layout is there, so a retry of that row would be told the name is taken.
+        doc, plugin = drawing
+        plugin.refuse["add_viewport"] = "This drawing has no annotation scale called 'XL'. Nothing was changed."
+        out = call(sheet_set.autocad_sheet_set(sheets=LIST, annotation_scale="XL"))
+        assert out["complete"] is False and out["count"] == 0
+        first = out["sheets"][0]
+        assert first["layout"] == "M-101" and first["unfinished"] is True and "annotation scale" in first["error"]
+        assert "M-101" in [layout.Name for layout in doc.Layouts.items]
+        assert "made but not finished" in out["warning"] and "M-102, M-001" in out["warning"]
 
     def test_a_template_sheets_own_title_block_is_filled_not_doubled(self, drawing, monkeypatch):
         doc, plugin = drawing
@@ -577,10 +605,21 @@ def test_the_sheet_set_is_a_change():
 class PdfPlugin:
     def __init__(self):
         self.calls: list[tuple[str, dict]] = []
+        self.old = False
 
     def __call__(self, operation, args):
         self.calls.append((operation, args))
-        return {"published": True, "path": args["path"], "count": 3, "sheets": ["M-101", "M-102", "M-201"], "drawings": 2}
+        if operation == "active_sheet":
+            if self.old:
+                raise AutocadError("Heron in AutoCAD does not have the operation 'active_sheet'. Update Heron so both sides match. Nothing was sent to AutoCAD.")
+            return {"layout": "Model", "model": True, "entities": 5, "viewports": 0}
+        answer = {"published": True, "path": args["path"], "count": 3, "sheets": ["M-101", "M-102", "M-201"]}
+        if args.get("drawings"):
+            answer.update({"drawings": 2, "pages": [{"drawing": d, "layout": "M-101"} for d in args["drawings"]]})
+        return answer
+
+    def published(self):
+        return [args for op, args in self.calls if op == "publish_pdf"]
 
 
 class Documents:
@@ -618,25 +657,25 @@ class TestPublishSeveralDrawings:
     def test_a_folder_sends_its_drawings_in_order(self, pdf):
         plugin, folder, _, tmp_path = pdf
         call(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf"), folder=str(folder)))
-        args = plugin.calls[0][1]
-        assert [name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] for name in args["drawings"]] == ["M-100 ground.dwg", "M-200 first.dwg"]
+        args = plugin.published()[0]
+        assert [os.path.basename(name) for name in args["drawings"]] == ["M-100 ground.dwg", "M-200 first.dwg"]
 
     def test_an_open_drawing_with_unsaved_changes_is_refused_before_asking(self, pdf):
         plugin, folder, opened, tmp_path = pdf
         opened.append((str(folder / "M-200 first.dwg"), False))
         answer = error(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf"), folder=str(folder)))
-        assert "M-200 first.dwg" in answer and "unsaved changes" in answer and plugin.calls == []
+        assert "M-200 first.dwg" in answer and "unsaved changes" in answer and plugin.published() == []
 
     def test_a_saved_open_drawing_is_fine(self, pdf):
         plugin, folder, opened, tmp_path = pdf
         opened.append((str(folder / "M-200 first.dwg"), True))
         call(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf"), folder=str(folder)))
-        assert len(plugin.calls) == 1
+        assert len(plugin.published()) == 1
 
     def test_a_list_with_a_missing_drawing_is_refused_before_asking(self, pdf):
         plugin, folder, _, tmp_path = pdf
         answer = error(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf"), drawings=[str(folder / "M-100 ground.dwg"), str(folder / "gone.dwg")]))
-        assert "gone.dwg' is not there" in answer and plugin.calls == []
+        assert "gone.dwg' is not there" in answer and plugin.published() == []
 
     def test_folder_and_drawings_together_are_refused(self, pdf):
         _, folder, _, tmp_path = pdf
@@ -645,7 +684,27 @@ class TestPublishSeveralDrawings:
     def test_without_a_folder_the_open_drawing_is_published_as_before(self, pdf):
         plugin, _, _, tmp_path = pdf
         call(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf")))
-        assert "drawings" not in plugin.calls[0][1]
+        assert "drawings" not in plugin.published()[0]
+        assert [op for op, _ in plugin.calls] == ["publish_pdf"]  # no probe for the open drawing
+
+    def test_an_older_plug_in_is_refused_before_it_publishes_the_wrong_drawing(self, pdf):
+        # It would drop "drawings" and publish the open drawing in their place (review, #67).
+        plugin, folder, _, tmp_path = pdf
+        plugin.old = True
+        answer = error(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf"), folder=str(folder)))
+        assert "older" in answer and "Nothing was published" in answer and plugin.published() == []
+
+    def test_an_answer_without_the_pages_is_not_taken_for_the_set(self, pdf, monkeypatch):
+        plugin, folder, _, tmp_path = pdf
+        answer_of = plugin.__call__
+
+        def no_pages(operation, args):
+            answer = answer_of(operation, args)
+            answer.pop("pages", None)
+            return answer
+
+        monkeypatch.setattr(_shared, "plugin_runner", lambda: no_pages)
+        assert "not the drawings asked" in error(publish.autocad_publish_pdf(path=str(tmp_path / "set.pdf"), folder=str(folder)))
 
 
 def test_a_dimension_edit_on_a_sheet_tab_uses_the_layouts_block():
@@ -667,6 +726,7 @@ def test_a_sheet_made_but_not_as_asked_is_listed_and_stops_the_set(drawing, monk
     monkeypatch.setattr(_shared, "plugin_runner", lambda: None)
     monkeypatch.setattr(sheets, "_set_page", lambda *a, **k: (_ for _ in ()).throw(BUSY))
     out = call(sheet_set.autocad_sheet_set(sheets=LIST))
-    assert out["complete"] is False and out["count"] == 1
+    assert out["complete"] is False and out["count"] == 0
     assert out["sheets"][0]["layout"] == "M-101" and "went busy" in out["sheets"][0]["warning"]
+    assert out["sheets"][0]["unfinished"] is True
     assert out["stopped"]["number"] == "M-101"

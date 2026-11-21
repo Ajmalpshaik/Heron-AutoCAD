@@ -71,7 +71,7 @@ namespace Heron.AutoCAD.Addin
             }
 
             var psv = PlotSettingsValidator.Current;
-            var plan = Plan(psv, source, plotter, paper, orientation, styleSheet);
+            var plan = Plan(psv, db, source, plotter, paper, orientation, styleSheet);
 
             var manager = LayoutManager.Current;
             ObjectId id;
@@ -85,27 +85,17 @@ namespace Heron.AutoCAD.Addin
                 id = manager.CreateLayout(name);
             }
 
-            Layout layout;
+            // Never leave a half-made sheet: a second try would only be told the name is
+            // taken. If anything below fails, the layout is deleted once the transaction is
+            // aborted and nothing holds it open any more.
+            PluginRunner.AfterAbort(() =>
+            {
+                var after = LayoutManager.Current;
+                if (after.LayoutExists(name)) after.DeleteLayout(name);
+            });
+            var layout = (Layout)tr.GetObject(id, OpenMode.ForWrite);
             var written = new List<(string key, string value)>();
-            bool centred;
-            try
-            {
-                layout = (Layout)tr.GetObject(id, OpenMode.ForWrite);
-                centred = Apply(psv, layout, plan, written);
-            }
-            catch
-            {
-                // Never leave a half-made sheet: a second try would only be told the name is taken.
-                try
-                {
-                    manager.DeleteLayout(name);
-                }
-                catch (System.Exception ex)
-                {
-                    HeronLog.Error("Remove the half-made layout " + name, ex);
-                }
-                throw;
-            }
+            var centred = Apply(psv, layout, plan, written);
 
             // Making it current waits for the commit: a layout that the transaction
             // could still take back must never be the one on screen.
@@ -136,8 +126,12 @@ namespace Heron.AutoCAD.Addin
             public string Orientation = "";
         }
 
-        /// <summary>The plotter, sheet and plot style table, checked against what AutoCAD offers before anything is made.</summary>
-        private static PagePlan Plan(PlotSettingsValidator psv, Layout? source, string plotter, string paper, string orientation, string styleSheet)
+        /// <summary>
+        /// The plotter, sheet and plot style table, checked against what AutoCAD offers
+        /// before anything is made, and tried on a page setup that is not in the drawing:
+        /// what AutoCAD would refuse on the new layout it refuses here instead.
+        /// </summary>
+        private static PagePlan Plan(PlotSettingsValidator psv, Database db, Layout? source, string plotter, string paper, string orientation, string styleSheet)
         {
             var plan = new PagePlan();
             if (orientation.Length > 0 && orientation != "portrait" && orientation != "landscape")
@@ -145,7 +139,11 @@ namespace Heron.AutoCAD.Addin
 
             using (var trial = new PlotSettings(false))
             {
-                if (source != null) trial.CopyFrom(source);
+                if (source != null)
+                {
+                    trial.CopyFrom(source);
+                    psv.RefreshLists(trial);
+                }
                 if (plotter.Length > 0)
                 {
                     var devices = psv.GetPlotDeviceList().Cast<string>().ToList();
@@ -170,6 +168,7 @@ namespace Heron.AutoCAD.Addin
                     if (media == null)
                         throw new RunRefusal("'" + paper + "' is not a paper size the " + trial.PlotConfigurationName + " plotter offers. Sizes it has: "
                             + string.Join(", ", SheetMath.MediaSizes(names)) + ". Add 'portrait' for an upright sheet.");
+                    Try(() => psv.SetCanonicalMediaName(trial, media), "AutoCAD would not set the sheet '" + media + "'");
                     plan.Media = media;
                     plan.Orientation = orientation;
                 }
@@ -179,10 +178,29 @@ namespace Heron.AutoCAD.Addin
                     var sheet = sheets.FirstOrDefault(s => string.Equals(s, styleSheet, StringComparison.OrdinalIgnoreCase));
                     if (sheet == null)
                         throw new RunRefusal("AutoCAD has no plot style table called '" + styleSheet + "'. Tables it has: " + string.Join(", ", sheets.Take(30)) + ".");
+                    // A colour-dependent drawing takes a .ctb, a named-style one an .stb.
+                    var ctb = sheet.EndsWith(".ctb", StringComparison.OrdinalIgnoreCase);
+                    if (db.PlotStyleMode && !ctb)
+                        throw new RunRefusal("This drawing uses colour-dependent plot styles, so it takes a .ctb table (such as monochrome.ctb), not '" + sheet + "'.");
+                    if (!db.PlotStyleMode && ctb)
+                        throw new RunRefusal("This drawing uses named plot styles, so it takes an .stb table (such as monochrome.stb), not '" + sheet + "'.");
+                    Try(() => psv.SetCurrentStyleSheet(trial, sheet), "AutoCAD would not use the plot style table '" + sheet + "'");
                     plan.StyleSheet = sheet;
                 }
             }
             return plan;
+        }
+
+        private static void Try(Action action, string refusal)
+        {
+            try
+            {
+                action();
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception ex)
+            {
+                throw new RunRefusal(refusal + " (" + ex.ErrorStatus + ").");
+            }
         }
 
         /// <summary>The page setup written to the new layout. True when it is centred.</summary>
@@ -200,6 +218,7 @@ namespace Heron.AutoCAD.Addin
                 }
                 else if (plan.Media.Length > 0)
                 {
+                    psv.RefreshLists(ps);
                     psv.SetCanonicalMediaName(ps, plan.Media);
                 }
                 if (plan.Media.Length > 0)
@@ -244,23 +263,29 @@ namespace Heron.AutoCAD.Addin
             }
         }
 
-        /// <summary>The sheet a layout is set to, the same facts the server reads over COM (tools/sheets.py _paper_of).</summary>
+        /// <summary>
+        /// The sheet a layout is set to, the same facts the server reads over COM
+        /// (tools/sheets.py _paper_of), in paper-space terms. The layout keeps its
+        /// paper size and margins in millimetres and the media's own way round, so
+        /// an inch layout is divided by 25.4 and a sheet plotted at 90 or 270 degrees
+        /// has its two sides swapped (the rule of Autodesk's GetMaximumExtents sample).
+        /// </summary>
         private static void WritePaper(Utf8JsonWriter w, Layout layout)
         {
             var size = layout.PlotPaperSize;
             var margins = layout.PlotPaperMargins;
+            var per = layout.PlotPaperUnits == PlotPaperUnit.Inches ? 25.4 : 1.0;
+            var turned = layout.PlotRotation == PlotRotation.Degrees090 || layout.PlotRotation == PlotRotation.Degrees270;
+            SheetMath.PaperInUnits(size.X, size.Y, margins.MinPoint.X, margins.MinPoint.Y, margins.MaxPoint.X, margins.MaxPoint.Y,
+                per, turned, out var sheet, out var edges);
             w.WriteStartObject("paper");
             w.WriteString("media", layout.CanonicalMediaName ?? "");
             w.WriteString("plotter", layout.PlotConfigurationName ?? "");
             w.WriteStartArray("size");
-            w.WriteNumberValue(Math.Round(size.X, 4));
-            w.WriteNumberValue(Math.Round(size.Y, 4));
+            foreach (var value in sheet) w.WriteNumberValue(Math.Round(value, 4));
             w.WriteEndArray();
             w.WriteStartArray("margins");
-            w.WriteNumberValue(Math.Round(margins.MinPoint.X, 4));
-            w.WriteNumberValue(Math.Round(margins.MinPoint.Y, 4));
-            w.WriteNumberValue(Math.Round(margins.MaxPoint.X, 4));
-            w.WriteNumberValue(Math.Round(margins.MaxPoint.Y, 4));
+            foreach (var value in edges) w.WriteNumberValue(Math.Round(value, 4));
             w.WriteEndArray();
             w.WriteNumber("plot_rotation_degrees", Rotation(layout.PlotRotation));
             w.WriteString("paper_units", layout.PlotPaperUnits == PlotPaperUnit.Inches ? "inches" : layout.PlotPaperUnits == PlotPaperUnit.Pixels ? "pixels" : "mm");
@@ -355,8 +380,21 @@ namespace Heron.AutoCAD.Addin
                 }
             }
 
-            // On screen first, before anything in the layout is opened to write:
-            // AutoCAD turns a viewport on in the sheet that is current.
+            var layerName = args.Text("layer").Trim();
+            if (layerName.Length > 0)
+            {
+                try
+                {
+                    SymbolUtilityServices.ValidateSymbolName(layerName, false);
+                }
+                catch (Autodesk.AutoCAD.Runtime.Exception)
+                {
+                    throw new RunRefusal("'" + layerName + "' cannot be a layer name.");
+                }
+            }
+
+            // On screen, after every refusal and before anything in the layout is opened
+            // to write: AutoCAD turns a viewport on in the sheet that is current.
             MakeCurrent(sheetName);
 
             var notes = new List<(string key, string value)>();

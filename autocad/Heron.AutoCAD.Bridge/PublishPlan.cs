@@ -172,10 +172,14 @@ namespace Heron.AutoCAD.Bridge
         /// host's folder either way (AutoCAD looks there too). The add-in asks AutoCAD's
         /// own search (support paths, project paths) for one this does not find.
         /// </summary>
-        public static bool XrefFound(string? savedPath, string hostFolder, Func<string, bool> fileExists)
+        public static bool XrefFound(string? savedPath, string hostFolder, Func<string, bool> fileExists) =>
+            XrefPath(savedPath, hostFolder, fileExists) != null;
+
+        /// <summary>The file an xref's saved path leads to, by the rule of <see cref="XrefFound"/>, or null.</summary>
+        public static string? XrefPath(string? savedPath, string hostFolder, Func<string, bool> fileExists)
         {
             var saved = (savedPath ?? "").Trim();
-            if (saved.Length == 0) return false;
+            if (saved.Length == 0) return null;
             var candidates = new List<string>();
             try
             {
@@ -187,7 +191,27 @@ namespace Heron.AutoCAD.Bridge
             }
             var name = Path.GetFileName(saved.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar));
             if (name.Length > 0 && !string.IsNullOrEmpty(hostFolder)) candidates.Add(Path.Combine(hostFolder, name));
-            return candidates.Any(fileExists);
+            return candidates.FirstOrDefault(fileExists);
+        }
+
+        /// <summary>
+        /// Page titles for the publisher, one per page and never the same twice: a
+        /// drawing's name and the layout's, with a number added when two drawings of
+        /// the same name (in different folders) have a layout of the same name.
+        /// </summary>
+        public static List<string> Titles(IEnumerable<Entry> entries)
+        {
+            var titles = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in entries)
+            {
+                var stem = Path.GetFileNameWithoutExtension((entry.Path ?? "").Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar));
+                var title = stem + "-" + entry.Layout;
+                var unique = title;
+                for (var n = 2; !seen.Add(unique); n++) unique = title + " (" + n + ")";
+                titles.Add(unique);
+            }
+            return titles;
         }
 
         /// <summary>
