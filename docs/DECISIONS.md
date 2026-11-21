@@ -138,16 +138,19 @@ banner on, because the banner is what shows the modeller that Heron is working.
   since). Attaching an underlay and converting it in the plug-in is no better: it still has to run
   the same command, with more questions (area, then Keep / Detach / Unload). So the command is
   typed, as the ribbon audit said ([12](12-autocad-ribbon-coverage.md)).
-- **One form, every answer.** `(command "_.-PDFIMPORT" "_File" <path> <page> <point> <scale>
-  <angle>)`. The path is one LISP string, so a space in it is not an Enter; the point is a LISP
+- **One form, every answer.** `(command "_.-PDFIMPORT" "_File" <path>)`, then page, point, scale
+  and angle, each given only while CMDNAMES still says PDFIMPORT, so a command that ends early
+  never gets the rest typed at the Command prompt. The path is one LISP string, so a space in it is not an Enter; the point is a LISP
   list in the current UCS; the angle is degrees, with AUNITS, ANGBASE and ANGDIR set to 0 for the
   call. It goes through `advanced.send_lisp_pieces`, the sender `autocad_run_lisp` now uses too:
   object snaps off, a command still asking is cancelled and named (known limit 21), the pieces
   after it are not sent, one undo step. Nothing is loaded from a file (D-21).
 - **Checked first, refused plainly:** a missing file, one not a PDF inside, a page past the last
-  (the page count is read from the file; unreadable or encrypted means AutoCAD answers), a release
-  not 2021-2027 (ACADVER: an answer to the wrong question lands at the next prompt or the Command
-  prompt), an AutoCAD with no PDFIMPORTMODE, a tilted UCS.
+  (read only from the page tree's root, in the file or its object streams; anything less sure means
+  AutoCAD answers), a release not 2021-2027 (ACADVER: an answer to the wrong question lands at the
+  next prompt), an AutoCAD with no PDFIMPORTMODE, a tilted or flipped UCS. A busy AutoCAD is asked
+  again, never called "no PDF Import"; a setting it was too busy to put back is named, and then the
+  call is not asked again (it would read Heron's values as his).
 - **What comes in** is set for the call and put back: FILEDIA 0 (the file name on the command
   line), PDFIMPORTFILTER from `what` (bits leave out 1 geometry, 2 TrueType text, 4 fills; 8
   pictures always: AutoCAD writes each picture out as a file, which a Change tool must not do),

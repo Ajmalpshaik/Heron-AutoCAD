@@ -88,6 +88,27 @@ class TestPageCount:
     def test_an_encrypted_pdf_is_not_guessed(self, tmp_path):
         assert pdf.page_count(write_pdf(tmp_path, encrypted=True)) is None
 
+    def test_a_root_it_cannot_read_is_not_taken_from_a_lower_node(self, tmp_path):
+        # The root holds a nested dictionary (inherited resources); only a kid node, counting part, is readable.
+        odd = tmp_path / "odd.pdf"
+        odd.write_bytes(
+            b"%PDF-1.7\n2 0 obj << /Type /Pages /Resources << /Font 9 0 R >> /Kids [4 0 R] /Count 12 >> endobj\n"
+            b"4 0 obj << /Type /Pages /Parent 2 0 R /Kids [5 0 R] /Count 6 >> endobj\n%%EOF\n"
+        )
+        assert pdf.page_count(str(odd)) is None
+
+    def test_a_count_by_reference_is_not_read_as_a_number(self, tmp_path):
+        odd = tmp_path / "ref.pdf"
+        odd.write_bytes(b"%PDF-1.7\n2 0 obj << /Type /Pages /Kids [] /Count 5 0 R >> endobj\n%%EOF\n")
+        assert pdf.page_count(str(odd)) is None
+
+    def test_content_streams_are_not_opened(self, tmp_path):
+        # Only object streams hold the page tree; a drawing's content is never inflated.
+        odd = tmp_path / "content.pdf"
+        packed = zlib.compress(b"2 0 << /Type /Pages /Kids [] /Count 9 >>")
+        odd.write_bytes(b"%PDF-1.7\n7 0 obj << /Filter /FlateDecode >> stream\n" + packed + b"\nendstream endobj\n%%EOF\n")
+        assert pdf.page_count(str(odd)) is None
+
     def test_no_page_tree_is_not_guessed(self, tmp_path):
         bare = tmp_path / "bare.pdf"
         bare.write_bytes(b"%PDF-1.4\n%%EOF\n")
@@ -123,17 +144,20 @@ class TestSettings:
 class TestWhatIsSent:
     def test_the_answers_come_in_the_order_the_command_asks(self):
         form = pdf.command_form(r"D:\Vendor PDFs\AHU-01.pdf", 3, [100.0, 200.0, 0.0], 50.0, 90.0)
-        assert form == (
-            '(command "_.-PDFIMPORT" "_File" "D:\\\\Vendor PDFs\\\\AHU-01.pdf" 3 '
-            "(list 100.0 200.0 0.0) 50.0 90.0)"
-        )
+        assert form.startswith('(progn (command "_.-PDFIMPORT" "_File" "D:\\\\Vendor PDFs\\\\AHU-01.pdf")')
+        assert "(list 3 (list 100.0 200.0 0.0) 50.0 90.0)" in form
+
+    def test_each_answer_is_given_only_while_pdfimport_still_asks(self):
+        # A command that ends early (a protected PDF) must not get the rest typed at the Command prompt.
+        form = pdf.command_form("a.pdf", 1, [0, 0], 1, 0)
+        assert '(if (wcmatch (strcase (getvar "CMDNAMES")) "*PDFIMPORT*") (command heron:a))' in form
 
     def test_the_angle_is_brought_into_one_turn(self):
-        assert pdf.command_form("a.pdf", 1, [0, 0], 1, -90).endswith(" 1.0 270.0)")
+        assert " 1.0 270.0)" in pdf.command_form("a.pdf", 1, [0, 0], 1, -90)
 
     def test_every_piece_is_one_whole_short_form(self):
         forms = pdf.import_forms(r"D:\A long folder name\with spaces\vendor drawing.pdf", 12, [1, 2, 3], 1, 0, "M-XREF-PDF")
-        assert forms[pdf.COMMAND_PIECE - 1].startswith('(command "_.-PDFIMPORT"')
+        assert forms[pdf.COMMAND_PIECE - 1].startswith('(progn (command "_.-PDFIMPORT"')
         for form in forms:
             assert split_forms(form) == [form]
             assert len(form) <= CHUNK_CHARS
@@ -324,6 +348,39 @@ class TestTool:
         doc = acad(ucs_x=(1.0, 0.0, 0.0), ucs_y=(0.0, 0.0, 1.0))
         assert "tilted" in error(path=write_pdf(tmp_path))
         assert doc.sent == []
+
+    def test_a_flipped_ucs_is_refused_since_the_page_would_land_mirrored(self, acad, tmp_path):
+        doc = acad(ucs_x=(1.0, 0.0, 0.0), ucs_y=(0.0, -1.0, 0.0))
+        assert "flipped" in error(path=write_pdf(tmp_path))
+        assert doc.sent == []
+
+    def test_a_busy_read_is_left_to_be_asked_again_not_called_missing(self, acad, tmp_path, monkeypatch):
+        import pythoncom
+        busy = pythoncom.com_error(-2147418111, "Call was rejected by callee.", None, None)
+        doc = acad()
+        real = doc.GetVariable
+
+        def refuse(name):
+            if name == "PDFIMPORTMODE":
+                raise busy
+            return real(name)
+
+        monkeypatch.setattr(doc, "GetVariable", refuse)
+        answer = asyncio.run(tool.autocad_import_pdf(path=write_pdf(tmp_path)))
+        assert "no PDFIMPORTMODE" not in answer
+        assert doc.sent == []
+
+    def test_settings_are_put_back_and_named_when_the_send_fails(self, acad, tmp_path, monkeypatch):
+        doc = acad()
+
+        def fails(d, forms):
+            raise tool.AutocadError("AutoCAD refused the expression: boom.")
+
+        monkeypatch.setattr(advanced, "send_lisp_pieces", fails)
+        monkeypatch.setattr(advanced, "_set_patiently", lambda d, n, v: n != "FILEDIA" and (d.SetVariable(n, v) or True))
+        answer = error(path=write_pdf(tmp_path))
+        assert "boom" in answer and "put back FILEDIA (it was 1)" in answer
+        assert doc.variables["ANGBASE"] == 0.5 and doc.variables["PDFIMPORTFILTER"] == 5
 
     def test_a_world_point_and_angle_are_typed_in_a_turned_ucs(self, acad, tmp_path):
         doc = acad(ucs_x=(0.0, 1.0, 0.0), ucs_y=(-1.0, 0.0, 0.0))

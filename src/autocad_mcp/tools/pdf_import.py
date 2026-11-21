@@ -10,6 +10,7 @@ in is counted, boxed and moved onto the layer asked for.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Annotated, Any, Literal
 
@@ -19,7 +20,7 @@ from ..acad import pdf_import as pdf
 from ..acad.coords import as_vec3
 from ..acad.tables import validate_name
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, is_retryable
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from . import advanced
 from ._shared import COORDS_OPT, current_ucs
@@ -63,6 +64,8 @@ def _set_for_call(doc: Any, wanted: dict[str, Any]) -> dict[str, Any]:
         try:
             old[name] = doc.GetVariable(name)
         except BaseException as exc:  # noqa: BLE001
+            if is_retryable(exc):
+                raise  # busy, not missing: nothing is set yet, so it may be asked again
             raise AutocadError(
                 f"This AutoCAD has no {name} (or would not say what it is), so PDF Import cannot be set up. "
                 "Nothing was sent."
@@ -82,6 +85,13 @@ def _set_for_call(doc: Any, wanted: dict[str, Any]) -> dict[str, Any]:
 def _put_back(doc: Any, changed: dict[str, Any]) -> list[str]:
     """Put each changed variable back; the ones AutoCAD stayed too busy to take."""
     return [f"{name} (it was {value})" for name, value in changed.items() if not advanced._set_patiently(doc, name, value)]
+
+
+def _restore_note(left: list[str]) -> str:
+    return (
+        f" AutoCAD stayed too busy to put back {', '.join(left)}: set them back with autocad_set_variable."
+        if left else ""
+    )
 
 
 @mcp.tool(name="autocad_import_pdf", **tool_meta("Import A PDF Page As Lines"))
@@ -150,7 +160,7 @@ async def autocad_import_pdf(
         - A missing file, a file that is not a PDF, or a page past the PDF's
           last page is refused before AutoCAD is asked.
         - An AutoCAD release whose PDFIMPORT questions are not known (not
-          2021-2027), or a tilted UCS, is refused, nothing sent.
+          2021-2027), or a tilted or flipped UCS, is refused, nothing sent.
         - If AutoCAD is still asking when every answer is given, the command
           is cancelled and the answer says so.
         - A page that brings in nothing (a scan) is said plainly.
@@ -161,7 +171,7 @@ async def autocad_import_pdf(
         filter_bits = pdf.filter_value(what)
     except ValueError as exc:
         raise AutocadError(str(exc)) from exc
-    pages = pdf.page_count(resolved)
+    pages = await asyncio.to_thread(pdf.page_count, resolved)
     if pages is not None and page > pages:
         raise AutocadError(
             f"'{os.path.basename(resolved)}' has {pages} page{'s' if pages != 1 else ''}; there is no page {page}. "
@@ -177,10 +187,11 @@ async def autocad_import_pdf(
         except ValueError as exc:
             raise AutocadError(str(exc)) from exc
         ucs = current_ucs(doc)
-        if ucs.tilted:
+        if ucs.tilted or ucs.flipped:
             raise AutocadError(
-                "The current UCS is tilted out of plan, and PDF Import lays the page on the UCS plane. "
-                "Set a plan UCS (autocad_set_ucs, or the World UCS) first. Nothing was sent."
+                f"The current UCS is {'tilted out of plan' if ucs.tilted else 'flipped (its Z points down)'}, "
+                "and PDF Import lays the page on the UCS plane, so it would land tilted or mirrored. Set a "
+                "plan UCS (autocad_set_ucs, or the World UCS) first. Nothing was sent."
             )
         if str(coords).strip().lower() == "ucs":
             ucs_point = list(as_vec3(insertion))
@@ -193,6 +204,8 @@ async def autocad_import_pdf(
         try:
             mode = int(doc.GetVariable("PDFIMPORTMODE"))
         except BaseException as exc:  # noqa: BLE001
+            if is_retryable(exc):
+                raise
             raise AutocadError("This AutoCAD has no PDFIMPORTMODE, so it has no PDF Import. Nothing was sent.") from exc
         wanted = {**FIXED_FOR_CALL, "PDFIMPORTFILTER": filter_bits, "PDFIMPORTMODE": pdf.mode_value(mode)}
         layers_before = _layer_names(doc)
@@ -201,13 +214,17 @@ async def autocad_import_pdf(
         forms = pdf.import_forms(resolved, page, ucs_point, scale, ucs_degrees, target)
         try:
             runs, not_put_back = advanced.send_lisp_pieces(doc, forms)
-        finally:
-            not_put_back_here = _put_back(doc, changed)
-        not_put_back = not_put_back + not_put_back_here
-        restore = (
-            f" AutoCAD stayed too busy to put back {', '.join(not_put_back)}: set them back with "
-            "autocad_set_variable." if not_put_back else ""
-        )
+        except AutocadError as exc:
+            raise AutocadError(str(exc) + _restore_note(_put_back(doc, changed))) from exc
+        except BaseException as exc:  # noqa: BLE001
+            left = _put_back(doc, changed)
+            if left:
+                # Never let the call be asked again now: a second run would read these as his own.
+                raise AutocadError(
+                    "AutoCAD was too busy to start the import, so nothing was imported." + _restore_note(left)
+                ) from exc
+            raise
+        restore = _restore_note(not_put_back + _put_back(doc, changed))
 
         by_number = {r["number"]: r for r in runs}
         command = by_number.get(pdf.COMMAND_PIECE)

@@ -3,7 +3,8 @@
 AutoCAD has no API that turns a PDF into objects: not in COM, not in .NET
 (Autodesk's answer on its .NET forum, 2019, and nothing since). The command
 PDFIMPORT is the only way, and its command-line form asks five questions in a
-row. So the tool answers them all in one AutoLISP form, sent through the same
+row. So the tool answers them all in one AutoLISP form (each answer only while
+PDFIMPORT is still asking), sent through the same
 path as autocad_run_lisp: running object snaps off, a command left open
 cancelled and named (known limit 21). Nothing is loaded from a file.
 
@@ -111,13 +112,24 @@ def pdf_file(raw: str) -> str:
     return resolved
 
 
-def page_count(path: str) -> int | None:
-    """How many pages a PDF has, or None when it cannot be told; a courtesy check only.
+# The most one compressed object stream is opened to: an object stream holds
+# small dictionaries, never drawings or pictures.
+OBJECT_STREAM_LIMIT = 4 * 1024 * 1024
+OBJECT_STREAM = re.compile(rb"<<[^<>]*?/Type\s*/ObjStm\b[^<>]*?>>\s*stream\r?\n(.*?)endstream", re.DOTALL)
+PAGES_NODE = re.compile(rb"<<(?:(?!<<|>>).)*?/Type\s*/Pages\b(?:(?!<<|>>).)*?>>", re.DOTALL)
+# A count written as a number, not as a reference to another object (/Count 5 0 R).
+DIRECT_COUNT = re.compile(rb"/Count\s+(\d+)\b(?!\s+\d+\s+R)")
 
-    The biggest /Count of a /Type /Pages node is the root's, which is the whole
-    document's. Newer PDFs keep those nodes in compressed object streams, so the
-    Flate streams are opened too. An encrypted PDF, or one too big to read,
-    gives None, and AutoCAD answers for itself.
+
+def page_count(path: str) -> int | None:
+    """How many pages a PDF has, or None when it cannot be told for sure; a courtesy check only.
+
+    Only the root of the page tree (the /Type /Pages node with no /Parent)
+    counts the whole document; a node lower down counts part of it, so a PDF
+    whose root cannot be read (inside a nested dictionary, an indirect count,
+    encrypted, too big) gives None and AutoCAD answers for itself. Newer PDFs
+    keep the tree in compressed object streams: only those are opened, each
+    to a bounded size, never the drawing's own content streams.
     """
     try:
         if os.path.getsize(path) > COUNT_READ_LIMIT:
@@ -128,19 +140,23 @@ def page_count(path: str) -> int | None:
         return None
     if b"/Encrypt" in data:
         return None
-    texts = [data]
-    for stream in re.finditer(rb"stream\r?\n(.*?)endstream", data, re.DOTALL):
+
+    def roots(text: bytes) -> list[int]:
+        found = []
+        for node in PAGES_NODE.finditer(text):
+            body = node.group(0)
+            count = DIRECT_COUNT.search(body)
+            if count and b"/Parent" not in body:
+                found.append(int(count.group(1)))
+        return found
+
+    counts = roots(data)
+    for stream in OBJECT_STREAM.finditer(data):
         try:
-            texts.append(zlib.decompress(stream.group(1)))
+            inflated = zlib.decompressobj().decompress(stream.group(1), OBJECT_STREAM_LIMIT)
         except zlib.error:
             continue
-    counts = [
-        int(found.group(1))
-        for text in texts
-        for node in re.finditer(rb"<<(?:(?!<<|>>).)*?/Type\s*/Pages\b(?:(?!<<|>>).)*?>>", text, re.DOTALL)
-        for found in [re.search(rb"/Count\s+(\d+)", node.group(0))]
-        if found
-    ]
+        counts += roots(inflated)
     return max(counts) if counts else None
 
 
@@ -180,11 +196,16 @@ def command_form(path: str, page: int, ucs_point: Sequence[float], scale: float,
     """
     x, y = float(ucs_point[0]), float(ucs_point[1])
     z = float(ucs_point[2]) if len(ucs_point) > 2 else 0.0
+    answers = (
+        f"{int(page)} (list {lisp_number(x)} {lisp_number(y)} {lisp_number(z)}) "
+        f"{lisp_number(scale)} {lisp_number(ucs_degrees % 360.0)}"
+    )
+    # Each answer only while PDFIMPORT is still asking: if it ends early (a
+    # protected PDF, a bad file), the rest are never typed at the Command prompt.
     return (
-        '(command "_.-PDFIMPORT" "_File" '
-        f"{lisp_string(path)} {int(page)} "
-        f"(list {lisp_number(x)} {lisp_number(y)} {lisp_number(z)}) "
-        f"{lisp_number(scale)} {lisp_number(ucs_degrees % 360.0)})"
+        f'(progn (command "_.-PDFIMPORT" "_File" {lisp_string(path)})'
+        f" (foreach heron:a (list {answers})"
+        ' (if (wcmatch (strcase (getvar "CMDNAMES")) "*PDFIMPORT*") (command heron:a))))'
     )
 
 
