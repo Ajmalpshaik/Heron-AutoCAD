@@ -158,9 +158,12 @@ What the setup does, and why it matches `Install.bat` (D-56):
 - **Claude** is set up by `Install.ps1 -Connect` and taken out by `Install.ps1 -Disconnect`, the
   same `Connect-Claude` / `Disconnect-Claude` lines `Install.bat` and `Uninstall.bat` run, so the
   two ways can never drift. The last page shows what was set up.
-- **Update** is a newer setup over the old one (or over a zip install); it deletes the whole old
-  bundle first, as `Install.bat` does. **Going back** is the older setup from the releases page: the
-  setup keeps no `previous` copy. **Uninstall** removes only what it installed, plus the `previous`
+- **Update** is a newer setup over the old one (or over a zip install). It replaces the whole old
+  bundle, as `Install.bat` does: just before copying it moves the installed one aside
+  (`HeronAutoCAD.bundle.heron-old`, beside it), drops it once the new one is in, and puts it back if
+  the install is cut off (cancelled, or a file that would not copy). **Going back** is the older
+  setup from the releases page: the setup keeps no `previous` copy. It refuses `/DIR=`, since Claude
+  is told the server is in `%LOCALAPPDATA%\Heron\autocad`. **Uninstall** removes only what it installed, plus the `previous`
   copy `Install.bat` kept; saved commands, check lists, logs and the audit stay.
 - **The zip and `Install.bat` stay** until Group AK has a live PASS. `Uninstall.bat` now also removes
   the kept earlier version, and sends a setup install to Windows Settings > Apps.
