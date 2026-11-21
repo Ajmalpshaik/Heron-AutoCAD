@@ -143,7 +143,7 @@ banner on, because the banner is what shows the modeller that Heron is working.
   closed loop. Only lines, arcs, circles, ellipses, splines and polylines are sent; text, blocks and
   the rest are refused before AutoCAD is asked. The outlines **stay** unless `erase_outlines`
   (REGION's DELOBJ is not read: a tool's result should not change with a setting the modeller cannot
-  see). Holes are cut afterwards with `autocad_solid_boolean` subtract, which already takes regions.
+  see). With `erase_outlines`, every outline given is erased, and one on a locked layer is refused before anything is made. Holes are cut afterwards with `autocad_solid_boolean` subtract, which already takes regions.
 - **Donut** (`autocad_add_donut`): no COM call makes one, so Heron draws the object DONUT makes: a
   closed lightweight polyline of two half-circle arcs (bulge 1 each), constant width
   (outside - inside) / 2, run at radius (outside + inside) / 4. Inside 0 is a filled dot. Many
@@ -157,7 +157,8 @@ banner on, because the banner is what shows the modeller that Heron is working.
   and gives `left_at_end`. A block is turned to the run's own direction (`align`, on by default as
   DIVIDE's "Align block with object? Yes"), not reversed by `from_end`. Lines, polylines, arcs and
   circles only (what `read_path` reads); a sloping line or a run not flat in world plan is refused.
-  At most 2,000 marks a call. Splines and ellipses are not built: no tested reading of them as a
+  At most 2,000 marks a call, refused before any position is worked out; a layer name is checked
+  before anything is drawn. Splines and ellipses are not built: no tested reading of them as a
   path yet. `autocad_place_along` stays the tool for equal ends.
 - **Not checked against Autodesk's reference (D-33).** The help site is blocked from the session
   that built this, and there is no AutoCAD here, so the COM calls (`AddXline`, `AddRay`,

@@ -105,6 +105,26 @@ class TestDivideAndMeasure:
     def test_measure_puts_no_mark_on_the_end(self):
         assert dx.measure_distances(1000, 250) == pytest.approx([250, 500, 750])
 
+    def test_measure_end_tolerance_does_not_grow_with_length(self):
+        # 0.9 short of the end on a 1 km run is a real mark, not "on the end".
+        marks = dx.measure_distances(1_000_000.9, 1000)
+        assert marks[-1] == pytest.approx(1_000_000)
+        plan = dx.marks_along({"vertices": [(0, 0), (1_000_000.9, 0)], "bulges": [0.0], "closed": False},
+                              interval=1000)
+        assert plan["left_at_end"] == pytest.approx(0.9)
+
+    @pytest.mark.parametrize("interval", [0.1, 1e-310])
+    def test_too_many_marks_refused_before_any_work(self, interval):
+        with pytest.raises(ValueError, match="at most"):
+            dx.measure_distances(1_000_000, interval)
+
+    def test_zero_length_segment_does_not_turn_the_block(self):
+        path = {"vertices": [(0, 0), (0, 0), (0, 100), (100, 100), (100, 0)], "bulges": [0.0] * 5,
+                "closed": True}
+        plan = dx.marks_along(path, segments=4)
+        assert plan["marks"][0]["position"] == [0, 0]
+        assert plan["marks"][0]["direction"] == pytest.approx(90)
+
     def test_measure_longer_than_the_run(self):
         assert dx.measure_distances(100, 300) == []
 
@@ -204,14 +224,20 @@ class Blocks:
         return name
 
 
+class Layer:
+    def __init__(self, name, locked=False):
+        self.Name, self.Lock = name, locked
+
+
 class Layers:
     def __init__(self):
         self.names = {"0"}
+        self.locked: set[str] = set()
 
     def Item(self, name):
         if name not in self.names:
             raise KeyError(name)
-        return name
+        return Layer(name, name in self.locked)
 
     def Add(self, name):
         self.names.add(name)
@@ -445,6 +471,18 @@ class TestRegionTool:
     def test_same_handle_twice(self, doc):
         pl = self.outline(doc)
         assert "twice" in refusal(dx.autocad_add_region(handles=[pl.Handle, pl.Handle]))
+        assert "twice" in refusal(dx.autocad_add_region(handles=[pl.Handle, f"{pl.Handle} ".lower()]))
+        assert doc.ModelSpace.region_calls == []
+
+    def test_locked_outline_with_erase_is_refused_before_anything_is_made(self, doc):
+        a, b = self.outline(doc), self.outline(doc)
+        b.Layer = "M-LOCKED"
+        doc.Layers.names.add("M-LOCKED")
+        doc.Layers.locked.add("M-LOCKED")
+        assert "locked" in refusal(dx.autocad_add_region(handles=[a.Handle, b.Handle], erase_outlines=True))
+        assert doc.ModelSpace.region_calls == [] and not a.deleted and not made(doc, Region)
+        # Kept outlines on a locked layer are fine: nothing is erased.
+        assert answer(dx.autocad_add_region(handles=[b.Handle]))["created"] == 1
 
 
 # ---- donut -------------------------------------------------------------------------
@@ -545,6 +583,18 @@ class TestDivideTool:
         ln = Line(doc, (0, 0, 0), (1_000_000, 0, 0))
         assert "at most" in refusal(dx.autocad_divide_curve(path_handle=ln.Handle, interval=1))
         assert doc.undo_marks == 0
+
+    def test_bad_layer_name_refused_before_anything_is_drawn(self, doc):
+        ln = Line(doc, (0, 0, 0), (1000, 0, 0))
+        before = set(doc.objects)
+        assert "does not allow" in refusal(dx.autocad_divide_curve(path_handle=ln.Handle, segments=4,
+                                                                  layer="P;MARKS"))
+        assert "does not allow" in refusal(dx.autocad_add_donut(centers=[[0, 0]], outside_diameter=3,
+                                                               layer="E|DOTS"))
+        assert "does not allow" in refusal(dx.autocad_add_region(handles=[ln.Handle], layer="A/B"))
+        assert "does not allow" in refusal(dx.autocad_add_construction_line(base=[0, 0], angle=0,
+                                                                           layer="A:B"))
+        assert set(doc.objects) == before and doc.undo_marks == 0
 
     def test_both_or_neither(self, doc):
         ln = Line(doc, (0, 0, 0), (100, 0, 0))

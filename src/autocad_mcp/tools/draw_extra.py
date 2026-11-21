@@ -23,7 +23,7 @@ from pydantic import Field, StrictInt
 from ..acad import geometry
 from ..acad.curves import read_path
 from ..acad.entities import resolve_handle, resolve_handles, short_type
-from ..acad.tables import apply_properties
+from ..acad.tables import apply_properties, validate_name
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
@@ -37,6 +37,7 @@ from ._shared import (
 )
 
 EPS = 1e-9
+END_TOL = 1e-6  # drawing units: a mark this close to the end counts as on it
 MOST_MARKS = 2000  # one call never places more than this many points or blocks
 MOST_DONUTS = 1000
 
@@ -121,9 +122,12 @@ def measure_distances(total: float, interval: float) -> list[float]:
         raise ValueError("the interval must be above 0")
     if total <= EPS:
         raise ValueError("that run has no length")
-    count = int(math.floor(total / interval + 1e-9))
+    ratio = total / interval
+    if not math.isfinite(ratio) or ratio > MOST_MARKS + 1:
+        raise ValueError(f"that makes more than {MOST_MARKS} marks; one call places at most {MOST_MARKS}")
+    count = int(math.floor(ratio + 1e-9))
     marks = [i * interval for i in range(1, count + 1)]
-    if marks and abs(marks[-1] - total) <= 1e-6 * max(1.0, total):
+    if marks and abs(marks[-1] - total) <= END_TOL:
         marks.pop()
     return marks
 
@@ -142,7 +146,10 @@ def marks_along(
     """
     if (segments is None) == (interval is None):
         raise ValueError("give 'segments' (divide) or 'interval' (measure), not both and not neither")
-    segs = geometry.segments(path["vertices"], path["bulges"], path["closed"])
+    # A zero-length segment has no direction; leaving it out keeps a block turned to the real run.
+    segs = [s for s in geometry.segments(path["vertices"], path["bulges"], path["closed"]) if s.length > EPS]
+    if not segs:
+        raise ValueError("that run has no length")
     total = sum(s.length for s in segs)
     if segments is not None:
         distances = divide_distances(total, int(segments), bool(path["closed"]))
@@ -152,7 +159,7 @@ def marks_along(
         step = float(interval)
         # The short rest after the last whole interval; 0 when the run measures out exactly.
         left = total - math.floor(total / step + 1e-9) * step
-        if left <= 1e-6 * max(1.0, total):
+        if left <= END_TOL or step - left <= END_TOL:
             left = 0.0
     marks = []
     for d in distances:
@@ -199,6 +206,26 @@ def _flat_z(entity: Any) -> float:
         c = entity.Center
         return float(c[2]) if len(c) > 2 else 0.0
     return float(_try(lambda: entity.Elevation, 0.0) or 0.0)
+
+
+def _check_layer(layer: str | None) -> None:
+    """Refuse a bad layer name before anything is drawn, not after the first object."""
+    if layer:
+        validate_name(layer, "layer")
+
+
+def _unlocked(doc: Any, entity: Any) -> None:
+    """Refuse an outline on a locked layer, which could not be erased."""
+    try:
+        layer = str(entity.Layer)
+        locked = bool(doc.Layers.Item(layer).Lock)
+    except BaseException:  # noqa: BLE001 - cannot tell: AutoCAD will refuse the erase itself
+        return
+    if locked:
+        raise AutocadError(
+            f"{entity.Handle} is on the locked layer '{layer}', so it could not be erased. Unlock it "
+            "with autocad_set_layer_state, or leave erase_outlines off."
+        )
 
 
 def _verified(doc: Any, handles: Sequence[str]) -> bool:
@@ -253,6 +280,7 @@ async def autocad_add_construction_line(
         geo = construction_points(base, through, angle)
     except ValueError as exc:
         raise AutocadError(str(exc)) from exc
+    _check_layer(layer)
     aci = to_aci(color)
 
     def work() -> dict[str, Any]:
@@ -277,7 +305,7 @@ async def autocad_add_construction_line(
 @tool_errors
 async def autocad_add_region(
     handles: Annotated[list[str], Field(min_length=1, description="The closed outlines: closed polylines, circles, ellipses, closed splines, or lines and arcs that meet end to end in a closed loop.")],
-    erase_outlines: Annotated[bool, Field(description="Erase the outlines once the regions are made, as REGION does with DELOBJ on. Off: they stay.")] = False,
+    erase_outlines: Annotated[bool, Field(description="Erase every outline given once the regions are made, as REGION does with DELOBJ on (give only the outlines that close the loops). Off: they stay.")] = False,
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
 ) -> str:
@@ -301,8 +329,9 @@ async def autocad_add_region(
           autocad_solid_boolean subtract (it takes regions). For a hatch:
           autocad_add_hatch.
     """
-    if len(set(handles)) != len(handles):
+    if len({str(h).strip().upper() for h in handles}) != len(handles):
         raise AutocadError("The same handle is in 'handles' twice; give each outline once.")
+    _check_layer(layer)
     aci = to_aci(color)
 
     def work() -> dict[str, Any]:
@@ -316,6 +345,9 @@ async def autocad_add_region(
                     f"{label} is a {kind}. A region is made from lines, arcs, circles, ellipses, "
                     "splines and polylines that close a loop."
                 )
+        if erase_outlines:
+            for entity in outlines:
+                _unlocked(doc, entity)  # before anything is made: no regions left with outlines half erased
         owners = {str(_try(lambda e=e: e.OwnerID)) for e in outlines}
         if len(owners) > 1:
             raise AutocadError("Those outlines are not all in the same space (model space or one layout).")
@@ -400,6 +432,7 @@ async def autocad_add_donut(
     for i, c in enumerate(centers):
         if len(c) < 2:
             raise AutocadError(f"Centre {i + 1} must be at least [x, y], got {c!r}.")
+    _check_layer(layer)
     aci = to_aci(color)
 
     def work() -> dict[str, Any]:
@@ -477,6 +510,7 @@ async def autocad_divide_curve(
     if (segments is None) == (interval is None):
         raise AutocadError("Give 'segments' (divide into equal parts) or 'interval' (measure), not both.")
     name = block_name.strip() if block_name else None
+    _check_layer(layer)
 
     def work() -> dict[str, Any]:
         doc = get_doc()
@@ -492,17 +526,13 @@ async def autocad_divide_curve(
         try:
             plan = marks_along(path, segments, interval, from_end)
         except ValueError as exc:
-            raise AutocadError(f"{path_handle}: {exc}.") from exc
+            hint = " Use a larger interval." if "at most" in str(exc) else ""
+            raise AutocadError(f"{path_handle}: {exc}.{hint}") from exc
         marks = plan["marks"]
         if not marks:
             raise AutocadError(
                 f"{path_handle} is {plan['total']:.6g} long, shorter than the interval {interval:g}, "
                 "so no mark fits. Use a smaller interval."
-            )
-        if len(marks) > MOST_MARKS:
-            raise AutocadError(
-                f"That makes {len(marks)} marks; one call places at most {MOST_MARKS}. "
-                "Use a larger interval."
             )
         target = _owner(doc, run_entity)
         handles: list[str] = []
