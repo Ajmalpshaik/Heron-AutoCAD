@@ -40,7 +40,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 - `%APPDATA%\Heron\autocad\heron-autocad.config` now keeps only `ui.activityBanner`. The
   padlock lines an older plug-in wrote there (`write.enabled`, `publish.enabled`, `admin.enabled`,
   `write.askBeforeKeeping`) and `bridge.autoConnect` are **ignored**; you may delete them.
-  A file that cannot be read means no connect at start and the banner on.
+  A file that cannot be read means the banner on.
 
 ### A Windows policy can hold a padlock off
 
@@ -216,7 +216,7 @@ If no answer comes within 300 s the result is "Outcome unknown": the operation m
 |---|---|
 | The plug-in | `%APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle` |
 | Padlocks | Nowhere on disk: this AutoCAD's memory only ([D-59](DECISIONS.md)) |
-| Connect at start, banner | `%APPDATA%\Heron\autocad\heron-autocad.config` |
+| The banner on or off (AutoCAD never connects at start, [D-73](DECISIONS.md)) | `%APPDATA%\Heron\autocad\heron-autocad.config` |
 | Padlock policy (administrator) | `HKLM\SOFTWARE\Policies\Heron\AutoCAD` ([D-60](DECISIONS.md)) |
 | Address files | `%LOCALAPPDATA%\Heron\autocad\bridges\` |
 | Add-in log | `%LOCALAPPDATA%\Heron\autocad\logs\addin-YYYYMMDD.log` |
