@@ -196,9 +196,9 @@ def _ezdxf() -> Any:
     except ImportError:
         raise AutocadError(
             "The ezdxf package is not installed in Heron's environment, so files cannot be read with "
-            "AutoCAD closed. Stop the Heron server (close Claude), run "
-            "'.venv\\Scripts\\python.exe -m pip install -e .' in the Heron folder, then start it again "
-            "(docs/05-known-limits.md section 1)."
+            "AutoCAD closed. Close Claude (so the Heron server stops), run "
+            "'.venv\\Scripts\\python.exe -m pip install ezdxf' in the Heron folder, then start Claude "
+            "again (docs/05-known-limits.md section 1)."
         ) from None
     return ezdxf
 

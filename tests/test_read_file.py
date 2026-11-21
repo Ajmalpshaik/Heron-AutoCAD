@@ -175,7 +175,7 @@ def test_a_file_too_big_is_refused(drawing, monkeypatch):
 
 def test_without_ezdxf_it_says_how_to_install_it(drawing, monkeypatch):
     monkeypatch.setitem(sys.modules, "ezdxf", None)
-    with pytest.raises(AutocadError, match="pip install -e"):
+    with pytest.raises(AutocadError, match="pip install ezdxf"):
         read(drawing)
 
 

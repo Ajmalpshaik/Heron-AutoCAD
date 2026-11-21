@@ -196,12 +196,13 @@ def find(name: str) -> dict[str, Any]:
     folder = office_folder()
     warning = None
     if folder is not None:
-        trouble = None
+        trouble, office_has_it = None, False
         if not reachable(folder):
             trouble = f"The office folder {folder} could not be reached."
         else:
             shared = folder / f"{slug}.json"
             if shared.is_file():
+                office_has_it = True
                 try:
                     record = _read_record(shared)
                 except (OSError, ValueError) as exc:
@@ -215,6 +216,10 @@ def find(name: str) -> dict[str, Any]:
                 copy["warning"] = (f"{trouble} This run used this PC's copy of the office list '{name}', "
                                    f"read from the office folder on {copy['read']}.")  # fmt: skip
                 return copy
+            if office_has_it:
+                # The office has its own list of that name: never run another one in its place.
+                raise AutocadError(f"{trouble} This PC has no copy of it, so nothing was run. Put the file right in "
+                                   "the office folder (or ask whoever keeps the office's lists).")  # fmt: skip
             warning = f"{trouble} This PC has no copy of an office list '{name}'."
     local = _file(name)
     if local.is_file():

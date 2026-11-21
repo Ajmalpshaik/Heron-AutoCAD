@@ -22,7 +22,7 @@ done looks like here.
 - [x] Dry run for any change ([#81](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/81)); before / after values ([#82](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/82)). D-63 and D-62, PR #124; live rows T4-T6 NOT RUN.
 - [ ] Dialog watch during a job ([#83](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/83)).
 - [x] Check lists: NO DATA + coverage ([#84](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/84)), office list + project changes ([#85](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/85)), Excel / HTML report ([#86](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/86)), never "complies" ([#87](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/87)). D-64 and D-65, PR #122; live rows U1-U10 NOT RUN.
-- [ ] Later: share the office check list and project changes with the team ([#135](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/135)); needs Ajmal's choice of shared folder.
+- [x] Share the office check list and project changes with the team ([#135](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/135)): an office folder per PC with this PC's copy as the fallback, `autocad_share_checklist` (Publish). D-93; live rows AG9-AG14 NOT RUN.
 - [ ] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).
 - [ ] AutoCAD ribbon coverage audit ([#94](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/94)); an honest install table ([#95](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/95)).
 - [x] From the audit: attribute definitions and ATTSYNC ([#115](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/115), D-82), an Excel range as a linked table and table cell edits ([#117](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/117), D-83), copy between open drawings ([#106](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/106), D-83). Live rows AC1-AC16 NOT RUN.
@@ -161,10 +161,10 @@ done looks like here.
   Automation API for the first two, and a dimension style already works, so this is really
   "bring the office styles in" - `autocad_import_from_drawing` does it today. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [x] Draw an attribute schedule as an AutoCAD table: `autocad_add_table` ([10](10-geometry-annotation-3d.md)).
-- [ ] Standards check against a reference DWG / DWS, not only a rules file. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69))
+- [x] Standards check against a reference DWG / DWS, not only a rules file: `autocad_check_standards(reference=...)`. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69), D-92; live rows AG5-AG8 NOT RUN)
 - [ ] A layer-standard rule file shipped for Ajmal's own office standard, beside the `ifc` preset
   in `tools/convert.py` (which is a starting point, not a standard). ([#70](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/70))
-- [ ] Read DXF / DWG files without AutoCAD (ezdxf, plus the ODA converter for DWG), read only. ([#71](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/71))
+- [x] Read DXF / DWG files without AutoCAD (ezdxf, plus the ODA converter for DWG), read only: `autocad_read_file`. ([#71](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/71), D-92; live rows AG1-AG4 NOT RUN)
 - [x] Paper-space layouts and viewports: `autocad_create_layout`, `autocad_page_setup`,
   `autocad_place_title_block`, `autocad_add_viewport` (D-27, [09](09-sheets-and-coordinates.md)).
 - [ ] `coords="ucs"` on the single-entity `autocad_draw_*` and `autocad_modify_*` tools. Today only
