@@ -130,6 +130,75 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
+
+**Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
+change DEFAULTLIGHTING behind the modeller's back" stands: only `autocad_switch_lights` changes it,
+when asked in words. **None of these tools renders** (Ajmal's rule): they set lights, sun and
+exposure, and Ajmal presses Render. `autocad_render` (Admin, types `-render`) is still on main as
+the one exception; whether it stays is Ajmal's decision (#158).
+- **List** (`autocad_list_lights`, plug-in `list_lights`, Read), like the Lights in Model palette:
+  every light in model space, then in each block definition (not layouts, not xrefs), with handle,
+  name, kind, on or off, intensity and its unit, Kelvin, layer, position, and for a light in a block
+  the block's name and its number of inserts. The same answer gives the sun (on, date, time, place,
+  and azimuth and altitude as AutoCAD gives them, their unit still to be checked), DEFAULTLIGHTING,
+  LIGHTINGUNITS and the exposure, and says why a render may come out dark.
+- **Switch** (`autocad_switch_lights`, plug-in `switch_lights`, Change): a light by handle, else
+  every light of that name (a light inside a block definition repeats in each block), or all of
+  them. One name not found refuses the whole switch and lists the names there are, so nothing is
+  half done. A light in a block definition switches in every insert, which is what a light block is
+  for. The sun (SUNSTATUS) and default lighting (DEFAULTLIGHTING) are plain variables written over
+  COM, default lighting first, so the sun goes on in a viewport that already shows user lighting.
+  If AutoCAD still asks its viewport lighting question, the dialog watch (D-66) closes it and names
+  it; that is a live row.
+- **Exposure** (#62, `autocad_set_render_exposure`, Change): the LOGEXP... variables belonged to
+  the old renderer and are gone in 2027. The current renderer's Exposure (EV, -6 to 21, lower is
+  brighter) and White balance (1000-20000 K) are documented as the variables EXPVALUE and
+  EXPWHITEBALANCE (Autodesk help 2016-2023), so the tool writes those over COM, in the type each
+  already holds, and reads them back. If this AutoCAD does not answer for one, nothing changes and
+  the answer names the Render Environment & Exposure palette (RENDEREXPOSURE): known limit 22. The
+  .NET API also has a per-viewport `PhotographicExposureParameters` (Exposure, WhitePoint), and the
+  palette's own data class holds the current viewport's tone settings: that is the route to try if
+  the variables turn out gone (ROADMAP), not built now, as which of the two the renderer reads is not
+  proven.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
+
+## D-86 - A camera view is a saved view with perspective and a lens; the sun's date is set on the viewport's sun; the visual style is read back
+
+**Decided:** 2026-11-21, for issues #59, #60 and #61. **Status:** in force; extends D-42 and
+replaces D-35's "the style cannot be read back" (D-35's typed VSCURRENT stands).
+- **Camera view** (`autocad_add_camera_view`, plug-in `add_camera_view`, Change): one view record
+  written through the .NET API with perspective on, the lens set, the target, and the direction from
+  the target to the eye (the API's own meaning of ViewDirection), saved under a name and, unless
+  told not to, put on screen with `SetCurrentView` (and warned about when the viewport is in 2D
+  Wireframe, which draws no perspective). A layout's view of the same name is never replaced. The
+  view's width and height are the lens's field at the target, so lens and size agree. The field is
+  worked out across a 36 mm frame, as AutoCAD
+  calls its lens a 35 mm camera's (50 mm: 39.6 degrees, 24 mm: 73.7 degrees); whether AutoCAD's own
+  Field of view reads the same is a live row. No camera glyph is drawn, so CAMERADISPLAY does not
+  matter. Rejected: DVIEW (it hangs), `entmake` of a VIEW record (it came back at 50 mm, 2026-11-09),
+  typing CAMERA (it worked by hand, but its prompts differ between releases), and `-VIEW` (it keeps
+  only what is on screen; `autocad_save_view(from_screen=true)` stays for that).
+- **Sun date and time** (`autocad_set_sun`, plug-in `set_sun`, Change): AutoCAD has no variable for
+  them; they live on the current model viewport's sun (DXF 91 = Julian day, 92 = ms after midnight).
+  The .NET `Sun.DateTime` takes the calendar date and clock time, so the plug-in writes that, only
+  the parts given, and makes the sun when the viewport has none. The sun hangs off the viewport
+  record, which AutoCAD does not keep up to date as the view moves, so for this one operation the
+  plug-in writes the live viewports into the drawing first and gives them back after. The place is
+  three plain variables over COM: LATITUDE, LONGITUDE and TIMEZONE, the last as hours x 1000 plus
+  minutes from a UTC offset (Qatar 3000, India 5030; read back, a last digit naming one place of
+  several, as in 3001 or 9031, keeps its offset). A year outside 1900-2200 is refused before
+  anything is written. The answer reads it all back, with the 91 and 92 values Heron expects, so a
+  live check can compare them with `(entget)`. Model tab only.
+- **Visual style read back** (#59): `autocad_set_3d_view` types VSCURRENT as before, then asks the
+  plug-in (`current_view`, a Read operation, allowed inside its View job) which style the viewport
+  has: the live view's, else the viewport record's, by its name in the drawing's visual style list.
+  A different style from the one asked for is said in `visual_style_warning`, not counted as a
+  failure: the record can be behind the screen (an independent review of PR #152), and
+  `autocad_preview` is the proof. Without the plug-in the field is null with the reason, and the
+  tool still works.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
+
 ## D-83 - Excel ranges as linked tables, table cells by address, and copying between open drawings
 
 **Decided:** 2026-11-21, building issues #117 and #106 (ribbon audit, #94). **Status:** in force;

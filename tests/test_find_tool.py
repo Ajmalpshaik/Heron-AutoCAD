@@ -153,6 +153,12 @@ CASES = [
     ("I filled in the tags in the Excel, put them back in the drawing", "autocad_apply_attribute_sheet"),
     ("check every drawing in the issue folder before we send it", "autocad_check_folder"),
     ("show me what you are doing in a window beside AutoCAD", "autocad_companion"),
+    # Setting a render up (2026-11-21, #59-#63): none of these renders.
+    ("put a camera in the living room corner with a 24 mm lens", "autocad_add_camera_view"),
+    ("set the sun for Doha at 10 in the morning on 21 June", "autocad_set_sun"),
+    ("which lights are on in the villa", "autocad_list_lights"),
+    ("night render: sun off and all the downlights on", "autocad_switch_lights"),
+    ("the render is too dark, change the exposure", "autocad_set_render_exposure"),
     # Blocks, attributes and tables (D-82, D-83; issues #115, #117, #106).
     ("make a tag block with a TAG attribute", "autocad_make_block"),
     ("I added an attribute to the block, update all the inserts", "autocad_sync_attributes"),

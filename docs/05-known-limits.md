@@ -97,13 +97,18 @@ while AutoCAD was mid-command (the pause waits 2 s for AutoCAD to be idle, then 
 it), can still leave steps: the U then undoes the look, not the change. Press U again, or check the
 object count.
 
-## 15. A visual style cannot be read back
+## 15. A visual style is read back only through the plug-in
 
 `autocad_set_3d_view` types the VSCURRENT command ([D-35](DECISIONS.md)); there is no VSCURRENT
-system variable and COM has no visual style on a model viewport, so the tool cannot report which
-style is current. `autocad_preview` shows it. The answers for 'shaded with edges' and 'shades of
-gray' are from the prompt's capital letters and are not yet proven (row E34): if one is not taken,
-the tool cancels the command and says so in `not_set`.
+system variable and COM has no visual style on a model viewport. Since [D-86](DECISIONS.md) the
+tool asks Heron's plug-in which style the viewport has and gives it as `visual_style_found`; a
+different one from the one asked for is in `not_set`. With `--no-bridge`, or a plug-in older than
+this change, it is null with the reason, and `autocad_preview` is still the proof. A different
+style from the one asked for is a `visual_style_warning`, not a failure: the reading can come from
+the viewport's saved record, which may be behind the screen (`visual_style_found_from` says when).
+The answers for
+'shaded with edges' and 'shades of gray' are from the prompt's capital letters and are not yet
+proven (row E34); AutoCAD's exact style names are row AE1.
 
 ## 16. A scale is written as on the sheet
 
@@ -198,7 +203,7 @@ result means the expression has to be written again, complete. Long code is sent
 ([§3](#3-long-autolisp-fails-silently)): a command is cancelled at the end of its piece and the
 pieces after it are not sent, so keep each `(command ...)` whole inside one top-level form.
 
-## 22. Lights, materials and the saved 3D view have their own limits
+## 22. Lights, materials, the saved 3D view and the render set-up have their own limits
 
 - `autocad_add_light` and `autocad_create_material` need plug-in **1.4.0** or newer; an older one
   answers that it does not have the operation ([D-42](DECISIONS.md)). With `--no-bridge` they
@@ -216,6 +221,31 @@ pieces after it are not sent, so keep each `(command ...)` whole inside one top-
   combined with `diffuse_rgb`. A glowing strip lights little around it; add lights for that.
 - `autocad_save_view(from_screen=true)` types `-VIEW _Save`, so a name with spaces is refused.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group K](NEEDS-CHECKING.md)).
+- **None of the set-up tools renders** (Ajmal's rule): the camera, sun, lights and exposure tools
+  set the render up, and the modeller presses Render. `autocad_render` (Admin) is the one tool that
+  types `-render`; whether it stays is Ajmal's decision ([#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)).
+- `autocad_add_camera_view`, `autocad_set_sun`, `autocad_list_lights` and `autocad_switch_lights`
+  need the plug-in built from [D-86](DECISIONS.md) / [D-87](DECISIONS.md); an older one says it does
+  not have the operation. The camera view and the sun work on the **Model tab only**. No camera
+  glyph is drawn. The field of view Heron gives is across a 36 mm frame; AutoCAD's own Field of view
+  may be measured another way (AE2). Perspective does not show in the 2D Wireframe style: the answer
+  warns, and `autocad_set_3d_view(visual_style='realistic')` fixes it. `replace=true` moves the view
+  only: a camera glyph that AutoCAD's own CAMERA command made for that view stays where it was. A
+  layout's (paper space) view is never replaced.
+- The sun's **date and time** belong to the current model viewport: another viewport, or a layout
+  viewport, has its own sun. LATITUDE, LONGITUDE and TIMEZONE belong to the drawing. A UTC offset is
+  turned into the first TIMEZONE code for it (3 is 3000); AutoCAD's other codes for the same offset
+  (3001 ...) name other places at the same time. The sun's `azimuth` and `altitude` are as AutoCAD
+  gives them; their unit is not proven (AE5).
+- Turning the **sun on with default lighting on** may make AutoCAD ask its viewport lighting
+  question; the dialog watch closes it with Cancel and names it (AE12). Switch default lighting off
+  in the same call (`default_lighting=false`) to avoid it.
+- A light is switched by handle or by name; a name inside a light block switches that light in
+  every insert of the block. Lights in xrefs are not listed or switched.
+- **Exposure** is written to EXPVALUE and EXPWHITEBALANCE, documented for AutoCAD 2016-2023. If an
+  AutoCAD does not answer for one, the tool changes nothing and names the Render Environment &
+  Exposure palette (RENDEREXPOSURE) instead. Not proven in 2027 (AE14).
+- None of the render set-up is proven in AutoCAD yet ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
 
 ## 23. Sheets with a heavy 3D xref, and a paper space that will not answer
 

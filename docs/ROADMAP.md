@@ -58,8 +58,8 @@ done looks like here.
 - [x] `autocad_drawing_setup(scale='1:10')`, a dim style with a `text_style`, table text height,
   booleans on real solids and `visual_style='realistic'` all failed live; fixed with tests, re-run
   rows D23, D32, E18, E28, E34 NOT RUN ([D-35](DECISIONS.md), [D-36](DECISIONS.md)).
-- [ ] Read the current visual style back (the VPORT table's visual style, through the plug-in), so
-  `autocad_set_3d_view` can prove the style took instead of relying on `autocad_preview`. ([#59](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/59))
+- [x] Read the current visual style back (the VPORT table's visual style, through the plug-in), so
+  `autocad_set_3d_view` can prove the style took instead of relying on `autocad_preview`. ([#59](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/59)) `visual_style_found` (D-86); live row AE1 NOT RUN.
 - [x] `tests/test_geometry.py`: two tests compared lists of point pairs with `pytest.approx`, which
   pytest 9 refuses ("does not support nested data structures"); CI turned red on 2026-10-28 when
   it picked up pytest 9. Now compared as flat coordinate lists, same values and tolerance.
@@ -121,19 +121,22 @@ done looks like here.
 - [x] Save a **3D view** as a named view: `autocad_save_view(from_screen=true)`. Live row K13 NOT RUN.
 - [x] A material texture's **real-world size** (a 600 x 600 tile, a 150 plank):
   `autocad_create_material(texture_size=...)` ([D-46](DECISIONS.md)); live row K15.
-- [ ] List and switch lights (the Lights in Model palette), and turn the sun and DEFAULTLIGHTING
-  on and off, from the chat. ([#63](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/63))
+- [x] List and switch lights (the Lights in Model palette), and turn the sun and DEFAULTLIGHTING
+  on and off, from the chat. ([#63](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/63)) `autocad_list_lights`, `autocad_switch_lights` (D-87); live rows AE9-AE13 NOT RUN.
 
 ## Asked for on 2026-11-09 (Luxury Suite 2 3D model and its interior drawing set)
 
-- [ ] **Camera views**: a perspective camera at an eye point with a lens (24 mm inside a room).
+- [x] **Camera views**: a perspective camera at an eye point with a lens (24 mm inside a room).
   `-VIEW` saves only the screen; a VIEW record made with entmake restores at 50 mm and DVIEW hangs.
-  What worked: `CAMERA cam target _N name _LE 24 _X`, then CAMERADISPLAY 0. ([#60](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/60))
-- [ ] **Sun date, time and place**: no system variable; the SUN object of the active VPORT
+  What worked: `CAMERA cam target _N name _LE 24 _X`, then CAMERADISPLAY 0. ([#60](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/60)) `autocad_add_camera_view`, a view record with perspective and the lens (D-86); live rows AE2-AE4 NOT RUN.
+- [x] **Sun date, time and place**: no system variable; the SUN object of the active VPORT
   (group 361) takes 91 = Julian day and 92 = milliseconds after midnight. LATITUDE, LONGITUDE,
-  TIMEZONE and SUNSTATUS are plain variables. ([#61](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/61))
-- [ ] **Render exposure**: the LOGEXP* variables are gone in 2027; exposure lives only in the
-  RENDEREXPOSURE palette. Find whether the render preset or render environment object exposes it. ([#62](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/62))
+  TIMEZONE and SUNSTATUS are plain variables. ([#61](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/61)) `autocad_set_sun` (D-86); live rows AE5-AE8 NOT RUN.
+- [x] **Render exposure**: the LOGEXP* variables are gone in 2027; exposure lives only in the
+  RENDEREXPOSURE palette. Find whether the render preset or render environment object exposes it. ([#62](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/62)) Found: neither the preset nor the environment object holds it; the documented EXPVALUE / EXPWHITEBALANCE do. `autocad_set_render_exposure` (D-87), known limit 22; live row AE14 NOT RUN.
+- [ ] If AE14 shows EXPVALUE / EXPWHITEBALANCE are gone in 2027: set the exposure on the current
+  viewport's `PhotographicExposureParameters` (Exposure, WhitePoint) through the plug-in instead,
+  after a live check that the renderer reads it (D-87).
 - [x] **Quiet results** (D-77, 2026-11-21: `quiet=true`): an `autocad_sequence` of eight `autocad_dimension_run` steps returned about
   15,000 characters of per-dimension detail. A `quiet` option that returns counts and handles only. ([#44](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/44))
 - [ ] **Sheets by the plug-in**: make layouts and viewports in .NET (Layout + Viewport in the layout's
