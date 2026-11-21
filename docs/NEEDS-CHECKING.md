@@ -188,8 +188,8 @@ from a run. `SectionSolid` is deliberately **not** built: no documented signatur
 | F19 | `autocad_apply_material(material="NoSuchThing")` | Refused, **listing the materials the drawing does have**, and saying the library cannot be reached from automation | NOT RUN |
 | F20 | `autocad_apply_material(material="Steel", layer_filter=...)` then `autocad_set_3d_view(visual_style="realistic")` and `autocad_preview` | The solids look like steel in the picture | NOT RUN |
 | F21 | `autocad_apply_material` on a line with `solids_only=true` | Skipped and reported, not silently applied | NOT RUN |
-| F22 | `autocad_render` to a PNG, preset "Low", with Admin on | Either the file appears, or the result says the command line is waiting. **Rendering from a script is reported to drop objects - compare the image with a render done by hand before trusting it** | NOT RUN |
-| F23 | `autocad_sequence` with a step naming `autocad_render` | Refused: Admin is above the sequence ceiling | NOT RUN |
+| F22 | `autocad_render` to a PNG, preset "Low", with Admin on | Either the file appears, or the result says the command line is waiting. **Rendering from a script is reported to drop objects - compare the image with a render done by hand before trusting it** | REMOVED 2026-11-21: `autocad_render` is gone ([D-87](DECISIONS.md), #158); nothing to run |
+| F23 | `autocad_sequence` with a step naming `autocad_run_lisp` (it named `autocad_render` until that was removed, D-87) | Refused: Admin is above the sequence ceiling | NOT RUN |
 
 ## Group G - Splines, multilines, wipeouts, xrefs, pattern and linetype files (AutoCAD 2027, this PC)
 

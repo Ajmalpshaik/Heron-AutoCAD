@@ -675,5 +675,6 @@ def test_levels():
     for tool in ("autocad_switch_lights", "autocad_set_sun", "autocad_set_render_exposure", "autocad_add_camera_view"):
         assert risk_of(tool) is Risk.CHANGE, tool
     assert risk_of("autocad_set_3d_view") is Risk.VIEW
-    # The set-up tools never render; the one tool that does is Admin only (issue #158).
-    assert risk_of("autocad_render") is Risk.ADMIN
+    # The owner's rule: Heron sets a render up and never runs one (D-87, #158).
+    with pytest.raises(KeyError):
+        risk_of("autocad_render")

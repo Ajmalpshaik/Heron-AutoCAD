@@ -15,19 +15,20 @@ front:
   server's ``autocad_solid_properties`` both work as if density were 1, so a
   weight is volume times a density *you* supply. Assigning "Steel" to a solid
   does not make it weigh anything.
-* **Rendering has no automation call at all.** The only route is the ``-render``
-  command, so ``autocad_render`` drives that — which is why it needs the Admin
-  padlock, and why it reports what it sent rather than pretending to more
-  certainty than it has.
+* **Heron does not render** (D-87, issue #158). AutoCAD has no automation call
+  for a render; the only route is the ``-render`` command, which waits on
+  prompts and can stall AutoCAD. So Heron sets the render up (camera, sun,
+  lights, exposure: ``tools/lighting.py`` and ``tools/views.py``) and the
+  modeller presses Render.
 
-The honest summary: materials can be made, listed and applied; a render can be
-asked for; nothing comes from Autodesk's library.
+The honest summary: materials can be made, listed and applied; nothing comes
+from Autodesk's library; the render is the modeller's.
 """
 
 from __future__ import annotations
 
 import os
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from pydantic import Field
 
@@ -45,17 +46,6 @@ from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import in_plugin
-
-# AutoCAD's built-in render presets, in the order its own prompt lists them.
-RENDER_PRESETS = ("Low", "Medium", "High", "Coffee-Break", "Lunch", "Overnight")
-
-# Common image sizes for a render, so a sensible one can be named.
-RENDER_SIZES: dict[str, tuple[int, int]] = {
-    "small": (800, 600),
-    "medium": (1280, 960),
-    "large": (1920, 1440),
-    "print": (3300, 2550),
-}
 
 
 def _try(getter, default=None):
@@ -529,114 +519,5 @@ async def autocad_create_material(
         if warnings:
             payload["warning"] = " ".join(warnings)
         return payload
-
-    return dumps(await run(work))
-
-
-@mcp.tool(name="autocad_render", **tool_meta("Render The Model"))
-@tool_errors
-async def autocad_render(
-    output_path: Annotated[
-        str,
-        Field(
-            min_length=1,
-            description=(
-                "Where to write the image, with its extension — .png, .jpg or .tif. An "
-                "absolute Windows path, e.g. 'C:/Jobs/A-101/view.png'."
-            ),
-        ),
-    ],
-    preset: Annotated[
-        Literal["Low", "Medium", "High", "Coffee-Break", "Lunch", "Overnight"],
-        Field(
-            default="Medium",
-            description=(
-                "Render quality, as AutoCAD names it. Low and Medium are quick looks; "
-                "Coffee-Break, Lunch and Overnight are named for how long they take, "
-                "and they mean it."
-            ),
-        ),
-    ] = "Medium",
-    size: Annotated[
-        Literal["small", "medium", "large", "print"],
-        Field(default="medium", description="Image size: small 800x600, medium 1280x960, large 1920x1440, print 3300x2550."),
-    ] = "medium",
-    width: Annotated[int | None, Field(default=None, ge=16, le=10000, description="An exact width in pixels instead of 'size'.")] = None,
-    height: Annotated[int | None, Field(default=None, ge=16, le=10000, description="An exact height in pixels instead of 'size'.")] = None,
-) -> str:
-    """Render the current view to an image file.
-
-    **Read this before using it.** Rendering has no automation call in AutoCAD;
-    the only route is the ``-render`` command, so this sends that command and
-    its answers. Three consequences, all of them real:
-
-    * It needs the **Admin** padlock, because it drives the command line.
-    * The prompt wording differs between releases, so the command can stall
-      part-way waiting for an answer this tool did not anticipate. If the image
-      does not appear, press Esc in AutoCAD and render by hand.
-    * Rendering from a script has been reported to drop objects that render
-      correctly when done by hand. Check the image before you send it to anyone.
-
-    What is reliable: set the view with ``autocad_set_3d_view`` and apply
-    materials with ``autocad_apply_material`` first — those do work — and for a
-    picture to put on a drawing, ``autocad_preview`` or ``autocad_export`` is
-    the dependable route.
-
-    Args:
-        output_path (str): where to write the image, with its extension.
-        preset (str): Low, Medium, High, Coffee-Break, Lunch or Overnight.
-        size (str): small, medium, large or print.
-        width / height (Optional[int]): exact pixels instead of 'size'.
-
-    Returns:
-        str: JSON: {"sent": str, "output_path", "preset", "width", "height",
-             "exists": bool, "size_bytes": int | null, "note": str}
-
-    Examples:
-        - Use when: "render this view for the client" — after setting the view
-          and applying materials.
-        - Don't use when: you want to see what you drew — autocad_preview is
-          instant, needs no padlock and always works.
-        - Don't use when: the picture goes on a drawing sheet — that is
-          autocad_export to PDF.
-    """
-    if (width is None) != (height is None):
-        raise AutocadError("Give both width and height, or neither and use 'size'.")
-    px = (int(width), int(height)) if width is not None else RENDER_SIZES[size]
-    target = output_path.strip().replace("/", "\\")
-    if "." not in target.rsplit("\\", 1)[-1]:
-        raise AutocadError(
-            f"'{output_path}' has no file extension. Render output needs one: .png, .jpg or .tif."
-        )
-
-    def work() -> dict[str, Any]:
-        doc = get_doc()
-        require_idle(doc)
-        # -render asks, in order: preset, destination, width, height, file name.
-        line = f'-render\n{preset}\nFile\n{px[0]}\n{px[1]}\n{target}\n'
-        try:
-            doc.SendCommand(line)
-        except BaseException as exc:  # noqa: BLE001
-            raise AutocadError(
-                f"AutoCAD would not take the render command ({com_message(exc)}). "
-                "Render by hand instead: set the view, then RENDER."
-            ) from exc
-
-        exists = os.path.isfile(target)
-        return {
-            "sent": line.replace("\n", " | ").strip(),
-            "output_path": target,
-            "preset": preset,
-            "width": px[0],
-            "height": px[1],
-            "exists": exists,
-            "size_bytes": os.path.getsize(target) if exists else None,
-            "note": (
-                "The image was found." if exists else
-                "The file is not there yet. A render at this preset can take minutes, and "
-                "the command may be waiting for an answer on AutoCAD's command line — look "
-                "at it. If it is stuck, press Esc and render by hand."
-            ),
-        }
 
     return dumps(await run(work))
