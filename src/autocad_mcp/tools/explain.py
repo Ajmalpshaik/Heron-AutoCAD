@@ -1,23 +1,38 @@
 """Explaining Heron to the modeller: why a job cannot run, and what failed or was slow (D-67).
 
-Both read only Heron's own files - the tool index, the install and padlock
-files, the audit log - so both answer with AutoCAD closed (the gate lets them
+Both read only Heron's own files - the tool index, the install files, the
+audit log - plus, for autocad_why, the padlocks the connected AutoCAD holds in
+memory (D-59, asked over the pipe), so both answer with AutoCAD closed (the gate lets them
 through without looking at AutoCAD, core/gate.py NO_AUTOCAD_TOOLS). The ideas
 are Heron AI for Revit's heron_why and heron_gaps; the code is this project's.
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+import asyncio
+from typing import Annotated, Any
 
 from pydantic import Field
 
 from ..acad import why
 from ..core import audit, diagnose, gate, sessions
-from ..core.bridge import bridge_enabled
+from ..core.bridge import Bridge, bridge_enabled
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from ..core.risk import RISK, Risk
 from .resources import _entries
+
+
+def padlocks_now(report: dict[str, Any], chosen: int | None) -> dict[str, Any] | None:
+    """The padlocks of the AutoCAD this chat works in, from its plug-in's memory (D-59).
+
+    The one this chat picked, or the only one connected; None when there is
+    none, when several are connected and none is picked, or when it cannot tell.
+    """
+    if not bridge_enabled():
+        return None
+    pids = [acad["pid"] for acad in report.get("autocads_connected") or []]
+    pid = chosen if chosen in pids else (pids[0] if len(pids) == 1 else None)
+    return Bridge(pid).padlocks() if pid is not None else None
 
 
 @mcp.tool(name="autocad_why", **tool_meta("Why Heron Cannot Do It", read_only=True, idempotent=True))
@@ -39,9 +54,10 @@ async def autocad_why(
     in the way, worst first: no tool for it, a server started read-only, the
     plug-in not installed, AutoCAD not connected (Heron not pressed), two
     AutoCADs and none picked, server and plug-in from different releases, a
-    plug-in older than the tool needs, an update this chat has not loaded. It
-    names the padlocks the job needs (Changes, Publish, Admin) but cannot see
-    whether they are on: they live inside AutoCAD. Each reason says what to do.
+    plug-in older than the tool needs, an update this chat has not loaded. The
+    padlocks the job needs (Changes, Publish, Admin) live inside AutoCAD: when
+    this chat's AutoCAD is connected, its plug-in says which are off and which a
+    Windows policy holds; otherwise they are named, never guessed. Each reason says what to do.
     It cannot see an open command, a locked layer or another chat holding
     AutoCAD either, and says so.
 
@@ -62,13 +78,15 @@ async def autocad_why(
     """
     tools = await mcp.list_tools()
     entries = await _entries()
+    report = diagnose.report()
+    report["padlocks"] = await asyncio.to_thread(padlocks_now, report, sessions.chosen())
     answer = why.explain(
         job,
         entries=entries,
         level_of=lambda tool: RISK.get(tool, Risk.ADMIN),
         descriptions={tool.name: tool.description or "" for tool in tools},
         known_tools=set(RISK),
-        report=diagnose.report(),
+        report=report,
         bridge_on=bridge_enabled(),
         chosen_pid=sessions.chosen(),
         drawing_checked=gate._last_drawing is not None,

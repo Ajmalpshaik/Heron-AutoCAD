@@ -403,6 +403,19 @@ modeller's click, skipping "turning a padlock on asks first".
   setting: it only connects, and with every padlock off a chat can then read but change nothing.
 - **`autocad://diagnose`** no longer reads padlocks from the file: it would have reported stale
   lines as on.
+- **Added 2026-11-21, after the merge:** `autocad_why` (D-67) still read the padlocks from that
+  report, so it said every padlock was off even with Changes on. Now the plug-in's `ping` answer
+  carries `padlocks` (changes, publish, admin, askToKeep) and `held` (what a D-60 policy holds),
+  read-only; `autocad_why` asks the AutoCAD this chat works in, and a held padlock gets its own
+  reason (`admin_held`: ask the PC's administrator) instead of "type HERONADMIN". No answer
+  (nothing connected, several and none picked, a plug-in older than 1.6.0) keeps #134's rule: the
+  padlocks are named (`needs_changes`...), never guessed, and do not block. Pinned by
+  `tests/test_padlocks_from_plugin.py` and the bridge `PadlockTests`.
+- **Added 2026-11-21, the guard's two gaps (issue #142):** it now also refuses an Edit or Write of
+  a script (`.ps1`, `.bat`, `.cmd`, `.py`, ...) whose content would write either target when run
+  later, except in this repository's own `tests/` and `.claude/hooks/`. For `gh` and `git`
+  commands it no longer looks inside quoted text (an issue body, a commit message), so mentioning
+  the file is not taken for writing it; a redirect outside the quotes is still refused.
 - **A guard for Claude Code in this repository:** `.claude/settings.json` runs
   `.claude/hooks/guard_padlocks.py` before every Edit, Write and shell command, and refuses one that
   would write `heron-autocad.config` or the D-60 policy key (exit 2). It catches the plain ways, not

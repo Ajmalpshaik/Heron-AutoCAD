@@ -15,7 +15,7 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 Each is a GitHub issue with the `from-heron-revit` label; the issue says what Revit does and what
 done looks like here.
 
-- [ ] **Padlocks a file cannot switch on** ([#76](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/76), bug) and a Windows policy that holds one off ([#77](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/77)).
+- [x] **Padlocks a file cannot switch on** ([#76](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/76), bug) and a Windows policy that holds one off ([#77](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/77)). D-59, D-60, PRs #121 and #140; live rows R1-R9 NOT RUN. Open: whether connect-at-start leaves the file too ([#141](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/141)).
 - [x] A chat reopened after a Claude restart keeps its hold ([#78](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/78), bug). D-61, PR #124; live row T1 NOT RUN.
 - [x] One plain result line: DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN ([#79](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/79)). D-62, PR #124; live rows T2-T3 NOT RUN.
 - [ ] No empty undo step ([#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80)). Part done in PR #124 (no undo step when nothing differs); taking back an empty job waits for live row T7 ([05 §26](05-known-limits.md)).
