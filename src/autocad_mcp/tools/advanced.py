@@ -19,7 +19,7 @@ from typing import Annotated, Any
 from pydantic import Field
 
 from ..core import gate
-from ..core.connection import get_doc, require_idle, run
+from ..core.connection import get_doc, mark_writing, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 
@@ -111,6 +111,13 @@ def publish_call_in_lisp(expression: str) -> str | None:
 # reliably, and leaves AutoCAD in a state where the next call fails. These are
 # sent unwrapped.
 UNDO_STACK_COMMANDS = {"UNDO", "U", "REDO", "MREDO", "OOPS"}
+# What a busy AutoCAD after one of those was sent answers (#42). Not "one Ctrl+Z
+# reverses it": after an undo, Ctrl+Z takes back one step more.
+UNDO_SENT_UNKNOWN = (
+    "Outcome unknown: AutoCAD went busy as {command} was sent, so it may already have run. "
+    "Heron did not send it again: sent twice, it would undo or redo one step more than asked. "
+    "Look at the drawing before sending it again."
+)
 
 # System variables used to smuggle a LISP result back across the COM boundary.
 # USERS1-5 are string variables AutoCAD reserves for exactly this purpose.
@@ -274,7 +281,9 @@ async def autocad_send_command(
 
     The command is wrapped in an undo mark so one call is one Ctrl+Z. UNDO,
     REDO, U, MREDO and OOPS are sent unwrapped, since running those inside an
-    open undo group does not roll back reliably.
+    open undo group does not roll back reliably. They still count as a write:
+    if AutoCAD goes busy once one is sent, the answer is OUTCOME UNKNOWN and it
+    is never sent a second time.
 
     Args:
         command (str): Command string with \\n between arguments.
@@ -339,6 +348,10 @@ async def autocad_send_command(
 
         try:
             if manages_undo:
+                # No undo mark round these (see UNDO_STACK_COMMANDS), but the
+                # write is still marked: a busy signal from here on is OUTCOME
+                # UNKNOWN, never a second UNDO (#42, D-15).
+                mark_writing(UNDO_SENT_UNKNOWN.format(command=first))
                 doc.SendCommand(payload)
             else:
                 with undo_mark(doc):
