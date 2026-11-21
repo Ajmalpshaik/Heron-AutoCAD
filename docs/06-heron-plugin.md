@@ -14,7 +14,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Heron** (arrow) -> Bridge Status | The state, the Changes card, and Connect / Disconnect | `HERONSTATUS` |
 | **Heron** (arrow) -> Stop Heron now | The emergency stop ([D-51](DECISIONS.md)): every chat is refused at once, a running job stops at its next request to the plug-in, and Esc is pressed for the command running now. Sticky until picked again. What AutoCAD already has queued (one batch) still finishes | `HERONSTOP` |
 | **Heron** (arrow) -> Free this AutoCAD | Lets another chat use this AutoCAD now, whichever chat holds it (not while one of its jobs is running). Changes nothing in a drawing | `HERONFREE` |
-| **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep) | `HERONSETTINGS` |
+| **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep; HELD when a Windows policy holds it off) | `HERONSETTINGS` |
 
 | Switch in Settings | What it does | Command |
 |---|---|---|
@@ -30,8 +30,38 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
   switching the question *off* is what asks.
 - Reading and viewing (status, lists, measure, preview, zoom, switch drawing) need no padlock, only
   the connection.
-- The padlocks are saved in `%APPDATA%\Heron\autocad\heron-autocad.config` and read fresh on every
-  call, so they apply to every open AutoCAD. A file that cannot be read means **every padlock off**.
+- **The padlocks live only in this AutoCAD's memory** ([D-59](DECISIONS.md)). Every time AutoCAD
+  starts, Changes, Admin and Publish are **off** and Ask to Keep is **on** (asking). Only your click
+  turns one on: in Settings, or in the same question `HERONCHANGES` / `HERONADMIN` /
+  `HERONPUBLISH` open. No file can turn one on, so a chat that can write files cannot unlock itself.
+- **Each open AutoCAD has its own padlocks.** Turning Changes on in one does not turn it on in another.
+- `%APPDATA%\Heron\autocad\heron-autocad.config` now keeps only `bridge.autoConnect` and
+  `ui.activityBanner`. The padlock lines an older plug-in wrote there (`write.enabled`,
+  `publish.enabled`, `admin.enabled`, `write.askBeforeKeeping`) are **ignored**; you may delete them.
+  A file that cannot be read means no connect at start and the banner on.
+
+### A Windows policy can hold a padlock off
+
+For an office that installs Heron for many modellers ([D-60](DECISIONS.md)). The PC's administrator
+sets DWORD values under `HKLM\SOFTWARE\Policies\Heron\AutoCAD`:
+
+| Value | 0 means |
+|---|---|
+| `AllowChanges` | Changes stays off |
+| `AllowAdmin` | Admin stays off |
+| `AllowPublish` | Publish stays off |
+
+Any other value, or no value, leaves that padlock to the modeller. A held padlock shows **HELD** in
+Settings with the line "A Windows policy on this PC holds this off.", and cannot be pressed. A chat
+asking for it is told the policy holds it. A policy pushed while AutoCAD runs applies at the next
+call and turns that padlock off; when the policy is lifted, the padlock stays off until you turn it
+on. Ask to Keep has no policy. Only an administrator can write `HKLM`, so no chat can lift a hold.
+
+### The guard for Claude Code in this repository
+
+`.claude/settings.json` runs `.claude/hooks/guard_padlocks.py` before every edit and shell command
+Claude Code makes here. It refuses one that would write `heron-autocad.config` or the policy key.
+It is a second guard: the first is that no file can turn a padlock on.
 
 Every Heron window - Bridge Status, Settings, the switch question and Keep or Discard - is drawn in
 Heron for Revit's window style ([D-45](DECISIONS.md)): a dark card with a coloured strip on top, a
@@ -157,7 +187,9 @@ If no answer comes within 300 s the result is "Outcome unknown": the operation m
 | What | Where |
 |---|---|
 | The plug-in | `%APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle` |
-| Padlocks | `%APPDATA%\Heron\autocad\heron-autocad.config` |
+| Padlocks | Nowhere on disk: this AutoCAD's memory only ([D-59](DECISIONS.md)) |
+| Connect at start, banner | `%APPDATA%\Heron\autocad\heron-autocad.config` |
+| Padlock policy (administrator) | `HKLM\SOFTWARE\Policies\Heron\AutoCAD` ([D-60](DECISIONS.md)) |
 | Address files | `%LOCALAPPDATA%\Heron\autocad\bridges\` |
 | Add-in log | `%LOCALAPPDATA%\Heron\autocad\logs\addin-YYYYMMDD.log` |
 | Audit (server) | `%LOCALAPPDATA%\Heron\autocad\audit\audit-YYYYMM.jsonl` |

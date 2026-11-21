@@ -27,7 +27,9 @@ namespace Heron.AutoCAD.Addin
         /// The padlocks, in this AutoCAD's memory only (D-59): all off at every
         /// start, whatever any file says; a Windows policy can hold one off (D-60).
         /// </summary>
-        internal static HeronPadlocks Padlocks { get; } = new HeronPadlocks(new WindowsPolicy());
+        // Made first thing in Initialize, on the main thread, before the pipe can
+        // start and after the static constructor has hooked the DLL resolver.
+        internal static HeronPadlocks Padlocks { get; private set; } = null!;
 
         /// <summary>The padlocks from memory, with the file's connect-at-start and banner settings.</summary>
         internal static HeronConfig LoadConfig() => Padlocks.Snapshot(HeronConfig.Load(HeronConfig.DefaultPath));
@@ -59,6 +61,7 @@ namespace Heron.AutoCAD.Addin
 
         public void Initialize()
         {
+            Padlocks = new HeronPadlocks(new WindowsPolicy());
             try
             {
                 AcadVersion = Convert.ToString(AcApp.GetSystemVariable("ACADVER")) ?? "";

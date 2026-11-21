@@ -5,7 +5,7 @@ C# solution [`Heron.AutoCAD.sln`](Heron.AutoCAD.sln). What it looks like to the 
 
 | Project | Job | References AutoCAD? |
 |---|---|---|
-| `Heron.AutoCAD.Bridge` | Pipe server, session token, address file, padlock rules, one-chat hold, the protocol; the list of the plug-in's own operations and their pure rules (edge and face words, the super hatch tile grid) | **No** - tested offline |
+| `Heron.AutoCAD.Bridge` | Pipe server, session token, address file, padlock rules, the padlocks in memory and the Windows policy that can hold one off (`HeronPadlocks.cs`, `HeronPolicy.cs`, [D-59, D-60](../docs/DECISIONS.md)), one-chat hold, the protocol; the list of the plug-in's own operations and their pure rules (edge and face words, the super hatch tile grid) | **No** - tested offline |
 | `Heron.AutoCAD.Bridge.Tests` | xUnit tests, including the real Python client against the real server | No |
 | `Heron.AutoCAD.Addin` | Ribbon, commands, banner, Bridge Status, Keep or Discard, main-thread queue, the plug-in's own operations (3D edits, super hatch) | **Yes - the only one** |
 

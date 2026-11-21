@@ -13,8 +13,29 @@ or did not load; run `tools/install_plugin.py` with AutoCAD closed, then check
 
 ## "Changes is off" / "Publish is off" / "Admin is off"
 
-The padlock named in the message is closed. Click it on the Heron tab (or type the command the
-message names) and answer Yes. This is the guard working, not an error.
+The padlock named in the message is closed. Press **Settings** on the Heron tab (or type the
+command the message names), click its OFF and answer **Turn on**. This is the guard working, not an
+error.
+
+**It was on before you restarted AutoCAD.** That is right: every padlock is off each time AutoCAD
+starts, and each open AutoCAD has its own ([D-59](DECISIONS.md)). Turn it on again in Settings.
+
+**You set `"write.enabled": true` (or another padlock line) in `heron-autocad.config`.** The file no
+longer turns any padlock on; those lines are ignored. Only a click in Settings does.
+
+## "Changes is held off by a Windows policy on this PC"
+
+The PC's administrator set `AllowChanges` (or `AllowAdmin`, `AllowPublish`) to 0 under
+`HKLM\SOFTWARE\Policies\Heron\AutoCAD` ([D-60](DECISIONS.md)). Settings shows that padlock as
+**HELD** and it cannot be pressed. Only the administrator can change it: ask whoever looks after
+the PC. Once they lift it, turn the padlock on in Settings; it does not come back on by itself.
+
+## "Heron's padlock guard refused this step"
+
+Claude Code, working in this repository, tried to write `heron-autocad.config` or the Heron policy
+key, and the repository's guard (`.claude/hooks/guard_padlocks.py`) stopped it. Nothing was
+written. A chat must never switch a padlock itself; turn it on in Settings. If Claude only meant to
+read the file or mention its name, ask it to do that without the writing part.
 
 ## "This AutoCAD is in use by another chat"
 
@@ -231,7 +252,8 @@ When a batch draws nothing, look at these instead:
 - **AutoCAD is mid-command.** A prompt on the command line swallows the
   expressions. Press Esc in AutoCAD and run the batch again.
 - **Heron is not connected, or the Changes padlock is off.** The tool says so
-  in its refusal; press Heron on the Heron tab, then turn on Changes.
+  in its refusal; press Heron on the Heron tab, then turn on Changes in Settings (it is off
+  again after every AutoCAD restart).
 - **The target layer is locked or frozen.** See the next section.
 
 To confirm LISP evaluation works at all, ask Claude to run `autocad_run_lisp`
