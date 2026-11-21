@@ -110,7 +110,9 @@ def column_index(letters: str) -> int:
 
 
 def _cell(ref: str, value: Any, bold: bool) -> str:
-    style = ' s="1"' if bold else ""
+    # The heading is bold; every other cell is formatted as Text (number format 49), so what the
+    # modeller types over it stays the text typed: "0051" keeps its zero, "1:100" is not a time.
+    style = ' s="1"' if bold else ' s="2"'
     text = _BAD_CHARS.sub("", escape("" if value is None else str(value)))
     return f'<c r="{ref}" t="inlineStr"{style}><is><t xml:space="preserve">{text}</t></is></c>'
 
@@ -192,8 +194,9 @@ def write(sheets: list[tuple[str, list[list[Any]], list[int] | None]]) -> bytes:
             '<fill><patternFill patternType="gray125"/></fill></fills>'
             '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
             '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-            '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+            '<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+            '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'
             '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             "</styleSheet>"
         ),
@@ -296,7 +299,11 @@ def read(content: bytes) -> dict[str, list[list[str]]]:
                     rows.append([])  # an empty row Excel left out
                 cells: list[str] = []
                 for position, cell in enumerate(row.findall("m:c", _NS)):
-                    letters = re.match(r"[A-Za-z]+", cell.get("r") or "")
+                    reference = cell.get("r")
+                    letters = re.match(r"[A-Za-z]+", reference or "")
+                    if reference and not letters:
+                        # A reference with no column letter cannot say which column it is (D-75).
+                        raise SheetError(f"sheet '{name}' has a cell '{reference}' with no column letter")
                     index = column_index(letters.group(0)) if letters else position
                     if index >= MOST_COLUMNS:
                         raise SheetError(f"sheet '{name}' has a cell beyond Excel's last column")
@@ -310,8 +317,11 @@ def read(content: bytes) -> dict[str, list[list[str]]]:
                         text = _text(inline) if inline is not None else ""
                     elif kind == "b":
                         text = "TRUE" if raw == "1" else "FALSE"
-                    elif kind in ("str", "e"):
+                    elif kind == "str":
                         text = raw
+                    elif kind == "e":
+                        # #N/A, #REF! ...: a formula that failed, never a value to write.
+                        text = Converted(raw, "an error") if raw else ""
                     else:
                         text = number_text(raw) if raw else ""
                         try:

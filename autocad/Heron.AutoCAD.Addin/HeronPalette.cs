@@ -622,6 +622,9 @@ namespace Heron.AutoCAD.Addin
             {
                 FileName = python,
                 Arguments = PaletteServer.Arguments(request, Process.GetCurrentProcess().Id),
+                // Never AutoCAD's own working folder (often the project share a DWG was opened
+                // from): "python -m" looks there first, so a planted .py would run on Run.
+                WorkingDirectory = PaletteServer.RequestFolder,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
