@@ -154,6 +154,8 @@ $code = Run-Uninstall 'uninstall-while-acad'
 Check ((Test-Path $server) -and (Test-Path $appKey) -and (Test-Path $marker)) "uninstall refused while acad.exe runs (exit $code), nothing removed"
 Stop-Process -Id $acad.Id -Force
 Start-Sleep -Seconds 1
+# The marker is not the setup's file, so its uninstaller would rightly leave it (and the folder).
+Remove-Item $marker -Force
 
 # 5. uninstall
 $previous = Join-Path $app 'previous'
