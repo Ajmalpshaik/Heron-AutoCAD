@@ -382,7 +382,7 @@ def _save_screen(doc: Any, clean: str, replace: bool) -> dict[str, Any]:
 DEFAULT_LENS_MM = 50.0
 
 
-@mcp.tool(name="autocad_add_camera_view", **tool_meta("Add A Camera View"))
+@mcp.tool(name="autocad_add_camera_view", **tool_meta("Add A Camera View For A Render"))
 @tool_errors
 async def autocad_add_camera_view(
     name: Annotated[
