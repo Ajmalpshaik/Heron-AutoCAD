@@ -344,6 +344,60 @@ modules but stays its own chat, so it never takes or keeps that chat's hold by a
 `tools/protocol_check.py` starts its server without the host's variable. Not proven live: whether
 Claude Code passes that variable to MCP servers, and keeps it on a resumed chat (row T1). Without
 it, nothing changes: a new id, as before.
+## D-60 - A Windows policy can hold a padlock off
+
+**Decided:** 2026-11-21, from issue #77 (the idea of Heron AI for Revit's D-166, layer 3; no files
+copied). **Status:** in force.
+For an office that installs Heron for many modellers. The plug-in reads
+`HKLM\SOFTWARE\Policies\Heron\AutoCAD`, its own key, so an office can set AutoCAD apart from Revit.
+DWORD values `AllowChanges`, `AllowPublish`, `AllowAdmin`: **0 holds that padlock off**. The text
+"0" counts too, for a value typed as a string by mistake. 1, any other number, no value or no key
+leaves the padlock to the modeller.
+- **Read fresh on every call**, so a policy pushed while AutoCAD runs applies at once. A padlock it
+  holds is also put off in memory: lifting the policy never turns it back on without a click.
+- **Shown:** Settings draws the padlock as **HELD**, with "A Windows policy on this PC holds this
+  off.", and it cannot be pressed. A chat is told "Changes is held off by a Windows policy on this
+  PC ... Only the PC's administrator can lift it." (`Texts.ChangesHeld` and the Publish and Admin
+  ones). The refusal stays `refusedBy: "Changes"`, so the server needs no change.
+- **A key that cannot be read holds nothing.** Only an administrator can make HKLM unreadable or
+  write it, so failing open here gives no program the modeller runs any power. The 64-bit view is
+  read, as AutoCAD 2021 and later is 64-bit only.
+- **Ask to Keep has no policy.** Not asked for; easy to add the same way.
+- **Tested off Windows:** the reading sits behind `IHeronPolicy`; the bridge tests use a fake, and
+  the real `WindowsPolicy` is only checked never to throw. Live rows R5-R7 NOT RUN.
+
+## D-59 - The padlocks live in AutoCAD's memory; no file can turn one on
+
+**Decided:** 2026-11-21, from issue #76 (the idea of Heron AI for Revit's D-166; no files copied).
+**Status:** in force. Replaces the "saved in a file, read fresh on every call" part of D-16 and
+[06](06-heron-plugin.md); the fail-closed rule of D-16 stays for what the file still holds.
+The padlocks were saved in `%APPDATA%\Heron\autocad\heron-autocad.config` and read on every call,
+so any program that can write a file, an AI chat included, could turn one on without the
+modeller's click, skipping "turning a padlock on asks first".
+- **In memory only** (`Bridge/HeronPadlocks.cs`). Every AutoCAD starts with Changes, Publish and
+  Admin **off**. Nothing is read from or written to a file for them.
+- **Ask to Keep starts off, as before** (Ajmal's choice, 2026-11-21), and lives in memory too: no
+  file can switch it on or off. A modeller who wants it turns it on in Settings after each AutoCAD
+  start.
+- **Only the modeller's click moves a switch:** in Settings, or in the same question
+  `HERONCHANGES` / `HERONPUBLISH` / `HERONADMIN` open (kept for command-line users; they ask exactly
+  as Settings does, and a typed command sent by a program still needs that click). Turning off
+  still never asks. The pipe has no request that reaches the padlocks.
+- **Each open AutoCAD has its own padlocks.** Before, the file shared them between AutoCADs. Own
+  padlocks are the simple answer: what the modeller unlocked is the AutoCAD in front of them.
+- **The file keeps** `bridge.autoConnect` and `ui.activityBanner` only. The old padlock lines are
+  ignored, never read, and the plug-in no longer writes the file. `autoConnect` stays a file
+  setting: it only connects, and with every padlock off a chat can then read but change nothing.
+- **`autocad://diagnose`** no longer reads padlocks from the file: it would have reported stale
+  lines as on.
+- **A guard for Claude Code in this repository:** `.claude/settings.json` runs
+  `.claude/hooks/guard_padlocks.py` before every Edit, Write and shell command, and refuses one that
+  would write `heron-autocad.config` or the D-60 policy key (exit 2). It catches the plain ways, not
+  every way: it is the second guard, the first is that no file can turn a padlock on. If Python
+  cannot be found the step goes ahead with a warning, so a fresh clone is never locked out.
+  `.gitignore` keeps everything else in `.claude/` (local settings, worktrees) out of git.
+- Tested offline: `PadlockTests`, `ConfigTests` (bridge), `tests/test_padlock_guard.py`,
+  `tests/test_diagnose.py`. Live rows R1-R4 and R8 NOT RUN.
 
 ## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
 

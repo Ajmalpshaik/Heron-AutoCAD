@@ -16,9 +16,10 @@ Each is a GitHub issue with the `from-heron-revit` label; the issue says what Re
 done looks like here.
 
 - [ ] **Padlocks a file cannot switch on** ([#76](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/76), bug) and a Windows policy that holds one off ([#77](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/77)).
-- [ ] A chat reopened after a Claude restart keeps its hold ([#78](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/78), bug).
-- [ ] One plain result line: DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN ([#79](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/79)); no empty undo step ([#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80)).
-- [ ] Dry run for any change ([#81](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/81)); before / after values ([#82](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/82)).
+- [x] A chat reopened after a Claude restart keeps its hold ([#78](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/78), bug). D-61, PR #124; live row T1 NOT RUN.
+- [x] One plain result line: DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN ([#79](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/79)). D-62, PR #124; live rows T2-T3 NOT RUN.
+- [ ] No empty undo step ([#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80)). Part done in PR #124 (no undo step when nothing differs); taking back an empty job waits for live row T7 ([05 §26](05-known-limits.md)).
+- [x] Dry run for any change ([#81](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/81)); before / after values ([#82](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/82)). D-63 and D-62, PR #124; live rows T4-T6 NOT RUN.
 - [ ] Dialog watch during a job ([#83](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/83)).
 - [ ] Check lists: NO DATA + coverage ([#84](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/84)), office list + project changes ([#85](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/85)), Excel / HTML report ([#86](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/86)), never "complies" ([#87](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/87)).
 - [ ] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).

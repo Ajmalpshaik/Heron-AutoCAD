@@ -86,10 +86,10 @@ the level decides which padlock it needs:
 
 | Level | Needs | What |
 |---|---|---|
-| Read | connected | status, list and find, measure, extents, selection, layers, blocks, styles, the UCS, saved locations, **solid volumes and centroids**, preview image, standards check, attribute schedules |
+| Read | connected | status, list and find, measure, extents, selection, layers, blocks, styles, the UCS, saved locations, **solid volumes and centroids**, preview image, standards check, **check lists before issue**, attribute schedules |
 | View | connected | zoom, regen, switch / open / create drawing, **3D view direction and visual style** |
 | Change | Changes | draw, text, dimensions, hatch, blocks, batch drawing, move ... array, modify, delete, layers, the UCS, sheets / title blocks / viewports, drawing settings and styles, remap layers / tidy an import, several tools in one call, **24 named shapes**, **dimension runs and centre marks**, **multileaders, tables and revision clouds**, **3D solids, extrude / revolve, booleans** |
-| Publish | Changes + Publish | save, export / plot to PDF (whole sheet, a window, or a saved location) |
+| Publish | Changes + Publish | save, export / plot to PDF (whole sheet, a window, or a saved location), **a check list report as Excel and HTML** |
 | Admin | Changes + Admin | any command, AutoLISP, system variables, purge, audit |
 
 Every tool with its options: [docs/03-tools-reference.md](docs/03-tools-reference.md).
@@ -108,6 +108,8 @@ Named shapes, dimension runs, annotation and 3D:
 - **No double drawing.** If AutoCAD goes busy half-way through a change, Heron does not retry; it
   says "outcome unknown, read the drawing back first".
 - **Every call audited** to `%LOCALAPPDATA%\Heron\autocad\audit\`.
+- **A check is not a sign-off.** PASS means the checked value is met, against the source named on
+  the line. Heron never says a drawing complies: [DISCLAIMER.md](DISCLAIMER.md).
 
 More: [SECURITY.md](SECURITY.md).
 

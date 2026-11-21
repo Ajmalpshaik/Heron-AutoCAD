@@ -23,7 +23,16 @@ namespace Heron.AutoCAD.Addin
         internal static string AddinVersion { get; } = typeof(HeronApplication).Assembly.GetName().Version?.ToString(3) ?? "";
         internal static string? StartError { get; private set; }
 
-        internal static HeronConfig LoadConfig() => HeronConfig.Load(HeronConfig.DefaultPath);
+        /// <summary>
+        /// The padlocks, in this AutoCAD's memory only (D-59): all off at every
+        /// start, whatever any file says; a Windows policy can hold one off (D-60).
+        /// </summary>
+        // Made first thing in Initialize, on the main thread, before the pipe can
+        // start and after the static constructor has hooked the DLL resolver.
+        internal static HeronPadlocks Padlocks { get; private set; } = null!;
+
+        /// <summary>The padlocks from memory, with the file's connect-at-start and banner settings.</summary>
+        internal static HeronConfig LoadConfig() => Padlocks.Snapshot(HeronConfig.Load(HeronConfig.DefaultPath));
 
         static HeronApplication()
         {
@@ -52,6 +61,7 @@ namespace Heron.AutoCAD.Addin
 
         public void Initialize()
         {
+            Padlocks = new HeronPadlocks(new WindowsPolicy());
             try
             {
                 AcadVersion = Convert.ToString(AcApp.GetSystemVariable("ACADVER")) ?? "";
@@ -65,8 +75,7 @@ namespace Heron.AutoCAD.Addin
                 HeronRibbon.Init();
                 AcApp.QuitWillStart += (s, e) => Server?.Stop();
 
-                // Pick up padlocks changed in another AutoCAD, and the
-                // "Keep: rest of job" label running out.
+                // Pick up the "Keep: rest of job" label running out.
                 _refresh = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
                 _refresh.Tick += (s, e) => HeronRibbon.Repaint();
                 _refresh.Start();

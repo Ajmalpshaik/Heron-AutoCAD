@@ -6,9 +6,9 @@ using System.Text.Json;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// The padlocks and switches, in %APPDATA%\Heron\autocad\heron-autocad.config.
-    /// Read fresh for every job. A file that cannot be read cleanly keeps every
-    /// padlock off: failing closed is the only safe way to fail here.
+    /// The switches the bridge obeys for one call. The padlocks and Ask to Keep
+    /// come from this AutoCAD's memory (HeronPadlocks, D-59); only connect at
+    /// start and the banner come from %APPDATA%\Heron\autocad\heron-autocad.config.
     /// </summary>
     public sealed class HeronConfig
     {
@@ -19,9 +19,19 @@ namespace Heron.AutoCAD.Bridge
         public bool AutoConnect { get; set; }
         public bool ActivityBanner { get; set; } = true;
 
+        /// <summary>The padlocks a Windows policy holds off (D-60), so a refusal can say so.</summary>
+        public PolicyHolds Held { get; set; } = PolicyHolds.None;
+
         public static string DefaultPath =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Heron", "autocad", "heron-autocad.config");
 
+        /// <summary>
+        /// The file's own settings: bridge.autoConnect and ui.activityBanner.
+        /// The padlock lines an older plug-in wrote (write.enabled,
+        /// publish.enabled, admin.enabled, write.askBeforeKeeping) are ignored,
+        /// so a file can never turn a padlock on (D-59). A file that cannot be
+        /// read cleanly gives the defaults: not connecting at start, banner on.
+        /// </summary>
         public static HeronConfig Load(string path)
         {
             string text;
@@ -45,10 +55,6 @@ namespace Heron.AutoCAD.Bridge
                         var on = kind == JsonValueKind.True;
                         switch (property.Name)
                         {
-                            case "write.enabled": read.WriteEnabled = on; break;
-                            case "publish.enabled": read.PublishEnabled = on; break;
-                            case "admin.enabled": read.AdminEnabled = on; break;
-                            case "write.askBeforeKeeping": read.AskBeforeKeeping = on; break;
                             case "bridge.autoConnect": read.AutoConnect = on; break;
                             case "ui.activityBanner": read.ActivityBanner = on; break;
                         }
@@ -58,21 +64,6 @@ namespace Heron.AutoCAD.Bridge
             }
             catch (JsonException) { return new HeronConfig(); }
         }
-
-        public void Save(string path)
-        {
-            var sb = new StringBuilder();
-            sb.Append("{\n");
-            sb.Append("  \"write.enabled\": ").Append(Js(WriteEnabled)).Append(",\n");
-            sb.Append("  \"publish.enabled\": ").Append(Js(PublishEnabled)).Append(",\n");
-            sb.Append("  \"admin.enabled\": ").Append(Js(AdminEnabled)).Append(",\n");
-            sb.Append("  \"write.askBeforeKeeping\": ").Append(Js(AskBeforeKeeping)).Append(",\n");
-            sb.Append("  \"bridge.autoConnect\": ").Append(Js(AutoConnect)).Append(",\n");
-            sb.Append("  \"ui.activityBanner\": ").Append(Js(ActivityBanner)).Append("\n}\n");
-            AtomicFile.Write(path, sb.ToString());
-        }
-
-        private static string Js(bool value) => value ? "true" : "false";
     }
 
     internal static class AtomicFile

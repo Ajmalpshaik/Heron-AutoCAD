@@ -26,7 +26,7 @@ from .risk import RISK, Risk
 mcp = MCPServer(
     "autocad_mcp",
     title="Heron AI for AutoCAD",
-    version="1.7.0",
+    version="1.8.0",
     instructions=(
         "Controls the AutoCAD instance running on this machine through its COM "
         "Automation interface. Changes appear live in the user's open drawing.\n\n"

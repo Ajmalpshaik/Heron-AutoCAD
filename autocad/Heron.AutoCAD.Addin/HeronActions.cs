@@ -7,12 +7,12 @@ using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace Heron.AutoCAD.Addin
 {
-    internal enum Padlock { Changes, Publish, Admin, AskToKeep }
-
     /// <summary>
     /// What the ribbon buttons and the HERON commands do. Main thread only.
     /// Turning a padlock on asks first; turning it off never asks. Ask to
     /// Keep is the other way round: switching the question off is what asks.
+    /// The padlocks live in this AutoCAD's memory (D-59): these clicks are the
+    /// only way to move one, and a Windows policy can hold one off (D-60).
     /// </summary>
     internal static class HeronActions
     {
@@ -141,24 +141,35 @@ namespace Heron.AutoCAD.Addin
         public static void TogglePadlock(Padlock padlock)
         {
             HeronLog.Write("toggle padlock: " + padlock);
-            var config = HeronApplication.LoadConfig();
-            var on = Get(config, padlock);
+            var padlocks = HeronApplication.Padlocks;
+            var on = padlocks.IsOn(padlock);
+            if (!on && padlocks.Holds().Holds(padlock))
+            {
+                SayHeld(padlock);
+                return;
+            }
             var asking = padlock == Padlock.AskToKeep ? on : !on;
             if (asking && !Confirm(padlock, !on)) return;
-            Set(config, padlock, !on);
-            try
+            if (on) padlocks.TurnOff(padlock);
+            else if (!padlocks.TurnOn(padlock))
             {
-                config.Save(HeronConfig.DefaultPath);
-            }
-            catch (Exception ex)
-            {
-                HeronLog.Error("Saving the padlocks", ex);
-                Say("Heron could not save the switch: " + ex.Message);
+                // A policy arrived while the question was open.
+                SayHeld(padlock);
+                HeronRibbon.Repaint();
                 return;
             }
             if (padlock == Padlock.AskToKeep && on) HeronApplication.Server?.Protocol?.ClearKeepGrant();
             Say("Heron: " + Name(padlock) + " is now " + (!on ? "ON." : "off."));
             HeronRibbon.Repaint();
+        }
+
+        /// <summary>The words for a padlock a Windows policy holds off (D-60).</summary>
+        internal const string HeldLine = "A Windows policy on this PC holds this off.";
+
+        private static void SayHeld(Padlock padlock)
+        {
+            HeronLog.Write("padlock held by policy: " + padlock);
+            Say("Heron: " + Name(padlock) + " stays off. " + HeldLine + " Only the PC's administrator can lift it.");
         }
 
         private static bool Confirm(Padlock padlock, bool turningOn)
@@ -222,25 +233,6 @@ namespace Heron.AutoCAD.Addin
         }
 
         private static string Name(Padlock padlock) => padlock == Padlock.AskToKeep ? "Ask to Keep" : padlock.ToString();
-
-        private static bool Get(HeronConfig c, Padlock p) => p switch
-        {
-            Padlock.Changes => c.WriteEnabled,
-            Padlock.Publish => c.PublishEnabled,
-            Padlock.Admin => c.AdminEnabled,
-            _ => c.AskBeforeKeeping,
-        };
-
-        private static void Set(HeronConfig c, Padlock p, bool value)
-        {
-            switch (p)
-            {
-                case Padlock.Changes: c.WriteEnabled = value; break;
-                case Padlock.Publish: c.PublishEnabled = value; break;
-                case Padlock.Admin: c.AdminEnabled = value; break;
-                default: c.AskBeforeKeeping = value; break;
-            }
-        }
 
         private static void OpenLogs()
         {

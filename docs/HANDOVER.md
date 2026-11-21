@@ -8,7 +8,47 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (why / gaps / question mode #88-#90 and #43 merged, PR #120)
+## Latest - 2026-11-21 (check lists for QA #84-#87 merged, PR #122)
+
+PR #122 was merged by Ajmal after CI `python` and `plugin` passed. Server only, no plug-in change;
+restart the server after pulling. 138 tools.
+- **D-64 (#84, #85, #87):** check list results are PASS, FAIL, **NO DATA** (could not decide; never a
+  PASS) and NOT RUN (switched off for this project), with a coverage line on every run. Office
+  lists stay in `%LOCALAPPDATA%\Heron\autocad\checklists`; a project's changes (severity, target,
+  on/off only) are kept per project folder in `checklists\projects`. PASS means the checked value
+  is met against the named source; no answer says "complies"; [DISCLAIMER.md](../DISCLAIMER.md).
+- **D-65 (#86):** `autocad_checklist_report` (Publish) saves a run as `.xlsx` + `.html` next to the
+  drawing, numbered ` (2)`, ` (3)`, never overwriting. The workbook is written without openpyxl.
+- **One test changed on purpose:** a missing title block is now NO DATA, not NOT RUN.
+
+**Next:** in AutoCAD 2027, run group U rows U1-U10 (all NOT RUN); U8 first (does Excel open the
+report without a repair message). Server version bump (suggested 1.8.0) is still to do.
+Possible later: share an office list from a network folder; keep project changes in the project
+folder so the team shares them.
+
+## Earlier - 2026-11-21 (docked Heron palette #92-#93 merged, PR #123)
+
+PR #123 was merged on Ajmal's word, after CI `python` and `plugin` passed (`review` was skipped,
+#34). Plug-in **and** server change: rebuild and reinstall the plug-in (AutoCAD closed), and
+restart the server after pulling.
+- **D-68:** `HERONPALETTE`, or Heron (arrow) -> **Heron palette**, opens one docked palette with two
+  tabs in Heron's window style. **Activity** lists Heron's change jobs from every chat, newest
+  first, with Select, Zoom and Undo; Undo is the modeller's (no padlock) but only by D-54's rule,
+  and says why when not. **Saved commands** lists the commands saved in a chat (shown within 2 s),
+  fills their inputs and runs one by starting a copy of the server
+  (`--run-saved request.json --acad-pid N`), which passes the same gate, hold and padlocks as any
+  chat, checks units first and frees the AutoCAD after.
+- Rules in the bridge, tested offline: `ActivityLog.cs`, `SavedCommandList.cs`, `PaletteServer.cs`,
+  words in `PaletteTexts.cs`. Server side: `src/autocad_mcp/palette.py`; every server now writes
+  `%LOCALAPPDATA%\Heron\autocad\server.json` at start, which is how the palette finds it.
+- Found on the rebase and fixed before merging: the palette read the D-62 plain line
+  (`REFUSED ...`) as success; it now reads the word. The palette run returns before
+  `follow_host_chat()`, so it never takes the chat's id (D-61).
+
+**Next:** install the plug-in and, in AutoCAD 2027, run group X rows X1-X20 (all NOT RUN); **X4
+first** (whether the palette's Zoom leaves an undo step that would block Undo). Version bump
+still to do: suggested plug-in **1.6.0** (new command, protocol unchanged).
+## Earlier - 2026-11-21 (why / gaps / question mode #88-#90 and #43 merged, PR #120)
 
 PR #120 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
 failed as on every PR, #34). Server only, no plug-in change; restart the server after pulling.
@@ -45,8 +85,8 @@ failed as on every PR, #34). Server only, no plug-in change; restart the server 
 - **#80 stays open:** the tools above leave no undo step when nothing differs; taking back an
   empty job afterwards waits for live row T7 ([05 §26](05-known-limits.md)).
 
-**Next:** in AutoCAD 2027, run group T rows T1-T7 (all NOT RUN). T7 decides #80. Server version
-bump (suggested 1.8.0) is still to do.
+**Next:** in AutoCAD 2027, run group T rows T1-T7 (all NOT RUN). T7 decides #80. The server is
+now **1.8.0** (plug-in still 1.5.0): on this PC, restart Claude after pulling so the new server runs.
 
 ## Earlier - 2026-11-21 (every open item is a GitHub issue; seven cloud sessions build the Revit ideas)
 

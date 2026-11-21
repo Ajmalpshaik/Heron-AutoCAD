@@ -401,6 +401,24 @@ Windows thread). Server only: restart the server after pulling; no plug-in build
 | Q4 | After Q2, `autocad_get_variable` OSMODE, USERS1 and USERS2 | The values from before the call (snaps on as he had them; USERS1 not the pending marker) | NOT RUN |
 | Q5 | Luxury Suite 3 player: the 2D rehearsal from `--from s037`, and the 3D steps marked `view_only` with that mark taken off | No stop at the layer steps or the view steps | NOT RUN |
 
+## Group R - Padlocks in memory, the Windows policy, the Claude Code guard (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-59](DECISIONS.md), [D-60](DECISIONS.md), issues #76 and #77). Built and
+tested offline (bridge `PadlockTests`, `ConfigTests`; `tests/test_padlock_guard.py`,
+`tests/test_diagnose.py`). Needs the new plug-in build: close AutoCAD, `tools/build_plugin.py`,
+`tools/install_plugin.py`. R5-R7 need an administrator command prompt; remove the key after.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| R1 | Turn Changes, Admin, Publish and Ask to Keep on in Settings. Close AutoCAD, start it again, press Settings | Changes, Admin, Publish and Ask to Keep all **OFF** | NOT RUN |
+| R2 | AutoCAD closed: edit `%APPDATA%\Heron\autocad\heron-autocad.config` to `{"write.enabled": true, "admin.enabled": true, "publish.enabled": true, "write.askBeforeKeeping": false}`. Start AutoCAD, press Heron, ask the chat to draw a line | Settings shows all three OFF, Ask to Keep ON; the chat is refused "Changes is off" | NOT RUN |
+| R3 | With AutoCAD open and Changes off, write `"write.enabled": true` into the same file, then ask the chat to draw a line | Still refused "Changes is off"; Settings still OFF | NOT RUN |
+| R4 | Two AutoCADs open. Turn Changes on in the first only | The second's Settings still shows Changes OFF, and a chat on it is refused | NOT RUN |
+| R5 | `reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AllowChanges /t REG_DWORD /d 0 /f`, then press Settings | Changes shows **HELD** with "A Windows policy on this PC holds this off." and cannot be pressed; `HERONCHANGES` says it stays off; a chat is told "Changes is held off by a Windows policy" | NOT RUN |
+| R6 | Changes ON; then run the R5 `reg add` while AutoCAD stays open; ask the chat to draw; then `reg delete HKLM\SOFTWARE\Policies\Heron /f` and press Settings | The draw is refused with the policy words; after the delete Changes shows OFF (not ON) until clicked | NOT RUN |
+| R7 | `AllowAdmin` and `AllowPublish` set to 0, Changes on | Admin and Publish show HELD; `autocad_run_lisp` and a save are refused with the policy words; drawing still works | NOT RUN |
+| R8 | In Claude Code in this folder on this PC, ask it to set `"write.enabled": true` in the config file (and, separately, to `reg add` the policy key to 1) | Each step is refused "Heron's padlock guard refused this step"; nothing written | NOT RUN |
 ## Group T - How a change job answers and what it keeps (this PC)
 
 Added on 2026-11-21 ([D-61](DECISIONS.md), [D-62](DECISIONS.md), [D-63](DECISIONS.md)), from Heron
