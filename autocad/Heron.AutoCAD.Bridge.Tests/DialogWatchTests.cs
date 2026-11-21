@@ -325,6 +325,27 @@ public class DialogAnswerTests
         _watch.Begin("j2", new long[0]);
         Assert.Equal(DialogPress.No, StandsFor(Box(10, "Purge - Confirm Purge", B(6, "Yes"), B(7, "No")), T0)!.Press);
     }
+
+    [Fact]
+    public void A_job_whose_end_never_came_loses_its_answer_when_the_next_job_begins()
+    {
+        // The server stopped mid-job: no End. The next job must not press that job's Yes.
+        _watch.Begin("lost", new long[0]);
+        Assert.True(_watch.Expect("lost", "AutoCAD Message", "Yes"));
+        _watch.Begin("j2", new long[0]);
+        Assert.Equal(DialogPress.No, StandsFor(Box(10, "AutoCAD Message", B(6, "Yes"), B(7, "No")), T0)!.Press);
+        Assert.Empty(_watch.Notes("lost"));
+    }
+
+    [Fact]
+    public void A_job_whose_end_never_came_stops_counting_after_twenty_minutes()
+    {
+        _watch.Begin("lost", new long[0], T0);
+        Assert.True(_watch.Expect("lost", "AutoCAD Message", "Yes"));
+        var later = T0 + DialogWatch.MostJob + TimeSpan.FromSeconds(1);
+        Assert.Null(StandsFor(Box(10, "AutoCAD Message", B(6, "Yes"), B(7, "No")), later));
+        Assert.False(_watch.Watching);
+    }
 }
 
 public class ExpectDialogOpTests

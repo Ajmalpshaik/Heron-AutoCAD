@@ -13,7 +13,8 @@ sitting at your AutoCAD.
 |---|---|
 | AutoCAD starts **disconnected**; until Heron is pressed no chat can find it | `autocad/Heron.AutoCAD.Addin/HeronApplication.cs` |
 | The pipe is open to **the current Windows user only**; a new random session token on every connect, compared in constant time | `autocad/Heron.AutoCAD.Bridge/BridgeServer.cs`, `BridgeIdentity.cs` |
-| **Padlocks off by default**, read fresh on every call; an unreadable settings file = all off | `HeronConfig.cs`, `Permissions.cs` |
+| **Padlocks off at every AutoCAD start**, kept in that AutoCAD's memory only, so no file can turn one on; only the modeller's click does (D-59) | `HeronPadlocks.cs`, `Permissions.cs` |
+| A Windows policy can hold a padlock off; no chat can lift it (D-60) | `HeronPolicy.cs` |
 | Every tool's level is declared in code, never taken from the request | `src/autocad_mcp/core/risk.py` |
 | One chat at a time per AutoCAD | `HeronHold.cs` |
 | A change to a drawing other than the one Heron last looked at is refused | `src/autocad_mcp/core/gate.py` |
