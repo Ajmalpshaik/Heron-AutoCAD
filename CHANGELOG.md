@@ -49,6 +49,13 @@ Newest first. Dates are when the change was made.
   silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
   closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
 
+- **Review of the 2026-11-21 merges (2026-11-21, PR #186, D-116).** Docs that still said the
+  padlocks are read from a file, or that AutoCAD can connect at start, now match D-59 and D-73. A
+  sequence step can no longer switch drawing or undo. The dialog watch forgets a job whose end never
+  came, so a named button cannot outlive its job. Excel: error cells are never written, exported
+  cells keep what is typed, rows are named by their Excel number. Three tests that could pass for
+  the wrong reason now check what they say. Issues filed for the rest. Live rows RV1-RV3 NOT RUN.
+
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
   listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.

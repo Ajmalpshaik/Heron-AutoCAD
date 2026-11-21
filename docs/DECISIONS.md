@@ -130,6 +130,27 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-116 - What the review of the 2026-11-21 merges changed, and what it left to issues
+
+**Decided:** 2026-11-21, review of PRs #99 onward (PR #186). **Status:** in force; adds to D-29, D-66,
+D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158).
+- **A sequence step may not move the work** (D-29): `autocad_switch_drawing`, `open_drawing`,
+  `create_drawing`, `check_folder`, `use_autocad` and `undo_last` are refused as steps, before
+  anything runs. Inside a sequence the gate checked one drawing and put its UNDO mark there, so a
+  later step must land in that drawing; `undo_last` as a step would take back the sequence's own work.
+- **The dialog watch forgets a job whose end never came** (D-66, D-74): a new job's begin drops an
+  earlier one (one job runs at a time in an AutoCAD), and a job older than 20 minutes stops counting.
+  Before, a server stopped mid-job left the watch on outside any job and an Admin job's named
+  button armed for later jobs.
+- **Excel** (D-69, D-75): an error cell (`#N/A`) is never written; exported data cells are formatted
+  as Text, so Excel keeps what the modeller types ("0051", "1:100"); a row is named by its Excel row
+  number; a cell reference with no column letter is refused, as D-75 already said.
+- **Checks that could pass for the wrong reason:** the tool-finder floors are back at the margin
+  their comment states, a tool listed under two levels in `core/risk.py` fails the structure check,
+  and the folder-close test now reaches the code it tests.
+- **Left to issues, in areas other sessions are changing:** #189-#191 and the issues filed from
+  PR #186's summary comment. Live rows: Group RV (NOT RUN).
+
 ## D-102 - A full-sheet preview says what it covered, and can add close-ups
 
 **Decided:** 2026-11-21, for issue #41. **Status:** in force; extends D-04 (the plot route) and

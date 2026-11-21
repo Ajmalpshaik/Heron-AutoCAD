@@ -8,7 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (a preview of a full sheet, D-102)
+## Latest - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
+
+A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
+SECURITY, PROJECT-MAP, 06), D-87 and D-67 notes, sequence steps that switch drawing or undo, the
+dialog watch's lost jobs, four Excel read / write faults, and three tests that passed for the wrong
+reason. Filed, in areas other sessions are changing: #189-#191 and the issues listed in PR #186's
+summary comment. Live rows: Group RV, NOT RUN.
+
+**Next:** the filed issues, highest first (the palette Undo and the batch text escape).
+
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
 
 Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
 only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
