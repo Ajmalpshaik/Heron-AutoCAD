@@ -19,6 +19,10 @@ Newest first. Dates are when the change was made.
   silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
   closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
 
+- **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
+  syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
+  listed with the block that holds them ([D-82](docs/DECISIONS.md)). Live row AC17 NOT RUN.
+
 - **The everyday 2D edits (2026-11-21, #103, #49, #105, #111, #110).** Eleven new tools (169 in
   all): `autocad_trim_extend`, `autocad_fillet_chamfer` (two lines, or a polyline's corners),
   `autocad_break_curve`, `autocad_join_curves`, `autocad_edit_vertex`, `autocad_stretch`,

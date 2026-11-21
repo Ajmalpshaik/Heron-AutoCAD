@@ -121,7 +121,7 @@ position, height, and the flags `invisible`, `constant` (needs a default) and `p
 
 | Tool | Level | Purpose |
 |---|---|---|
-| `autocad_sync_attributes` | Change | ATTSYNC, done by the plug-in: every insert of a block (dynamic copies too) gets the definition's attributes again; values already typed are kept by tag, new tags come with their default, lost ones go. `add_attributes` adds definitions to the block first; `dry_run` says what each insert keeps, gains and loses |
+| `autocad_sync_attributes` | Change | ATTSYNC, done by the plug-in: every insert of a block (dynamic copies too) gets the definition's attributes again; values already typed are kept by tag, new tags come with their default, lost ones go. `add_attributes` adds definitions to the block first; `nested=true` also syncs inserts inside other blocks' definitions; `dry_run` says what each insert keeps, gains and loses |
 | `autocad_copy_from_drawing` | Change | Copy with Base Point and Paste between **open** drawings: handles from another open drawing into the active one, from `base_point` to `to_point`. The layers, styles and blocks it lacks come along (`brought_in`); names it has stay its own (`already_here`). Neither drawing is switched ([D-83](DECISIONS.md)) |
 
 ## Bulk drawing (Change)
