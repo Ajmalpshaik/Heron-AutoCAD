@@ -25,6 +25,8 @@ from ..acad.render import (
     EXPOSURE_MIN,
     KELVIN_MAX,
     KELVIN_MIN,
+    SUN_YEAR_MAX,
+    SUN_YEAR_MIN,
     WHITE_BALANCE_MAX,
     WHITE_BALANCE_MIN,
     check_rgb,
@@ -300,7 +302,8 @@ async def autocad_add_light(
 # ---------------------------------------------------------------------------
 # The lights in the drawing, the sun and the exposure (D-86, D-87)
 #
-# Heron sets a render up; it never renders. The modeller presses Render.
+# These tools set a render up; none of them renders. The modeller presses Render
+# (Ajmal's rule; autocad_render, Admin, is the one exception: issue #158).
 # ---------------------------------------------------------------------------
 
 # Read with the lights, so one answer says why a render is dark.
@@ -325,7 +328,7 @@ NO_EXPOSURE_VARIABLE = (
     "Set it in the Render Environment & Exposure palette (type RENDEREXPOSURE). Nothing was changed."
 )
 
-PRESS_RENDER = "Heron does not render: press Render in AutoCAD (Visualize tab) when the view looks right."
+PRESS_RENDER = "This does not render: press Render in AutoCAD (Visualize tab) when the view looks right."
 
 
 def _read_var(doc: Any, name: str) -> Any:
@@ -541,7 +544,7 @@ async def autocad_switch_lights(
     variables of the current viewport; default lighting is switched first, so
     turning the sun on with default lighting off asks AutoCAD nothing.
 
-    One undo step. Heron does not render: press Render in AutoCAD.
+    One undo step. It does not render: press Render in AutoCAD.
 
     Args:
         turn_on / turn_off (Optional[list[str]]): lights by name or handle.
@@ -665,7 +668,7 @@ async def autocad_set_sun(
     its own keeps the sun's date. The answer reads everything back from
     AutoCAD, with the sun's azimuth and altitude as AutoCAD works them out.
 
-    One undo step. Heron does not render: press Render in AutoCAD.
+    One undo step. It does not render: press Render in AutoCAD.
 
     Args:
         date (Optional[str]): 'YYYY-MM-DD'.
@@ -705,6 +708,8 @@ async def autocad_set_sun(
     if longitude is not None and not -180 <= longitude <= 180:
         raise AutocadError("The longitude must be -180 to 180 degrees, east positive.")
     dated = parse_date(date) if date is not None else None
+    if dated and not SUN_YEAR_MIN <= dated[0] <= SUN_YEAR_MAX:
+        raise AutocadError(f"The sun's year must be {SUN_YEAR_MIN}-{SUN_YEAR_MAX}. Nothing was changed.")
     timed = parse_time(time) if time is not None else None
     zone = timezone_code(float(utc_offset)) if utc_offset is not None else None
     if all(v is None for v in (dated, timed, latitude, longitude, zone, daylight_saving, on)):
@@ -741,8 +746,10 @@ async def autocad_set_sun(
                     report = in_plugin("set_sun", sun_args, "Setting the sun's date and time")
                 except AutocadError as exc:
                     if done:
+                        words = str(exc).replace("Nothing was changed.", "").strip()
                         raise AutocadError(
-                            f"{exc} The place was already set ({', '.join(done)}); one Ctrl+Z takes it back."
+                            f"{words} The sun's date and time were not changed, but the place was "
+                            f"already set ({', '.join(done)}); one Ctrl+Z takes it back."
                         ) from exc
                     raise
                 done.append("sun date and time" if (dated or timed) else "daylight saving")
@@ -754,6 +761,9 @@ async def autocad_set_sun(
         if sun_object is None:
             read, _why = plugin_read("list_lights")
             sun_object = (read or {}).get("sun")
+        elif "SUNSTATUS" in done:
+            # The plug-in read the sun before SUNSTATUS was written: its on / off is old.
+            sun_object = {key: value for key, value in sun_object.items() if key != "on"}
         summary = sun_summary(sun_object, variables)
         for name, key in (("LATITUDE", "latitude"), ("LONGITUDE", "longitude")):
             if name in done and summary[key] is not None and abs(summary[key] - place[name]) > 1e-6:
@@ -804,7 +814,7 @@ async def autocad_set_render_exposure(
     this AutoCAD has no EXPVALUE, nothing changes and the answer says to use
     the palette (RENDEREXPOSURE).
 
-    One undo step. Heron does not render: press Render in AutoCAD.
+    One undo step. It does not render: press Render in AutoCAD.
 
     Args:
         exposure (Optional[float]): EV, -6 to 21; lower is brighter.

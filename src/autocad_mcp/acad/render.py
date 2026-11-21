@@ -85,6 +85,10 @@ UTC_OFFSET_MAX = 13.0
 
 MS_PER_DAY = 24 * 60 * 60 * 1000
 
+# The years the plug-in takes for the sun's date (SunClock in the Bridge).
+SUN_YEAR_MIN = 1900
+SUN_YEAR_MAX = 2200
+
 
 def parse_date(text: str) -> tuple[int, int, int]:
     """'2026-06-21' as (year, month, day), or a refusal that shows the form."""
@@ -156,8 +160,9 @@ def timezone_code(utc_offset: float) -> int:
 def timezone_offset(code: Any) -> float | None:
     """The UTC offset in hours a TIMEZONE code means, or None when it cannot be told.
 
-    The last three digits are minutes (30 or 45) or, below 10, which named
-    place of that offset the code is (3001 is still +3).
+    The last three digits are the minutes (30 or 45), with a last digit that
+    can name one place of several at that offset (9031 is still +9:30), or,
+    below 10, only that place (3001 is still +3).
     """
     try:
         value = int(code)
@@ -165,8 +170,10 @@ def timezone_offset(code: Any) -> float | None:
         return None
     sign = -1 if value < 0 else 1
     hours, rest = divmod(abs(value), 1000)
-    if rest in (30, 45):
-        minutes = rest
+    if 30 <= rest < 40:
+        minutes = 30
+    elif 45 <= rest < 50:
+        minutes = 45
     elif rest < 10:
         minutes = 0
     else:

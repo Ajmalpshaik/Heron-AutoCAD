@@ -11,9 +11,9 @@ Newest first. Dates are when the change was made.
   (`autocad_list_lights`), lights, the sun and **default lighting switched**
   (`autocad_switch_lights`), and the render **exposure and white balance**
   (`autocad_set_render_exposure`). `autocad_set_3d_view` now reads back the visual style the
-  viewport really has (`visual_style_found`). Five new plug-in operations. **Heron never renders**:
-  the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md)). Live rows
-  AE1-AE15 NOT RUN.
+  viewport has (`visual_style_found`). Five new plug-in operations. **None of these tools
+  renders**: the modeller presses Render ([D-86](docs/DECISIONS.md), [D-87](docs/DECISIONS.md));
+  whether `autocad_render` stays is issue #158. Live rows AE1-AE15 NOT RUN.
 
 - **Fixes from a review of the new tools (2026-11-21).** A value Excel turned into a date, time,
   fraction or percent (a scale typed as `1:100`) is listed and never written; a tag named HANDLE,

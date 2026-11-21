@@ -33,7 +33,7 @@ from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
-from ._shared import COORDS_OPT, in_plugin, ucs_for, world_coords
+from ._shared import COORDS_OPT, in_plugin, plugin_read, ucs_for, world_coords
 
 # How long -VIEW gets to finish saving before a prompt still open means it did
 # not take the answer.
@@ -187,7 +187,8 @@ async def autocad_save_view(
           (autocad_get_extents gives them without saving anything).
 
     Error Handling:
-        - A name already saved is refused unless replace=true.
+        - A name already saved is refused unless replace=true; a layout's
+          (paper space) view of that name is refused even then.
         - Objects that report no extents are named rather than silently skipped.
     """
     clean = validate_name(name, "view")
@@ -425,7 +426,7 @@ async def autocad_add_camera_view(
     to the lens's field at the target, so the two agree. No camera glyph is
     drawn.
 
-    One undo step. Heron does not render: press Render in AutoCAD.
+    One undo step. It does not render: press Render in AutoCAD.
 
     Args:
         name (str): the view's name.
@@ -440,8 +441,8 @@ async def autocad_add_camera_view(
         str: JSON: {"created" | "replaced": true, "name", "handle", "eye",
              "target", "lens_mm", "perspective": true,
              "field_of_view_degrees", "distance", "view_width",
-             "view_height", "on_screen": bool, "in_drawing": bool,
-             "warning"?: str}
+             "view_height", "on_screen": bool (Heron asked AutoCAD to show
+             it), "in_drawing": bool, "warning"?: str}
 
     Examples:
         - Use when: "a camera in the living room corner looking at the
@@ -459,7 +460,8 @@ async def autocad_add_camera_view(
 
     Error Handling:
         - The same eye and target, or a lens outside 10-600 mm, is refused.
-        - A name already saved is refused unless replace=true.
+        - A name already saved is refused unless replace=true; a layout's
+          (paper space) view of that name is refused even then.
         - It works on the Model tab only: a layout is refused.
         - Needs the Heron plug-in with the add_camera_view operation.
     """
@@ -501,8 +503,20 @@ async def autocad_add_camera_view(
                 f"Heron in AutoCAD saved '{clean}', but it could not be read back from the drawing's "
                 "views straight away. Check autocad_list_views; do not make it again."
             )
+        warnings = [payload["warning"]] if payload.get("warning") else []
+        if look_through:
+            # AutoCAD draws perspective only in a 3D visual style, not in 2D Wireframe.
+            seen, _why = plugin_read("current_view")
+            style = str((seen or {}).get("visual_style") or "")
+            if style.strip().lower() == "2dwireframe":
+                warnings.append(
+                    "The viewport is in the 2D Wireframe style, which does not show perspective. "
+                    "Switch to a 3D style: autocad_set_3d_view(visual_style='realistic')."
+                )
+        if warnings:
+            payload["warning"] = " ".join(warnings)
         payload["note"] = (
-            "Heron does not render: press Render in AutoCAD with this view on screen. "
+            "This does not render: press Render in AutoCAD with this view on screen. "
             "Set the sun with autocad_set_sun and the lights with autocad_switch_lights first."
         )
         return payload

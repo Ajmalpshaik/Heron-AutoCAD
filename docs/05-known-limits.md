@@ -89,7 +89,10 @@ object count.
 system variable and COM has no visual style on a model viewport. Since [D-86](DECISIONS.md) the
 tool asks Heron's plug-in which style the viewport has and gives it as `visual_style_found`; a
 different one from the one asked for is in `not_set`. With `--no-bridge`, or a plug-in older than
-this change, it is null with the reason, and `autocad_preview` is still the proof. The answers for
+this change, it is null with the reason, and `autocad_preview` is still the proof. A different
+style from the one asked for is a `visual_style_warning`, not a failure: the reading can come from
+the viewport's saved record, which may be behind the screen (`visual_style_found_from` says when).
+The answers for
 'shaded with edges' and 'shades of gray' are from the prompt's capital letters and are not yet
 proven (row E34); AutoCAD's exact style names are row AE1.
 
@@ -202,13 +205,17 @@ result means the expression has to be written again, complete.
   combined with `diffuse_rgb`. A glowing strip lights little around it; add lights for that.
 - `autocad_save_view(from_screen=true)` types `-VIEW _Save`, so a name with spaces is refused.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group K](NEEDS-CHECKING.md)).
-- **Heron never renders** (Ajmal's rule): the camera, sun, lights and exposure tools set the render
-  up, and the modeller presses Render. `autocad_render` (Admin) stays for the rare scripted case.
+- **None of the set-up tools renders** (Ajmal's rule): the camera, sun, lights and exposure tools
+  set the render up, and the modeller presses Render. `autocad_render` (Admin) is the one tool that
+  types `-render`; whether it stays is Ajmal's decision ([#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)).
 - `autocad_add_camera_view`, `autocad_set_sun`, `autocad_list_lights` and `autocad_switch_lights`
   need the plug-in built from [D-86](DECISIONS.md) / [D-87](DECISIONS.md); an older one says it does
   not have the operation. The camera view and the sun work on the **Model tab only**. No camera
   glyph is drawn. The field of view Heron gives is across a 36 mm frame; AutoCAD's own Field of view
-  may be measured another way (AE2).
+  may be measured another way (AE2). Perspective does not show in the 2D Wireframe style: the answer
+  warns, and `autocad_set_3d_view(visual_style='realistic')` fixes it. `replace=true` moves the view
+  only: a camera glyph that AutoCAD's own CAMERA command made for that view stays where it was. A
+  layout's (paper space) view is never replaced.
 - The sun's **date and time** belong to the current model viewport: another viewport, or a layout
   viewport, has its own sun. LATITUDE, LONGITUDE and TIMEZONE belong to the drawing. A UTC offset is
   turned into the first TIMEZONE code for it (3 is 3000); AutoCAD's other codes for the same offset

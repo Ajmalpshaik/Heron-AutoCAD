@@ -5,7 +5,8 @@ Heron plug-in; the place, the sun and default lighting on / off and the
 exposure are plain variables over COM. What is checked here: the arithmetic
 (Julian day, ms after midnight, TIMEZONE codes), what each tool asks the
 plug-in for and in which order the variables are written, the shape of the
-light list, and every refusal before anything changes. Heron never renders.
+light list, and every refusal before anything changes. None of these tools
+renders: the modeller presses Render.
 """
 
 from __future__ import annotations
@@ -104,11 +105,11 @@ class TestTimezone:
         with pytest.raises(AutocadError):
             render.timezone_code(offset)
 
-    @pytest.mark.parametrize("code,offset", [(3001, 3.0), (-5002, -5.0), (1003, 1.0)])
+    @pytest.mark.parametrize("code,offset", [(3001, 3.0), (-5002, -5.0), (1003, 1.0), (9031, 9.5), (5046, 5.75)])
     def test_a_named_place_code_keeps_its_offset(self, code, offset):
         assert render.timezone_offset(code) == offset
 
-    @pytest.mark.parametrize("code", [3010, 99000, None, "x"])
+    @pytest.mark.parametrize("code", [3010, 3020, 3050, 99000, None, "x"])
     def test_a_code_that_cannot_be_told_is_none(self, code):
         assert render.timezone_offset(code) is None
 
@@ -215,7 +216,8 @@ class Plugin:
                 self.sun["time"] = f"{args['hour']:02d}:{args['minute']:02d}:00"
             return {"sun_made": False, "sun": dict(self.sun)}
         if operation == "current_view":
-            return {"visual_style": self.view_style, "perspective": False, "model_tab": True}
+            return {"visual_style": self.view_style, "visual_style_on_screen": self.view_style,
+                    "visual_style_saved": self.view_style, "perspective": False, "model_tab": True}
         if operation == "add_camera_view":
             return {"created": True, "name": args["name"], "handle": "5B", "lens_mm": args["lens"],
                     "perspective": True, "field_of_view_degrees": 73.74, "on_screen": args["look_through"]}
@@ -316,7 +318,7 @@ class TestSwitchLights:
         assert out["sun"] is False and out["default_lighting"] is False
         assert "not_set" not in out and "warning" not in out
         assert plugin.doc.marks == 1 and plugin.doc.regens == 1
-        assert "does not render" in out["note"]
+        assert "does not render" in out["note"] and "press Render" in out["note"]
 
     def test_all_lights(self, plugin):
         call(lighting.autocad_switch_lights(all_lights="off"))
@@ -418,6 +420,27 @@ class TestSetSun:
         answer = error(lighting.autocad_set_sun(time="10:00", latitude=25.29))
         assert "LATITUDE" in answer and "Ctrl+Z" in answer
 
+    def test_the_sun_switched_on_is_not_called_off_by_the_older_reading(self, plugin):
+        """Review of PR #152: the plug-in reads the sun before SUNSTATUS is written."""
+        plugin.sun["on"] = False
+        plugin.doc.vars["SUNSTATUS"] = 0
+        out = call(lighting.autocad_set_sun(time="10:00", on=True))
+        assert out["sun"]["on"] is True and "sun_object_on" not in out["sun"]
+        assert "sun is off" not in out.get("warning", "")
+
+    @pytest.mark.parametrize("date", ["1850-06-21", "2300-01-01"])
+    def test_a_year_the_plug_in_would_refuse_is_refused_before_the_place_is_set(self, plugin, date):
+        """Review of PR #152: 1850 was refused only after LATITUDE was written."""
+        answer = error(lighting.autocad_set_sun(date=date, latitude=25.29))
+        assert "1900-2200" in answer and "Nothing was changed" in answer
+        assert plugin.calls == [] and plugin.doc.written == []
+
+    def test_the_sun_refused_after_the_place_does_not_also_say_nothing_changed(self, plugin):
+        plugin.fail = "AutoCAD gave no current model viewport. Nothing was changed."
+        answer = error(lighting.autocad_set_sun(time="10:00", latitude=25.29))
+        assert "Nothing was changed" not in answer
+        assert "date and time were not changed" in answer and "Ctrl+Z" in answer
+
     def test_a_layout_is_refused_before_anything(self, plugin):
         plugin.doc.vars["TILEMODE"] = 0
         assert "Model tab" in error(lighting.autocad_set_sun(time="10:00", latitude=25.29))
@@ -504,10 +527,12 @@ class TestCameraView:
         out = call(views.autocad_add_camera_view(
             name="LIVING-CAM-1", eye=[1000, 1000, 1600], target=[5000, 4000, 1200], lens=24,
         ))
-        assert plugin.calls == [("add_camera_view", {
+        assert plugin.calls[0] == ("add_camera_view", {
             "name": "LIVING-CAM-1", "eye": [1000.0, 1000.0, 1600.0], "target": [5000.0, 4000.0, 1200.0],
             "lens": 24.0, "look_through": True, "replace": False,
-        })]
+        })
+        # Then the style is read: perspective does not show in 2D Wireframe.
+        assert ops(plugin) == ["add_camera_view", "current_view"]
         assert out["created"] is True and out["perspective"] is True and out["in_drawing"] is True
         assert "does not render" in out["note"] and "warning" not in out
 
@@ -519,6 +544,18 @@ class TestCameraView:
         assert args["eye"] == pytest.approx([100.0, 10.0, 1600.0])
         assert args["target"] == pytest.approx([100.0, 20.0, 1600.0])
         assert args["lens"] == 50.0
+
+    def test_a_2d_wireframe_viewport_is_warned_that_perspective_will_not_show(self, plugin):
+        plugin.doc.Views = ViewList(["CAM"])
+        plugin.view_style = "2dWireframe"
+        out = call(views.autocad_add_camera_view(name="CAM", eye=[0, 0, 1600], target=[1000, 0, 1600]))
+        assert "2D Wireframe" in out["warning"] and "visual_style='realistic'" in out["warning"]
+
+    def test_not_shown_asks_nothing_about_the_style(self, plugin):
+        plugin.doc.Views = ViewList(["CAM"])
+        plugin.view_style = "2dWireframe"
+        out = call(views.autocad_add_camera_view(name="CAM", eye=[0, 0, 1600], target=[1000, 0, 1600], look_through=False))
+        assert ops(plugin) == ["add_camera_view"] and "warning" not in out
 
     def test_not_read_back_is_a_warning_not_an_error(self, plugin):
         plugin.doc.Views = ViewList([])
@@ -582,21 +619,39 @@ class TestVisualStyleReadBack:
         assert styled.doc.sent == ["_.VSCURRENT _Realistic\n"]
         assert ops(styled) == ["current_view"]
         assert out["visual_style_found"] == "Realistic" and "not_set" not in out
+        assert "visual_style_found_from" not in out and "visual_style_warning" not in out
 
-    def test_a_style_that_did_not_take_is_in_not_set(self, styled):
+    def test_a_different_style_is_a_warning_not_a_failure(self, styled):
+        """Review of PR #152: the reading may be the viewport's record from before VSCURRENT."""
         styled.view_style = "2dWireframe"
         out = call(solids.autocad_set_3d_view(visual_style="hidden", zoom_extents=False))
         assert out["visual_style_found"] == "2dWireframe"
-        assert "visual_style (asked for 'hidden', the viewport reads '2dWireframe')" in out["not_set"]
+        assert "'hidden'" in out["visual_style_warning"] and "'2dWireframe'" in out["visual_style_warning"]
+        assert "autocad_preview" in out["visual_style_warning"]
+        assert "not_set" not in out
 
     def test_two_word_styles_match_whatever_their_case(self, styled):
         styled.view_style = "Shades of Gray"
         out = call(solids.autocad_set_3d_view(visual_style="shades of gray", zoom_extents=False))
-        assert "not_set" not in out
+        assert "not_set" not in out and "visual_style_warning" not in out
+
+    def test_a_style_read_from_the_saved_record_says_so(self, styled, monkeypatch):
+        real = styled.__call__
+
+        def saved_only(operation, args):
+            answer = real(operation, args)
+            if operation == "current_view":
+                answer["visual_style_on_screen"] = None
+            return answer
+
+        monkeypatch.setattr(_shared, "plugin_runner", lambda: saved_only)
+        out = call(solids.autocad_set_3d_view(visual_style="realistic", zoom_extents=False))
+        assert out["visual_style_found_from"] == "the viewport's saved record"
 
     def test_a_direction_alone_still_reports_the_style(self, styled):
         out = call(solids.autocad_set_3d_view(direction="sw_iso", zoom_extents=False))
         assert out["visual_style_found"] == "Realistic" and "not_set" not in out
+        assert "visual_style_found_from" not in out and "visual_style_warning" not in out
 
     def test_without_the_plug_in_it_is_null_with_the_reason(self, styled, monkeypatch):
         monkeypatch.setattr(_shared, "plugin_runner", lambda: None)
@@ -620,5 +675,5 @@ def test_levels():
     for tool in ("autocad_switch_lights", "autocad_set_sun", "autocad_set_render_exposure", "autocad_add_camera_view"):
         assert risk_of(tool) is Risk.CHANGE, tool
     assert risk_of("autocad_set_3d_view") is Risk.VIEW
-    # The owner's rule: Heron sets a render up and never runs one itself.
+    # The set-up tools never render; the one tool that does is Admin only (issue #158).
     assert risk_of("autocad_render") is Risk.ADMIN

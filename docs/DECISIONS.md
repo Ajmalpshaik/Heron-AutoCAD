@@ -134,8 +134,9 @@ banner on, because the banner is what shows the modeller that Heron is working.
 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
 change DEFAULTLIGHTING behind the modeller's back" stands: only `autocad_switch_lights` changes it,
-when asked in words. **Heron never runs the render** (Ajmal's rule): it sets lights, sun and
-exposure, and Ajmal presses Render.
+when asked in words. **None of these tools renders** (Ajmal's rule): they set lights, sun and
+exposure, and Ajmal presses Render. `autocad_render` (Admin, types `-render`) is still on main as
+the one exception; whether it stays is Ajmal's decision (#158).
 - **List** (`autocad_list_lights`, plug-in `list_lights`, Read), like the Lights in Model palette:
   every light in model space, then in each block definition (not layouts, not xrefs), with handle,
   name, kind, on or off, intensity and its unit, Kelvin, layer, position, and for a light in a block
@@ -169,8 +170,10 @@ replaces D-35's "the style cannot be read back" (D-35's typed VSCURRENT stands).
 - **Camera view** (`autocad_add_camera_view`, plug-in `add_camera_view`, Change): one view record
   written through the .NET API with perspective on, the lens set, the target, and the direction from
   the target to the eye (the API's own meaning of ViewDirection), saved under a name and, unless
-  told not to, put on screen with `SetCurrentView`. The view's width and height are the lens's field
-  at the target, so lens and size agree. The field is worked out across a 36 mm frame, as AutoCAD
+  told not to, put on screen with `SetCurrentView` (and warned about when the viewport is in 2D
+  Wireframe, which draws no perspective). A layout's view of the same name is never replaced. The
+  view's width and height are the lens's field at the target, so lens and size agree. The field is
+  worked out across a 36 mm frame, as AutoCAD
   calls its lens a 35 mm camera's (50 mm: 39.6 degrees, 24 mm: 73.7 degrees); whether AutoCAD's own
   Field of view reads the same is a live row. No camera glyph is drawn, so CAMERADISPLAY does not
   matter. Rejected: DVIEW (it hangs), `entmake` of a VIEW record (it came back at 50 mm, 2026-11-09),
@@ -183,13 +186,17 @@ replaces D-35's "the style cannot be read back" (D-35's typed VSCURRENT stands).
   record, which AutoCAD does not keep up to date as the view moves, so for this one operation the
   plug-in writes the live viewports into the drawing first and gives them back after. The place is
   three plain variables over COM: LATITUDE, LONGITUDE and TIMEZONE, the last as hours x 1000 plus
-  minutes from a UTC offset (Qatar 3000, India 5030). The answer reads it all back, with the 91 and
-  92 values Heron expects, so a live check can compare them with `(entget)`. Model tab only.
+  minutes from a UTC offset (Qatar 3000, India 5030; read back, a last digit naming one place of
+  several, as in 3001 or 9031, keeps its offset). A year outside 1900-2200 is refused before
+  anything is written. The answer reads it all back, with the 91 and 92 values Heron expects, so a
+  live check can compare them with `(entget)`. Model tab only.
 - **Visual style read back** (#59): `autocad_set_3d_view` types VSCURRENT as before, then asks the
   plug-in (`current_view`, a Read operation, allowed inside its View job) which style the viewport
   has: the live view's, else the viewport record's, by its name in the drawing's visual style list.
-  A different style from the one asked for goes in `not_set`. Without the plug-in the field is null
-  with the reason, and the tool still works.
+  A different style from the one asked for is said in `visual_style_warning`, not counted as a
+  failure: the record can be behind the screen (an independent review of PR #152), and
+  `autocad_preview` is the proof. Without the plug-in the field is null with the reason, and the
+  tool still works.
 Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AE](NEEDS-CHECKING.md)).
 
 ## D-75 - What a review of the new tools found, and the rules added

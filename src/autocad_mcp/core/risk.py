@@ -137,7 +137,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "super_hatch",
         "add_light",
         "create_material",
-        # Setting a render up, by the plug-in (D-86, D-87); Heron never renders.
+        # Setting a render up, by the plug-in (D-86, D-87); none of them renders.
         "add_camera_view",
         "set_sun",
         "switch_lights",

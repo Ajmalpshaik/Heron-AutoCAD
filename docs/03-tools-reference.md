@@ -278,7 +278,7 @@ Arcs come out as polyline bulges, so a slot or an elbow stays **one object**.
 | `autocad_slice_solid` | Change | Cut solids with a plane — a real section through a model. The plane is given the way a drafter says it ("horizontally at 1500"); the three points AutoCAD wants are worked out here |
 | `autocad_check_interference` | Change | **Clash check.** Every solid in one set against every solid in another, with the overlap volume so the worst comes first. `create_solids` draws the overlaps. Needs Changes because AutoCAD builds the overlap as a real solid to measure it, even to report |
 | `autocad_transform_3d` | Change | move with Z, rotate about **any** axis, mirror in a plane, array up in levels. The flat tools only do XY and Z-axis rotation |
-| `autocad_set_3d_view` | View | A named direction (top, front, sw_iso …) and a visual style, typed as the VSCURRENT command, then the style the viewport really has read back by the plug-in (`visual_style_found`). Changes only what is on screen ([D-31](DECISIONS.md), [D-35](DECISIONS.md), [D-86](DECISIONS.md)) |
+| `autocad_set_3d_view` | View | A named direction (top, front, sw_iso …) and a visual style, typed as the VSCURRENT command, then the style the viewport has read back by the plug-in (`visual_style_found`, a warning when it differs). Changes only what is on screen ([D-31](DECISIONS.md), [D-35](DECISIONS.md), [D-86](DECISIONS.md)) |
 
 `SectionSolid` is deliberately **not** here: no documented ActiveX signature for it could be
 found, and guessing one would risk the model ([D-33](DECISIONS.md)).
@@ -326,8 +326,9 @@ Three limits worth knowing before you plan around them ([D-33](DECISIONS.md)):
 
 ## Setting a render up (Change; the light list is Read)
 
-Heron sets the view, the sun, the lights and the exposure; **it never renders**: the modeller
-presses Render ([D-86](DECISIONS.md), [D-87](DECISIONS.md)). The plug-in does the lights, the
+These tools set the view, the sun, the lights and the exposure; **none of them renders**: the
+modeller presses Render ([D-86](DECISIONS.md), [D-87](DECISIONS.md)). `autocad_render` (Admin) is
+the one exception ([#158](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/158)). The plug-in does the lights, the
 camera and the sun's date, which COM has no call for. Not proven in AutoCAD yet:
 [NEEDS-CHECKING groups K and AE](NEEDS-CHECKING.md).
 

@@ -100,6 +100,8 @@ namespace Heron.AutoCAD.Addin
             var replaced = record != null;
             if (record != null)
             {
+                if (record.IsPaperspaceView)
+                    throw new RunRefusal("'" + record.Name + "' is a layout's view (paper space), not a camera. Give the camera another name.");
                 if (!args.Flag("replace", false))
                     throw new RunRefusal("This drawing already has a view called '" + record.Name + "'. Pass replace=true to move it, or give another name.");
                 record.UpgradeOpen();

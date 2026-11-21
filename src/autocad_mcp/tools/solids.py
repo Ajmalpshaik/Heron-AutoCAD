@@ -946,15 +946,16 @@ async def autocad_set_3d_view(
         visual_style (Optional[str]): the visual style to switch to.
         zoom_extents (bool): fit the drawing afterwards.
 
-    After setting it, the style the viewport really has is read back
-    through Heron's plug-in and given as "visual_style_found" (AutoCAD's own
-    name, e.g. 'Realistic'). If it is not the one asked for, that is said in
-    "not_set". Without the plug-in it is null, with the reason.
+    After setting it, the style the viewport has is read back through
+    Heron's plug-in and given as "visual_style_found" (AutoCAD's own name,
+    e.g. 'Realistic'). If it is not the one asked for, "visual_style_warning"
+    says so; autocad_preview shows which is right. Without the plug-in it is
+    null, with the reason.
 
     Returns:
         str: JSON: {"direction": [x, y, z], "named": str | null,
              "visual_style": str | null, "visual_style_found": str | null,
-             "zoomed": bool, "not_set": [str]}
+             "visual_style_warning"?: str, "zoomed": bool, "not_set": [str]}
 
     Examples:
         - Use when: "show me the model in 3D" — direction='sw_iso',
@@ -1055,13 +1056,18 @@ async def autocad_set_3d_view(
         else:
             seen = found.get("visual_style")
             result["visual_style_found"] = seen
+            if found.get("visual_style_on_screen") is None and seen is not None:
+                result["visual_style_found_from"] = "the viewport's saved record"
             if found.get("perspective"):
                 result["perspective"] = True
             took = seen is not None and style_key(seen) == style
             if style is not None and not took and not any(item.startswith("visual_style") for item in not_set):
-                not_set.append(
-                    f"visual_style (asked for '{style}', the viewport reads "
-                    + (f"'{seen}')" if seen is not None else "no style)")
+                # Said, not counted as a failure: the reading may be the viewport's
+                # record from before VSCURRENT (row AE1), and the screen is the truth.
+                result["visual_style_warning"] = (
+                    f"Asked for '{style}', but the viewport reads "
+                    + (f"'{seen}'" if seen is not None else "no style")
+                    + ". Look with autocad_preview: if the screen shows the asked style, the read-back is behind."
                 )
         if not_set:
             result["not_set"] = not_set

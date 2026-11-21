@@ -16,7 +16,11 @@ Five new tools (**147**) and five new plug-in operations, built and tested offli
 LONGITUDE, TIMEZONE and SUNSTATUS over COM), `autocad_list_lights` and `autocad_switch_lights`
 (lights in model space and in light blocks; the sun and DEFAULTLIGHTING), and
 `autocad_set_render_exposure` (EXPVALUE / EXPWHITEBALANCE). `autocad_set_3d_view` reads the
-visual style back (`visual_style_found`). **Heron never renders**: Ajmal presses Render. The
+visual style back (`visual_style_found`). **None of these tools renders**: Ajmal presses Render;
+whether `autocad_render` (Admin) stays is Ajmal's call, issue **#158**. An independent review found
+six real problems before merging, all fixed with tests (stale sun on / off, a year refused only
+after the place was set, TIMEZONE codes like 9031, a style reading taken as a failure, no warning
+for 2D Wireframe, a layout view replaceable). The
 add-in compiles for all three builds; versions not bumped (the parent does).
 **Next (on this PC, AutoCAD closed):** build and install the plug-in, restart Claude, then live
 rows **AE1-AE14**. AE14 decides the exposure route: if 2027 has no EXPVALUE, the ROADMAP item for
