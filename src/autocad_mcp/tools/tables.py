@@ -145,8 +145,9 @@ def fill_table(
         except Exception as exc:  # noqa: BLE001
             raise_if_busy(exc)
             raise AutocadError(
-                f"This drawing has no table style called '{style}' ({com_message(exc)}). Copy it in with "
-                "autocad_import_from_drawing, or leave style out."
+                f"This drawing has no table style called '{style}' ({com_message(exc)}). Make it with "
+                "autocad_create_styles(table_styles=...), copy it in with autocad_import_from_drawing, "
+                "or leave style out."
             ) from exc
     if not widths:
         # Fit each column to its text at the height it will have: the one asked

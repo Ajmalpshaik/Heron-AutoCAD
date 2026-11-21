@@ -785,6 +785,29 @@ and the server restarted. **Every row below is NOT RUN.**
 | AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
 | AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
 
+## Group AN - Multileader and table styles made by the plug-in (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-104](DECISIONS.md), [D-105](DECISIONS.md); issue #68). Built and tested
+offline only (`StylePlansTests.cs`, `tests/test_create_styles_plugin.py`; the add-in compiles against
+the 2021, 2025 and 2027 reference assemblies). Needs the plug-in built from this change (it knows the
+operations `multileader_style` and `table_style`), reinstalled, and the server restarted. Work in a
+scratch metric drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AN1 | `autocad_create_styles(multileader_styles=[{"name": "HERON-LABEL-50", "text_height": 2.5, "scale": "1:50", "current": true}])`, then open MLEADERSTYLE | The row says `created: true`, `attachment: underline_bottom_line`, `arrow: closed_filled`, arrow size and dogleg 2.5, `scale: 50`, `current: true`. In the dialog: content Mtext, text height 2.5, left **and** right attachment "Underline bottom line", arrowhead Closed filled 2.5, "Automatically include landing" ticked, landing distance 2.5, "Specify scale" 50, and it is the current style. **Write down the landing gap it shows** (AutoCAD's own default) | NOT RUN |
+| AN2 | After AN1, `autocad_add_multileader(landing=[1000,1000], arrows=[[0,0]], text="2 NOS FCU")` (it uses the current style) | The note's text sits on the landing line, the line running under the text (TLD look); text 125 high on screen (2.5 x 50); no `not_set` | NOT RUN |
+| AN3 | `autocad_create_styles(text_styles=[{"name": "ROMANS", "font": "romans.shx"}], multileader_styles=[{"name": "TAG-DOT", "text_style": "ROMANS", "text_height": 2.5, "arrow": "dot", "arrow_size": 1.5, "landing_gap": 0.5, "attachment": "middle"}])` in a drawing that has never used the dot arrow | Both made in one call; `arrow_block_added: "_DOT"`; the dialog shows text style ROMANS, arrowhead Dot 1.5, landing gap 0.5, attachment "Middle of multi-line text". **Then SETVAR DIMBLK**: empty (closed filled) as before, and the DIMSTYLE dialog shows **no** "Style overrides" | NOT RUN |
+| AN4 | AN3, then Ctrl+Z once | The text style, the multileader style and the `_DOT` block are all gone in one step (one undo mark round COM and the plug-in). **If it takes more than one Ctrl+Z, write how many** | NOT RUN |
+| AN5 | `autocad_create_styles(multileader_styles=[{"name": "HERON-LABEL-50", "text_height": 3.5}])` after AN1; then the same with `replace=true` | First: the row says `created: false` and "already ... Pass replace=true", nothing changed. Second: `created: false`, text height 3.5; the dialog shows 3.5 and the scale back at 1 (a replaced style takes the same defaults as a new one) | NOT RUN |
+| AN6 | `multileader_styles=[{"name": "BAD", "text_height": 2.5, "text_style": "NOPE"}, {"name": "GOOD", "text_height": 2.5}]` | BAD's row: "no text style called 'NOPE' ... Nothing was changed."; GOOD is made; MLEADERSTYLE lists GOOD, not BAD | NOT RUN |
+| AN7 | `autocad_create_styles(table_styles=[{"name": "SCHEDULE-50", "text_height": 2.5, "scale": "1:50", "alignment": "left", "current": true}])`, then open TABLESTYLE | `text_heights` 125 / 125 / 125, `margins` 41.67 both (125 / 3), alignment title and header `middle_centre`, data `middle_left`, `current: true`. In the dialog, for Title, Header and Data: text height 125, alignment Middle Center / Middle Center / **Middle Left**, horizontal and vertical margins 41.67; it is the current table style | NOT RUN |
+| AN8 | After AN7, `autocad_add_table(position=[0,0], title="AHU SCHEDULE", headers=["TAG","CFM"], rows=[["AHU-1","2000"]], style="SCHEDULE-50")` | The table takes the style: text 125 high, in the vertical middle of every cell, data left-aligned; `rows_aligned_middle: 3` | NOT RUN |
+| AN9 | `table_styles=[{"name": "NO-TITLE", "text_height": 2.5, "title_row": false, "header_row": false}]`, then `autocad_add_table` with that style and rows only | `title_row: false`, `header_row: false`; the dialog's "Title" / "Header" rows show as off (the style's suppress flags); the new table starts with a data row | NOT RUN |
+| AN10 | `table_styles=[{"name": "A", "text_height": 2.5, "alignment": "top left"}]`, then `multileader_styles=[{"name": "B", "text_height": 2.5, "scale": 0.02}]`, then `multileader_styles=[{"name": "C", "text_height": 2.5, "arow": "dot"}]` | A's row: "... vertical middle ...", B's: "'0.02' could be a ratio or a scale factor ... '1:50'", C: refused before anything ("arow is not an option"). None of the three is in the drawing | NOT RUN |
+| AN11 | With Changes **off**: AN1 again | Refused by the padlock before anything; MLEADERSTYLE unchanged | NOT RUN |
+| AN12 | AN1 with a plug-in built before this change | Refused: "Heron in AutoCAD does not have the operation 'multileader_style'. Update Heron ..."; nothing changed. With a text style in the same call: the text style is made and the multileader row carries that message | NOT RUN |
+
 ## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
 
 | Row | Do | Pass looks like | Result |

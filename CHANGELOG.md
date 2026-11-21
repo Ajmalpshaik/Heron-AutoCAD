@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Multileader and table styles (2026-11-21, #68).** `autocad_create_styles` takes
+  `multileader_styles` and `table_styles`, made by Heron's plug-in because COM has no call for
+  either. A multileader style is Ajmal's TLD label unless asked otherwise (text style, height,
+  arrow, dogleg, landing gap; the leader ends under the text; sizes as they plot with the style's
+  scale). A table style sets title, header and data text heights and margins for the sheet scale,
+  with text in the vertical middle of every cell. The rules are in the Bridge with their own tests
+  ([D-104](docs/DECISIONS.md)). A plot style table cannot be made: AutoCAD's .NET API cannot write
+  the file ([D-105](docs/DECISIONS.md), 05 §34). Two new plug-in operations, no new tool. Live rows
+  AN1-AN12 NOT RUN.
+
 - **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
   part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
   (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter

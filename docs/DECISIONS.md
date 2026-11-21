@@ -187,6 +187,61 @@ D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158)
   knowledge. Live rows AP1-AP11 in [NEEDS-CHECKING](NEEDS-CHECKING.md) compare each with AutoCAD's
   own command; all NOT RUN.
 
+## D-105 - A plot style table is not made by Heron: the .NET API cannot write one
+
+**Decided:** 2026-11-21, building issue #68. **Status:** in force (a known limit, [05 §34](05-known-limits.md)).
+A plot style table (`.ctb` colour-dependent, `.stb` named) is not part of the drawing: it is a
+file in AutoCAD's Plot Styles folder, made in the Plot Style Manager. Autodesk's .NET reference
+assemblies for 2021 and 2027 were searched for a way to make or edit one, and there is none: only
+`PlotStyleDescriptor` and `PlotStyleNameType` (a plot style's id on an object), the picker
+dialog `PlotStyleDialog`, and an event when a layout's table changes. COM has none either. So
+`autocad_create_styles` takes no plot style option and says so in its `Don't use when:`; the
+modeller makes or copies the `.stb` / `.ctb` in AutoCAD, and `autocad_page_setup(plot_style_table=...)`
+sets it on a sheet. **Rejected:** writing the file format ourselves (it is Autodesk's, compressed
+and undocumented; a file AutoCAD cannot read would show up only at plot time, and nothing here could
+check it), and typing STYLESMANAGER (it opens a window the chat cannot drive).
+
+## D-104 - Multileader and table styles are made by the plug-in; the rules are in the Bridge
+
+**Decided:** 2026-11-21, building issue #68. **Status:** in force; extends D-28 and D-40 (built
+and tested offline; live rows AN1-AN12 NOT RUN).
+- **Two new plug-in operations**, `multileader_style` and `table_style` (level Change), because
+  COM has no call to make either (until now they came in only with `autocad_import_from_drawing`).
+  `autocad_create_styles` takes `multileader_styles` and `table_styles` beside its text and
+  dimension styles, and stays a Change tool written from a fixed list (D-28): the options are a
+  list in `tools/settings.py`, a misspelt one is refused before anything is written, and a test
+  holds that list to the options the plug-in reads.
+- **The rules are pure code in `Heron.AutoCAD.Bridge/StylePlans.cs`** with their own tests: the
+  option words, the defaults and every refusal. The add-in (`DrawingStyles.cs`) only copies a plan
+  onto AutoCAD's `MLeaderStyle` / `TableStyle` and reads back what the style then holds. One
+  transaction per style: a style AutoCAD refuses is that style's row and nothing of it is kept;
+  the others are still made. Text styles come first in the same call (and the same undo mark), so a
+  style can use one made with it.
+- **A multileader style is Ajmal's TLD label unless asked otherwise (D-24):** MTEXT content,
+  straight leaders, the text attached *underline bottom line* on both sides (the leader ends under
+  the text), arrow and dogleg (the dialog's "landing") as big as the text, as `autocad_add_label`
+  draws them. Sizes are given as they plot and the style's own scale makes them drawing sizes, as
+  the Multileader Style dialog does. The dialog's one landing switch is `EnableDogleg` and
+  `EnableLanding` together. Arrows are AutoCAD's own by name (`dot`, `architectural_tick`...);
+  a block the drawing lacks is made the way AutoCAD's dialogs make it, by naming it in DIMBLK, which
+  is put back straight after (the one piece that is not undone if a later step fails, so everything
+  else is checked first). An annotative style keeps its own scale (the annotation session's work is
+  not touched).
+- **A table style keeps text in the vertical middle of every cell (D-83):** title, header and
+  data rows take left, centre or right only; top or bottom is refused. A table style has no scale
+  of its own, so text heights and margins are given as they plot and multiplied by the scale
+  (2.5 at 1:50 is 125). Margins default to a third of the text height, as in AutoCAD's own Standard
+  style (0.06 for 0.18 text); header and title heights to the data height.
+- **A scale reads as the dimension style's does:** a number is the factor (50 = 1:50), and text the
+  way the sheet writes it ('1:50', '2:1'). A bare number below 1 is refused rather than guessed
+  (0.02 could be the 1:50 ratio or a factor fifty times too small), the mirror of D-36.
+- **Not yet known (live rows):** whether AutoCAD's dialog shows these as set (the attachment
+  numbers and the landing switch are from Autodesk's reference, not a run), whether the DIMBLK
+  round trip leaves no style override, and whether one Ctrl+Z takes back text styles and plug-in
+  styles together. **Rejected:** typing MLEADERSTYLE / TABLESTYLE (each opens a dialog, which typed input
+  cannot drive), a COM dictionary `AddObject` of these classes (not proven anywhere), and a general "set any
+  property" request (D-40's reason).
+
 ## D-102 - A full-sheet preview says what it covered, and can add close-ups
 
 **Decided:** 2026-11-21, for issue #41. **Status:** in force; extends D-04 (the plot route) and

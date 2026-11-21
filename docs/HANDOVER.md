@@ -8,7 +8,22 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
+## Latest - 2026-11-21 (multileader and table styles by the plug-in, #68, D-104 and D-105)
+
+Branch `claude/styles-plugin`. `autocad_create_styles` takes `multileader_styles` and
+`table_styles`; the plug-in makes them (operations `multileader_style`, `table_style`). The
+rules (words, defaults, refusals) are in `Heron.AutoCAD.Bridge/StylePlans.cs` with
+`StylePlansTests.cs`; the add-in's `DrawingStyles.cs` only copies the plan and reads it back. Server
+side: `tests/test_create_styles_plugin.py`. A plot style table cannot be made (D-105, 05 §34). No
+new tool, so the tool count is unchanged. The add-in compiled here against the 2021, 2025 and 2027
+reference assemblies; nothing ran in AutoCAD.
+
+**Next (on this PC):** pull, rebuild and reinstall the plug-in, restart AutoCAD and Claude, then
+rows AN1-AN12. AN1 and AN3 answer what the reference could not: whether the dialog shows the
+attachment and the landing switch as set, and whether the DIMBLK round trip for a new arrow leaves
+no style override. AN4 says whether one Ctrl+Z takes it all back.
+
+## Earlier - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
 
 A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
 SECURITY, PROJECT-MAP, 06), D-87 and D-67 notes, sequence steps that switch drawing or undo, the

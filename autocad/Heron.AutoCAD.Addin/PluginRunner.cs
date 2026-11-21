@@ -128,6 +128,8 @@ namespace Heron.AutoCAD.Addin
                 case "planar_surface": return Surfaces.PlanarSurface(db, tr, args);
                 case "network_surface": return Surfaces.NetworkSurface(db, tr, args);
                 case "add_mesh": return Surfaces.Mesh(db, tr, args);
+                case "multileader_style": return DrawingStyles.Multileader(db, tr, args);
+                case "table_style": return DrawingStyles.Table(db, tr, args);
                 default: throw new RunRefusal(Texts.UnknownOperation(operation));
             }
         }
