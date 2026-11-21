@@ -365,7 +365,7 @@ RUN**. Plug-in 1.5.0 installed.
 |---|---|---|---|
 | O1 | In a saved drawing, tell the chat "the scale is 1:50 for this job"; start a NEW chat and call `autocad_status` | The new chat's status has `project_notes` scale 1:50 and it does not ask the scale | NOT RUN |
 | O2 | Open a drawing in ANOTHER folder; `autocad_status` | No `project_notes` from the first folder | NOT RUN |
-| O3 | `autocad_checklist(action="run", name="before issue")` on a real sheet | Each line PASS / FAIL / NOT RUN; FAIL lines name handles; `autocad_show` of them selects the right objects | NOT RUN |
+| O3 | `autocad_checklist(action="run", name="before issue")` on a real sheet | Each line PASS / FAIL / NO DATA / NOT RUN ([D-64](DECISIONS.md)); FAIL lines name handles; `autocad_show` of them selects the right objects | NOT RUN |
 | O4 | Save a list with your own sentences (title block pattern, text heights); run it | Your sentences come back as the labels; a title block with an empty attribute is named | NOT RUN |
 | O5 | Ask to Keep OFF: draw a circle with Heron, then "undo what you just did" (`autocad_undo_last`) | The circle is gone; nothing else changed | NOT RUN |
 | O6 | Draw a circle with Heron, then draw a line yourself, then `autocad_undo_last` | Refused: "the drawing changed after Heron's last change"; both stay | NOT RUN |

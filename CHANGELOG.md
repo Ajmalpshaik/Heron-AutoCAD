@@ -4,6 +4,12 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Check lists: a cut-off read is never a PASS (2026-11-21).** Found in review after PR #122:
+  title blocks read from only part of a drawing (the `max_entities` cut-off) could still say PASS,
+  and `autocad_check_standards` said `passed: true` after a cut-off read. Both now say not decided
+  (NO DATA, `passed: null`); a failure found in the part read is still a failure
+  ([D-64](docs/DECISIONS.md)). Four more phrases in the tool-finding test find the check list tools.
+
 - **Server 1.8.0 and plug-in 1.6.0 (2026-11-21).** One version for the whole batch of ideas from
   Heron AI for Revit merged today: padlocks in memory (#121), dialog watch (#100), the docked
   palette (#123) change the plug-in; server answers (#124), why / gaps (#120) and check lists

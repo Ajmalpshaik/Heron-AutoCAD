@@ -153,8 +153,9 @@ async def autocad_check_standards(
 
     "passed": true means every rule given was met for what Heron read,
     against the rules named in "source" (the file, or the rules given in the
-    chat). It never means the drawing complies with a code or standard:
-    Heron does not sign drawings off, and the answer must not say so (D-64).
+    chat); null means not decided, because only part of the objects was read.
+    It never means the drawing complies with a code or standard: Heron does
+    not sign drawings off, and the answer must not say so (D-64).
 
     Returns:
         JSON: {"checked", "passed", "source", "pass_means", "summary" {rule: count},
@@ -207,6 +208,10 @@ async def autocad_check_standards(
         report["pass_means"] = PASS_MEANS
         if capped:
             report["warning"] = f"Only the first {max_entities} objects were read; raise max_entities to read more."
+            if report["passed"]:
+                # Nothing wrong in the part read is not a pass for the whole drawing (D-64).
+                report["passed"] = None
+                report["warning"] += " Nothing was found in the part read, so it is not decided."
         return report
 
     return dumps(await run(work))

@@ -286,6 +286,9 @@ def _failing(check: dict[str, Any], data: dict[str, Any]) -> tuple[str, list[str
         if not blocks:
             return NO_DATA, [], f"no block named {params['block']} is in the drawing"
         bad = [b["handle"] for b in blocks if not b.get("attributes") or any(not str(v).strip() for v in b["attributes"].values())]
+        if data.get("capped") and not bad:
+            # The title blocks in the part not read were never looked at.
+            return NO_DATA, [], f"only the first {data['capped']} objects were read; the rest were not checked"
         return (FAIL if bad else PASS), bad, f"{len(blocks)} title block(s) read"
     if entities is None:
         return NO_DATA, [], "the objects could not be read"

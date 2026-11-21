@@ -319,7 +319,8 @@ async def autocad_checklist(
         - Use when: "on this job colours ByLayer is only low, and we don't
           check xrefs" -> project with changes [{id: bylayer_colour, severity:
           low}, {id: xrefs_found, on: false}].
-        - Use when: "which of my checks fail?" then autocad_show the handles.
+        - Use when: "which of my checks failed?" then autocad_show the handles.
+        - Use when: "run our office check list".
         - Don't use when: the run should be saved as Excel and HTML to send
           with the drawings - autocad_checklist_report.
         - Don't use when: the layers should be put right, not reported -
@@ -382,7 +383,7 @@ async def autocad_checklist_report(
     ] = checklist.STARTER["name"],
     max_entities: Annotated[int, Field(ge=1, le=200000, description="Stop reading objects after this many.")] = 20000,
 ) -> str:
-    """Run a check list and save the result as a new Excel workbook and HTML page next to the drawing.
+    """Save a check list result as a new Excel workbook and HTML page next to the drawing.
 
     The same run as autocad_checklist (office list plus this project's
     changes), saved as '<drawing> - checklist <list> - <date>.xlsx' and
