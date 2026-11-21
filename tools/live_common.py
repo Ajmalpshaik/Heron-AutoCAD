@@ -399,6 +399,14 @@ def origin(row: str) -> tuple[float, float]:
     return 2_000_000.0 + 100_000.0 * rank, 10_000.0 * number + extra
 
 
+def files_in(folder: Path, pattern: str = "*") -> list[str]:
+    """The names of the files in a folder that match a pattern, sorted; [] when there is no folder."""
+    try:
+        return sorted(p.name for p in Path(folder).glob(pattern) if p.is_file())
+    except OSError:
+        return []
+
+
 def file_stamp(path: Path) -> tuple[int, float] | None:
     """(size, modified time) of a file, or None when there is none."""
     try:

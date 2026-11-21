@@ -75,7 +75,16 @@ class Verdict:
         return [kwargs for tool, kwargs in self.calls if tool == name]
 
 
+@dataclass
+class Raw:
+    """An answer given back exactly as it is: a picture, a list of contents (autocad_preview)."""
+
+    value: Any
+
+
 def _as_reply(value: Any) -> Any:
+    if isinstance(value, Raw):
+        return value.value
     if isinstance(value, (dict, list)):
         return json.dumps(value)
     return value
@@ -159,7 +168,14 @@ def play(monkeypatch: Any, check: Any, answers: dict[str, Any], ctx: lc.Context 
             monkeypatch.setattr(lc, name, _fake_helper(recording, name, real))
         else:
             monkeypatch.setattr(lc, name, _unexpected(f"lc.{name}", asynchronous=inspect.iscoroutinefunction(real)))
-    unknown = [k for k in answers if k not in TOOL_HOMES and k.removeprefix("lc.") not in HELPERS]
+    for key in answers:
+        module_name, _, attribute = key.partition(".")
+        if module_name in ("lc", "") or not attribute:
+            continue
+        module = importlib.import_module(f"autocad_mcp.tools.{module_name}")
+        monkeypatch.setattr(module, attribute, _fake_tool(recording, key, getattr(module, attribute)))
+    unknown = [k for k in answers
+               if (k.startswith("lc.") and k[3:] not in HELPERS) or ("." not in k and k not in TOOL_HOMES)]
     if unknown:
         raise AssertionError(f"the recording names things that do not exist: {unknown}")
     context = ctx or lc.Context(version="27.0", padlocks={"changes": True, "admin": True, "publish": True})
@@ -177,7 +193,7 @@ def play(monkeypatch: Any, check: Any, answers: dict[str, Any], ctx: lc.Context 
 # The runner's own AutoCAD helpers a check may call (live_common.py).
 HELPERS = (
     "read_padlocks", "save_scratch", "other_drawing", "activate", "drawing_names", "read_props",
-    "exists", "by_hand_line", "by_hand_group", "by_hand_width", "by_hand_true_colour", "file_stamp",
+    "exists", "by_hand_line", "by_hand_group", "by_hand_width", "by_hand_true_colour", "file_stamp", "files_in",
 )
 
 
