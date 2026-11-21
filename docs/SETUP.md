@@ -57,7 +57,7 @@ from connection problems:
 .venv\Scripts\autocad-mcp.exe --list-tools
 ```
 
-You should see 169 tools. If this fails, the problem is the install.
+You should see 171 tools. If this fails, the problem is the install.
 
 ---
 
@@ -157,3 +157,16 @@ interface over `0.0.0.0`.
 The install is editable (`-e`), so edits to files under `src/` take effect on
 the next server start. After changing anything, restart Claude Desktop or run
 `claude mcp restart autocad` so it picks up the new code.
+
+A release that adds a package says so in the CHANGELOG. Install it by name, with
+Claude closed so no server runs ([05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)).
+Reading DXF files with AutoCAD closed needs `ezdxf` (D-92):
+
+```bash
+.venv\Scripts\python.exe -m pip install ezdxf
+```
+
+Reading a DWG with AutoCAD closed also needs the free ODA File Converter from the
+Open Design Alliance, installed by hand. Heron finds it under Program Files\ODA
+and never downloads it; for another place, set `HERON_ODA_CONVERTER` to its
+`.exe` in the MCP settings.

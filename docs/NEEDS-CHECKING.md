@@ -667,6 +667,34 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC14 | Two drawings open: `pump-room.dwg` with a pump skid (a block with a nested motor block on layer E-MOTOR, layer M-EQPT) and `plan.dwg` that has M-EQPT in another colour. In plan.dwg after `autocad_status`: `autocad_copy_from_drawing(source='pump-room', handles=[skid, two pipes], base_point=[0,0], to_point=[5000,2000], dry_run=true)`, then without | Dry run lists E-MOTOR and the blocks as brought in, M-EQPT as already here; nothing copied. Then the skid and pipes appear 5000,2000 away in plan.dwg, the new handles come back, E-MOTOR is a new layer, M-EQPT keeps plan.dwg's colour; plan.dwg stays active and pump-room.dwg is unchanged; one Ctrl+Z in plan.dwg takes them away | NOT RUN |
 | AC15 | Same, with a handle from plan.dwg, and with `source='plan'` | Refused before anything is copied: the wrong handle is named; the active drawing as source points at `autocad_copy_entities` | NOT RUN |
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
+| AC17 | After AC3, make a SKID block holding one VALVE TAG insert, insert SKID twice. Change VALVE TAG's definition again; `autocad_sync_attributes(block='VALVE TAG', nested=true, dry_run=true)`, then without (#156) | The dry run lists the insert inside SKID with `"inside": "SKID"`; after the sync both SKID copies show the nested tag with its new attributes and its typed value kept; without `nested` it is not listed | NOT RUN |
+
+## Group AG - Files with AutoCAD closed, standards against a reference drawing, shared check lists (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-92](DECISIONS.md), [D-93](DECISIONS.md); issues #71, #69, #135). Built and
+tested offline (`tests/test_read_file.py`, `tests/test_shared_checklists.py`): the DXF reader is
+proved there on small DXF files made with ezdxf, and the compare, the refusals and the shared-file
+rules on plain data. **Set-up:** close Claude, run `.venv\Scripts\python.exe -m pip install ezdxf`
+once (a new dependency, installed by name: [05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)),
+start Claude again. Server only: no plug-in build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AG1 | AutoCAD **closed**. `autocad_read_file(path="<a real project .dxf>")`, then `what="layers"`, `"blocks"`, `"text"`, `"attributes"` | Answers with AutoCAD closed; units, layer names and colours, block counts and title block values match what AutoCAD shows when the file is opened (record two counts side by side). No AutoCAD starts; the file's date is unchanged | NOT RUN |
+| AG2 | AutoCAD closed, ODA File Converter **not** installed: `autocad_read_file(path="<a .dwg>")` | Refused in plain words: needs AutoCAD, the ODA File Converter, or a DXF of it; nothing downloaded | NOT RUN |
+| AG3 | Install the ODA File Converter (from the Open Design Alliance, by hand). Repeat AG1 on a `.dwg` and on the office `.dws` | `read_by` names the converter's path; layers and block counts match AutoCAD; no converter window flashes up; nothing is left in `%TEMP%\heron-oda-*`; the `.dwg` / `.dws` date is unchanged. Record the converter version and the seconds taken | NOT RUN |
+| AG4 | `autocad_read_file` on a DWG with dynamic blocks (valves, doors) and `what="blocks"` | Placed counts are under the dynamic block's own name, not `*U12`; the count matches AutoCAD's BCOUNT / Count palette | NOT RUN |
+| AG5 | AutoCAD open, a project drawing active: `autocad_check_standards(reference="<the office .dws>")`, converter **not** installed | `reference.read_by` says AutoCAD's own reader (ObjectDBX); the .dws does not open on screen; the findings name layers and text styles that really differ (check two by hand in the Layer and Style dialogs). AutoCAD's CHECKSTANDARDS on the same pair: record where the two disagree | NOT RUN |
+| AG6 | AG5 with the office `.dws` **open** in AutoCAD as well | `read_by` says the drawing is open there; same findings as AG5 | NOT RUN |
+| AG7 | AG5 with a `.dxf` saved from the `.dws`, then with `flag_extra=false` | Same findings as AG5 (`read_by` ezdxf); with `flag_extra=false` the "not in standard" lines are gone. A layer with a true colour: record what is said | NOT RUN |
+| AG8 | Text styles: a style with a TrueType font (Arial) in both drawings, and one with romans.shx vs simplex.shx | Arial is not reported; the SHX pair is reported as "font ... here, ... in the standard" | NOT RUN |
+| AG9 | `autocad_checklist(action="office_folder", folder="<a real network share>")`, then `autocad_share_checklist(share="office_list", name="before issue")` with Publish ON; run `before issue` on a second PC pointed at the same share | The file appears on the share with `saved_by` = this Windows user; the second PC's run says `office_from: office folder` and names the share's file on every line | NOT RUN |
+| AG10 | Disconnect the network drive (or unplug), then run `before issue` | Within about 10 s: the run says the office folder could not be reached and that it used this PC's copy, with the date read; the verdict is given | NOT RUN |
+| AG11 | Second PC changes the list and shares it with `replace=true`; first PC shares its own different list without replace | First PC is refused, naming the second PC's user and time and what differs; the share's file is unchanged. With `replace=true`, the file holds `previous` with the second PC's list | NOT RUN |
+| AG12 | A share where this user has read-only rights: share a list | Refused: "read-only for you"; nothing written | NOT RUN |
+| AG13 | `autocad_share_checklist(share="project_changes", name="before issue", changes=[{id: "xrefs_found", on: false}])` in a job folder; open another drawing in the same folder on the second PC and run `before issue` | `Heron check list changes.json` is in the job folder; the second PC's run has `xrefs_found` NOT RUN, `from: project`, naming that file | NOT RUN |
+| AG14 | Padlocks: Publish OFF. `autocad_share_checklist(share="office_list")` | Refused by the plug-in (Publish padlock); nothing written to the share | NOT RUN |
+| AG15 | `autocad_why(job="read the layers of a DXF file")` with AutoCAD closed | `can_run: true`, the tool `autocad_read_file`, no "press Heron" reason | NOT RUN |
 
 ## Group AJ - Drawing events from the plug-in, fewer batch pieces (AutoCAD 2027, this PC)
 

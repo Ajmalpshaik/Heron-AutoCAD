@@ -184,6 +184,89 @@ rows AJ1-AJ10 NOT RUN).
 - **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
   update live without a server of its own; the docked palette is the live list.
 
+## D-93 - The office check lists live in a folder the modeller names; sharing them is its own Publish tool
+
+**Decided:** 2026-11-21, issue #135 (from the brief for this wave: "a folder the modeller names,
+e.g. a shared drive, as the office list's home, with the local copy as the fallback, never
+overwriting a teammate's file silently"). **Status:** in force. Extends [D-64](#d-64---check-lists-no-data-office-lists-with-project-changes-pass-is-not-complies).
+
+- **Where it is set.** `autocad_checklist(action='office_folder', folder='S:\CAD\Heron')`, once per
+  PC, kept in `%LOCALAPPDATA%\Heron\autocad\checklist-office-folder.json`; `folder=''` clears it.
+  Not an environment variable in `.mcp.json`: the modeller sets it from the chat, and Heron checks
+  the folder answers before keeping it.
+- **Reading.** A run takes the list from the office folder first. Each read keeps a copy on this PC
+  (`checklists\office-copies\`). When the folder cannot be reached (it is given 10 s, then believed
+  unreachable for a minute, so a folder check does not wait per drawing), or its file cannot be
+  read, the run says so plainly and uses that copy, naming the date it was read. With no copy, it
+  uses this PC's own list of that name, saying so; but if the office folder **has** the list and it
+  cannot be read, nothing is run: Heron never runs another list in place of the office's. Saving
+  on this PC under a name the office folder has is refused (it would never be used).
+- **A project's changes with the project.** `<the drawing's folder>\Heron check list changes.json`
+  holds them for everyone who opens a drawing from that folder; it wins over a PC's own changes
+  (D-64's store, still used when there is no such file), and a run says when they differ. A file
+  there that cannot be read stops the run. Still only severity, target and on/off.
+- **Writing is `autocad_share_checklist`, at Publish** (as D-65): it writes outside Heron's own
+  folder, where the team reads. A file there that holds something different is replaced only with
+  `replace=true`, and the refusal names who saved it (the Windows user), when, and what differs;
+  when replaced, what was there is kept in the same file as `previous` (one step back, never
+  nested). The file is written beside itself and swapped in only if nobody changed it since it was
+  read. **Who may change the office list** is the folder's own Windows permissions: a read-only
+  folder is refused, saying so; Heron adds no roles of its own.
+- **Every run names its files:** `lists.office` / `office_from`, `lists.project_file` /
+  `project_from`, and `file` on every result line.
+
+If Ajmal wants it otherwise (an `.mcp.json` setting for IT to deploy, or roles inside Heron), that
+is a new decision; this one is easy to reverse, as nothing else reads the setting.
+
+**Later the same day (an independent review):** a copy is used only if it was read from the office
+folder set now (a copy from a folder set before is another office's list), and the warning names
+the file it came from; `autocad_check_folder` keeps every run's warning on its line and names the
+list it ran (`list`, `warning`); project changes are not shared while the office list cannot be
+read (they would be checked against a stand-in and stop every teammate's run); the office and
+project folder reads run off the server's main thread.
+
+## D-92 - DXF / DWG files are read with AutoCAD closed (ezdxf, the ODA converter); standards compare with a reference drawing
+
+**Decided:** 2026-11-21, issues #71 and #69. **Status:** in force.
+
+- **`autocad_read_file`** (Read): the summary (DXF version, units, extents, counts, the most
+  placed blocks, layouts, xrefs), the layers with objects per layer, the blocks with how many are
+  placed and inside other blocks and their attribute tags, every text and mtext, every block's
+  attribute values (JSON or CSV), and the text styles, dimension styles and linetypes, of a file on
+  disk. It touches no AutoCAD, so the gate lets it through without the plug-in
+  (`NO_AUTOCAD_TOOLS`, as `autocad_why`, D-67), audited like every call; `autocad_why` no longer
+  says "press Heron" for it. The file is never written; what is read is what was last saved.
+- **DXF with `ezdxf`**, now a dependency of the server: every PC installs it once, by name, with
+  Claude closed (`.venv\Scripts\python.exe -m pip install ezdxf`,
+  [05 §1](05-known-limits.md#1-reinstalling-while-the-server-runs)); without it the tool says how,
+  and every other tool works as before. A damaged DXF is read in ezdxf's recover mode and the answer says
+  so. Files over 250 MB are refused.
+- **DWG, DWS and DWT through the ODA File Converter, only when it is installed.** Heron finds it
+  (`HERON_ODA_CONVERTER`, else the newest `Program Files\ODA\ODAFileConverter*`, else PATH) and
+  never downloads it. It converts a copy in a temporary folder to an R2018 DXF, with no window and
+  a 3-minute limit, then reads that. Without it, a DWG is refused saying it needs AutoCAD, the ODA
+  converter, or a DXF of it.
+- **`autocad_check_standards(reference=...)`** compares the open drawing with a `.dws`, `.dwt`,
+  `.dwg` or `.dxf`: layers by colour, linetype, lineweight and plot; text styles by font, big font,
+  height, width and oblique; dimension styles and linetypes **by name only** (COM cannot read a
+  dimension style's settings without making it current, which would change the drawing). Each
+  name is missing, differs (both values said), or not in the standard (`flag_extra=false` leaves
+  those out). Xref and anonymous names are left out; layer 0, Defpoints, Standard and ByLayer are
+  never missing or extra. The reference is read by Heron's reader where it can (a DXF always; a
+  DWG or DWS when the converter is there), else by AutoCAD's own reader (ObjectDBX, not opened on
+  screen, or the open drawing itself); the answer says which in `reference.read_by`. PASS wording
+  is D-64's: the checked values are met against that file, never "complies". Pure compare in
+  `acad/standard_compare.py`.
+
+Known limits: true colours are compared by their colour number; a `.dws` read by ObjectDBX and the
+converter on a real DWG are not proven live (Group AG).
+
+**Later the same day (an independent review):** a reference read in recover mode, or one holding
+nothing beyond what every drawing has, never gives `passed: true` (it is `null`, with
+`reference.warning`); a table AutoCAD cannot read (layers, styles, linetypes) stops the check,
+naming it, instead of counting as empty; the converter gets the copy under a plain name of Heron's
+own (it reads that argument as a wildcard filter); header extents at the origin are used.
+
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never
@@ -331,7 +414,10 @@ D-25 rule 2 and D-40, which stand.
   changes no tag).
 - **Which inserts:** every insert of the block by its real name in model space and on every sheet
   (a dynamic block's `*U` copies included), or the handles given. An insert on a locked layer is
-  left out and listed. Inserts inside other blocks' definitions are not reached yet ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)).
+  left out and listed. Inserts inside other blocks' definitions are reached with `nested=true`
+  ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156), added the same day): every ordinary block definition is read for them (layouts are
+  already covered, xrefs are another drawing's, `*U` copies are AutoCAD's own); off by default
+  because it reads every definition and changes every copy of the block that holds them.
 - `add_attributes` adds new definitions to an existing block first (positions from its base point,
   as the block is drawn; one with no position is stacked under the lowest attribute the block
   already has, so it never lands on one), then syncs, in the same transaction. The inserts are
