@@ -191,7 +191,7 @@ D-25 rule 2 and D-40, which stand.
   multi-line one, which is left exactly as it was so nothing typed is lost.
 - **Which inserts:** every insert of the block by its real name in model space and on every sheet
   (a dynamic block's `*U` copies included), or the handles given. An insert on a locked layer is
-  left out and listed. Inserts inside other blocks' definitions are not reached (ROADMAP).
+  left out and listed. Inserts inside other blocks' definitions are not reached yet ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)).
 - `add_attributes` adds new definitions to an existing block first (positions from its base point,
   as the block is drawn), then syncs, in the same transaction. A `dry_run` writes nothing and says
   what each insert keeps, gains and loses.

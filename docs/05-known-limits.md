@@ -306,7 +306,7 @@ From [D-82](DECISIONS.md) and [D-83](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
   answers that it does not have the operation: rebuild and reinstall it. The Excel table then
   falls back to a filled table and says so; ATTSYNC stops with nothing changed.
 - **ATTSYNC reaches inserts in model space and on the sheets,** not inserts nested inside other
-  blocks' definitions. An insert on a locked layer is skipped and listed. An attribute holding a
+  blocks' definitions ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)). An insert on a locked layer is skipped and listed. An attribute holding a
   field, or a multi-line one, keeps its own text, place and size (`kept_as_they_were`).
 - **A tag that appears twice in one block is matched in order**: the first definition of it takes
   the first value of it on each insert.

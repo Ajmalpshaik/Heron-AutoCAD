@@ -26,6 +26,7 @@ done looks like here.
 - [ ] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).
 - [ ] AutoCAD ribbon coverage audit ([#94](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/94)); an honest install table ([#95](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/95)).
 - [x] From the audit: attribute definitions and ATTSYNC ([#115](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/115), D-82), an Excel range as a linked table and table cell edits ([#117](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/117), D-83), copy between open drawings ([#106](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/106), D-83). Live rows AC1-AC16 NOT RUN.
+- [ ] ATTSYNC also for inserts nested inside other blocks' definitions ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)).
 - [x] Spreadsheet round trip for attributes ([#96](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/96), D-69), check a folder of drawings ([#97](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/97), D-70). Live rows Y1-Y5 NOT RUN.
 - Not taken: Heron for Revit's knowledge store, standards answers with citations, HVAC / fire
   calculators and usage counter (AutoCAD has no knowledge store), and its proven-only change gate
