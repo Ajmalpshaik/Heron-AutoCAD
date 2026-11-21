@@ -132,7 +132,7 @@ namespace Heron.AutoCAD.Bridge
             {
                 case JsonValueKind.Number:
                     if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) || double.IsNaN(number) || double.IsInfinity(number))
-                        return PaletteTexts.NeedsNumber(input.Name, input.Example ?? input.Default);
+                        return PaletteTexts.NeedsNumber(input.Name, input.Example ?? input.Default ?? "");
                     if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var whole)) w.WriteNumberValue(whole);
                     else w.WriteNumberValue(number);
                     return null;
@@ -149,13 +149,13 @@ namespace Heron.AutoCAD.Bridge
                     {
                         using (var given = JsonDocument.Parse(text))
                         {
-                            if (given.RootElement.ValueKind != input.Kind) return PaletteTexts.NeedsList(input.Name, input.Example ?? input.Default);
+                            if (given.RootElement.ValueKind != input.Kind) return PaletteTexts.NeedsList(input.Name, input.Example ?? input.Default ?? "");
                             given.RootElement.WriteTo(w);
                         }
                     }
                     catch (JsonException)
                     {
-                        return PaletteTexts.NeedsList(input.Name, input.Example ?? input.Default);
+                        return PaletteTexts.NeedsList(input.Name, input.Example ?? input.Default ?? "");
                     }
                     return null;
                 default:

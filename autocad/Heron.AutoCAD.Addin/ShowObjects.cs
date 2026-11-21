@@ -17,8 +17,8 @@ namespace Heron.AutoCAD.Addin
     {
         public const int MostToHighlight = 500;
 
-        /// <summary>Select and zoom to these handles. How many were found (all of them when there are too many to highlight).</summary>
-        public static int SelectAndZoom(Document doc, string[] handles, List<string>? missing = null)
+        /// <summary>Select and zoom to these handles (only select, with zoom false). How many were found (all of them when there are too many to highlight).</summary>
+        public static int SelectAndZoom(Document doc, string[] handles, List<string>? missing = null, bool zoom = true)
         {
             if (handles.Length == 0 || handles.Length > MostToHighlight) return handles.Length;
             var ids = new List<ObjectId>();
@@ -68,7 +68,7 @@ namespace Heron.AutoCAD.Addin
             }
             if (ids.Count == 0) return 0;
             doc.Editor.SetImpliedSelection(ids.ToArray());
-            if (box != null) ZoomTo(box.Value);
+            if (zoom && box != null) ZoomTo(box.Value);
             return ids.Count;
         }
 

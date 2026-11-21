@@ -23,6 +23,9 @@ namespace Heron.AutoCAD.Addin
         [CommandMethod("HERONFREE", CommandFlags.Session)]
         public void Free() => HeronActions.FreeHold();
 
+        [CommandMethod("HERONPALETTE", CommandFlags.Session)]
+        public void Palette() => HeronPalette.Toggle();
+
         [CommandMethod("HERONSETTINGS", CommandFlags.Session)]
         public void Settings() => HeronActions.ShowSettings();
 
