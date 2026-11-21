@@ -15,8 +15,11 @@ Branch `claude/plugin-events`. No new tool. **Plug-in change**: `DrawingEvents` 
 new op `drawings`; `send_quiet` refuses after a switch mid-job and lines over `quietLimit` (1,500,
 said in ping). Server: the guard reads the events (`core/drawing_events.py`); the batch goes in
 longer pieces through the plug-in (`acad/lisp.py` `quiet_pieces`). The palette's Activity shows
-the drawing events live. Built for all three targets and tested offline; none of it has run in
-AutoCAD. Versions not bumped (the parent does).
+the drawing events live. An independent review found six gaps, all fixed with tests (D-98, last
+bullet): a drawing opened since the check, history that dropped off, bare-name matches, the status
+mark, `send_quiet` now answering only after AutoCAD got to the input, old names keyed by database.
+Built for all three targets and tested offline; none of it has run in AutoCAD. Versions not bumped
+(the parent does). Follow-up: #165 (a sequence's COM steps after a mid-job switch).
 
 **Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude; live
 rows **AJ1-AJ10**. AJ6 first (count the `Command:` prompts for the 41-object batch), then AJ7

@@ -1,5 +1,5 @@
 using System;
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Heron.AutoCAD.Bridge;
@@ -16,14 +16,13 @@ namespace Heron.AutoCAD.Addin
     /// </summary>
     internal static class DrawingWatch
     {
-        /// <summary>The name each open drawing had at its last event, so a Save As can say the old one.</summary>
-        private static readonly ConditionalWeakTable<Document, NameBox> Names = new ConditionalWeakTable<Document, NameBox>();
+        /// <summary>
+        /// The name each open drawing had at its last event, so a Save As can
+        /// say the old one. Keyed by the drawing's database in AutoCAD itself,
+        /// never by the .NET wrapper object. Main thread only.
+        /// </summary>
+        private static readonly Dictionary<IntPtr, string> Names = new Dictionary<IntPtr, string>();
         private static bool _hooked;
-
-        private sealed class NameBox
-        {
-            public string Name = "";
-        }
 
         private static DrawingEvents Log => AcadJobHost.Drawings;
 
@@ -47,12 +46,15 @@ namespace Heron.AutoCAD.Addin
             manager.DocumentBecameCurrent -= OnBecameCurrent;
             manager.DocumentToBeDestroyed -= OnToBeDestroyed;
             foreach (Document doc in manager) Detach(doc);
+            Names.Clear();
             _hooked = false;
         }
 
+        private static IntPtr Key(Document doc) => doc.Database.UnmanagedObject;
+
         private static void Attach(Document doc)
         {
-            Names.GetValue(doc, _ => new NameBox()).Name = doc.Name;
+            Names[Key(doc)] = doc.Name;
             doc.Database.SaveComplete += OnSaved;
         }
 
@@ -60,6 +62,7 @@ namespace Heron.AutoCAD.Addin
         {
             try
             {
+                Names.Remove(Key(doc));
                 doc.Database.SaveComplete -= OnSaved;
             }
             catch (System.Exception ex)
@@ -99,6 +102,11 @@ namespace Heron.AutoCAD.Addin
             try
             {
                 if (e.Document == null) return;
+                // Saved under a new name as it closed ("Save changes?" for a new
+                // drawing): say the Save As before the close, which the idle
+                // work after the save would no longer find.
+                if (Names.TryGetValue(Key(e.Document), out var was) && !string.Equals(was, e.Document.Name, StringComparison.OrdinalIgnoreCase))
+                    Log.DrawingSaved(e.Document.Name, was);
                 Log.DrawingClosed(e.Document.Name);
                 Detach(e.Document);
             }
@@ -114,14 +122,14 @@ namespace Heron.AutoCAD.Addin
             {
                 // The automatic save (.sv$) and backups are AutoCAD's own, not the modeller saving.
                 if (DrawingEvents.IsBackupFile(e.FileName) || !(sender is Database db)) return;
+                var key = db.UnmanagedObject;
                 // After the save command ends, when a Save As has given the drawing its new name.
                 IdleQueue.Post(() =>
                 {
                     var doc = AcApp.DocumentManager.GetDocument(db);
-                    if (doc == null) return;
-                    var box = Names.GetValue(doc, _ => new NameBox());
-                    var was = box.Name;
-                    box.Name = doc.Name;
+                    // Closed meanwhile: the close already said what it needed.
+                    if (doc == null || !Names.TryGetValue(key, out var was)) return;
+                    Names[key] = doc.Name;
                     Log.DrawingSaved(doc.Name, was);
                 });
             }

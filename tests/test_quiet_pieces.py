@@ -300,11 +300,43 @@ def test_a_line_too_long_for_the_plugin_is_false_so_com_sends_short_ones(piped):
 
 
 def test_another_drawing_in_front_ends_the_input_never_sent_over_com(piped):
-    words = "The drawing in front changed while this job ran: it began in a.dwg, and b.dwg is in front now."
+    words = ("The drawing in front changed while this job ran: it began in a.dwg, and b.dwg is in front now, "
+             "so Heron typed none of this input. What the job did before it stays.")  # fmt: skip
     piped["reply"] = {"ok": False, "refusedBy": "Drawing", "message": words}
     with pytest.raises(refused()) as caught:
         Bridge(1).send_quiet("j1", ["(a)"])
-    assert "b.dwg is in front now" in str(caught.value) and str(caught.value).endswith(NOTHING_SENT)
+    # Not "nothing was sent": the job may have made layers before it.
+    assert str(caught.value) == words
+
+
+def test_input_autocad_never_got_to_ends_the_input(piped):
+    piped["reply"] = {"ok": False, "refusedBy": "NotStarted", "message": "AutoCAD did not get to this input within 10 s"}
+    with pytest.raises(refused()):
+        Bridge(1).send_quiet("j1", ["(a)"])
+
+
+def test_the_stop_still_says_nothing_was_sent(piped):
+    piped["reply"] = {"ok": False, "refusedBy": "Stopped", "message": "The modeller stopped Heron in AutoCAD (HERONSTOP)."}
+    with pytest.raises(refused()) as caught:
+        Bridge(1).send_quiet("j1", ["(a)"])
+    assert str(caught.value).endswith(NOTHING_SENT)
+
+
+def test_typing_that_went_wrong_part_way_is_never_typed_again(piped):
+    piped["reply"] = {"ok": True, "unknown": True}
+    assert Bridge(1).send_quiet("j1", ["(a)"]) is True
+
+
+def test_the_wait_is_longer_than_the_plugins(piped, monkeypatch):
+    seen = {}
+
+    def exchange(pipe, request, timeout):
+        seen["timeout"] = timeout
+        return {"ok": True}
+
+    monkeypatch.setattr(bridge_module, "_exchange", exchange)
+    Bridge(1).send_quiet("j1", ["(a)"])
+    assert seen["timeout"] > 10
 
 
 def test_not_connected_is_false(monkeypatch):

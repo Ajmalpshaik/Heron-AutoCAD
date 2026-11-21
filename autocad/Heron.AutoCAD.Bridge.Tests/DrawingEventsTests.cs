@@ -107,11 +107,25 @@ public class DrawingEventsTests
     {
         var log = Log();
         for (var i = 0; i < DrawingEvents.MostKept + 5; i++) log.DrawingOpened("d" + i + ".dwg");
+        Assert.True(DrawingEvents.MostKept >= 200); // a folder check alone makes about four per drawing
         Assert.Equal(DrawingEvents.MostKept, log.Since(0).Events.Count);
         Assert.True(log.Since(0).Lost);
         Assert.True(log.Since(4).Lost);
         Assert.False(log.Since(5).Lost);
         Assert.False(log.Since(log.Seq).Lost);
+    }
+
+    [Fact]
+    public void The_current_name_follows_each_save_as_after_the_number()
+    {
+        var log = Log();
+        log.DrawingSaved(@"C:\old.dwg", "Drawing1.dwg");
+        var mark = log.Seq;
+        log.DrawingSaved(@"C:\a.dwg", "Drawing2.dwg");
+        log.DrawingSaved(@"C:\b.dwg", @"C:\A.DWG");
+        Assert.Equal(@"C:\b.dwg", log.CurrentName("Drawing2.dwg", 0));
+        Assert.Equal("Drawing1.dwg", log.CurrentName("Drawing1.dwg", mark)); // that save came before
+        Assert.Equal(@"C:\x.dwg", log.CurrentName(@"C:\x.dwg", 0));
     }
 
     [Fact]
@@ -286,7 +300,59 @@ public class QuietDrawingTests
         Assert.Equal("Drawing", reply.GetProperty("refusedBy").GetString());
         Assert.Equal(Texts.DrawingChangedInJob(@"C:\a.dwg", @"C:\b.dwg"), reply.GetProperty("message").GetString());
         Assert.Contains("b.dwg is in front now", reply.GetProperty("message").GetString());
+        Assert.Contains("What the job did before it stays", reply.GetProperty("message").GetString());
         Assert.Empty(_host.Quiet);
+    }
+
+    [Fact]
+    public void After_a_save_as_the_host_is_given_the_new_name_and_a_switch_back_to_it_is_typed()
+    {
+        _log.Start("Drawing1.dwg");
+        Begin("Drawing1.dwg");
+        _log.DrawingSaved(@"C:\plan.dwg", "Drawing1.dwg");
+        _log.DrawingActivated(@"C:\b.dwg");
+        _log.DrawingActivated(@"C:\plan.dwg");
+        Assert.True(Quiet().GetProperty("ok").GetBoolean());
+        Assert.Equal(@"C:\plan.dwg", Assert.Single(_host.QuietDrawings));
+    }
+
+    [Fact]
+    public void What_the_host_found_on_the_main_thread_is_the_answer()
+    {
+        Begin();
+        _host.QuietReply = QuietAnswer.Refused("Drawing", Texts.DrawingChangedInJob(@"C:\a.dwg", @"C:\c.dwg"));
+        var reply = Quiet();
+        Assert.False(reply.GetProperty("ok").GetBoolean());
+        Assert.Equal("Drawing", reply.GetProperty("refusedBy").GetString());
+        Assert.Contains("c.dwg is in front now", reply.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void Input_autocad_never_got_to_is_said_so()
+    {
+        Begin();
+        _host.QuietReply = QuietAnswer.Refused("NotStarted", Texts.QuietNotStarted(10, "HATCH"));
+        var reply = Quiet();
+        Assert.Equal("NotStarted", reply.GetProperty("refusedBy").GetString());
+        Assert.Contains("still in the HATCH command", reply.GetProperty("message").GetString());
+        Assert.Contains("never will", reply.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void Input_that_went_wrong_part_way_is_ok_but_unknown_so_it_is_never_typed_again()
+    {
+        Begin();
+        _host.QuietReply = QuietAnswer.NotKnown("eInvalidInput");
+        var reply = Quiet();
+        Assert.True(reply.GetProperty("ok").GetBoolean());
+        Assert.True(reply.GetProperty("unknown").GetBoolean());
+    }
+
+    [Fact]
+    public void Typed_input_has_no_unknown_flag()
+    {
+        Begin();
+        Assert.False(Quiet().TryGetProperty("unknown", out _));
     }
 
     [Fact]

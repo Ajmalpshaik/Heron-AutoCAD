@@ -21,11 +21,12 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>
         /// Hand lines of AutoLISP to AutoCAD as command input with echo off, in
         /// order. Only ever called inside a running job that may change the
-        /// drawing. <paramref name="drawing"/> is the drawing the job began on:
-        /// when AutoCAD gets to the lines and another drawing is in front, none
-        /// is typed (#48).
+        /// drawing. <paramref name="drawing"/> is the job's drawing, by the
+        /// name it has now (a Save As followed): when AutoCAD gets to the lines
+        /// and another drawing is in front, none is typed (#48). Called on a
+        /// pipe thread; waits for AutoCAD to get to it, so the answer is true.
         /// </summary>
-        void SendQuiet(string[] lines, string drawing);
+        QuietAnswer SendQuiet(string[] lines, string drawing);
 
         /// <summary>
         /// Do one of the plug-in's own operations (<see cref="PluginOperations"/>)
@@ -65,6 +66,22 @@ namespace Heron.AutoCAD.Bridge
         /// when the watch would not take it.
         /// </summary>
         bool ExpectDialog(string job, string title, string button);
+    }
+
+    /// <summary>What became of quiet input: typed, refused (nothing typed), or not known.</summary>
+    public sealed class QuietAnswer
+    {
+        /// <summary>Null when typed, or when it went wrong part way (then <see cref="Unknown"/>).</summary>
+        public string? RefusedBy { get; private set; }
+        public string Message { get; private set; } = "";
+        /// <summary>It went wrong while typing: some lines may be in AutoCAD's input.</summary>
+        public bool Unknown { get; private set; }
+
+        public static QuietAnswer Typed { get; } = new QuietAnswer();
+
+        public static QuietAnswer Refused(string refusedBy, string message) => new QuietAnswer { RefusedBy = refusedBy, Message = message };
+
+        public static QuietAnswer NotKnown(string message) => new QuietAnswer { Unknown = true, Message = message };
     }
 
     public sealed class JobInfo

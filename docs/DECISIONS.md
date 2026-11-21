@@ -141,7 +141,7 @@ rows AJ1-AJ10 NOT RUN).
   not news), *saved* (`Database.SaveComplete`, read after the command so a Save As gives the old
   name; the automatic save `.sv$` and backups are left out) and *closed*
   (`DocumentToBeDestroyed`). Each event has a number, and the log an epoch that is new for every
-  AutoCAD session; 50 are kept. A stdio server has no way in from the plug-in (D-68), so the server
+  AutoCAD session; 200 are kept. A stdio server has no way in from the plug-in (D-68), so the server
   asks: the new op `drawings {since}` answers the events after that number, read only, on the
   pipe thread.
 - **The wrong-drawing guard (D-19) uses them.** `autocad_status` (and `autocad_create_drawing`)
@@ -171,6 +171,16 @@ rows AJ1-AJ10 NOT RUN).
 - **Two safety nets found on the way.** A `send_quiet` that went out and got no answer is treated
   as typed: sending it again over COM could draw the batch twice. A batch whose output file has
   DONE but fewer result lines than operations says `missing` with a hint, never a quiet success.
+- **After an independent review (same day).** The guard also refuses a drawing *opened* since the
+  check when it is the one in front (a Save As, then the old file opened again; a second copy).
+  History that dropped off is no longer a reason to ignore the events still there; 200 are kept,
+  and every change the guard lets through moves its mark up. Names are compared exactly, so an
+  unsaved `Drawing1.dwg` is never taken for `D:\F\Drawing1.dwg`. `autocad_status` takes its mark
+  before its work. `send_quiet` now waits (up to 10 s) for AutoCAD to get to the input and answers
+  the truth: typed, refused because another drawing is in front (also when the switch came between
+  the server's look and `begin`), or not started in time (abandoned, never typed later). A Save As
+  of the job's drawing is followed. The add-in keeps the old names by AutoCAD's database, not the
+  .NET object, and says a Save As made while closing before the close.
 - **Not done:** the Companion page (D-71) is a file the gate rewrites after each job, so it cannot
   update live without a server of its own; the docked palette is the live list.
 

@@ -12,12 +12,17 @@ it is tested offline:
 - another AutoCAD session (restarted, or another AutoCAD) -> check again;
 - the checked drawing was closed since -> check again, even when the same
   name is in front: it is a new copy in memory, perhaps changed on disk;
+- the drawing in front was opened since the check (a Save As, then the old
+  file opened again; or a second copy of it) -> check again;
 - the checked drawing was saved under a new name and that name is in front
   -> the same drawing, the same units: the guard follows the new name;
 - anything else -> the name compare decides, as before.
 
-When the plug-in cannot tell (an older one, history dropped off) nothing here
-refuses: the guard is exactly as it was before.
+When the plug-in cannot tell (an older one) nothing here refuses: the guard
+is exactly as it was before. When older events dropped off unread, what is
+still there is judged, but a Save As is not followed on it. Names are compared
+exactly (ignoring case): both sides give a saved drawing's full path and an
+unsaved one's bare name, so a bare name never stands for a file elsewhere.
 """
 
 from __future__ import annotations
@@ -40,10 +45,15 @@ class Mark:
 
 @dataclass(frozen=True)
 class Verdict:
-    """refusal: refuse with this sentence. follow: the checked drawing's new name (a Save As)."""
+    """refusal: refuse with this sentence. follow: the checked drawing's new name (a Save As).
+
+    seen: every event up to this number was judged and none spoke against the
+    checked drawing, so the guard may move its mark here (None: leave it).
+    """
 
     refusal: str | None = None
     follow: str | None = None
+    seen: int | None = None
 
 
 def short(drawing: str) -> str:
@@ -73,9 +83,22 @@ def other_session(checked: str) -> str:
     )
 
 
+def _eq(a: str, b: str) -> bool:
+    return str(a or "").casefold() == str(b or "").casefold()
+
+
+def opened_since(current: str, at: str) -> str:
+    when = f" at {at}" if at else ""
+    return (
+        f"{short(current)} was opened{when}, after Heron checked a drawing, so it is a new copy in "
+        f"memory. Call autocad_status first, so Heron knows its units and the change goes where you "
+        f"mean it. {NOTHING_SENT}"
+    )
+
+
 def closed_since(checked: str, at: str, current: str) -> str:
     when = f" at {at}" if at else ""
-    if same(current, checked):
+    if _eq(current, checked):
         what = f"{short(checked)} was closed{when} and opened again since Heron checked it"
     else:
         what = f"{short(checked)} was closed{when} since Heron checked it, and {short(current)} is in front now"
@@ -91,17 +114,23 @@ def judge(checked: str, current: str, mark: Mark | None, pid: int | None, histor
         return Verdict()
     if pid != mark.pid or history.get("epoch") != mark.epoch:
         return Verdict(refusal=other_session(checked))
-    if history.get("lost"):
-        return Verdict()  # some dropped off unread: the name compare decides, as before
+    # Some dropped off unread: what is left is still judged, but nothing is
+    # followed on it, and the mark stays, so the name compare decides the rest.
+    lost = history.get("lost") is True
     name, renamed = checked, False
     for event in history.get("events") or []:
         if int(event.get("seq") or 0) <= mark.seq:
             continue
-        kind, drawing = event.get("kind"), str(event.get("drawing") or "")
-        if kind == "saved" and event.get("was") and same(str(event["was"]), name):
+        kind, drawing, at = event.get("kind"), str(event.get("drawing") or ""), str(event.get("at") or "")
+        if kind == "saved" and event.get("was") and _eq(str(event["was"]), name):
             name, renamed = drawing, True
-        elif kind == "closed" and same(drawing, name):
-            return Verdict(refusal=closed_since(name, str(event.get("at") or ""), current))
-    if renamed and same(current, name) and not same(current, checked):
-        return Verdict(follow=current)
-    return Verdict()
+        elif kind == "closed" and _eq(drawing, name):
+            return Verdict(refusal=closed_since(name, at, current))
+        elif kind == "opened" and _eq(drawing, current):
+            return Verdict(refusal=opened_since(current, at))
+    if lost:
+        return Verdict()
+    seen = int(history.get("seq") or 0) or None
+    if renamed and _eq(current, name) and not _eq(current, checked):
+        return Verdict(follow=current, seen=seen)
+    return Verdict(seen=seen)

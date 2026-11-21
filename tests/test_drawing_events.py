@@ -39,11 +39,11 @@ class TestJudge:
         assert judge(A, A, MARK, 1234, None) == Verdict()
 
     def test_nothing_happened(self):
-        assert judge(A, A, MARK, 1234, history()) == Verdict()
+        assert judge(A, A, MARK, 1234, history()) == Verdict(seen=4)
 
     def test_a_switch_away_and_back_is_the_same_drawing(self):
         events = history({"kind": "activated", "drawing": B}, {"kind": "activated", "drawing": A})
-        assert judge(A, A, MARK, 1234, events) == Verdict()
+        assert judge(A, A, MARK, 1234, events) == Verdict(seen=6)
 
     def test_closed_and_opened_again_needs_a_new_check(self):
         events = history({"kind": "closed", "drawing": A}, {"kind": "opened", "drawing": A})
@@ -57,7 +57,7 @@ class TestJudge:
         assert "a.dwg was closed at 10:00:00 since Heron checked it, and b.dwg is in front now" in verdict.refusal
 
     def test_closing_another_drawing_is_not_news(self):
-        assert judge(A, A, MARK, 1234, history({"kind": "closed", "drawing": B})) == Verdict()
+        assert judge(A, A, MARK, 1234, history({"kind": "closed", "drawing": B})) == Verdict(seen=5)
 
     def test_another_autocad_session_needs_a_new_check(self):
         assert "started again" in judge(A, A, MARK, 1234, history(epoch="e2")).refusal
@@ -66,11 +66,31 @@ class TestJudge:
     def test_a_save_as_is_followed(self):
         renamed = r"C:\jobs\a-rev2.dwg"
         events = history({"kind": "saved", "drawing": renamed, "was": A})
-        assert judge(A, renamed, MARK, 1234, events) == Verdict(follow=renamed)
+        assert judge(A, renamed, MARK, 1234, events) == Verdict(follow=renamed, seen=5)
 
     def test_an_unsaved_drawing_saved_as_a_file_is_followed(self):
         events = history({"kind": "saved", "drawing": A, "was": "Drawing1.dwg"})
-        assert judge("Drawing1.dwg", A, MARK, 1234, events) == Verdict(follow=A)
+        assert judge("Drawing1.dwg", A, MARK, 1234, events) == Verdict(follow=A, seen=5)
+
+    def test_a_save_as_then_the_old_file_opened_again_needs_a_new_check(self):
+        renamed = r"C:\jobs\a-rev2.dwg"
+        events = history({"kind": "saved", "drawing": renamed, "was": A}, {"kind": "opened", "drawing": A},
+                         {"kind": "activated", "drawing": A})  # fmt: skip
+        verdict = judge(A, A, MARK, 1234, events)
+        assert "a.dwg was opened at 10:01:00, after Heron checked a drawing" in verdict.refusal
+        assert verdict.refusal.endswith(NOTHING_SENT)
+
+    def test_a_second_copy_of_the_checked_file_opened_needs_a_new_check(self):
+        assert judge(A, A, MARK, 1234, history({"kind": "opened", "drawing": A})).refusal is not None
+
+    def test_opening_another_drawing_is_not_news(self):
+        assert judge(A, A, MARK, 1234, history({"kind": "opened", "drawing": B})).refusal is None
+
+    def test_a_bare_name_never_stands_for_a_file_elsewhere(self):
+        # A folder check opens and closes D:\F\Drawing1.dwg while an unsaved Drawing1 is checked.
+        other = r"D:\F\Drawing1.dwg"
+        events = history({"kind": "opened", "drawing": other}, {"kind": "closed", "drawing": other})
+        assert judge("Drawing1.dwg", "Drawing1.dwg", MARK, 1234, events) == Verdict(seen=6)
 
     def test_a_save_as_then_closed_needs_a_new_check(self):
         renamed = r"C:\jobs\a-rev2.dwg"
@@ -79,17 +99,25 @@ class TestJudge:
 
     def test_a_save_as_of_another_drawing_is_not_followed(self):
         events = history({"kind": "saved", "drawing": r"C:\x.dwg", "was": B})
-        assert judge(A, r"C:\x.dwg", MARK, 1234, events) == Verdict()
+        verdict = judge(A, r"C:\x.dwg", MARK, 1234, events)
+        assert verdict.follow is None and verdict.refusal is None  # the name compare then refuses
 
     def test_a_plain_save_changes_nothing(self):
-        assert judge(A, A, MARK, 1234, history({"kind": "saved", "drawing": A})) == Verdict()
+        assert judge(A, A, MARK, 1234, history({"kind": "saved", "drawing": A})) == Verdict(seen=5)
 
     def test_events_from_before_the_check_do_not_count(self):
         old = {"epoch": "e1", "seq": 4, "lost": False, "events": [{"seq": 3, "kind": "closed", "drawing": A}]}
-        assert judge(A, A, MARK, 1234, old) == Verdict()
+        assert judge(A, A, MARK, 1234, old) == Verdict(seen=4)
 
-    def test_history_that_dropped_off_cannot_tell(self):
-        assert judge(A, A, MARK, 1234, history({"kind": "closed", "drawing": A}, lost=True)) == Verdict()
+    def test_with_history_dropped_off_what_is_left_is_still_judged(self):
+        # e.g. a folder check of 60 drawings, then the checked one closed and opened again
+        verdict = judge(A, A, MARK, 1234, history({"kind": "closed", "drawing": A}, lost=True))
+        assert "closed" in verdict.refusal
+
+    def test_with_history_dropped_off_nothing_is_followed_and_the_mark_stays(self):
+        renamed = r"C:\jobs\a-rev2.dwg"
+        lost = history({"kind": "saved", "drawing": renamed, "was": A}, lost=True)
+        assert judge(A, renamed, MARK, 1234, lost) == Verdict()
 
     def test_names_compare_like_the_plugin(self):
         assert same(A, r"c:\JOBS\A.dwg")
@@ -224,6 +252,21 @@ def test_a_change_with_nothing_happened_goes_ahead(plugged):
     assert Plugin.asked == [MARK.seq]
 
 
+def test_the_mark_moves_up_to_what_was_judged(plugged):
+    Plugin.log = history({"kind": "activated", "drawing": B}, {"kind": "activated", "drawing": A})
+    assert "REFUSED" not in change()
+    assert gate._checked_mark == Mark(1234, "e1", 6)
+    Plugin.log = history()
+    change()
+    assert Plugin.asked[-1] == 6
+
+
+def test_a_refused_change_leaves_the_mark(plugged):
+    Plugin.log = history({"kind": "closed", "drawing": A}, {"kind": "opened", "drawing": A})
+    change()
+    assert gate._checked_mark == MARK
+
+
 def test_a_drawing_closed_and_opened_again_is_refused(plugged):
     Plugin.log = history({"kind": "closed", "drawing": A}, {"kind": "opened", "drawing": A})
     result = change()
@@ -274,6 +317,34 @@ def test_status_marks_where_the_log_stands(plugged):
     asyncio.run(tool_errors(status)())
     assert gate._last_drawing == A
     assert gate._checked_mark == Mark(1234, "e1", 4)
+
+
+def test_status_takes_its_mark_before_its_work(plugged, monkeypatch):
+    # A close during the status call must not be swallowed by a mark taken after it.
+    gate.reset()
+    marks = iter([("e1", 4), ("e1", 9)])
+    monkeypatch.setattr(Plugin, "drawing_mark", lambda self: next(marks))
+
+    async def status() -> str:
+        return '{"connected": true}'
+
+    status.__name__ = "autocad_status"
+    asyncio.run(tool_errors(status)())
+    assert gate._checked_mark == Mark(1234, "e1", 4)
+
+
+def test_a_new_drawing_takes_its_mark_after_its_work(plugged, monkeypatch):
+    gate.reset()
+    marks = iter([("e1", 9)])
+    monkeypatch.setattr(Plugin, "drawing_mark", lambda self: next(marks))
+
+    async def create() -> str:
+        connection.mark_writing()
+        return '{"created": true}'
+
+    create.__name__ = "autocad_create_drawing"
+    asyncio.run(tool_errors(create)())
+    assert gate._checked_mark == Mark(1234, "e1", 9)
 
 
 def test_status_with_an_older_plugin_has_no_mark(plugged):

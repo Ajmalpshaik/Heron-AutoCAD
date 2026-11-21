@@ -185,13 +185,21 @@ def reset(looked_at: str | None = None, mark: Mark | None = None) -> None:
 
 
 async def _since_checked(pid: int | None, drawing: str) -> Verdict:
-    """What the plug-in's document events say happened since Heron checked its drawing (#48)."""
+    """What the plug-in's document events say happened since Heron checked its drawing (#48).
+
+    When nothing spoke against it, the mark moves up to what was judged, so a
+    long session never lets the events since the check drop off unread.
+    """
+    global _checked_mark
     mark = _checked_mark
     if mark is None or pid is None or _last_drawing is None or not bridge_enabled():
         return Verdict()
     ask = getattr(Bridge(pid), "drawing_events", None)
     history = await asyncio.to_thread(ask, mark.seq) if ask else None
-    return judge(_last_drawing, drawing, mark, pid, history)
+    seen = judge(_last_drawing, drawing, mark, pid, history)
+    if seen.refusal is None and seen.seen is not None and seen.seen > mark.seq:
+        _checked_mark = Mark(mark.pid, mark.epoch, seen.seen)
+    return seen
 
 
 async def _mark_now(job: Job | None, pid: int | None) -> Mark | None:
@@ -472,6 +480,9 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
         ok, outcome, result = False, "failed", None
         counted: dict[str, Any] | None = None
         wrote = marked = False
+        # Status reads the drawing found above: where the drawing log stood
+        # then is its mark, so a close during the call is not swallowed (#48).
+        mark_before = await _mark_now(job, pid) if tool == STATUS_TOOL else None
         try:
             if dry_run:
                 try:
@@ -572,8 +583,8 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                     except AutocadError:
                         pass
                 _last_drawing = drawing
-                # After the work, so a drawing it opened itself is not news to the guard (#48).
-                _checked_mark = await _mark_now(job, pid)
+                # A new drawing: after the work, so the drawing it opened is not news (#48).
+                _checked_mark = mark_before if tool == STATUS_TOOL else await _mark_now(job, pid)
             return result
         finally:
             if job and job.bridge:

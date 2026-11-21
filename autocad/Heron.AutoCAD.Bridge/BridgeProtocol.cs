@@ -311,17 +311,22 @@ namespace Heron.AutoCAD.Bridge
                 return Refuse("Job", Texts.NoJob);
             // Another drawing came to the front during the job (#48): typing on
             // would put the input in the wrong drawing. Only an event AutoCAD
-            // reported since begin counts, so a missed event never refuses.
+            // reported since begin counts, so a missed event never refuses. A
+            // Save As of the job's drawing is the same drawing: its new name counts.
+            var name = Drawings?.CurrentName(running.Drawing, running.FrontSeq) ?? running.Drawing;
             var front = Drawings?.FrontChangedSince(running.FrontSeq);
-            if (front != null && !DrawingNames.Same(front, running.Drawing))
-                return Refuse("Drawing", Texts.DrawingChangedInJob(running.Drawing, front));
+            if (front != null && !DrawingNames.Same(front, name))
+                return Refuse("Drawing", Texts.DrawingChangedInJob(name, front));
             var lines = new List<string>();
             if (root.TryGetProperty("lines", out var list) && list.ValueKind == JsonValueKind.Array)
                 foreach (var item in list.EnumerateArray())
                     if (item.ValueKind == JsonValueKind.String) lines.Add(item.GetString() ?? "");
             foreach (var line in lines)
                 if (line.Length > QuietLineLimit) return Refuse("TooLong", Texts.QuietTooLong(QuietLineLimit));
-            _host.SendQuiet(lines.ToArray(), running.Drawing);
+            var typed = _host.SendQuiet(lines.ToArray(), name) ?? QuietAnswer.NotKnown("");
+            if (typed.RefusedBy != null) return Refuse(typed.RefusedBy, typed.Message);
+            // Typed, or it went wrong part way: either way never typed again over COM.
+            if (typed.Unknown) return Ok(w => w.WriteBoolean("unknown", true));
             return Ok(null);
         }
 

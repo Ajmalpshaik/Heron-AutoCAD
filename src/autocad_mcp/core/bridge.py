@@ -107,8 +107,11 @@ RUN_UNKNOWN = (
 
 
 # send_quiet refusals that must end the job's input, never fall back to COM:
-# the modeller's stop (D-51), and another drawing in front since begin (#48).
-QUIET_STOPS = {"Stopped", "Drawing"}
+# the modeller's stop (D-51), another drawing in front since begin (#48), and
+# input AutoCAD did not get to in time (abandoned, never typed later).
+QUIET_STOPS = {"Stopped", "Drawing", "NotStarted"}
+# The plug-in waits up to 10 s for AutoCAD to get to quiet input; this waits longer.
+QUIET_TIMEOUT = 20.0
 # Asking for the events after this number returns none: just the epoch and the newest number.
 LATEST = 2**53
 
@@ -251,22 +254,27 @@ class Bridge:
         when it refused (no running change job, a line longer than it types,
         an older plug-in without this op) or the pipe would not open, so
         nothing was typed: the caller then sends them itself. Raises
-        BridgeRefused for the modeller's emergency stop (D-51) and for another
-        drawing having come to the front during the job (#48): input meant for
-        one drawing is never typed into another over COM instead.
+        BridgeRefused for the modeller's emergency stop (D-51), for another
+        drawing having come to the front during the job (#48), and for input
+        AutoCAD did not get to in time: input meant for one drawing is never
+        typed into another over COM instead. The plug-in answers once AutoCAD
+        got to the lines, so its answer is the truth.
         """
         try:
             pipe, request = self._request("send_quiet", {"job": job, "lines": lines})
         except AutocadError:
             return False
         try:
-            reply = _exchange(pipe, request, CALL_TIMEOUT)
+            reply = _exchange(pipe, request, QUIET_TIMEOUT)
         except PipeUnavailable:
             return False
         except (TimeoutError, pywintypes.error, OSError, ValueError):
             return True  # sent, unanswered: maybe typed, so never typed a second time
-        if reply.get("refusedBy") in QUIET_STOPS:
-            raise BridgeRefused(_ensure_sentence(str(reply.get("message", ""))))
+        stop = reply.get("refusedBy")
+        if stop in QUIET_STOPS:
+            message = str(reply.get("message", ""))
+            # The stop refuses before anything; the other two come mid-job, after work that stays.
+            raise BridgeRefused(_ensure_sentence(message) if stop == "Stopped" else message or "Heron typed none of this input.")
         return reply.get("ok") is True
 
     def quiet_limit(self) -> int | None:

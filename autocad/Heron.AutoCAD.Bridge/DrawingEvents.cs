@@ -22,8 +22,11 @@ namespace Heron.AutoCAD.Bridge
     /// </summary>
     public sealed class DrawingEvents
     {
-        /// <summary>Most events kept; the oldest drop off (and a reader asking for them is told so).</summary>
-        public const int MostKept = 50;
+        /// <summary>
+        /// Most events kept; the oldest drop off (and a reader asking for them
+        /// is told so). A folder check alone makes about four per drawing.
+        /// </summary>
+        public const int MostKept = 200;
 
         public const string Opened = "opened";
         public const string Activated = "activated";
@@ -148,6 +151,22 @@ namespace Heron.AutoCAD.Bridge
         public string? FrontChangedSince(long seq)
         {
             lock (_gate) return _activeKnown && _frontSeq > seq ? _active : null;
+        }
+
+        /// <summary>
+        /// The name <paramref name="drawing"/> has now: a Save As after event
+        /// <paramref name="since"/> gave it a new one (followed through each).
+        /// </summary>
+        public string CurrentName(string drawing, long since)
+        {
+            lock (_gate)
+            {
+                var name = drawing ?? "";
+                foreach (var e in _events)
+                    if (e.Seq > since && e.Kind == Saved && e.Was.Length > 0 && string.Equals(e.Was, name, StringComparison.OrdinalIgnoreCase))
+                        name = e.Drawing;
+                return name;
+            }
         }
 
         /// <summary>Every event after <paramref name="since"/>, oldest first, and whether some dropped off unread.</summary>

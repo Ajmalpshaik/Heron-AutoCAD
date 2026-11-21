@@ -215,13 +215,13 @@ If no answer comes within 300 s the result is "Outcome unknown": the operation m
 
 The plug-in writes down what happens to the drawings the moment AutoCAD says it: a drawing
 **opened**, **came to the front**, was **saved** (a Save As says the old name too) or **closed**.
-AutoCAD's automatic save (`.sv$`) and backups are left out. Each event has a number; the 50 newest
+AutoCAD's automatic save (`.sv$`) and backups are left out. Each event has a number; the 200 newest
 are kept, in this AutoCAD's memory only.
 
 | Who reads them | What for |
 |---|---|
-| The server, op `drawings {since}` | `autocad_status` notes where the list stands. A later change asks for what came after: the checked drawing **closed** (and perhaps opened again), or **another AutoCAD session** (a restart), means "call autocad_status first"; a **Save As** of it is followed with no new check |
-| `send_quiet` | Once another drawing came to the front during the job (or its drawing closed), the batch input is refused and not typed: "The drawing in front changed while this job ran ... so Heron typed none of this input." The server never types it over COM instead. The add-in checks the drawing in front once more just before typing |
+| The server, op `drawings {since}` | `autocad_status` notes where the list stands. A later change asks for what came after: the checked drawing **closed** (and perhaps opened again), the drawing in front **opened** since, or **another AutoCAD session** (a restart), means "call autocad_status first"; a **Save As** of it is followed with no new check |
+| `send_quiet` | Once another drawing came to the front during the job (or its drawing closed), the batch input is refused and not typed: "The drawing in front changed while this job ran ... so Heron typed none of this input." The server never types it over COM instead. The plug-in waits up to 10 s for AutoCAD to get to the input, checks the drawing in front once more, and only then answers: typed, refused, or not started in time (never typed later) |
 | The palette's Activity tab | Drawn again at every event (section 10) |
 
 A plug-in built before this has no `drawings` op: the guard then compares names only, as before.
