@@ -155,6 +155,8 @@ Windows and in Windows CI nothing changes. They talk to nothing. The tests that 
 are marked to skip off Windows with the reason: real named pipes (8 in `test_bridge.py`, and the C#
 `[WindowsFact]` server test), the COM message filter on a real thread (5), Windows path rules (5),
 CRLF in a Windows checkout (1). The stand-ins are test code, never a dependency of the server.
+**Later the same day:** `.gitattributes` now gives `tools/release_files/*` CRLF on every checkout, so
+a release built on any machine has Windows line endings, and that one test runs everywhere again.
 
 ## D-71 - The Companion page is a file per chat, not a server
 

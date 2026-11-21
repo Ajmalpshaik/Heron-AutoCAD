@@ -4,6 +4,12 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Release scripts get Windows line endings on every machine (2026-11-21).** The `.bat`, `.ps1`
+  and read-me files in `tools/release_files` were stored with Linux line endings and only got CRLF
+  in a Windows checkout, so a release made on Linux or a Mac would ship them broken for `cmd`.
+  `.gitattributes` now sets CRLF for them on every checkout (the stored files are unchanged), and
+  their line-ending test runs on Linux too ([D-72](docs/DECISIONS.md)).
+
 - **Check lists: a cut-off read is never a PASS (2026-11-21).** Found in review after PR #122:
   title blocks read from only part of a drawing (the `max_entities` cut-off) could still say PASS,
   and `autocad_check_standards` said `passed: true` after a cut-off read. Both now say not decided
