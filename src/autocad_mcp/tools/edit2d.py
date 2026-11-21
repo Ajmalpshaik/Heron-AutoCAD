@@ -222,19 +222,22 @@ def _circle_to_arc(doc: Any, circle: Any, piece: geo.Path, z: float) -> Any:
 
 def _write_pieces(doc: Any, entity: Any, pieces: list[geo.Path], z: float, width: float) -> dict[str, Any]:
     """Write the pieces left: the first into the object itself, each other into a copy of it."""
+    handle = str(entity.Handle)  # read now: an erased object may not answer afterwards
     if _name(entity) == "AcDbCircle":
         arc = _circle_to_arc(doc, entity, pieces[0], z)
-        return {"handle": str(entity.Handle), "replaced_by": str(arc.Handle),
+        return {"handle": handle, "replaced_by": str(arc.Handle),
                 "note": "A cut circle is an arc: the circle was replaced by a new arc with its look."}
     copies = [entity.Copy() for _ in pieces[1:]]
     try:
-        for target, piece in zip([entity, *copies], pieces, strict=True):
+        # The copies first: if one will not take its shape, the object itself is still whole.
+        for target, piece in zip(copies, pieces[1:], strict=True):
             _write(target, piece, z, width)
+        _write(entity, pieces[0], z, width)
     except BaseException:
         for extra in copies:  # leave no half-made piece behind
             _try(extra.Delete)
         raise
-    out: dict[str, Any] = {"handle": str(entity.Handle)}
+    out: dict[str, Any] = {"handle": handle}
     if copies:
         out["new_handles"] = [str(c.Handle) for c in copies]
     return out
@@ -351,7 +354,7 @@ async def autocad_trim_extend(
             _flat(entity)
             edge_paths.append((str(entity.Handle), _path(entity, EDGES)))
 
-        plans: list[tuple[Any, list[geo.Path], float, float, dict[str, Any]]] = []
+        plans: list[tuple[str, Any, list[geo.Path], float, float, dict[str, Any]]] = []
         failed: list[dict[str, str]] = []
         for h, pick in zip(handles, picks, strict=True):
             try:
@@ -391,18 +394,18 @@ async def autocad_trim_extend(
                     report.update(added=round(added, 6), ends=done_ends)
                 if not pieces:
                     raise AutocadError("That would cut all of it away. Delete it instead.")
-                plans.append((entity, pieces, z, width, report))
+                plans.append((own, entity, pieces, z, width, report))
             except BaseException as exc:  # noqa: BLE001 - report, carry on with the rest
                 failed.append(_failure(h, exc))
 
         done: list[dict[str, Any]] = []
         if plans:
             with undo_mark(doc):
-                for entity, pieces, z, width, report in plans:
+                for own, entity, pieces, z, width, report in plans:
                     try:
                         done.append({**_write_pieces(doc, entity, pieces, z, width), **report})
                     except BaseException as exc:  # noqa: BLE001
-                        failed.append(_failure(str(entity.Handle), exc))
+                        failed.append(_failure(own, exc))
         result = {"operation": operation, "done": len(done), "objects": done}
         if failed and not done:
             result["hint"] = LOCKED_HINT
@@ -589,27 +592,44 @@ async def autocad_fillet_chamfer(
             shape = geo.chamfer_lines(lines[0], lines[1], float(distance), distance2, angle, keep[0], keep[1])
         result: dict[str, Any] = {"operation": operation, "lines": [str(e.Handle) for e in entities],
                                   "corner": shape["corner"]}
+        if operation == "fillet":
+            result["arc"] = None
+            if shape["arc"]:
+                result["tangent_points"] = shape["tangent_points"]
+        else:
+            result["chamfer_line"] = None
+            result["distances"] = shape["distances"]
+        new_piece = shape["arc"] if operation == "fillet" else shape["chamfer"]
+        eps = geo.tolerance(points=[p for line in lines for p in line])
+        moved = [
+            any(math.dist(a, b) > eps for a, b in zip(line, shape[key], strict=True))
+            for line, key in zip(lines, ("line1", "line2"), strict=True)
+        ]
+        if not new_piece and not any(moved):
+            result["note"] = "NOTHING CHANGED: the two lines already meet in that corner."
+            return result
+        owner = _owner(doc, entities[0])
         with undo_mark(doc):
-            for entity, key in zip(entities, ("line1", "line2"), strict=True):
-                _write(entity, geo.make_path(shape[key]), z1, 0.0)
-            owner = _owner(doc, entities[0])
-            if operation == "fillet":
-                arc = shape["arc"]
-                made = None
-                if arc:
-                    made = owner.AddArc(apoint(arc["centre"][0], arc["centre"][1], z1), arc["radius"],
-                                        arc["start_angle"], arc["end_angle"])
+            made = None
+            if new_piece and operation == "fillet":
+                arc = new_piece
+                made = owner.AddArc(apoint(arc["centre"][0], arc["centre"][1], z1), arc["radius"],
+                                    arc["start_angle"], arc["end_angle"])
+            elif new_piece:
+                (ax, ay), (bx, by) = new_piece
+                made = owner.AddLine(apoint(ax, ay, z1), apoint(bx, by, z1))
+            try:
+                if made is not None:
                     _copy_style(entities[0], made)
-                    result["tangent_points"] = shape["tangent_points"]
-                result["arc"] = str(made.Handle) if made is not None else None
-            else:
-                made = None
-                if shape["chamfer"]:
-                    (ax, ay), (bx, by) = shape["chamfer"]
-                    made = owner.AddLine(apoint(ax, ay, z1), apoint(bx, by, z1))
-                    _copy_style(entities[0], made)
-                result["chamfer_line"] = str(made.Handle) if made is not None else None
-                result["distances"] = shape["distances"]
+                for entity, key, change in zip(entities, ("line1", "line2"), moved, strict=True):
+                    if change:
+                        _write(entity, geo.make_path(shape[key]), z1, 0.0)
+            except BaseException:
+                if made is not None:  # no arc or chamfer line left behind on its own
+                    _try(made.Delete)
+                raise
+            if made is not None:
+                result["arc" if operation == "fillet" else "chamfer_line"] = str(made.Handle)
         return result
 
     return dumps(await run(work))
@@ -756,7 +776,11 @@ async def autocad_join_curves(
         z = heights[0]
         style = entities[0]
         want = {"line": "AcDbLine", "arc": "AcDbArc", "polyline": "AcDbPolyline"}[joined["kind"]]
-        keeper = next((e for e in entities if _name(e) == want), None)
+        # Keep an object the caller gave wherever one can hold the result, so its handle, data and
+        # groups stay: one of the right kind, else a polyline (a polyline holds any shape).
+        keeper = next((e for e in entities if _name(e) == want), None) or next(
+            (e for e in entities if _name(e) == "AcDbPolyline"), None
+        )
         with undo_mark(doc):
             if keeper is None:
                 flat = [c for v in joined["path"]["vertices"] for c in v]
@@ -777,7 +801,7 @@ async def autocad_join_curves(
         return {
             "joined": len(entities),
             "handle": str(keeper.Handle),
-            "kind": joined["kind"],
+            "kind": TARGETS.get(_name(keeper), joined["kind"]),
             "closed": joined["closed"],
             "order": [handles[i] for i, _ in joined["order"]],
             "removed": removed,
@@ -883,9 +907,13 @@ async def autocad_edit_vertex(
                 new_point = (old[0] + dx, old[1] + dy)
             else:
                 raise AutocadError("Give 'to_point' or 'displacement' (one of them) for where the vertex goes.")
-            new = geo.move_vertex(path, index, new_point)
             result.update({"from": [round(old[0], 6), round(old[1], 6)],
                            "to": [round(new_point[0], 6), round(new_point[1], 6)]})
+            if math.dist(old, new_point) <= geo.tolerance(path, points=[new_point]):
+                result["vertex_count"] = len(path["vertices"])
+                result["note"] = "NOTHING CHANGED: the vertex is already there."
+                return result
+            new = geo.move_vertex(path, index, new_point)
         elif operation == "add":
             if vertex is None or to_point is None:
                 raise AutocadError("Add needs 'vertex' (the new one goes after it) and 'to_point' (where it is).")
@@ -1355,7 +1383,8 @@ async def autocad_match_properties(
                 for target, changes in plans:
                     h = str(target.Handle)
                     wrote = False
-                    for prop, old in changes:
+                    # The layer last: moved first onto a locked layer, the object would refuse the rest.
+                    for prop, old in sorted(changes, key=lambda change: change[0] == "layer"):
                         try:
                             if prop == "color":
                                 if isinstance(values["color"], str):
@@ -1518,6 +1547,7 @@ async def autocad_group(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        _distinct(handles or [])
         objects = [resolve_handle(doc, h) for h in handles or []]
         if operation == "make":
             if not objects:
@@ -1537,7 +1567,11 @@ async def autocad_group(
                 raise AutocadError(f"A group named '{new_name}' already exists. Use operation='add' to add to it.")
             with undo_mark(doc):
                 group = doc.Groups.Add(new_name)
-                group.AppendItems(object_array(objects))
+                try:
+                    group.AppendItems(object_array(objects))
+                except BaseException:
+                    _try(group.Delete)  # no empty group left behind
+                    raise
             return {"made": str(group.Name), "members": int(group.Count)}
 
         if operation in ("add", "remove"):

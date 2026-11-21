@@ -24,6 +24,7 @@ import math
 from collections.abc import Sequence
 from typing import Any
 
+from .geometry import EPS as STRAIGHT
 from .geometry import Segment, segments
 
 Point = tuple[float, float]
@@ -31,6 +32,7 @@ Path = dict[str, Any]
 Box = tuple[float, float, float, float]  # min x, min y, max x, max y
 
 TWO_PI = 2.0 * math.pi
+# STRAIGHT: a bulge smaller than this is a straight segment, the same rule geometry.segments uses.
 
 
 # ---- small vector helpers -----------------------------------------------------
@@ -605,7 +607,7 @@ def _merge_at(verts: list[Point], bulges: list[float], closed: bool, j: int, eps
     nxt = (j + 1) % n
     b_in, b_out = bulges[prev], bulges[j]
     a, v, c = verts[prev], verts[j], verts[nxt]
-    if abs(b_in) <= 1e-12 and abs(b_out) <= 1e-12:
+    if abs(b_in) <= STRAIGHT and abs(b_out) <= STRAIGHT:
         d_in, d_out = _sub(v, a), _sub(c, v)
         if _norm(d_in) <= 0 or _norm(d_out) <= 0:
             return False
@@ -613,7 +615,7 @@ def _merge_at(verts: list[Point], bulges: list[float], closed: bool, j: int, eps
             _remove_vertex(verts, bulges, closed, j, 0.0)
             return True
         return False
-    if abs(b_in) <= 1e-12 or abs(b_out) <= 1e-12 or (b_in > 0) != (b_out > 0):
+    if abs(b_in) <= STRAIGHT or abs(b_out) <= STRAIGHT or (b_in > 0) != (b_out > 0):
         return False
     s_in = segments([a, v], [b_in], False)[0]
     s_out = segments([v, c], [b_out], False)[0]
@@ -654,7 +656,7 @@ def join(paths: Sequence[Path], gap: float = 0.0) -> dict[str, Any]:
         _merge_at(verts, bulges, closed, j, eps)
     path = {"vertices": verts, "bulges": bulges, "closed": closed}
     if not closed and len(verts) == 2:
-        kind = "line" if abs(bulges[0]) <= 1e-12 else "arc"
+        kind = "line" if abs(bulges[0]) <= STRAIGHT else "arc"
     else:
         kind = "polyline"
     return {"path": path, "order": order, "closed": closed, "kind": kind}
@@ -867,7 +869,7 @@ def shape_corners(
             skipped.append({"vertex": i, "reason": "an end of an open polyline is not a corner"})
             continue
         prev, nxt = (i - 1) % n, (i + 1) % n
-        if abs(bulges[prev]) > 1e-12 or abs(bulges[i]) > 1e-12:
+        if abs(bulges[prev]) > STRAIGHT or abs(bulges[i]) > STRAIGHT:
             skipped.append({"vertex": i, "reason": "an arc meets this corner; Heron rounds corners between straights only"})
             continue
         len_in, len_out = _dist(verts[prev], verts[i]), _dist(verts[i], verts[nxt])
@@ -992,7 +994,7 @@ def add_vertex(path: Path, after: int, at: Sequence[float]) -> Path:
     last = n - 1 if path["closed"] else n - 2
     if not 0 <= after <= last:
         raise ValueError(f"There is no segment after vertex {after}: the segments start at vertices 0 to {last}.")
-    if abs(path["bulges"][after]) > 1e-12:
+    if abs(path["bulges"][after]) > STRAIGHT:
         raise ValueError(f"Segment {after} is an arc; Heron adds a vertex on a straight segment only.")
     verts = list(path["vertices"])
     bulges = list(path["bulges"])
@@ -1019,7 +1021,7 @@ def remove_vertex(path: Path, index: int) -> tuple[Path, bool]:
         del bulges[0 if index == 0 else -1]
         return {"vertices": verts, "bulges": bulges, "closed": False}, False
     prev = (index - 1) % n
-    straightened = abs(bulges[prev]) > 1e-12 or abs(bulges[index]) > 1e-12
+    straightened = abs(bulges[prev]) > STRAIGHT or abs(bulges[index]) > STRAIGHT
     _remove_vertex(verts, bulges, closed, index, 0.0)
     return {"vertices": verts, "bulges": bulges, "closed": closed}, straightened
 

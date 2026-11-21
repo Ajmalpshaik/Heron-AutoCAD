@@ -9,6 +9,7 @@ and an object's transparency as the text "ByLayer", "ByBlock" or "0" to "90"
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 LW_BYLAYER, LW_BYBLOCK, LW_DEFAULT = -1, -2, -3
@@ -41,6 +42,8 @@ def lineweight_value(value: Any) -> int:
         number = float(text)
     except ValueError:
         raise ValueError(f"'{value}' is not a lineweight. {LINEWEIGHT_HELP}") from None
+    if not math.isfinite(number):
+        raise ValueError(f"'{value}' is not a lineweight. {LINEWEIGHT_HELP}")
     hundredths = number * 100.0 if number <= 2.11 + 1e-9 else number
     code = round(hundredths)
     if abs(hundredths - code) > 1e-6 or code not in LINEWEIGHTS:
@@ -72,6 +75,8 @@ def transparency_value(value: Any) -> str:
         number = float(text)
     except ValueError:
         raise ValueError(f"'{value}' is not a transparency. {TRANSPARENCY_HELP}") from None
+    if not math.isfinite(number):
+        raise ValueError(f"'{value}' is not a transparency. {TRANSPARENCY_HELP}")
     if number != int(number):
         raise ValueError(f"A transparency is a whole number; {value} is not. {TRANSPARENCY_HELP}")
     if not 0 <= number <= 90:

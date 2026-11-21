@@ -467,3 +467,11 @@ def test_reverse_twice_is_the_same_path():
     assert e.length(back) == pytest.approx(e.length(path))
     again = e.reverse(back)
     assert pts(again) == pts(path) and again["bulges"] == pytest.approx(path["bulges"])
+
+
+def test_a_bulge_too_small_to_be_an_arc_joins_as_a_straight():
+    """Found in review: a bulge under the straight limit crashed the joint merge."""
+    a = e.make_path([(0, 0), (5, 0)], [5e-10])
+    b = e.make_path([(5, 0), (10, 0)], [5e-10])
+    out = e.join([a, b])
+    assert out["kind"] == "line" and pts(out["path"]) == [(0, 0), (10, 0)]

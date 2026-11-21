@@ -852,3 +852,133 @@ def test_the_new_tools_are_found_first_in_a_draftsmans_words(phrase, want):
     from test_find_tool import found
 
     assert found(phrase)[:1] == [want], (phrase, found(phrase))
+
+
+# ---- found by the independent review of PR #153 ------------------------------------------------------------
+
+
+def test_join_of_two_polylines_keeps_the_first_even_when_the_result_is_straight(doc):
+    a, b = Poly(doc, [(0, 0), (5, 0)]), Poly(doc, [(5, 0), (10, 0)])
+    out = answer(edit2d.autocad_join_curves([a.Handle, b.Handle]))
+    assert out["handle"] == a.Handle and out["kind"] == "polyline" and out["removed"] == [b.Handle]
+    assert a.points() == [(0, 0), (10, 0)]
+
+
+class LockAware(Line):
+    """A line that refuses its own properties while it sits on a locked layer, as AutoCAD does."""
+
+    GUARDED = {"Color", "Linetype", "LinetypeScale", "Lineweight", "EntityTransparency", "StyleName"}
+
+    def __setattr__(self, name, value):
+        doc = self.__dict__.get("doc")
+        if name in self.GUARDED and doc is not None and "_ready" in self.__dict__:
+            if self.__dict__.get("Layer") in getattr(doc, "Layers", Layers(set())).locked:
+                raise RuntimeError("eOnLockedLayer")
+        super().__setattr__(name, value)
+
+
+def test_matching_a_source_on_a_locked_layer_writes_the_layer_last(doc):
+    doc.Layers = Layers({"E-EXISTING"})
+    src = Line(doc, (0, 0, 0), (1, 0, 0), layer="E-EXISTING")
+    src.Color, src.Lineweight = 8, 18
+    target = LockAware(doc, (0, 1, 0), (1, 1, 0))
+    target._ready = True
+    out = answer(edit2d.autocad_match_properties(src.Handle, [target.Handle]))
+    assert target.Layer == "E-EXISTING" and target.Color == 8 and target.Lineweight == 18
+    assert "failed" not in out
+
+
+def test_modify_entity_writes_the_layer_last_but_lists_it_first(doc, monkeypatch):
+    doc.Layers = Layers({"E-EXISTING"})
+    target = LockAware(doc, (0, 1, 0), (1, 1, 0))
+    target._ready = True
+    monkeypatch.setattr(modify, "resolve_handle", lambda d, h: d.objects[h])
+    monkeypatch.setattr(modify, "ensure_layer", lambda d, name: (None, False))
+    out = answer(modify.autocad_modify_entity(handles=[target.Handle], layer="E-EXISTING", color=8))
+    assert target.Layer == "E-EXISTING" and target.Color == 8
+    assert [row["property"] for row in out["before_after"]] == ["layer", "color"]
+
+
+class ErasedCircle(Circle):
+    """A circle that cannot say its handle once erased, as a COM object may not."""
+
+    @property
+    def Handle(self):
+        if self.__dict__.get("gone"):
+            raise RuntimeError("Object was erased")
+        return self.__dict__["_handle"]
+
+    @Handle.setter
+    def Handle(self, value):
+        self.__dict__["_handle"] = value
+
+    def Delete(self):
+        super().Delete()
+        self.__dict__["gone"] = True
+
+
+def test_a_cut_circle_answers_with_its_old_handle_and_the_rest_still_get_cut(doc):
+    sleeve = ErasedCircle(doc, (0, 0, 0), 10)
+    old = sleeve.Handle
+    pipe = Line(doc, (-50, 30, 0), (50, 30, 0))
+    cut = Line(doc, (0, -60, 0), (0, 60, 0))
+    out = answer(edit2d.autocad_trim_extend("trim", [sleeve.Handle, pipe.Handle], [cut.Handle],
+                                            points=[[-10, 0], [-20, 30]]))
+    assert out["done"] == 2 and out["objects"][0]["handle"] == old
+    assert xy(pipe.StartPoint) == (0, 30)
+
+
+def test_a_copy_that_will_not_take_its_shape_leaves_the_object_whole(doc, monkeypatch):
+    pipe = Line(doc, (0, 0, 0), (100, 0, 0))
+    a, b = Line(doc, (30, -1, 0), (30, 1, 0)), Line(doc, (70, -1, 0), (70, 1, 0))
+    real = edit2d._write
+
+    def picky(target, *args):
+        if target is not pipe:
+            raise RuntimeError("AutoCAD said no")
+        real(target, *args)
+
+    monkeypatch.setattr(edit2d, "_write", picky)
+    out = answer(edit2d.autocad_trim_extend("trim", [pipe.Handle], [a.Handle, b.Handle], points=[[50, 0]]))
+    assert out["failed"] and (xy(pipe.StartPoint), xy(pipe.EndPoint)) == ((0, 0), (100, 0))
+
+
+def test_a_fillet_whose_lines_will_not_change_leaves_no_arc(doc, monkeypatch):
+    a, b = Line(doc, (100, 0, 0), (10, 0, 0)), Line(doc, (0, 100, 0), (0, 10, 0))
+    before = set(doc.objects)
+
+    def refuse(*_args):
+        raise RuntimeError("AutoCAD said no")
+
+    monkeypatch.setattr(edit2d, "_write", refuse)
+    refusal(edit2d.autocad_fillet_chamfer("fillet", [a.Handle, b.Handle], radius=20))
+    assert set(doc.objects) == before
+
+
+def test_nothing_to_do_opens_no_undo_step(doc):
+    a, b = Line(doc, (100, 0, 0), (0, 0, 0)), Line(doc, (0, 100, 0), (0, 0, 0))
+    out = answer(edit2d.autocad_fillet_chamfer("fillet", [a.Handle, b.Handle], radius=0))
+    assert "NOTHING CHANGED" in out["note"] and doc.groups == 0
+    box = Poly(doc, [(0, 0), (100, 0), (100, 50)])
+    out = answer(edit2d.autocad_edit_vertex(box.Handle, vertex=1, displacement=[0, 0]))
+    assert "NOTHING CHANGED" in out["note"] and doc.groups == 0
+
+
+def test_a_group_whose_objects_cannot_be_added_is_not_left_empty(doc, monkeypatch):
+    a = Line(doc, (0, 0, 0), (1, 0, 0))
+
+    def refuse(self, objs):
+        raise RuntimeError("AutoCAD said no")
+
+    monkeypatch.setattr(Group, "AppendItems", refuse)
+    refusal(edit2d.autocad_group("make", name="PUMP-01", handles=[a.Handle]))
+    assert doc.Groups.groups == []
+    assert "twice" in refusal(edit2d.autocad_group("make", name="X", handles=[a.Handle, a.Handle]))
+
+
+@pytest.mark.parametrize("given", ["inf", "-inf", "nan"])
+def test_infinity_is_not_a_lineweight_or_a_transparency(given):
+    with pytest.raises(ValueError, match="is not a lineweight"):
+        props.lineweight_value(given)
+    with pytest.raises(ValueError, match="is not a transparency"):
+        props.transparency_value(given)

@@ -156,6 +156,9 @@ banner on, because the banner is what shows the modeller that Heron is working.
   over the drawing's `Groups` collection. Names follow AutoCAD's symbol rules; a name taken is
   refused (use add); a missing name gets GROUP1, GROUP2 ... Ungroup deletes the group object only;
   Heron then checks every member is still there and says so if not.
+- **Added the same day, from the review:** match properties and `autocad_modify_entity` write the
+  layer last (moved first onto a locked layer, an object refuses its other properties; the answer
+  still lists the layer first); a group whose objects cannot be added is not left behind empty.
 
 ## D-78 - Trim, extend, fillet, chamfer, break, join and stretch are worked out in Python
 
@@ -188,6 +191,11 @@ in AutoCAD yet (NEEDS-CHECKING group AA).
 - **Safety:** an object on a locked layer is refused before anything is written, a failed write
   takes back the copies it made, the same object twice is refused, and a call with nothing to do
   opens no undo step (D-62). Each call is one undo step.
+- **Added the same day, from an independent review of PR #153:** the copies are written before the
+  object itself, so a copy that refuses leaves the object whole; an object's handle is read before
+  it is written or erased; a fillet's new arc (or a chamfer's line) is made first and taken away if
+  the lines refuse; join keeps a polyline it was given rather than making a new one; one rule for
+  "straight" (a bulge under 1e-9, as `geometry.segments` has it) everywhere.
 
 ## D-75 - What a review of the new tools found, and the rules added
 

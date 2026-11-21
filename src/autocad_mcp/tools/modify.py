@@ -899,14 +899,18 @@ async def autocad_modify_entity(
                             pass
 
                     changed_any = False
-                    for prop, old, value in changes:
+                    written: list[dict[str, Any]] = []
+                    # The layer last: moved first onto a locked layer, the object would refuse the rest.
+                    for prop, old, value in sorted(changes, key=lambda change: change[0] == "layer"):
                         try:
                             write(entity, prop, value)
                             applied.add(prop)
                             changed_any = True
-                            rows.append({"handle": handle, "property": prop, "from": old, "to": value})
+                            written.append({"handle": handle, "property": prop, "from": old, "to": value})
                         except BaseException:  # noqa: BLE001 - AutoCAD would not take it
                             skipped.append({"handle": handle, "type": short_type(entity), "property": prop})
+                    order = [prop for prop, _, _ in changes]
+                    rows.extend(sorted(written, key=lambda row: order.index(row["property"])))
 
                     if changed_any:
                         try:
