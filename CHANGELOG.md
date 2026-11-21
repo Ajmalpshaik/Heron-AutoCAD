@@ -4,6 +4,19 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **One-file setup for modellers (2026-11-21, #73, #35, #72 prepared).** The release now also
+  builds `HeronAutoCAD-<version>-setup.exe`: double-click, no administrator password, for your
+  Windows user only. It puts the plug-in and the server where `Install.bat` does, sets Claude Code
+  and Claude Desktop up with the same lines (`Install.ps1 -Connect`), stops while AutoCAD is open,
+  updates over an older version (or a zip install), and is removed from Windows Settings > Apps,
+  keeping your saved commands, check lists and logs. Built with a pinned, checked Inno Setup 6.7.3;
+  the release workflow installs and removes it on GitHub's Windows machine before publishing
+  ([D-99](docs/DECISIONS.md)). The zip and `Install.bat` stay until the setup passes live rows
+  AK1-AK11 (NOT RUN). `Uninstall.bat` now also removes the earlier version it kept, and sends a
+  setup install to Windows Apps. **Signing** is ready behind two repository secrets and skipped,
+  saying *Not signed*, without them; buying a certificate is Ajmal's call (#164, `docs/SETUP.md`
+  Code signing). **Tests** now always import this checkout's own `src`, also in a worktree (#35).
+
 - **Layers and annotation (2026-11-21, #37, #107, #108, #116).** Seven new tools (**159** in all, with the block, table and render tools):
   `autocad_layer_states` saves, restores and deletes named layer states (listed by
   `autocad_list_layers`); `autocad_isolate_layers` isolates the layers of picked objects and puts

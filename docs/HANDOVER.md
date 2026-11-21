@@ -8,7 +8,20 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
+## Latest - 2026-11-21 (one-file setup #73, tests import their own src #35, signing prepared #72; D-99)
+
+`tools/make_installer.py` + `tools/installer/HeronAutoCAD.iss` (Inno Setup 6.7.3, pinned) build
+`HeronAutoCAD-<version>-setup.exe` in `release.yml`, after the zip, and `tools/installer/Check-Setup.ps1`
+installs and removes it on GitHub's Windows machine before anything is published (no AutoCAD
+there). Per user, same places as `Install.bat`, refuses while AutoCAD runs, Claude set up by
+`Install.ps1 -Connect` / `-Disconnect`. Signing (`tools/signing.py`) runs only with the secrets
+`HERON_SIGN_PFX_BASE64` + `HERON_SIGN_PFX_PASSWORD`; none exist, so releases say *Not signed*.
+pytest now has `pythonpath = ["src"]`. Versions not bumped (the parent does).
+
+**Next (on this PC):** run Group **AK**, AK10 first: whether AutoCAD asks about the unsigned plug-in
+decides #164 (buy a certificate or not). Keep the zip until AK1-AK8 pass.
+
+## Earlier - 2026-11-21 (layers and annotation: #37, #107, #108, #116; D-80, D-81)
 
 Seven new tools (**159** with the block, table and render tools): `autocad_layer_states`, `autocad_isolate_layers`,
 `autocad_merge_layers`, `autocad_space_dimensions`, `autocad_break_dimensions`,

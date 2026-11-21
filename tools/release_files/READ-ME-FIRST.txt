@@ -10,6 +10,8 @@ You need
 You do NOT need Python, the .NET SDK or an administrator password.
 
 Install
+  (Prefer one file? HeronAutoCAD-<version>-setup.exe on the same release page does the same
+  and is removed from Windows Settings > Apps. Use one or the other.)
   1. Close AutoCAD.
   2. Double-click Install.bat.
   3. Restart Claude Desktop if you use it.
