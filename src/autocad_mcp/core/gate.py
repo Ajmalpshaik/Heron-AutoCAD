@@ -31,8 +31,8 @@ from typing import Any
 
 from .. import __version__
 from . import audit, connection, diagnose, progress, project_notes
+from . import bridge as bridge_module
 from .bridge import (
-    CONVERSATION,
     NOT_CONNECTED,
     NOTHING_SENT,
     Bridge,
@@ -550,7 +550,7 @@ def _ms(started: float) -> int:
 
 def _record(tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float) -> None:
     audit.record(
-        conversation=CONVERSATION,
+        conversation=bridge_module.CONVERSATION,
         tool=tool,
         risk=risk.value,
         drawing=drawing,

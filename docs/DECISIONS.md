@@ -130,6 +130,22 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-61 - A chat reopened after a restart keeps its hold
+
+**Decided:** 2026-11-21, from Heron AI for Revit (its D-188). **Status:** in force.
+The plug-in lets one chat at a time into an AutoCAD (the hold). Each server process made a new chat
+id, so when the Claude app restarted and reopened the same chat, the new server was a stranger and
+its own hold refused it for three minutes. The server now takes its id from, in order:
+`HERON_CONVERSATION_ID` (a script or a developer fixes it); then the host's own chat id,
+`CLAUDE_CODE_SESSION_ID`, as `sha256("heron-conversation:" + id)`, first 32 hex characters (the
+host's id is never sent as it is); then a new random id. The same chat gives the same id; two chats
+give two. Only the server itself follows the host (`follow_host_chat()` in `server.main`): a
+command-line script such as `tools/live_check.py`, run from a chat's terminal, imports the same
+modules but stays its own chat, so it never takes or keeps that chat's hold by accident, and
+`tools/protocol_check.py` starts its server without the host's variable. Not proven live: whether
+Claude Code passes that variable to MCP servers, and keeps it on a resumed chat (row T1). Without
+it, nothing changes: a new id, as before.
+
 ## D-58 - autocad_run_lisp waits through refused reads; it puts the variables back patiently
 
 **Decided:** 2026-11-20, from the Luxury Suite 3 rehearsal of 2026-11-18. **Status:** in force.

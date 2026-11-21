@@ -401,6 +401,17 @@ Windows thread). Server only: restart the server after pulling; no plug-in build
 | Q4 | After Q2, `autocad_get_variable` OSMODE, USERS1 and USERS2 | The values from before the call (snaps on as he had them; USERS1 not the pending marker) | NOT RUN |
 | Q5 | Luxury Suite 3 player: the 2D rehearsal from `--from s037`, and the 3D steps marked `view_only` with that mark taken off | No stop at the layer steps or the view steps | NOT RUN |
 
+## Group T - How a change job answers and what it keeps (this PC)
+
+Added on 2026-11-21 ([D-61](DECISIONS.md), [D-62](DECISIONS.md), [D-63](DECISIONS.md)), from Heron
+AI for Revit (issues #78-#82). Built and tested offline only (`tests/test_bridge.py`,
+`tests/test_gate.py`, `tests/test_answers.py`). Server only: restart the server after pulling; no
+plug-in build is needed. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| T1 | In Claude Code, draw a line (Changes on), quit Claude Code, `claude --resume` the same chat at once, draw again | The second draw is let in at once, not "in use by another chat"; the audit lines of both carry the same `conversation`. A second, new chat at the same time is still refused | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**
