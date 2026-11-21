@@ -65,8 +65,9 @@ restart the server after pulling.
   `follow_host_chat()`, so it never takes the chat's id (D-61).
 
 **Next:** install the plug-in and, in AutoCAD 2027, run group X rows X1-X20 (all NOT RUN); **X4
-first** (whether the palette's Zoom leaves an undo step that would block Undo). Version bump
-still to do: suggested plug-in **1.6.0** (new command, protocol unchanged).
+first** (whether the palette's Zoom leaves an undo step that would block Undo). The plug-in is
+now **1.6.0**, which includes the palette (new command, protocol unchanged).
+
 ## Earlier - 2026-11-21 (why / gaps / question mode #88-#90 and #43 merged, PR #120)
 
 PR #120 was merged on Ajmal's word, after CI `python` and `plugin` passed (the `review` check
