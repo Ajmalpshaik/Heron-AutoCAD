@@ -163,7 +163,7 @@ done looks like here.
 - [x] A section plane and a 2D section from a 3D model: `autocad_section_plane`, by the plug-in
   (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
 - [ ] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines: not in
-  D-95's first build (limit 30).
+  D-95's first build (limit 30). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
 - [ ] Multileader, table and dimension **style** creation from `autocad_create_styles`: no
   Automation API for the first two, and a dimension style already works, so this is really
   "bring the office styles in" - `autocad_import_from_drawing` does it today. ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
