@@ -7,6 +7,10 @@ Newest first. Dates are when the change was made.
 - **The live-check runner covers group AQ too (2026-11-21, D-118).** Arrays, tiled viewports,
   hyperlinks and geographic location: 6 rows measured, 8 with their reason (making an array erases
   its sources, so Heron asks). 194 rows measured in all, 174 with a reason.
+- **A sequence stops when another drawing comes to the front (2026-11-21, #165).** Between its
+  steps `autocad_sequence` asks the plug-in whether a drawing switch happened during the job; if
+  so it stops, like HERONSTOP, so no later step lands in the other drawing ([D-98](docs/DECISIONS.md)).
+  Live row AJ8 NOT RUN.
 
 - **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
   measures 122 rows of groups M to Z, AA to AP and RV as well as D, E and F (188 in all), and gives

@@ -43,7 +43,7 @@ from .bridge import (
     bridge_enabled,
 )
 from .connection import get_app, run
-from .drawing_events import Mark, Verdict, judge
+from .drawing_events import Mark, Verdict, front_moved, judge
 from .errors import AutocadError, raise_if_busy
 from .risk import Risk, risk_of
 
@@ -176,6 +176,24 @@ def stopped_by_modeller() -> bool:
     if job is None or job.bridge is None or job.id is None:
         return False
     return job.bridge.stopped()
+
+
+def front_changed_in_job() -> tuple[str, str] | None:
+    """(the job's drawing, the drawing in front now) when another came to the front during this job (#165).
+
+    For long tools, between their steps: from the plug-in's drawing events
+    since begin. None when nothing moved, outside a job, or when the plug-in
+    cannot tell (an older one). Any thread; one pipe call.
+    """
+    job = _current
+    if job is None or job.bridge is None or job.id is None:
+        return None
+    seq = getattr(job.bridge, "drawing_seq_at_begin", None)
+    ask = getattr(job.bridge, "drawing_events", None)
+    if seq is None or ask is None:
+        return None
+    front = front_moved(job.drawing, ask(seq))
+    return None if front is None else (job.drawing, front)
 
 
 def reset(looked_at: str | None = None, mark: Mark | None = None) -> None:
