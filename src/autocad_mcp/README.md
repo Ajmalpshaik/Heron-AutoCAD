@@ -19,6 +19,10 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/batch.py` | `autocad_batch_draw` |
 | `tools/query.py` | list, get, selection, find text, extents, measure |
 | `tools/modify.py` | move, copy, rotate, scale, mirror, offset, array, modify, delete |
+| `tools/arrays.py` | `autocad_associative_array`: ARRAY's editable path, grid and ring array, by the plug-in (D-110) |
+| `tools/model_viewports.py` | `autocad_tiled_viewports`: the Model tab in 1-4 tiled viewports (COM; the words for each split are `acad/tiles.py`) |
+| `tools/hyperlinks.py` | hyperlinks on objects: set, remove, list (COM) |
+| `tools/geo_location.py` | the drawing's geographic location, by the plug-in, sharing the sun's place (D-111) |
 | `tools/edit2d.py` | trim / extend, fillet / chamfer, break, join, vertices, stretch, explode, draw order, match properties, groups; the geometry is `acad/edit2d.py` (D-78, D-79) |
 | `tools/layers.py` | layers, blocks, styles |
 | `tools/layer_states.py` | layer states (by the plug-in), isolate and un-isolate, merge layers |

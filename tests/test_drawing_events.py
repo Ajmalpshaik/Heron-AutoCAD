@@ -357,3 +357,82 @@ def test_status_with_an_older_plugin_has_no_mark(plugged):
     status.__name__ = "autocad_status"
     asyncio.run(tool_errors(status)())
     assert gate._last_drawing == A and gate._checked_mark is None
+
+
+# --- a long job between its steps (#165) ---------------------------------------
+
+from autocad_mcp.core.drawing_events import front_moved, switched_in_job  # noqa: E402
+
+
+class TestFrontMoved:
+    def test_nothing_moved(self):
+        assert front_moved(A, history(active=A)) is None
+        assert front_moved(A, None) is None
+
+    def test_another_drawing_came_to_the_front(self):
+        assert front_moved(A, history({"kind": "activated", "drawing": B}, active=B)) == B
+
+    def test_away_and_back_is_not_moved(self):
+        events = history({"kind": "activated", "drawing": B}, {"kind": "activated", "drawing": A}, active=A)
+        assert front_moved(A, events) is None
+
+    def test_the_jobs_drawing_closed_leaves_none_in_front(self):
+        assert front_moved(A, history({"kind": "closed", "drawing": A}, active="")) == ""
+
+    def test_a_save_as_of_the_jobs_drawing_is_the_same_drawing(self):
+        renamed = r"C:\jobs\a-rev2.dwg"
+        events = history({"kind": "saved", "drawing": renamed, "was": A}, active=renamed)
+        assert front_moved(A, events) is None
+
+    def test_a_drawing_behind_closing_is_not_moved(self):
+        assert front_moved(A, history({"kind": "closed", "drawing": B}, active=A)) is None
+
+    def test_the_hint_names_both(self):
+        said = switched_in_job(A, B, 2)
+        assert "after step 2" in said and "a.dwg" in said and "b.dwg is in front now" in said
+
+
+class TestFrontChangedInJob:
+    def test_asks_from_where_the_log_stood_at_begin(self, monkeypatch):
+        asked = []
+
+        class Job:
+            drawing = A
+            id = "j1"
+
+            class bridge:
+                drawing_seq_at_begin = 7
+
+                @staticmethod
+                def drawing_events(since):
+                    asked.append(since)
+                    return history({"kind": "activated", "drawing": B}, active=B)
+
+        monkeypatch.setattr(gate, "_current", Job)
+        assert gate.front_changed_in_job() == (A, B)
+        assert asked == [7]
+
+    def test_an_older_plugin_cannot_tell(self, monkeypatch):
+        class Job:
+            drawing = A
+            id = "j1"
+
+            class bridge:
+                drawing_seq_at_begin = None
+
+        monkeypatch.setattr(gate, "_current", Job)
+        assert gate.front_changed_in_job() is None
+
+    def test_outside_a_job_nothing(self):
+        assert gate.front_changed_in_job() is None
+
+
+def test_begin_keeps_where_the_log_stood(monkeypatch):
+    monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: {"ok": True, "askToKeep": False, "drawingSeq": 12})
+    found = Bridge(1)
+    found.begin("autocad_sequence", "change", "Sequence", A)
+    assert found.drawing_seq_at_begin == 12
+    monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: {"ok": True})
+    older = Bridge(1)
+    older.begin("autocad_sequence", "change", "Sequence", A)
+    assert older.drawing_seq_at_begin is None

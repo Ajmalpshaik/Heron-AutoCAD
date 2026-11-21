@@ -108,6 +108,39 @@ def closed_since(checked: str, at: str, current: str) -> str:
     )
 
 
+def front_moved(drawing: str, history: dict[str, Any] | None) -> str | None:
+    """The drawing in front now ("" for none) when it moved away from ``drawing`` (#165), else None.
+
+    ``history`` holds the events since the job began. Only an event AutoCAD
+    reported counts (a drawing came to the front, or the job's drawing
+    closed), and a Save As of the job's drawing is the same drawing.
+    """
+    if history is None:
+        return None
+    name, moved = drawing, False
+    for event in history.get("events") or []:
+        kind, seen = event.get("kind"), str(event.get("drawing") or "")
+        if kind == "saved" and event.get("was") and _eq(str(event["was"]), name):
+            name = seen
+        elif kind == "activated" or (kind == "closed" and _eq(seen, name)):
+            moved = True
+    front = history.get("active")
+    if not moved or front is None or _eq(front, name):
+        return None
+    return str(front)
+
+
+def switched_in_job(job_drawing: str, front: str, done: int) -> str:
+    """The sequence's hint when another drawing came to the front between its steps (#165)."""
+    now = f"{short(front)} is in front now" if front else "no drawing is in front now"
+    return (
+        f"The drawing in front changed after step {done}: this sequence works in {short(job_drawing)}, "
+        f"and {now}. The steps before it are in {short(job_drawing)}; the rest were not run, so nothing "
+        f"landed in the other drawing. Switch back to {short(job_drawing)}, call autocad_status, and "
+        "run the rest."
+    )
+
+
 def judge(checked: str, current: str, mark: Mark | None, pid: int | None, history: dict[str, Any] | None) -> Verdict:
     """What the events since Heron's check say about a change to ``current``."""
     if mark is None or history is None:

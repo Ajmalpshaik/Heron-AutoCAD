@@ -20,7 +20,7 @@ from ..acad import pdf_import as pdf
 from ..acad.coords import as_vec3
 from ..acad.tables import validate_name
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, is_retryable
+from ..core.errors import AutocadError, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from . import advanced
 from ._shared import COORDS_OPT, current_ucs
@@ -77,8 +77,10 @@ def _set_for_call(doc: Any, wanted: dict[str, Any]) -> dict[str, Any]:
                 doc.SetVariable(name, value)
                 changed[name] = old[name]
     except BaseException as exc:  # noqa: BLE001
-        _put_back(doc, changed)
-        raise AutocadError(f"AutoCAD would not set {name} for the import. Nothing was sent.") from exc
+        left = _put_back(doc, changed)
+        if not left:
+            raise_if_busy(exc)  # all put back: the call may be asked again
+        raise AutocadError(f"AutoCAD would not set {name} for the import. Nothing was sent." + _restore_note(left)) from exc
     return changed
 
 

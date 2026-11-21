@@ -5,7 +5,7 @@ C# solution [`Heron.AutoCAD.sln`](Heron.AutoCAD.sln). What it looks like to the 
 
 | Project | Job | References AutoCAD? |
 |---|---|---|
-| `Heron.AutoCAD.Bridge` | Pipe server, session token, address file, padlock rules, the padlocks in memory and the Windows policy that can hold one off (`HeronPadlocks.cs`, `HeronPolicy.cs`, [D-59, D-60](../docs/DECISIONS.md)), one-chat hold, the protocol; the drawing events log (`DrawingEvents.cs`, [D-98](../docs/DECISIONS.md)); the list of the plug-in's own operations and their pure rules (edge and face words, the super hatch tile grid) | **No** - tested offline |
+| `Heron.AutoCAD.Bridge` | Pipe server, session token, address file, padlock rules, the padlocks in memory and the Windows policy that can hold one off (`HeronPadlocks.cs`, `HeronPolicy.cs`, [D-59, D-60](../docs/DECISIONS.md)), one-chat hold, the protocol; the drawing events log (`DrawingEvents.cs`, [D-98](../docs/DECISIONS.md)); the list of the plug-in's own operations and their pure rules (edge and face words, the super hatch tile grid, the multileader and table style words in `StylePlans.cs`, [D-104](../docs/DECISIONS.md)) | **No** - tested offline |
 | `Heron.AutoCAD.Bridge.Tests` | xUnit tests, including the real Python client against the real server | No |
 | `Heron.AutoCAD.Addin` | Ribbon, commands, banner, Bridge Status, Keep or Discard, main-thread queue, the plug-in's own operations (3D edits, super hatch) | **Yes - the only one** |
 
@@ -25,9 +25,12 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `SuperHatch.cs` | A block, an image, an xref or a wipeout tiled in a grid, inserted once and clipped to an outline like XCLIP |
 | `Sections.cs` | Flat views of solids (FLATSHOT) and a section plane with its 2D section, both through AutoCAD's Section object (D-95; maths in `Bridge/SectionMath.cs`) |
 | `Surfaces.cs` | Loft to a surface, planar and network surfaces, MESH primitives and a mesh made from a solid (D-95) |
+| `DrawingStyles.cs` | Multileader and table styles from a `Bridge/StylePlans.cs` plan, read back as AutoCAD holds them (D-104) |
 | `LayerStates.cs` | Named layer states: save, restore (with every layer it changed), delete, list (D-81) |
 | `DimensionLines.cs` | Where a linear or aligned dimension's line is, and moving it, for even spacing (D-80) |
 | `AnnotationScales.cs` | Annotative objects: the drawing's scale list, an object's scales, adding and removing them (D-81) |
+| `AssociativeArrays.cs` | ARRAY's associative path, grid and ring array, checked against `Bridge/ArrayPlan.cs` before it is kept (D-110) |
+| `GeoLocation.cs` | The drawing's geographic location (GeoLocationData), proved with AutoCAD's own transform; the checks are `Bridge/GeoPlace.cs` (D-111) |
 | `RenderSetup.cs` | Photometric lights and materials made from their settings ([D-42](../docs/DECISIONS.md)) |
 | `IdleQueue.cs` | Gets pipe-thread work onto AutoCAD's main thread through `Application.Idle` |
 | `DrawingWatch.cs` | AutoCAD's document events (opened, came to the front, saved, closed) into the drawing events log, as they happen ([D-98](../docs/DECISIONS.md)) |

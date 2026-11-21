@@ -24,7 +24,7 @@ from pydantic import Field
 
 from ..acad.entities import resolve_handles, short_type
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import before_after, in_plugin
 
@@ -144,10 +144,13 @@ def dimbreak_command(handles: Sequence[str], remove: bool = False) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _try(getter, default=None):
+def _try(getter, default=None, busy_ok=False):
+    """One COM read or call that may fail; busy_ok for a restore, a cancel or a redraw (D-100)."""
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        if not busy_ok:
+            raise_if_busy(exc)
         return default
 
 
@@ -382,7 +385,7 @@ async def autocad_break_dimensions(
         with undo_mark(doc):
             doc.SendCommand(typed)
             if not _wait_done(doc):
-                _try(lambda: doc.SendCommand("\x1b\x1b"))
+                _try(lambda: doc.SendCommand("\x1b\x1b"), busy_ok=True)
                 raise AutocadError(
                     "AutoCAD did not finish DIMBREAK and was left asking; it has been cancelled. "
                     "Check that no other command was running, then look at the dimensions with "

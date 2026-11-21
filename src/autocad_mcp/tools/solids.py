@@ -33,7 +33,7 @@ from ..acad.entities import describe, resolve_handle, resolve_handles, short_typ
 from ..acad.tables import apply_properties, ensure_layer
 from ..acad.units import rad
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, object_array, point_to_list
 from ._shared import (
@@ -107,10 +107,13 @@ Primitive = Literal[
 ]
 
 
-def _try(getter, default=None):
+def _try(getter, default=None, busy_ok=False):
+    """One COM read or call that may fail; busy_ok for a restore, a cancel or a redraw (D-100)."""
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        if not busy_ok:
+            raise_if_busy(exc)
         return default
 
 
@@ -118,7 +121,8 @@ def _write(target: Any, name: str, value: Any) -> bool:
     try:
         setattr(target, name, value)
         return True
-    except BaseException:  # noqa: BLE001 - a refusal is the answer, not a crash
+    except BaseException as exc:  # noqa: BLE001 - a refusal is the answer, not a crash
+        raise_if_busy(exc)
         return False
 
 
@@ -321,6 +325,7 @@ async def autocad_add_solid(
                 if abs(turn) > 1e-12:
                     solid.Rotate(centre, turn)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"AutoCAD would not make that {shape} ({com_message(exc)}). Check the sizes "
                     "are above zero and that this drawing is not AutoCAD LT, which has no solids."
@@ -485,6 +490,7 @@ async def autocad_extrude_profile(
             try:
                 made = target.AddRegion(object_array(curves))
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"Those curves would not make a region ({com_message(exc)}). A profile has "
                     "to be closed, flat (all on one plane) and joined end to end, and the "
@@ -517,7 +523,8 @@ async def autocad_extrude_profile(
                     operation = "revolve"
             except BaseException as exc:  # noqa: BLE001
                 # The region was ours, so it goes whatever happens next.
-                _try(lambda: region.Delete())
+                _try(lambda: region.Delete(), busy_ok=True)
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"AutoCAD would not {'extrude' if height is not None else 'revolve'} that "
                     f"profile ({com_message(exc)}). For a taper, check the sides do not meet "
@@ -531,10 +538,10 @@ async def autocad_extrude_profile(
             # a region that will not go is harmless, and the warning below
             # already tells the caller when there was more than one.
             for extra in regions:
-                _try(lambda e=extra: e.Delete())
+                _try(lambda e=extra: e.Delete(), busy_ok=True)
             if not keep_profile:
                 for curve in curves:
-                    _try(lambda c=curve: c.Delete())
+                    _try(lambda c=curve: c.Delete(), busy_ok=True)
 
             notes = apply_properties(doc, solid, layer, aci, None)
 
@@ -651,6 +658,7 @@ async def autocad_solid_boolean(
                     first.Boolean(code, other)
                     consumed.append(label)
                 except BaseException as exc:  # noqa: BLE001 - report, keep going
+                    raise_if_busy(exc)
                     failed.append({"handle": label, "reason": com_message(exc)})
 
         after = _try(lambda: round(float(first.Volume), 6))
@@ -872,6 +880,7 @@ async def autocad_draw_3d_path(
             try:
                 entity = target.Add3DPoly(double_array(flat))
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"AutoCAD would not make the 3D polyline ({com_message(exc)})."
                 ) from exc
@@ -1031,12 +1040,13 @@ async def autocad_set_3d_view(
                 # typed input only inside a Change job, and this is a View tool.
                 doc.SendCommand(f"_.VSCURRENT {option}\n")
             except BaseException as exc:  # noqa: BLE001 - say so, change nothing else
+                raise_if_busy(exc)
                 not_set.append(f"visual_style ({com_message(exc)})")
             else:
                 # Still asking means the option was not taken: cancel, so the
                 # next tool does not find AutoCAD waiting at the prompt.
                 if _still_asking(doc):
-                    _try(lambda: doc.SendCommand("\x1b\x1b"))
+                    _try(lambda: doc.SendCommand("\x1b\x1b"), busy_ok=True)
                     not_set.append(
                         f"visual_style (VSCURRENT did not take '{option}'; set it with "
                         "the Visual Styles control at the top left of the drawing)"
@@ -1046,10 +1056,11 @@ async def autocad_set_3d_view(
             try:
                 doc.Application.ZoomExtents()
                 result["zoomed"] = True
-            except BaseException:  # noqa: BLE001 - the view is still set
+            except BaseException as exc:  # noqa: BLE001 - the view is still set
+                raise_if_busy(exc)
                 not_set.append("zoom_extents")
 
-        _try(lambda: doc.Regen(AC_ALL_VIEWPORTS))
+        _try(lambda: doc.Regen(AC_ALL_VIEWPORTS), busy_ok=True)
         # Read the style back from the viewport (#59, D-86): only the plug-in
         # can, as COM has no visual style on a model viewport.
         found, why = plugin_read("current_view")
@@ -1239,6 +1250,7 @@ async def autocad_slice_solid(
                     # hands back the new one when it does.
                     made = entity.SliceSolid(apoint(*p1), apoint(*p2), apoint(*p3), keep == "both")
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     failed.append({"handle": handle, "reason": com_message(exc)})
                     continue
                 row: dict[str, Any] = {
@@ -1394,6 +1406,7 @@ async def autocad_check_interference(
                 try:
                     made = ea.CheckInterference(eb, bool(create_solids))
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     skipped.append({"handle": f"{ha}+{hb}", "reason": com_message(exc)})
                     continue
                 # pywin32 hands back the [out] flag alongside the solid when the
@@ -1562,6 +1575,7 @@ async def autocad_transform_3d(
                                       apoint(0.0, 0.0, float(level_spacing) * step))
                             new.append(str(copy.Handle))
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     failed.append({"handle": handle, "reason": com_message(exc)})
                     continue
                 done.append(handle)
