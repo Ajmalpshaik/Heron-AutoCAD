@@ -14,7 +14,7 @@ Branch `claude/styles-plugin`. `autocad_create_styles` takes `multileader_styles
 `table_styles`; the plug-in makes them (operations `multileader_style`, `table_style`). The
 rules (words, defaults, refusals) are in `Heron.AutoCAD.Bridge/StylePlans.cs` with
 `StylePlansTests.cs`; the add-in's `DrawingStyles.cs` only copies the plan and reads it back. Server
-side: `tests/test_create_styles_plugin.py`. A plot style table cannot be made (D-105, 05 §33). No
+side: `tests/test_create_styles_plugin.py`. A plot style table cannot be made (D-105, 05 §34). No
 new tool, so the tool count is unchanged. The add-in compiled here against the 2021, 2025 and 2027
 reference assemblies; nothing ran in AutoCAD.
 
@@ -22,6 +22,40 @@ reference assemblies; nothing ran in AutoCAD.
 rows AN1-AN12. AN1 and AN3 answer what the reference could not: whether the dialog shows the
 attachment and the landing switch as set, and whether the DIMBLK round trip for a new arrow leaves
 no style override. AN4 says whether one Ctrl+Z takes it all back.
+
+## Earlier - 2026-11-21 (review of the 2026-11-21 merges, PR #186, D-116)
+
+A review of PRs #99 onward. Fixed on PR #186: stale padlock / auto-connect wording (README,
+SECURITY, PROJECT-MAP, 06), D-87 and D-67 notes, sequence steps that switch drawing or undo, the
+dialog watch's lost jobs, four Excel read / write faults, and three tests that passed for the wrong
+reason. Filed, in areas other sessions are changing: #189-#191 and #206-#212. Live rows: Group RV, NOT RUN.
+
+**Next:** the filed issues, highest first: #206 (palette Undo), #207 (batch text escape), #208
+(bring-them-back after join / explode), #211 (check list PASS on failed reads).
+
+## Earlier - 2026-11-21 (the smaller draw gaps, part 1 of #119, D-108)
+
+Four new tools (**179** in all) in `tools/draw_extra.py` (#173, #174, #177, #181): `autocad_add_construction_line`
+(xline or ray), `autocad_add_region` (closed outlines to regions, with area, perimeter and centre),
+`autocad_add_donut` (rings and filled dots, the polyline DONUT makes) and `autocad_divide_curve`
+(DIVIDE / MEASURE with points or a block). Maths and tools tested offline in
+`tests/test_draw_extra.py`. Server only, no plug-in change. #119 stays open for its parts 2 and 3.
+
+**Next (on this PC):** pull, restart Claude, then live rows AP1-AP10. AP2 (does AddRegion keep the
+outline?), AP7 (DIVIDE on a closed object), AP8 (MEASURE on an exact end) and AP9 (blocks turned
+when counted from the end) are the answers the code could not get from Autodesk's reference. Not
+built: divide along a spline or an ellipse, XLINE's Offset and Bisect.
+
+## Earlier - 2026-11-21 (a preview of a full sheet, D-102)
+
+Issue #41 (an A1 extents preview showed only the frame) worked on offline in `tools/document.py`
+only. The cause could not be seen here; the two likely ones are in [D-102](DECISIONS.md): too few
+pixels for the sheet (most likely), or extents stretched by something far off. `autocad_preview`
+now reports `plotted`, `pixels`, `smallest_clear_text` and a `tip`, and `detail=2` / `3` adds
+window close-ups. Tests: `tests/test_preview_extents.py`. Limits: [05 §33](05-known-limits.md#33-one-preview-picture-cannot-show-a-whole-big-sheets-small-text).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AM1-AM6 on the A1 SLD.
+AM1 names the cause; close #41 only after AM1 and AM2 pass.
 
 ## Earlier - 2026-11-21 (3D for MEP: #53, #54, #109, #58, #57; D-94, D-95)
 

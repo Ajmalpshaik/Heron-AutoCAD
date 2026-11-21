@@ -11,8 +11,22 @@ Newest first. Dates are when the change was made.
   scale). A table style sets title, header and data text heights and margins for the sheet scale,
   with text in the vertical middle of every cell. The rules are in the Bridge with their own tests
   ([D-104](docs/DECISIONS.md)). A plot style table cannot be made: AutoCAD's .NET API cannot write
-  the file ([D-105](docs/DECISIONS.md), 05 §33). Two new plug-in operations, no new tool. Live rows
+  the file ([D-105](docs/DECISIONS.md), 05 §34). Two new plug-in operations, no new tool. Live rows
   AN1-AN12 NOT RUN.
+
+- **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
+  part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`
+  (XLINE or RAY, COM), `autocad_add_region` (REGION from closed outlines, COM, with area, perimeter
+  and centre), `autocad_add_donut` (DONUT's closed polyline with width, Heron's maths, many centres
+  in one undo step) and `autocad_divide_curve` (DIVIDE or MEASURE with points or a block, Heron's
+  maths) ([D-108](docs/DECISIONS.md)). Live rows AP1-AP11 NOT RUN.
+
+- **A preview of a full sheet (2026-11-21, #41).** `autocad_preview` now says the area it plotted
+  (`plotted`, extents refreshed first), its `pixels` and the smallest text that reads
+  (`smallest_clear_text`), with a `tip` when the drawing's text is smaller. `detail=2` or `3` adds 4
+  or 9 overlapping close-ups of the same area, plotted as windows. A whole A1 in one picture is about
+  0.5 mm a pixel, so its 2.5 mm text could not show ([D-102](docs/DECISIONS.md)). Live rows AM1-AM6
+  NOT RUN; #41 stays open until AM1 names the cause.
 
 - **3D for MEP (2026-11-21, #53, #54, #109, #58, #57).** `autocad_make_shape` makes a **duct run**
   (rectangular or round, a bend at every corner of the route) and a **pipe spool** (pipe lengths,
@@ -51,6 +65,13 @@ Newest first. Dates are when the change was made.
   the office folder or a project's changes in the drawing's folder, never over a teammate's file
   silently ([D-93](docs/DECISIONS.md)). **New dependency: `ezdxf`.** Install it once with Claude
   closed: `.venv\Scripts\python.exe -m pip install ezdxf`. Live rows AG1-AG15 NOT RUN.
+
+- **Review of the 2026-11-21 merges (2026-11-21, PR #186, D-116).** Docs that still said the
+  padlocks are read from a file, or that AutoCAD can connect at start, now match D-59 and D-73. A
+  sequence step can no longer switch drawing or undo. The dialog watch forgets a job whose end never
+  came, so a named button cannot outlive its job. Excel: error cells are never written, exported
+  cells keep what is typed, rows are named by their Excel number. Three tests that could pass for
+  the wrong reason now check what they say. Issues filed for the rest. Live rows RV1-RV3 NOT RUN.
 
 - **ATTSYNC inside other blocks (2026-11-21, #156).** `autocad_sync_attributes(nested=true)` also
   syncs inserts of the block inside other blocks' definitions (a valve tag inside a skid block),
@@ -348,7 +369,7 @@ Newest first. Dates are when the change was made.
   glossiness, reflectivity, transparency and refraction, glow in cd/m² and Kelvin, bump image,
   metal shading; done by the plug-in, and `autocad_apply_material` takes it straight away).
   `autocad_save_view(from_screen=true)` saves the view on screen, 3D angle included. Known limits
-  [05 §22](docs/05-known-limits.md#22-lights-materials-and-the-saved-3d-view-have-their-own-limits).
+  [05 §22](docs/05-known-limits.md#22-lights-materials-the-saved-3d-view-and-the-render-set-up-have-their-own-limits).
 - **The DONE card always closes.** The activity banner counted begins and ends, so one job whose
   end never came (AutoCAD left mid-command and the COM link dropped, 2026-11-05) kept every later
   "Heron AI has finished" card on screen. `BannerJobs` (Bridge, tested offline in
