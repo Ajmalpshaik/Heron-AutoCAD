@@ -93,6 +93,13 @@ OLD_PLUGIN = (
     "Rebuild and reinstall it (tools/build_plugin.py, then tools/install_plugin.py) and restart "
     "AutoCAD. " + NOTHING_SENT
 )
+# The first plug-in that presses a button a job named for a box it expects (#101).
+EXPECT_SINCE = "1.7.0"
+OLD_EXPECT = (
+    f"Naming a button for a box needs Heron's plug-in {EXPECT_SINCE} or newer in AutoCAD, and the one "
+    "running is older. Rebuild and reinstall it, or call without expect_box: the box would then be "
+    "cancelled. " + NOTHING_SENT
+)
 RUN_UNKNOWN = (
     "Outcome unknown: Heron in AutoCAD did not answer within {seconds:.0f} s, so the operation may "
     "still have run (one Ctrl+Z reverses it). Look at the drawing before trying again. (details: {details})"
@@ -336,6 +343,24 @@ class Bridge:
             "erased_handles": [str(h) for h in reply.get("erasedHandles", [])],
         }
 
+    def expect_dialog(self, job: str, title: str, button: str) -> str | None:
+        """Tell the plug-in this job expects one box: press ``button`` on a box titled exactly ``title``, once (#101).
+
+        None when the plug-in took it; otherwise why not, ending "Nothing was
+        sent to AutoCAD." (the caller sends nothing then). Only an Admin job is
+        allowed: the plug-in refuses any other level.
+        """
+        try:
+            reply = self.call("expect_dialog", job=job, title=title, button=button)
+        except AutocadError as exc:
+            return str(exc)
+        if reply.get("ok") is True:
+            return None
+        message = str(reply.get("message", ""))
+        if reply.get("refusedBy") == "BadRequest" and "does not know the request" in message:
+            return OLD_EXPECT
+        return _ensure_sentence(message)
+
     def dialogs(self, job: str) -> list[dict]:
         """The boxes AutoCAD showed during this job that the plug-in closed (D-66).
 
@@ -360,6 +385,7 @@ class Bridge:
                     "title": str(box.get("title") or "a box with no title"),
                     "pressed": str(box.get("pressed") or "Esc"),
                     "closed": closed if isinstance(closed, bool) else None,
+                    "asked": box.get("asked") is True,
                 }
             )
         return found

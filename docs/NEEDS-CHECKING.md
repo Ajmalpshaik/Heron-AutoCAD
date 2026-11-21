@@ -452,6 +452,8 @@ Added on 2026-11-21 ([D-66](DECISIONS.md), issue #83). Built and tested offline
 | V4 | Admin ON: change something in a drawing, then `autocad_send_command("_CLOSE\n")` | The "Save changes?" box gets **Cancel**, never Yes or No; the drawing stays open with the change; the answer names the box | NOT RUN |
 | V5 | With no Heron job running, open the Select File dialog yourself (Ctrl+O) and wait 10 s | It stays open: the watch never acts outside a job | NOT RUN |
 | V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`) | One line "dialog watch: 'Select File' -> Cancel"; no error lines | NOT RUN |
+| V7 | Plug-in 1.7.0, Admin on. Draw two unused layers' worth of nothing; `autocad_send_command(command="_PURGE", expect_box="Purge - Confirm Purge", press="Yes")` (the dialog form; check the box's real title first) | The plug-in presses Yes on that box only; the answer says "Heron pressed Yes on it, as this call asked"; any other box in the same call is still cancelled. With Changes only (Admin off) the call is refused before anything is sent | NOT RUN |
+| V8 | Same call with a plug-in older than 1.7.0 | Refused: "needs Heron's plug-in 1.7.0 or newer", nothing sent | NOT RUN |
 
 ## Group U - Check lists for QA: NO DATA, office and project lists, reports, wording (AutoCAD 2027, this PC)
 
