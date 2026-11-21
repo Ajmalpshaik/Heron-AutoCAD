@@ -4,6 +4,23 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **`autocad_why` asks AutoCAD for its padlocks; the padlock guard's gaps (2026-11-21, PR #140,
+  #142).** The plug-in's `ping` now says which padlocks are on and which a Windows policy holds
+  (read-only). When this chat's AutoCAD answers, `autocad_why` says which padlock is really off,
+  or that a policy holds it ("ask the PC's administrator"); when nothing answers it still names
+  them without guessing (#134). The Claude Code guard also refuses a script that would write the
+  padlock file or policy key when run later, and no longer mistakes an issue or commit message
+  that only mentions the file for a write. Live row R9 NOT RUN.
+
+- **What changed for the padlocks in plug-in 1.6.0 (#76, #77, PR #121).** Security: the padlocks
+  are no longer saved in `heron-autocad.config`. Every time AutoCAD starts, Changes, Admin,
+  Publish and Ask to Keep are **off**, and only your click in Settings turns one on (D-59). Old
+  padlock lines in that file are ignored; it keeps only connect-at-start and the banner. Each open
+  AutoCAD has its own padlocks. An office can hold a padlock off for everyone with a Windows
+  policy: DWORD `AllowChanges`, `AllowAdmin` or `AllowPublish` = 0 under
+  `HKLM\SOFTWARE\Policies\Heron\AutoCAD`; Settings then shows it **HELD** (D-60). Live rows R1-R8
+  NOT RUN.
+
 - **`autocad_why` never guesses a padlock; Heron's folders never become relative (2026-11-21,
   #134).** Since the padlocks moved into AutoCAD's memory (D-59), `autocad_why` could no longer
   read them and said every padlock was off. It now names the padlocks a job needs and says it
