@@ -7,6 +7,11 @@ target PC), Install.bat and a short READ-ME-FIRST.txt. Run it from a venv that h
 and PyInstaller installed:
 
     pip install . pyinstaller
+
+The folder the zip is made from stays in dist/; tools/make_installer.py packs the same files
+into the one-file setup. With a code-signing certificate named in the environment
+(tools/signing.py) Heron's DLLs, autocad-mcp.exe and Install.ps1 are signed before they are
+packed; without one the build says "Not signed" and goes on.
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_plugin  # noqa: E402
+import signing  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = Path(__file__).resolve().parent / "release_files"
@@ -43,11 +49,18 @@ def build_server_exe(work: Path) -> Path:
     return work / "exe" / "autocad-mcp.exe"
 
 
+def own_dlls(bundle: Path) -> list[Path]:
+    """Heron's own DLLs in every Contents folder; Microsoft's System.*.dll are signed by Microsoft."""
+    return sorted((bundle / "Contents").glob("*/Heron.*.dll"))
+
+
 def main() -> int:
     build_plugin.main()
+    signing.sign(own_dlls(build_plugin.DIST / build_plugin.BUNDLE))
     name = f"HeronAutoCAD-{build_plugin.VERSION}-win64"
     with tempfile.TemporaryDirectory(prefix="hrel") as tmp:
         exe = build_server_exe(Path(tmp))
+        signing.sign([exe])
         folder = build_plugin.DIST / name
         if folder.exists():
             shutil.rmtree(folder)
@@ -56,6 +69,7 @@ def main() -> int:
         shutil.copy2(exe, folder / "autocad-mcp.exe")
         for f in FILES.iterdir():
             shutil.copy2(f, folder / f.name)
+        signing.sign([folder / "Install.ps1"])
     archive = shutil.make_archive(str(build_plugin.DIST / name), "zip", build_plugin.DIST, name)
     sums = write_checksums(Path(archive))
     print(f"Release: {archive}")
@@ -63,13 +77,13 @@ def main() -> int:
     return 0
 
 
-def write_checksums(archive: Path) -> Path:
-    """dist/checksums.txt: the zip's SHA-256, so anyone can check the download is the one built."""
+def write_checksums(archive: Path, *more: Path) -> Path:
+    """dist/checksums.txt: each download's SHA-256 (the zip, then the setup), so anyone can check it is the one built."""
     import hashlib
 
-    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    lines = [f"{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}\n" for f in (archive, *more)]
     sums = archive.parent / "checksums.txt"
-    sums.write_text(f"{digest}  {archive.name}\n", encoding="ascii")
+    sums.write_text("".join(lines), encoding="ascii")
     return sums
 
 
