@@ -701,9 +701,16 @@ async def autocad_array_entities(
                         results = []
                         for step in offsets:
                             duplicate = source.Copy()
-                            # Listed before it moves: a copy made is reported even if the move fails.
+                            try:
+                                duplicate.Move(origin, apoint(*step))
+                            except BaseException:
+                                # Not left lying on the original, where nobody could tell it apart.
+                                try:
+                                    duplicate.Delete()
+                                except BaseException:  # noqa: BLE001 - then it is listed, so it can be found
+                                    new_handles.append(str(duplicate.Handle))
+                                raise
                             new_handles.append(str(duplicate.Handle))
-                            duplicate.Move(origin, apoint(*step))
                     elif pattern == "rectangular":
                         results = source.ArrayRectangular(
                             int(rows),

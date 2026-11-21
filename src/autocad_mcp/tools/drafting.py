@@ -285,6 +285,18 @@ async def _control_spline(points: list[list[float]], closed: bool, start_tangent
 # ---------------------------------------------------------------------------
 
 
+def edit_point(value: Any, n: int, field: str) -> list[float]:
+    """A point given in an edit, as [x, y, z] of real numbers; anything else is refused, never read as 0."""
+    if not isinstance(value, (list, tuple)) or not 2 <= len(value) <= 3:
+        raise ValueError(f"edit {n} needs '{field}' as [x, y] or [x, y, z]")
+    out = []
+    for v in value:
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(float(v)):
+            raise ValueError(f"edit {n}: '{field}' must hold numbers, got {list(value)!r}")
+        out.append(float(v))
+    return list(as_vec3(out))
+
+
 def plan_fit_edits(
     current: Sequence[Sequence[float]], edits: Sequence[dict[str, Any]], closed: bool = False
 ) -> tuple[list[dict[str, Any]], list[list[float]], list[dict[str, Any]]]:
@@ -300,6 +312,10 @@ def plan_fit_edits(
     pts = [list(as_vec3(p)) for p in current]
     if not pts:
         raise ValueError("this spline has no fit points: it was drawn by its control points")
+    # Whether AutoCAD lists a closed spline's first fit point again at the end
+    # is a live question (AI12). If it does, that pair is the spline's own seam,
+    # not two points the edits put at one place.
+    seam_listed = closed and len(pts) > 1 and math.dist(pts[0], pts[-1]) <= 1e-9
     steps: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
     for n, edit in enumerate(edits):
@@ -315,20 +331,14 @@ def plan_fit_edits(
         if kind == "move":
             if not 0 <= index < len(pts):
                 raise ValueError(f"edit {n} moves point {index}, but the spline has {len(pts)} (0 to {len(pts) - 1})")
-            to = edit.get("to")
-            if not isinstance(to, (list, tuple)) or len(to) < 2:
-                raise ValueError(f"edit {n} needs 'to' as [x, y] or [x, y, z]")
-            new = list(as_vec3(to))
+            new = edit_point(edit.get("to"), n, "to")
             rows.append({"property": f"fit point {index}", "from": pts[index], "to": new})
             pts[index] = new
             steps.append({"kind": "set", "index": index, "point": new})
         elif kind == "insert":
             if not 0 <= index <= len(pts):
                 raise ValueError(f"edit {n} adds point {index}, but the spline has {len(pts)} (0 to {len(pts)} to add)")
-            at = edit.get("point")
-            if not isinstance(at, (list, tuple)) or len(at) < 2:
-                raise ValueError(f"edit {n} needs 'point' as [x, y] or [x, y, z]")
-            new = list(as_vec3(at))
+            new = edit_point(edit.get("point"), n, "point")
             pts.insert(index, new)
             rows.append({"property": f"fit point {index}", "from": None, "to": new})
             steps.append({"kind": "insert", "index": index, "point": new})
@@ -340,7 +350,7 @@ def plan_fit_edits(
     least = 3 if closed else 2
     if len(pts) < least:
         raise ValueError(f"that leaves {len(pts)} fit points; a {'closed ' if closed else ''}spline needs {least}")
-    ring = pts + ([pts[0]] if closed else [])
+    ring = pts + ([pts[0]] if closed and not seam_listed else [])
     for a, b in zip(ring, ring[1:], strict=False):
         if math.dist(a, b) <= 1e-9:
             raise ValueError(f"two fit points in a row would be at one place ({[round(v, 6) for v in a]})")
@@ -413,15 +423,16 @@ async def autocad_edit_spline(
             raise AutocadError(f"{handle} is not a spline. Give the handle of a spline (autocad_list_entities type='spline').")
         current = group_coordinates(_try(lambda: spline.FitPoints, []) or [], 3)
         is_closed = bool(_try(lambda: spline.Closed, False))
-        given = []
-        for edit in edits:
-            moved = dict(edit) if isinstance(edit, dict) else edit
-            if isinstance(moved, dict):
-                for field in ("to", "point"):
-                    if isinstance(moved.get(field), (list, tuple)) and len(moved[field]) >= 2:
-                        moved[field] = world_coords(moved[field], ucs)
-            given.append(moved)
         try:
+            given = []
+            for n, edit in enumerate(edits):
+                moved = dict(edit) if isinstance(edit, dict) else edit
+                if isinstance(moved, dict):
+                    for field in ("to", "point"):
+                        if field in moved:
+                            # Checked as numbers before the UCS sees them, so nothing becomes 0.
+                            moved[field] = world_coords(edit_point(moved[field], n, field), ucs)
+                given.append(moved)
             steps, result, rows = plan_fit_edits(current, given, is_closed)
         except ValueError as exc:
             raise AutocadError(f"{handle}: {exc}. Nothing was changed.") from exc
@@ -567,7 +578,7 @@ async def autocad_draw_multiline(
                 # Inside the undo step, so one Ctrl+Z takes the multiline and the style back.
                 if before is not None:
                     _try(lambda: doc.SetVariable("CMLSTYLE", before))
-            mitred, why = (close_multiline(entity, flat) if by_plugin else (False, ""))
+            mitred, is_closed, why = close_multiline(entity, flat) if by_plugin else (False, bool(closed), "")
 
         payload = created_payload(
             entity,
@@ -578,15 +589,18 @@ async def autocad_draw_multiline(
             vertices=len(vertices),
         )
         if closed:
-            payload["closed"] = True
+            payload["closed"] = is_closed
             payload["mitred"] = mitred
         if closed and not mitred:
-            mitre = (
-                "Closed by repeating the first point" + (f" ({why})" if why else
-                ": Heron's plug-in is not in this job, and Automation has no close for a multiline") +
-                ", so the last corner overlaps rather than being mitred. Where it shows, close it "
-                "with MLINE's Close option."
-            )
+            if is_closed:
+                mitre = (
+                    "Closed by repeating the first point" + (f" ({why})" if why else
+                    ": Heron's plug-in is not in this job, and Automation has no close for a multiline") +
+                    ", so the last corner overlaps rather than being mitred. Where it shows, close it "
+                    "with MLINE's Close option."
+                )
+            else:
+                mitre = f"{why}."
             payload["warning"] = f"{payload['warning']} {mitre}" if payload.get("warning") else mitre
         if not_set:
             payload["not_set"] = not_set
@@ -595,26 +609,35 @@ async def autocad_draw_multiline(
     return dumps(await run(work))
 
 
-def close_multiline(entity: Any, flat: list[float]) -> tuple[bool, str]:
-    """Have the plug-in close a multiline just drawn, mitring its last corner; (mitred, why not). Never raises.
+def close_multiline(entity: Any, flat: list[float]) -> tuple[bool, bool | None, str]:
+    """Have the plug-in close a multiline just drawn, mitring its last corner. Never raises.
 
+    Returns (mitred, closed, why not): closed is True, False (left open), or
+    None when the plug-in's answer never came and it may have closed it.
     The multiline is drawn already, so an error would send the chat round to
-    draw it twice. If the plug-in cannot close it, the first point is added
-    again over COM - the old way, overlapped - and why is said.
+    draw it twice. If the plug-in says it cannot close it, the first point is
+    added again over COM - the old way, overlapped - and why is said. After
+    an unknown outcome nothing more is done to it: adding the first point to
+    a multiline the plug-in did close late would spoil it.
     """
     handle = str(entity.Handle)
     try:
         report = in_plugin("close_multiline", {"handle": handle}, "Closing a multiline")
         if report.get("closed"):
-            return True, ""
+            return True, True, ""
         why = "Heron's plug-in did not close it"
-    except AutocadError as exc:
+    except Exception as exc:  # noqa: BLE001 - drawn; what happened is said, never raised
+        if "Outcome unknown" in str(exc):
+            return False, None, (
+                f"Heron's plug-in did not answer ({exc}), so {handle} may or may not be closed. "
+                "Look at it before closing or drawing it again"
+            )
         why = f"Heron's plug-in could not close it: {exc}"
     try:
         entity.Coordinates = double_array(list(flat) + list(flat[:3]))
     except BaseException as exc:  # noqa: BLE001 - drawn open; said
-        why += f"; adding the first point again failed too ({com_message(exc)}), so it is drawn OPEN"
-    return False, why
+        return False, False, f"{why}; adding the first point again failed too ({com_message(exc)}), so it is OPEN"
+    return False, True, why
 
 
 # ---------------------------------------------------------------------------

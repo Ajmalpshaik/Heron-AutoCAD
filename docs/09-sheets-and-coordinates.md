@@ -40,7 +40,8 @@ rectangular array lays its rows along the UCS's axes (copy by copy, as ARRAY ove
 the world's). A polyline drawn in a UCS moved up or down gets that height as its Elevation.
 
 **A flipped UCS** (its Z pointing down, a mirror of the plan) turns angles the other way: an arc's
-ends swap and a bulge changes sign. Text, mtext, dimensions and blocks are **refused** on one,
+ends swap and a bulge changes sign, and `autocad_convert_points` turns angles that way too. Text,
+mtext, dimensions, multileaders, tables, blocks, xrefs and super hatches are **refused** on one,
 because over COM they would lie on the world plane and read mirrored in that view, where AutoCAD's
 own commands would lay them on the UCS's plane.
 

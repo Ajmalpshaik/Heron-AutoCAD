@@ -37,6 +37,7 @@ from ._shared import (
     COORDS_OPT,
     LAYER_OPT,
     current_ucs,
+    not_flipped,
     point,
     ucs_for,
     world_angle,
@@ -578,7 +579,7 @@ async def autocad_dimension_run(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        ucs = ucs_for(doc, coords)
+        ucs = not_flipped(ucs_for(doc, coords), "dimensions")
         if mode == "ordinate":
             refusal = ordinate_refusal(world_coords(plan[0]["datum"], ucs), current_ucs(doc), coords)
             if refusal:

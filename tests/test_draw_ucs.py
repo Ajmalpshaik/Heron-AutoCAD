@@ -445,3 +445,107 @@ class TestModifyTools:
         call(modify.autocad_array_entities(handles=["1A"], pattern="polar", count=4, center=[0, 10],
                                            fill_angle=90, coords="ucs"))
         assert doc.entities["1A"].calls == [("ArrayPolar", 4, round(math.radians(-90), 9), (0.0, -10.0, 0.0))]
+
+
+# ---------------------------------------------------------------------------
+# Review fixes: the other handed tools, convert_points, a copy that will not move
+# ---------------------------------------------------------------------------
+
+
+class FlippedDoc(Doc):
+    """A drawing on a flipped UCS that refuses to be touched past reading it."""
+
+    class _NoBlocks:
+        Count = 0
+
+        def Item(self, name):
+            raise KeyError(name)
+
+    def __init__(self):
+        super().__init__(FLIPPED)
+        self.Blocks = self._NoBlocks()
+
+    def __getattr__(self, name):
+        raise AssertionError(f"the drawing was touched ({name}) before the flipped UCS was refused")
+
+
+@pytest.fixture
+def flipped(monkeypatch):
+    from autocad_mcp.tools import _shared, annotate, dimensions, superhatch, xrefs
+
+    doc = FlippedDoc()
+
+    async def run(fn):
+        return fn()
+
+    for module in (dimensions, annotate, xrefs, superhatch):
+        monkeypatch.setattr(module, "run", run)
+        monkeypatch.setattr(module, "get_doc", lambda: doc)
+        monkeypatch.setattr(module, "require_idle", lambda d: None)
+    monkeypatch.setattr(_shared, "plugin_runner", lambda: (lambda op, args: pytest.fail("plug-in asked")))
+    return {"dimensions": dimensions, "annotate": annotate, "xrefs": xrefs, "superhatch": superhatch}
+
+
+def test_the_other_handed_tools_refuse_a_flipped_ucs_too(flipped, tmp_path):
+    drawing = tmp_path / "grid.dwg"
+    drawing.write_bytes(b"AC1032")
+    calls = [
+        flipped["dimensions"].autocad_dimension_run(points=[[0, 0], [1000, 0], [2500, 0]], coords="ucs"),
+        flipped["annotate"].autocad_add_multileader(landing=[500, 500], arrows=[[0, 0]], text="V-101", coords="ucs"),
+        flipped["annotate"].autocad_add_table(position=[0, 0], rows=[["A", "1"]], coords="ucs"),
+        flipped["xrefs"].autocad_attach_xref(path=str(drawing), insertion=[0, 0], coords="ucs"),
+        flipped["superhatch"].autocad_super_hatch(boundary="2A", block="TILE", coords="ucs"),
+    ]
+    for coro in calls:
+        answer = error(coro)
+        assert "flipped" in answer and "mirrored" in answer, answer
+
+
+class TestConvertAngles:
+    def test_world_and_back_are_the_same_direction(self):
+        for ucs in (Ucs.from_rotation((5, 5), 37), Ucs.build((0, 0, 0), (1, 0, 0), (0, -1, 0))):
+            for degrees in (0, 30, 123, 300):
+                assert ucs.angle_from_world(ucs.angle_to_world(degrees)) == pytest.approx(degrees % 360)
+
+    def test_convert_points_turns_angles_the_flipped_way(self, monkeypatch):
+        from autocad_mcp.tools import coordinates
+
+        doc = Doc(FLIPPED)
+
+        async def run(fn):
+            return fn()
+
+        monkeypatch.setattr(coordinates, "run", run)
+        monkeypatch.setattr(coordinates, "get_doc", lambda: doc)
+        out = call(coordinates.autocad_convert_points(points=[[0, 10]], into="world", angles=[30]))
+        assert out["points"] == [[0.0, -10.0, 0.0]] and out["angles"] == [330.0]
+        back = call(coordinates.autocad_convert_points(points=[[0, -10]], into="ucs", angles=[330]))
+        assert back["angles"] == [30.0]
+
+
+def test_a_grid_copy_that_will_not_move_is_taken_away_again(cad, monkeypatch):
+    doc = cad(TURNED)
+    source = Entity("1A")
+    doc.entities["1A"] = source
+    made = []
+
+    def copy():
+        twin = Entity(f"C{len(made)}")
+        twin.deleted = False
+
+        def stuck(a, b):
+            raise RuntimeError("on a locked layer")
+
+        def delete():
+            twin.deleted = True
+
+        if made:  # the second copy will not move
+            twin.Move = stuck
+        twin.Delete = delete
+        made.append(twin)
+        return twin
+
+    source.Copy = copy
+    out = call(modify.autocad_array_entities(handles=["1A"], rows=1, columns=3, column_spacing=100, coords="ucs"))
+    assert out["new_handles"] == ["C0"] and made[1].deleted is True
+    assert out["failed"][0]["handle"] == "1A"

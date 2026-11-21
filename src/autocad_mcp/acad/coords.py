@@ -189,6 +189,16 @@ class Ucs:
         turned = self.rotation_degrees - value if self.flipped else self.rotation_degrees + value
         return turned % 360.0
 
+    def angle_from_world(self, degrees: float) -> float:
+        """A world angle, as the angle of the same direction measured in this UCS, 0-360."""
+        value = float(degrees)
+        if self.tilted:
+            a = math.radians(value)
+            x, y, _ = self.to_ucs((self.origin[0] + math.cos(a), self.origin[1] + math.sin(a), self.origin[2]))
+            return math.degrees(math.atan2(y, x)) % 360.0
+        turned = self.rotation_degrees - value if self.flipped else value - self.rotation_degrees
+        return turned % 360.0
+
     def turn_to_world(self, degrees: float) -> float:
         """An amount of turning (ROTATE's angle, a polar array's fill), as the world one.
 

@@ -19,7 +19,8 @@ The group headings below give the level.
   it is not the world one. `autocad_batch_draw`, `autocad_make_shape`, every `autocad_draw_*` tool,
   text, mtext, dimensions, blocks and the move / copy / rotate / scale / mirror / array tools take
   `coords="ucs"` ([D-96](DECISIONS.md)); for the rest convert first with `autocad_convert_points`
-  ([09](09-sheets-and-coordinates.md)). A flipped UCS refuses text, blocks and dimensions.
+  ([09](09-sheets-and-coordinates.md)). A flipped UCS refuses text, blocks, dimensions, multileaders,
+  tables, xrefs and super hatches.
 - `autocad_batch_draw` polylines take **`bulges`** (one per vertex, `tan(sweep/4)`, positive
   anticlockwise) so arcs stay part of the object, and text takes **`align`** and `style`.
 

@@ -424,7 +424,6 @@ async def autocad_convert_points(
             label = _ucs_name(doc) or None
 
         move = ucs.to_world if into == "world" else ucs.to_ucs
-        turn = 1.0 if into == "world" else -1.0
         result: dict[str, Any] = {
             "into": into,
             "points": [[round(v, 9) for v in move(p)] for p in points],
@@ -437,9 +436,10 @@ async def autocad_convert_points(
                     "That UCS is tilted out of the world XY plane, so a flat angle has no "
                     "single world answer. Convert the points instead and measure from those."
                 )
-            result["angles"] = [
-                round((float(a) + turn * ucs.rotation_degrees) % 360.0, 9) for a in angles
-            ]
+            # The same direction, measured the other way: on a flipped UCS the
+            # angle also runs the other way round (D-96).
+            convert = ucs.angle_to_world if into == "world" else ucs.angle_from_world
+            result["angles"] = [round(convert(a), 9) for a in angles]
         else:
             result["angles"] = None
         return result

@@ -21,6 +21,7 @@ from ._shared import (
     COORDS_OPT,
     LAYER_OPT,
     in_plugin,
+    not_flipped,
     plugin_created,
     ucs_for,
     world_angle,
@@ -99,7 +100,7 @@ async def autocad_super_hatch(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        ucs = ucs_for(doc, coords)
+        ucs = not_flipped(ucs_for(doc, coords), "a super hatch's tiles")
         args = {
             "boundary": boundary,
             "block": block,

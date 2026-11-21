@@ -455,6 +455,8 @@ def _build_dimension(op: dict[str, Any], i: int) -> list[str]:
     pairs.append(dotted(10, lisp_point([line_end[0], line_end[1], z])))
     pairs.append(dotted(11, lisp_point([text_point[0], text_point[1], z])))
     pairs.append(dotted(70, str(flags)))
+    if op.get("ucs_rotation"):
+        pairs.append(dotted(51, lisp_number(-rad(op["ucs_rotation"]))))
     if op.get("text_override"):
         pairs.append(dotted(1, lisp_string(str(op["text_override"]))))
     style = str(op.get("style") or "").strip()
@@ -467,9 +469,11 @@ def _build_dimension(op: dict[str, Any], i: int) -> list[str]:
     if angle is not None:
         pairs.append(dotted(50, lisp_number(rad(angle))))
         pairs.append(dotted(100, lisp_string("AcDbRotatedDimension")))
-    # The drawing's DIMSCALE as this dimension's own override, as
-    # autocad_add_dimension gives one: without it a dimension takes the plain
-    # style size and comes out tiny in a scaled detail.
+    # The drawing's current DIMSCALE as this dimension's own override, as
+    # DIMLINEAR would give it (0, scaled to the layout, included): without it a
+    # dimension takes the plain style size and comes out tiny in a scaled
+    # detail. autocad_add_dimension does the same over COM, where only a
+    # value above 0 can be set.
     pairs.append(
         '(list -3 (list "ACAD" (cons 1000 "DSTYLE") (cons 1002 "{") (cons 1070 40)'
         ' (cons 1040 (getvar "DIMSCALE")) (cons 1002 "}")))'
@@ -530,6 +534,11 @@ def _flat_height(moved: dict[str, Any], field: str) -> None:
 def _turn_dimension(moved: dict[str, Any], ucs: Ucs) -> None:
     """Horizontal and vertical mean the UCS's own X and Y, so in the world they become rotated."""
     kind = str(moved.get("dimension_type", "aligned")).strip().lower()
+    if ucs.rotation_degrees:
+        # DXF group 51: which way is "horizontal" for the text, as DIMLINEAR
+        # writes it in a turned UCS (minus the UCS's angle), so text that is
+        # kept horizontal reads along the UCS's X, not the world's.
+        moved["ucs_rotation"] = ucs.rotation_degrees
     if kind in DIMENSION_AXIS or (kind == "rotated" and moved.get("angle") is not None):
         base = DIMENSION_AXIS[kind] if kind in DIMENSION_AXIS else float(moved["angle"])
         moved["dimension_type"] = "rotated"
@@ -578,8 +587,8 @@ def to_world_ops(
                     list(ucs.to_world(v)) if len(v) >= 2 else v for v in run_of
                 ]
         for field in _ANGLE_FIELDS.get(kind, ()):
-            if moved.get(field) is not None:
-                moved[field] = ucs.angle_to_world(moved[field])
+            # Left out means 0, which on a turned UCS is the UCS's own X: it turns too.
+            moved[field] = ucs.angle_to_world(moved.get(field) or 0.0)
         if kind == "arc" and moved.get("start_angle") is not None and moved.get("end_angle") is not None:
             moved["start_angle"], moved["end_angle"] = ucs.arc_to_world(moved["start_angle"], moved["end_angle"])
         if kind in ("polyline", "hatch"):

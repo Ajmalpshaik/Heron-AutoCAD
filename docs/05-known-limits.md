@@ -136,8 +136,12 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
   to any object (not associative). Patterns stay with `autocad_add_hatch`. Its `dimension` is linear
   only (aligned, horizontal, vertical, rotated); radial, diametric and angular stay with
   `autocad_add_dimension` (D-96).
-- On a **flipped** UCS (Z pointing down), `coords="ucs"` refuses text, mtext, dimensions and blocks:
-  over COM they would read mirrored in that view (D-96).
+- On a **flipped** UCS (Z pointing down), `coords="ucs"` refuses text, mtext, dimensions (and
+  dimension runs), multileaders, tables, blocks, xrefs and super hatches: over COM they would read
+  mirrored in that view (D-96).
+- A batch `dimension` drawn with `coords="ucs"` on a turned UCS carries that UCS as its text
+  direction (DXF group 51), as DIMLINEAR writes it; one drawn with world coordinates does not
+  (live row AI6).
 - `autocad_create_linetype` sizes the gap for its text from an estimate (0.9 x height per letter for
   STANDARD); a wide font can crowd the dashes - give `text_width`. On a text style with a fixed height
   the text is scaled from that height when the linetype is loaded; written with `load=false` it

@@ -343,3 +343,24 @@ class TestFilledShapes:
                                ("scale_bar", {"scale": "1:50", "length": 100}), ("level_mark", {"level": "0"})):
             for op in shapes.build(name, {**settings, "filled": True}):
                 BUILDERS[op["type"]](op, 0)
+
+
+class TestReviewFixes:
+    def test_text_and_mtext_with_no_rotation_still_turn_with_the_ucs(self):
+        turned = Ucs.from_rotation((0, 0), 30)
+        text, mtext = to_world_ops([{"type": "text", "position": [0, 0], "text": "A"},
+                                    {"type": "mtext", "position": [0, 0], "text": "A"}], turned)
+        assert text["rotation"] == pytest.approx(30.0) and mtext["rotation"] == pytest.approx(30.0)
+        assert float(value(build(mtext), 50)) == pytest.approx(math.radians(30))
+
+    def test_a_shape_s_label_turns_with_its_lines(self):
+        ops = to_world_ops(shapes.build("north_arrow", {"size": 100}), Ucs.from_rotation((0, 0), 30))
+        (label,) = [op for op in ops if op["type"] == "text"]
+        assert label["rotation"] == pytest.approx(30.0)
+
+    def test_a_dimension_in_a_turned_ucs_says_which_way_is_horizontal(self):
+        moved = to_world_ops([{"type": "dimension", "point1": [0, 0], "point2": [100, 0]}],
+                             Ucs.from_rotation((0, 0), 30))[0]
+        assert float(value(build(moved), 51)) == pytest.approx(-math.radians(30))
+        world = build({"type": "dimension", "point1": [0, 0], "point2": [100, 0]})
+        assert 51 not in codes(world)

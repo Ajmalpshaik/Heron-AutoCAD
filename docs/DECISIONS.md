@@ -183,19 +183,23 @@ and a call without `coords` does exactly what it did.
 
 **A flipped UCS is a mirror.** A UCS with its Z pointing down is not tilted, so it passed `ucs_for`,
 but anticlockwise in it is clockwise in the world: the batch turned its angles the wrong way. Now
-`Ucs.angle_to_world`, `turn_to_world`, `arc_to_world` and `bulge_to_world` say it once - angles run
-the other way, an arc's ends swap, a bulge changes sign - and every tool uses them. Text, mtext,
-dimensions and blocks are **refused** on a flipped UCS: COM puts them on the world plane, so they
-would read mirrored in that view, where AutoCAD's own commands put them on the UCS's plane. Refused,
-not guessed, as D-27 does for a tilted one.
+`Ucs.angle_to_world`, `angle_from_world`, `turn_to_world`, `arc_to_world` and `bulge_to_world` say
+it once - angles run the other way, an arc's ends swap, a bulge changes sign - and every tool uses
+them, `autocad_convert_points` included. Text, mtext, dimensions (and dimension runs), multileaders,
+tables, blocks, xrefs and super hatches are **refused** on a flipped UCS: COM puts them on the world
+plane, so they would read mirrored in that view, where AutoCAD's own commands put them on the UCS's
+plane. Refused, not guessed, as D-27 does for a tilted one.
 
 **Fills, mtext and dimensions in the batch.** D-30 put bulges and text justification into the batch;
 hatch, mtext and dimension were left. Now: an **mtext** with its attachment point (long text sent in
 the 250-character pieces DXF holds); a **hatch** that is a SOLID fill of its own outline (arcs and
 holes included, not associative - a batch operation has no boundary object to follow); and a
 **linear dimension** (aligned, horizontal, vertical, rotated) whose line runs through the text point,
-in the current dimension style, given the drawing's DIMSCALE as its own override - the same reason
-`autocad_add_dimension` gives it one. The fill is solid only because entmake cannot read a pattern's
+in the current dimension style, given the drawing's current DIMSCALE as its own override (0
+included, as DIMLINEAR would) - the same reason `autocad_add_dimension` gives it one. Drawn with
+`coords="ucs"` on a turned UCS it also carries that UCS as its text direction (DXF group 51,
+minus the UCS's angle, as DIMLINEAR writes it), so text kept horizontal reads along the UCS. A text
+or mtext with no rotation given turns with the UCS too: left out means 0, which is the UCS's X. The fill is solid only because entmake cannot read a pattern's
 lines from acad.pat; patterns, and radial, diametric and angular dimensions, stay with their own
 tools (ROADMAP). The geometry - where a dimension line goes, how a loop is written - is plain
 arithmetic tested without AutoCAD.

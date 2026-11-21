@@ -381,3 +381,48 @@ class TestEditSpline:
         plugin.answers["edit_spline_fit_points"] = AutocadError(
             "AutoCAD did not end up with the fit points asked for on 6D0. Nothing was changed.")
         assert "Nothing was changed" in error(drafting.autocad_edit_spline(handle="6D0", edits=[{"remove": 0}]))
+
+
+class TestReviewFixes:
+    def test_an_unknown_outcome_adds_nothing_and_says_it_may_be_closed(self, cad):
+        doc, plugin = cad()
+        plugin.answers["close_multiline"] = AutocadError(
+            "Outcome unknown: Heron in AutoCAD did not answer within 300 s, so the operation may have run.")
+        out = call(drafting.autocad_draw_multiline(points=SQUARE, closed=True))
+        assert "Coordinates" not in doc.objects["3A0"].written
+        assert out["closed"] is None and out["mitred"] is False and "may or may not be closed" in out["warning"]
+
+    def test_when_nothing_could_close_it_it_does_not_say_closed(self, cad, monkeypatch):
+        doc, plugin = cad()
+        plugin.answers["close_multiline"] = AutocadError("AutoCAD refused it (eInvalidInput).")
+        made = Space.AddMLine
+
+        def stubborn(self, points):
+            entity = made(self, points)
+
+            def refuse(name, value):
+                if name == "Coordinates":
+                    raise RuntimeError("read only here")
+                object.__setattr__(entity, name, value)
+
+            entity.__class__ = type("Stubborn", (Made,), {"__setattr__": lambda s, n, v: refuse(n, v)})
+            return entity
+
+        monkeypatch.setattr(Space, "AddMLine", stubborn)
+        out = call(drafting.autocad_draw_multiline(points=SQUARE, closed=True))
+        assert out["closed"] is False and "OPEN" in out["warning"] and "Closed by" not in out["warning"]
+
+    @pytest.mark.parametrize("bad", [[4200, None], ["4200", "1,800"], [1, 2, 3, 4], [True, 5], [float("nan"), 0]])
+    def test_a_point_that_is_not_numbers_is_refused_never_read_as_0(self, cad, bad):
+        doc, plugin = cad()
+        doc.objects["6D0"] = Spline("6D0", FIT)
+        answer = error(drafting.autocad_edit_spline(handle="6D0", edits=[{"move": 2, "to": bad}]))
+        assert "Nothing was changed" in answer and plugin.calls == []
+        with pytest.raises(ValueError):
+            plan_fit_edits(FIT, [{"insert": 1, "point": bad}])
+
+
+def test_a_closed_spline_listed_with_its_seam_can_still_be_edited():
+    ring = [[0, 0, 0], [100, 0, 0], [50, 80, 0], [0, 0, 0]]
+    steps, result, _ = plan_fit_edits(ring, [{"move": 1, "to": [120, 0]}], closed=True)
+    assert steps == [{"kind": "set", "index": 1, "point": [120.0, 0.0, 0.0]}] and result[-1] == [0.0, 0.0, 0.0]
