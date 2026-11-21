@@ -44,7 +44,7 @@ namespace Heron.AutoCAD.Bridge
 
         /// <summary>
         /// The switches the bridge obeys for one call: the file's own settings
-        /// (connect at start, the banner) with the padlocks from memory on top.
+        /// (only the banner since D-73) with the padlocks from memory on top.
         /// Whatever padlock values <paramref name="fileSettings"/> carries are
         /// replaced, never used.
         /// </summary>

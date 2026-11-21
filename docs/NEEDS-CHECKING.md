@@ -813,6 +813,14 @@ drawing is back as it was. The test box for AR8-AR12 is
 | AR13 | Ask to keep on: run AR1, AR4, AR8 and AR12, answering Discard each time | Each is taken back whole: no pyramid or wall left, the box its old size, the union one solid again | NOT RUN |
 | AR14 | AR1-AR13 on AutoCAD 2025/2026 and 2021-2024 | As AR1-AR13 | NOT RUN (no PC with those versions yet) |
 
+## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| RV1 | Admin on. `autocad_send_command` with `expect_box` / `press` on a box that never comes; close the chat (stop the server) before the command ends; then, with no Heron job running, open a box yourself (e.g. OPTIONS) | Heron leaves your box alone; `addin-*.log` shows no "dialog watch" line for it | NOT RUN |
+| RV2 | `autocad_export_attribute_sheet`, then in Excel type `0051` and `1:100` over two values, save, `autocad_apply_attribute_sheet` | The attributes read `0051` and `1:100` exactly; nothing listed in `excel_converted` | NOT RUN |
+| RV3 | `autocad_sequence` with steps `[autocad_switch_drawing, autocad_draw_line]` | Refused naming step 1; nothing drawn in either drawing | NOT RUN |
+
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
 Rows B1-B19 = A1-A19 on AutoCAD 2025 and on 2026, and H1-H13 on each. **NO MACHINE.**

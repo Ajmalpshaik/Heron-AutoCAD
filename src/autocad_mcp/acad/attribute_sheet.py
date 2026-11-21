@@ -85,11 +85,22 @@ def workbook(refs: list[dict[str, Any]], drawing: str = "") -> bytes:
     return xlsx.write([(EDIT_SHEET, rows, widths), (EXPORTED_SHEET, rows, widths), (README_SHEET, readme, [100, 60])])
 
 
+class Row(dict):
+    """One sheet row as {column: text}, with the row number Excel shows for it."""
+
+    def __init__(self, number: int) -> None:
+        super().__init__()
+        self.number = number
+
+
 def _records(rows: list[list[str]], where: str) -> list[dict[str, str]]:
     """Rows under their heading, as {column: text}. The heading must have a Handle column."""
-    rows = [row for row in rows if any(str(cell).strip() for cell in row)]
-    if not rows:
+    # Each row keeps its Excel row number (blank rows dropped here are still counted), so a
+    # row the answer names is the row the modeller sees.
+    numbered = [(number, row) for number, row in enumerate(rows, 1) if any(str(cell).strip() for cell in row)]
+    if not numbered:
         raise ValueError(f"{where} is empty")
+    rows = [row for _, row in numbered]
     heading = [str(cell).strip() for cell in rows[0]]
     keys: list[str] = []
     for name in heading:
@@ -106,8 +117,8 @@ def _records(rows: list[list[str]], where: str) -> list[dict[str, str]]:
             "with autocad_export_attribute_sheet, edit that one, and keep its Handle column."
         )
     records = []
-    for row in rows[1:]:
-        record = {}
+    for number, row in numbered[1:]:
+        record = Row(number)
         for index, name in enumerate(keys):
             if name:
                 value = row[index] if index < len(row) else ""
@@ -146,6 +157,7 @@ def read_csv(text: str) -> list[dict[str, str]]:
 def _by_handle(records: list[dict[str, str]], where: str, without: list[int] | None = None) -> dict[str, dict[str, str]]:
     found: dict[str, dict[str, str]] = {}
     for number, record in enumerate(records, 2):
+        number = getattr(record, "number", number)
         handle = record.get("Handle", "").strip().upper()
         if not handle:
             if without is not None and any(str(v).strip() for k, v in record.items() if k not in FIXED):
