@@ -130,6 +130,45 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-68 - One docked Heron palette: Activity with Undo by D-54's rule, saved commands run by a copy of the server
+
+**Decided:** 2026-11-21, from Heron AI for Revit's Activity and Commands panes (issues #92, #93).
+**Status:** in force; supersedes the last sentence of D-55 (a command run with no AI is now copied).
+`HERONPALETTE` (or Heron > **Heron palette** on the ribbon) opens one `PaletteSet`, docked right,
+with two tabs drawn in Heron's window style (D-45: Surface card, top strip, Ink header with the
+heron, Ink insets, brand buttons); the palette's own title bar stays AutoCAD's. The rules live in
+the bridge, tested offline (`ActivityLog`, `SavedCommandList`, `PaletteServer`); the add-in only
+shows them and makes the AutoCAD calls.
+
+- **Activity** lists Heron's change jobs (Change, Admin, Publish) in this AutoCAD, from every chat,
+  newest first, 30 kept, with what the plug-in counted (D-50). Reads and views are left out.
+  **Select** and **Zoom** take what the job made or changed (up to 500) and work whichever chat
+  holds this AutoCAD, but not while a job runs, and only in the job's drawing. The palette's Zoom
+  runs with undo recording off, so it leaves no step between the job and its Undo.
+- **Undo** belongs to the modeller, like Ctrl+Z: no padlock, no chat, any chat's job. It uses
+  D-54's rule, from what the plug-in itself knows: Heron's newest change job in this AutoCAD, a
+  Change job that ended `done` and changed something, not itself an undo, in the drawing in front,
+  nothing changed outside Heron's jobs since it ended (`JobChanges.ChangedSince`), UNDO on with more
+  than one step (UNDOCTL), and with no UNDO mark (Ask to Keep was off at begin) no Heron zoom or show
+  since. With the mark it is `UNDO _Back`, else `UNDO 1`, typed into AutoCAD; when UNDO ends,
+  Heron checks that what the job made is gone, as `autocad_undo_last` does. Anything else is
+  refused with the reason in plain words. A chat's `autocad_undo_last` stays limited to its own job;
+  after a palette Undo it is refused, because the drawing changed since.
+- **Saved commands** reads the files the server saves (`%LOCALAPPDATA%\Heron\autocad\commands`,
+  D-55) every 2 s while the tab is open, so a command saved in a chat shows without a restart;
+  search, fill the inputs (each typed value takes its example's type, a blank with a default is
+  left to the server), **Run**. Run does not go round the gate and the plug-in does not replay the
+  steps itself: it starts a copy of the server for that one run
+  (`python -m autocad_mcp --run-saved request.json --acad-pid <this AutoCAD>`), which is a chat of
+  its own to the plug-in. It runs `autocad_status` first (units, D-19), then `autocad_saved_command`
+  through the same gate, hold, padlocks, Keep or Discard, erase question and HERONSTOP, prints one
+  line `{"ok", "message"}`, and releases the hold so the modeller's chat is not kept out for 3
+  minutes. While a chat holds this AutoCAD, Run is refused with "in use by another chat", as for any
+  second chat. Every server writes `%LOCALAPPDATA%\Heron\autocad\server.json` (its Python) when it
+  starts; that is how the palette finds one, so Run needs Heron to have run once on this PC.
+- **Not copied:** a separate Commands pane (one palette with two tabs instead), and asking a
+  running chat's server to run it (a stdio server has no way in from the plug-in).
+
 ## D-67 - Finding and explaining: why a job cannot run, what failed, a question gets a read tool
 
 **Decided:** 2026-11-21, from the comparison with Heron AI for Revit (issues #88, #89, #90, #43).

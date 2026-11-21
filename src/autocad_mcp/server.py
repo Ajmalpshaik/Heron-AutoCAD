@@ -68,6 +68,17 @@ def build_parser() -> argparse.ArgumentParser:
             "each call. Padlocks, banner and Keep or Discard are then skipped."
         ),
     )
+    parser.add_argument(
+        "--run-saved",
+        metavar="REQUEST",
+        help=(
+            "Used by the Heron palette in AutoCAD: run one saved command from a "
+            "request file, through the gate, print one JSON line and exit (D-68)."
+        ),
+    )
+    parser.add_argument(
+        "--acad-pid", type=int, default=None, help="With --run-saved: the AutoCAD process to run it in."
+    )
     parser.add_argument("--version", action="version", version=f"autocad-mcp {__version__}")
     return parser
 
@@ -111,6 +122,13 @@ def main() -> int:
             summary = (tool.description or "").strip().splitlines()
             print(f"  {tool.name:<32} {summary[0] if summary else ''}")
         return 0
+
+    from . import palette
+
+    if args.run_saved:
+        # The palette's one run is a chat of its own, never the host's (D-68).
+        return palette.main(args.run_saved, args.acad_pid)
+    palette.write_server_file()  # so the palette in AutoCAD can find this server
 
     # Only the server speaks for the host's chat; scripts stay their own (D-61).
     from .core.bridge import follow_host_chat

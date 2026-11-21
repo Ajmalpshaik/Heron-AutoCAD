@@ -20,6 +20,9 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>Most erased handles reported back by name; the count is always whole.</summary>
         public const int MostHandles = 200;
 
+        /// <summary>Most handles kept per job for the palette's Select and Zoom (D-68): what Heron shows at once.</summary>
+        public const int MostShown = 500;
+
         private readonly object _gate = new object();
         private string? _job;
         private string? _last;
@@ -84,6 +87,16 @@ namespace Heron.AutoCAD.Bridge
             lock (_gate) return _last != null && _last == job ? _before : (bool?)null;
         }
 
+        /// <summary>
+        /// For the palette's Undo (D-68): did anything change outside Heron's
+        /// jobs since this job, the last one counted, ended? Null when another
+        /// job was counted since, or this one is still running.
+        /// </summary>
+        public bool? ChangedSince(string job)
+        {
+            lock (_gate) return _last != null && _last == job && _job == null ? _outside : (bool?)null;
+        }
+
         public void Appended(string handle)
         {
             lock (_gate)
@@ -133,6 +146,8 @@ namespace Heron.AutoCAD.Bridge
                     Erased = _erased.Count,
                     ErasedHandles = _erased.Take(MostHandles).ToArray(),
                     AllErasedHandles = _erased.ToArray(),
+                    AddedHandles = _added.Take(MostShown).ToArray(),
+                    ModifiedHandles = _modified.Take(MostShown).ToArray(),
                 };
             }
         }
@@ -147,6 +162,10 @@ namespace Heron.AutoCAD.Bridge
         public string[] ErasedHandles { get; set; } = new string[0];
         /// <summary>Every erased handle, for putting them back.</summary>
         public string[] AllErasedHandles { get; set; } = new string[0];
+        /// <summary>At most <see cref="JobChanges.MostShown"/>, for the palette (D-68).</summary>
+        public string[] AddedHandles { get; set; } = new string[0];
+        /// <summary>At most <see cref="JobChanges.MostShown"/>, for the palette (D-68).</summary>
+        public string[] ModifiedHandles { get; set; } = new string[0];
     }
 
     public sealed class EraseRequest
