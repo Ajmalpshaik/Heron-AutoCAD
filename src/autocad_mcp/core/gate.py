@@ -127,6 +127,19 @@ def plugin_runner() -> Callable[[str, dict[str, Any]], dict[str, Any]] | None:
     return lambda operation, args: job.bridge.run(job.id, operation, args)
 
 
+def dialog_expecter() -> Callable[[str, str], str | None] | None:
+    """While a job runs with the plug-in: a way to name one button for one box it expects (#101).
+
+    The callable returns None when the plug-in took it, else why not. None
+    outside a job or with the bridge off. The plug-in itself takes it only from
+    an Admin job of this chat, once.
+    """
+    job = _current
+    if job is None or job.bridge is None or job.id is None:
+        return None
+    return lambda title, button: job.bridge.expect_dialog(job.id, title, button)
+
+
 def stopped_by_modeller() -> bool:
     """True when the modeller pressed HERONSTOP during this job (D-51). Any thread.
 
@@ -598,6 +611,8 @@ def dialog_sentence(box: dict[str, Any]) -> str:
             f"AutoCAD showed '{title}'; Heron pressed {pressed} but it is still open. Close it in "
             "AutoCAD (Esc), then read the drawing back before trying again."
         )
+    if box.get("asked"):
+        return f"AutoCAD showed '{title}'; Heron pressed {pressed} on it, as this call asked (#101)."
     return f"AutoCAD showed '{title}'; Heron closed it with {pressed}, nothing was kept from that step."
 
 

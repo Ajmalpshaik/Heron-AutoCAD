@@ -146,8 +146,8 @@ nothing.
 
 | Tool | Purpose |
 |---|---|
-| `autocad_send_command` | Any AutoCAD command: TRIM, FILLET, add-in commands |
-| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Keep expressions under about 700 characters ([05](05-known-limits.md)) |
+| `autocad_send_command` | Any AutoCAD command: TRIM, FILLET, add-in commands. `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)) |
+| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Keep expressions under about 700 characters ([05](05-known-limits.md)). `expect_box` + `press` as for send_command |
 | `autocad_purge` | Remove unused blocks, layers, linetypes, styles |
 | `autocad_regen` | Regenerate the display |
 | `autocad_audit` | Check and repair the drawing database |

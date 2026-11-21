@@ -130,6 +130,19 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-74 - A command or expression may name one button for one box it expects
+
+**Decided:** 2026-11-21, from Heron AI for Revit (issue #101, follow-up to D-66). **Status:** in
+force. `autocad_send_command` and `autocad_run_lisp` take `expect_box` (the box's exact title) and
+`press` (the button's text), both or neither. Before anything is sent, the server asks the plug-in
+(`expect_dialog`, plug-in **1.7.0**) inside the running job; the plug-in takes it only from an
+**Admin** job of this chat (a named button may be Yes or OK), one per job. `DialogWatch` presses
+that button only on a box whose title is exactly the one named (ordinal, trimmed), only once, only
+while that job runs, and only when the box has that button enabled; every other box still gets
+Cancel, else No, else Esc. The note says `asked`, so the chat reads "Heron pressed Yes on it, as
+this call asked", not "closed it". A refusal, or an older plug-in, stops the call before the
+command is sent. The decision stays in `DialogWatch.cs`, tested offline.
+
 ## D-73 - AutoCAD always starts disconnected; no file can make it connect
 
 **Decided:** 2026-11-21 by Ajmal PS, issue #141 (option 2 of three). **Status:** in force. Replaces

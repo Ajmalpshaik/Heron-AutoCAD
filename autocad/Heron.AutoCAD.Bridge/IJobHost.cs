@@ -55,6 +55,13 @@ namespace Heron.AutoCAD.Bridge
         /// dialog watch, <see cref="DialogWatch"/>, D-66). Empty when none.
         /// </summary>
         IReadOnlyList<DialogNote> Dialogs(string job);
+
+        /// <summary>
+        /// The running Admin job expects one box: press <paramref name="button"/>
+        /// on a box titled exactly <paramref name="title"/>, once (#101). False
+        /// when the watch would not take it.
+        /// </summary>
+        bool ExpectDialog(string job, string title, string button);
     }
 
     public sealed class JobInfo

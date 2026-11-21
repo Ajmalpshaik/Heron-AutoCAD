@@ -113,6 +113,8 @@ namespace Heron.AutoCAD.Addin
 
         public IReadOnlyList<DialogNote> Dialogs(string job) => DialogGuard.Watch.Notes(job);
 
+        public bool ExpectDialog(string job, string title, string button) => DialogGuard.Watch.Expect(job, title, button);
+
         public EraseAnswer AskErase(EraseRequest request)
         {
             DialogGuard.Watch.Pause();

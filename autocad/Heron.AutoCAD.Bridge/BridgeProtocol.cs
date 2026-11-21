@@ -11,7 +11,7 @@ namespace Heron.AutoCAD.Bridge
     /// so every rule the bridge enforces is tested offline.
     ///
     /// Ops: ping, info, release, begin, end, ask_keep, send_quiet, run, changes,
-    /// ask_erase, since_last, dialogs. Every
+    /// ask_erase, since_last, dialogs, expect_dialog. Every
     /// op needs the session token. begin is where the hold and the padlocks are
     /// checked; send_quiet and run only work inside the job begin allowed.
     /// </summary>
@@ -143,6 +143,8 @@ namespace Heron.AutoCAD.Bridge
                             return SinceLast(root, conversation);
                         case "dialogs":
                             return Dialogs(root, conversation);
+                        case "expect_dialog":
+                            return ExpectDialog(root, conversation);
                         default:
                             return Refuse("BadRequest", Texts.UnknownOp(op));
                     }
@@ -412,6 +414,7 @@ namespace Heron.AutoCAD.Bridge
                     w.WriteString("pressed", note.Pressed);
                     if (note.Closed.HasValue) w.WriteBoolean("closed", note.Closed.Value);
                     else w.WriteNull("closed");
+                    if (note.Asked) w.WriteBoolean("asked", true);
                     w.WriteEndObject();
                 }
                 w.WriteEndArray();
@@ -419,6 +422,30 @@ namespace Heron.AutoCAD.Bridge
         }
 
         /// <summary>This chat's running job named in the request, or null.</summary>
+        /// <summary>
+        /// An Admin job of this chat names one button for one box it expects
+        /// (#101). Any other level is refused: a named button may be Yes or OK.
+        /// </summary>
+        private string ExpectDialog(JsonElement root, string conversation)
+        {
+            var running = Running(root, conversation);
+            if (running == null) return Refuse("Job", Texts.NoRunJob);
+            if (running.Risk != Risk.Admin) return Refuse("Level", Texts.ExpectNeedsAdmin);
+            var title = Str(root, "title");
+            var button = Str(root, "button");
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(button)) return Refuse("BadRequest", Texts.ExpectNotTaken);
+            bool taken;
+            try
+            {
+                taken = _host.ExpectDialog(Str(root, "job"), title, button);
+            }
+            catch (Exception)
+            {
+                taken = false;
+            }
+            return taken ? Ok(null) : Refuse("Expect", Texts.ExpectNotTaken);
+        }
+
         private RunningJob? Running(JsonElement root, string conversation)
         {
             RunningJob? running;

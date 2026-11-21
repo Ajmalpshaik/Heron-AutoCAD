@@ -19,6 +19,18 @@
   (`.gitattributes`), and the check list report uses `acad/xlsx.py` (one Excel writer).
 - Still NOT RUN: live rows U1-U10 (U8 first: Excel opens the report).
 
+## Earlier - 2026-11-21 (the dialog watch can press one named button, #101; plug-in 1.7.0)
+
+`autocad_send_command` / `autocad_run_lisp` take `expect_box` + `press` (D-74). The plug-in's
+`DialogWatch` presses that button only on a box with exactly that title, once, in that Admin job;
+every other box is still cancelled. New protocol op `expect_dialog`; plug-in **1.7.0**, server
+**1.10.0**. Offline: C# `DialogAnswerTests`, `ExpectDialogOpTests`; Python
+`tests/test_dialog_answer.py`.
+
+**Next (on this PC, AutoCAD closed):** pull, `tools/build_plugin.py` + `tools/install_plugin.py`
+(plug-in 1.7.0), restart Claude. Live rows V7-V8 with the rest (R-Y). Every issue from the
+2026-11-21 comparison is now closed except #80 (waits for row T7).
+
 ## Earlier - 2026-11-21 (the offline gates run on Linux, #102)
 
 `tests/winstubs` stands in for pywin32 where it is not installed (D-72). On Linux:
@@ -40,8 +52,7 @@ still **1.6.0** (no C# changed): restart Claude after pulling.
 - **D-71 (#91):** `autocad_companion` (Read): a page file per chat, rewritten by the gate after
   every job. Editable tables (Revit's) would need a local server: not built.
 
-**Next:** live rows Y1-Y6 with the others below. Still open from the comparison: #80 (row T7),
-#101.
+**Next:** live rows Y1-Y6 with the others below. Still open from the comparison: #80 (row T7).
 
 ## Earlier - 2026-11-21 (palette follow-up: Run never skips the checks, #138 closed)
 
