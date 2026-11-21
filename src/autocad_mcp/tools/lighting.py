@@ -302,8 +302,8 @@ async def autocad_add_light(
 # ---------------------------------------------------------------------------
 # The lights in the drawing, the sun and the exposure (D-86, D-87)
 #
-# These tools set a render up; none of them renders. The modeller presses Render
-# (Ajmal's rule; autocad_render, Admin, is the one exception: issue #158).
+# These tools set a render up; Heron has no tool that renders (D-87, #158). The
+# modeller presses Render.
 # ---------------------------------------------------------------------------
 
 # Read with the lights, so one answer says why a render is dark.
