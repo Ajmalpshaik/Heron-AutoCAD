@@ -90,21 +90,6 @@ def connected_autocads(folder: Path | None = None) -> list[dict[str, Any]]:
     return found
 
 
-def config_path() -> Path:
-    return Path(os.environ.get("APPDATA", "")) / "Heron" / "autocad" / "heron-autocad.config"
-
-
-def padlocks(path: Path | None = None) -> dict[str, bool] | None:
-    """The padlocks as the plug-in last wrote them, or None when it never has."""
-    try:
-        raw = json.loads((path or config_path()).read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError):
-        return None
-    names = {"write.enabled": "changes", "publish.enabled": "publish", "admin.enabled": "admin",
-             "write.askBeforeKeeping": "ask_to_keep"}  # fmt: skip
-    return {label: raw.get(key) is True for key, label in names.items()}
-
-
 def _version(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in re.findall(r"\d+", text)[:3])
 
@@ -113,7 +98,6 @@ def report(
     *,
     plugins: Path | None = None,
     bridges: Path | None = None,
-    config: Path | None = None,
     package: Path = _PACKAGE,
     loaded_at: float | None = None,
 ) -> dict[str, Any]:
@@ -162,16 +146,13 @@ def report(
                 "Close and restart AutoCAD to load it.",
             ))  # fmt: skip
 
-    locks = padlocks(config)
-    if locks is None:
-        checks.append(_check("padlocks", PASS, "No padlock file yet: every padlock is off (the safe default)."))
-    else:
-        on = [name for name, value in locks.items() if value and name != "ask_to_keep"]
-        checks.append(_check(
-            "padlocks", PASS,
-            ("On: " + ", ".join(on) + "." if on else "All padlocks are off: Heron can only look.")
-            + (" Keep or Discard asks after each change." if locks.get("ask_to_keep") else ""),
-        ))  # fmt: skip
+    # D-59: the padlocks live in each AutoCAD's memory, not in a file. The old
+    # padlock lines in heron-autocad.config are ignored, so they are not read here.
+    checks.append(_check(
+        "padlocks", PASS,
+        "The padlocks live inside each AutoCAD, not in a file: Changes, Publish and Admin are off "
+        "every time AutoCAD starts. Turn one on in Settings on the Heron tab.",
+    ))  # fmt: skip
 
     states = {check["state"] for check in checks}
     health = "FAILED" if FAIL in states else ("WARNING" if WARN in states else "HEALTHY")
@@ -181,7 +162,6 @@ def report(
         "protocol_version": PROTOCOL_VERSION,
         "plugin_installed": installed,
         "autocads_connected": running,
-        "padlocks": locks,
         "checks": checks,
         "to_fix": [check["detail"] for check in checks if check["state"] != PASS],
     }

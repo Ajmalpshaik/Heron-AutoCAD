@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "for p in \"$CLAUDE_PROJECT_DIR/.venv/Scripts/python.exe\" \"$CLAUDE_PROJECT_DIR/.venv/bin/python\" python3 python py; do \"$p\" -c \"import sys; sys.exit(sys.version_info < (3, 8))\" >/dev/null 2>&1 && exec \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_padlocks.py\"; done; echo \"Heron padlock guard: no Python found, so this step was not checked.\" >&2; exit 1"
+          }
+        ]
+      }
+    ]
+  }
+}

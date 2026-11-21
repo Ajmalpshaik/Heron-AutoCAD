@@ -61,7 +61,8 @@ flowchart TD
 | [`examples/claude_desktop_config.json`](../examples/claude_desktop_config.json) | Claude Desktop |
 | [`pyproject.toml`](../pyproject.toml) | Package, dependencies, pytest and ruff |
 | [`autocad/Directory.Build.props`](../autocad/Directory.Build.props) | Version and shared C# settings |
-| `%APPDATA%\Heron\autocad\heron-autocad.config` | The padlocks (written by the plug-in) |
+| `%APPDATA%\Heron\autocad\heron-autocad.config` | Connect at start and the banner only; the padlocks live in AutoCAD's memory ([D-59](DECISIONS.md)) |
+| [`.claude/settings.json`](../.claude/settings.json), [`.claude/hooks/guard_padlocks.py`](../.claude/hooks/guard_padlocks.py) | Claude Code guard: refuses writing that file or the Heron policy key |
 
 The three MCP configs hold the absolute path of `.venv\Scripts\autocad-mcp.exe`; if the repository
 moves, change all three.

@@ -59,18 +59,28 @@ public class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void Save_and_load_round_trip()
+    public void A_file_with_every_padlock_true_turns_nothing_on()
     {
-        var path = PathOf("sub/heron-autocad.config");
-        var config = HeronConfig.Load(path);
-        config.WriteEnabled = true;
-        config.AskBeforeKeeping = true;
-        config.Save(path);
-        var again = HeronConfig.Load(path);
-        Assert.True(again.WriteEnabled);
-        Assert.True(again.AskBeforeKeeping);
-        Assert.False(again.AdminEnabled);
-        Assert.Contains("\"write.enabled\": true", File.ReadAllText(path));
+        // What an older plug-in wrote, or what any program could write (D-59).
+        var path = PathOf("heron-autocad.config");
+        File.WriteAllText(path, "{\"write.enabled\": true, \"publish.enabled\": true, \"admin.enabled\": true, "
+            + "\"write.askBeforeKeeping\": true, \"bridge.autoConnect\": true, \"ui.activityBanner\": false}");
+
+        var file = HeronConfig.Load(path);
+        Assert.False(file.WriteEnabled);
+        Assert.False(file.PublishEnabled);
+        Assert.False(file.AdminEnabled);
+
+        var config = new HeronPadlocks(new NoPolicy()).Snapshot(file);
+        Assert.False(config.WriteEnabled);
+        Assert.False(config.PublishEnabled);
+        Assert.False(config.AdminEnabled);
+        Assert.False(config.AskBeforeKeeping);
+        Assert.NotNull(Permissions.Refusal(Risk.Change, config));
+
+        // The file keeps its own two settings.
+        Assert.True(config.AutoConnect);
+        Assert.False(config.ActivityBanner);
     }
 }
 
