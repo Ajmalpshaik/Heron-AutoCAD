@@ -6,6 +6,11 @@ Newest first. Dates are when the change was made.
 
 - **The drawing report's model space count is the plug-in's too (2026-11-22, #193).** `autocad_drawing_report` counted model space two COM round trips per object (up to 50,000). `count_entities` now takes `space: model` and the same cut-off, walks model space in COM's own order, and says so in its answer; without that, or with an older plug-in, the report counts over COM as before. Same answer either way ([D-114](docs/DECISIONS.md)). Live rows AS10-AS11 NOT RUN.
 
+- **Check lists never PASS on a read that failed (2026-11-22, #211).** A dimension or text whose
+  size could not be read makes `no_overlapping_dimensions` / `text_heights` NO DATA, and a block
+  table that cannot be read makes `xrefs_found` NO DATA instead of "every xref found"
+  ([D-64](docs/DECISIONS.md)). `gather` is now tested on its own.
+
 - **The drawing tools (2026-11-21, #50, #51, #52, #55, #56).** One new tool, **192** in all (with the other sessions' tools).
   `coords="ucs"` on every `autocad_draw_*` tool, text, mtext, dimensions and blocks, and move, copy,
   rotate, scale, mirror and array: points, vertex lists and angles are read in the modeller's own
