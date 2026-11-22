@@ -52,9 +52,10 @@ STATUS_TOOL = "autocad_status"
 # Says which AutoCAD to work in: needs no drawing, and no plug-in job (D-49).
 SESSION_TOOLS = {"autocad_use_autocad"}
 # Read only Heron's own files (the tool index, the audit log, the install), or a
-# DXF / DWG file on disk (D-92), never AutoCAD: they must answer exactly when
-# AutoCAD is closed or not connected (D-67).
-NO_AUTOCAD_TOOLS = {"autocad_why", "autocad_gaps", "autocad_read_file"}
+# DXF / DWG file on disk (D-92), or keep the office layer standard in Heron's own
+# folder (D-120), never AutoCAD: they must answer exactly when AutoCAD is closed
+# or not connected (D-67).
+NO_AUTOCAD_TOOLS = {"autocad_why", "autocad_gaps", "autocad_read_file", "autocad_layer_standard"}
 # The calls that tell Heron a drawing's units. Nothing is changed in a drawing
 # until one of them has run on it (Ajmal, 2026-10-26: "the first time in a
 # drawing, you have to understand the unit").

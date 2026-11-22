@@ -59,6 +59,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "why",
         "gaps",
         "read_file",
+        # Heron's own standards folder and the CSV it is given, never the drawing (D-120).
+        "layer_standard",
         "list_groups",
         "list_annotation_scales",
         # Hyperlinks and the geographic location, read (D-111).

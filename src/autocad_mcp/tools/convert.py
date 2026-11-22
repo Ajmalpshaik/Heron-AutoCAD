@@ -21,9 +21,12 @@ then run it. The planning is pure Python and tested without AutoCAD; only the
 writing needs AutoCAD.
 
 The built-in ``ifc`` rules are a **starting point**, not a standard: they map
-the usual IFC class words onto AIA-style discipline layers. Pass your own
-``rules`` (or ``rules_path``) for an office standard, and
-``autocad_check_standards`` afterwards to prove the result.
+the usual IFC class words onto AIA-style discipline layers. For an office
+standard pass ``layer_standard`` (the office's own list loaded on this PC with
+autocad_layer_standard, or a CSV / JSON file: acad/layer_standard.py turns its
+rows and the old names they replace into rules, D-120), or your own ``rules``
+(or ``rules_path``), and ``autocad_check_standards`` afterwards to prove the
+result.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
+from ..acad import layer_standard as layer_rules
 from ..acad.entities import resolve_handles, short_type
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
 from ..acad.tables import describe_layer, ensure_layer, ensure_linetype, validate_name
@@ -43,6 +47,7 @@ from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
+from . import layer_standard as layer_files
 
 BYLAYER_COLOR = 256
 BYLAYER = "ByLayer"
@@ -276,10 +281,30 @@ def plan_tidy(entities: list[dict[str, Any]], options: dict[str, Any]) -> dict[s
     return {"jobs": jobs, "counts": counts, "read": len(entities)}
 
 
+def standard_rules(layer_standard: str) -> list[dict[str, Any]]:
+    """The remap rules a layer standard gives; 'office' must really be the office's (D-120).
+
+    A check against 'office' with none loaded falls back to the example and is
+    not decided; a remap would move objects onto layers nobody chose, so it is
+    refused instead.
+    """
+    standard, info = layer_files.resolve(layer_standard)
+    if info.get("fallback"):
+        raise AutocadError(
+            layer_files.not_loaded() + " Nothing was moved. To try the generic MEP example instead, "
+            "say layer_standard='example'."
+        )
+    found = layer_rules.remap_rules(standard)
+    if not found:
+        raise AutocadError(f"{info['source']} lists only patterns, so it names no layer to move anything onto.")
+    return found
+
+
 def load_rules(
-    rules: list[dict[str, Any]] | None, rules_path: str | None, preset: str | None
+    rules: list[dict[str, Any]] | None, rules_path: str | None, preset: str | None,
+    layer_standard: str | None = None,
 ) -> list[dict[str, Any]]:
-    """The rules to use: given inline, read from a JSON file, or a built-in preset."""
+    """The rules to use: given inline, read from a JSON file, a layer standard, or a built-in preset."""
     if rules:
         return [dict(r) for r in rules]
     if rules_path:
@@ -296,6 +321,8 @@ def load_rules(
                 f"{path} must hold a JSON list of rules, or an object with a 'rules' list."
             )
         return [dict(r) for r in loaded]
+    if layer_standard:
+        return standard_rules(layer_standard)
     if preset:
         key = str(preset).strip().lower()
         if key not in PRESETS:
@@ -304,7 +331,8 @@ def load_rules(
             )
         return [dict(r) for r in PRESETS[key]]
     raise AutocadError(
-        "Say which rules to use: 'rules' inline, 'rules_path' to a JSON file, or "
+        "Say which rules to use: 'rules' inline, 'rules_path' to a JSON file, layer_standard='office' "
+        "for the office layer standard loaded on this PC (or a .csv / .json one), or "
         f"preset='ifc' for the built-in starting point ({len(IFC_RULES)} rules)."
     )
 
@@ -470,6 +498,16 @@ async def autocad_remap_layers(
         ),
     ] = None,
     rules_path: Annotated[str | None, Field(default=None, description="Or a JSON file holding the same list — your office layer standard, kept in one place.")] = None,
+    layer_standard: Annotated[
+        str | None,
+        Field(default=None, description=(
+            "Or a layer standard: 'office' (the office's own list loaded on this PC with "
+            "autocad_layer_standard), 'example' (the generic MEP example), or the full path of a .csv "
+            "/ .json one. Objects on its layers stay and the layers get its colour, linetype, "
+            "lineweight, plot and description; objects on the old names a row replaces move to that "
+            "row's layer."
+        )),
+    ] = None,
     preset: Annotated[
         Literal["ifc"] | None,
         Field(default=None, description="Or the built-in starting point: 'ifc' maps the usual IFC and Revit class words onto AIA-style discipline layers. Read the result and refine it; it is a head start, not a standard."),
@@ -497,6 +535,8 @@ async def autocad_remap_layers(
     Args:
         rules (Optional[list[dict]]): the rules; see the field description.
         rules_path (Optional[str]): or a JSON file of the same.
+        layer_standard (Optional[str]): or 'office', 'example' or a .csv /
+            .json layer standard; 'office' with none loaded is refused.
         preset (Optional[str]): or 'ifc' for the built-in starting point.
         layer / entity_type / handles: narrow what is looked at.
         unmatched_layer (Optional[str]): where to put the leftovers.
@@ -518,7 +558,11 @@ async def autocad_remap_layers(
         - Use when: "this IFC came in on IfcWall, IfcDoor... make it a shop
           drawing" — preset='ifc', read the plan, then dry_run=false.
         - Use when: "everything is on layer 0" — rules matching block_name.
-        - Use when: an office standard must be applied — rules_path.
+        - Use when: "put this drawing on our office layers" —
+          layer_standard='office': the old names each row replaces move to
+          its layer, and the standard's layers get its colours and linetypes.
+        - Use when: an office standard written as rules must be applied —
+          rules_path.
         - Don't use when: you only want to know what is wrong
           (autocad_check_standards reports without changing anything).
 
@@ -529,7 +573,7 @@ async def autocad_remap_layers(
         - A locked or frozen target layer is reported per object in "failed";
           the rest of the move still lands.
     """
-    wanted = load_rules(rules, rules_path, preset)
+    wanted = load_rules(rules, rules_path, preset, layer_standard)
     try:
         wanted = validate_rules(wanted)
     except ValueError as exc:

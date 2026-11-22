@@ -10,6 +10,11 @@ linetypes are read with acad/dxf_file.py where it can (a DXF always; a DWG or
 DWS when the ODA File Converter is on this PC), else by AutoCAD's own reader
 (ObjectDBX, the file not opened on screen); the compare is
 acad/standard_compare.py.
+
+And a layer standard (#70, D-120): one row per layer with its colour, linetype,
+lineweight, plot setting and description, from the office's own CSV loaded on
+this PC, a file the modeller names, or the generic MEP example that ships with
+Heron (acad/layer_standard.py; which one a call means is tools/layer_standard.py).
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from ..acad import dxf_file, geometry, standard_compare
+from ..acad import layer_standard as layer_rules
 from ..acad.checklist import PASS_MEANS
 from ..acad.entities import read_attributes
 from ..acad.selection import discard_selection_set, iter_selection, select_filtered
@@ -34,6 +40,7 @@ from ..core.connection import get_app, get_doc, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from ..core.variants import point_to_list
+from . import layer_standard as layer_files
 
 KNOWN_RULES = {
     "layer_name_pattern",
@@ -134,8 +141,9 @@ def _load_rules(rules: dict | None, rules_path: str | None) -> dict:
         return rules
     if not rules_path:
         raise AutocadError(
-            "Give the rules, either inline as 'rules' or as a JSON file path in 'rules_path', or a "
-            "reference drawing (.dws, .dwg or .dxf) in 'reference'."
+            "Give the rules, either inline as 'rules' or as a JSON file path in 'rules_path', a "
+            "reference drawing (.dws, .dwg or .dxf) in 'reference', or a layer standard in "
+            "'layer_standard' ('office', 'example' or a .csv / .json file)."
         )
     path = os.path.expandvars(os.path.expanduser(rules_path.strip().strip('"')))
     try:
@@ -281,9 +289,19 @@ async def autocad_check_standards(
             "compared with this drawing's. With or without rules."
         )),
     ] = None,
+    layer_standard: Annotated[
+        str | None,
+        Field(description=(
+            "A layer standard to check every layer against (colour, linetype, lineweight, plot, "
+            f"description): {layer_files.CHOICE_HELP}. With or without rules and a reference."
+        )),
+    ] = None,
     flag_extra: Annotated[
         bool,
-        Field(description="With a reference: also list layers and styles this drawing has that the reference does not."),
+        Field(description=(
+            "With a reference or a layer standard: also list layers and styles this drawing has that "
+            "the reference or standard does not."
+        )),
     ] = True,
     max_entities: Annotated[int, Field(ge=1, le=200000, description="Stop reading entities after this many.")] = 20000,
 ) -> str:
@@ -296,7 +314,13 @@ async def autocad_check_standards(
     drawing with the same values - layers by colour, linetype, lineweight and
     plot; text styles by font, big font, height, width and oblique angle;
     dimension styles and linetypes by name only. Names this drawing has and
-    the reference does not are listed too (flag_extra). A DXF reference is
+    the reference does not are listed too (flag_extra). A layer standard
+    (layer_standard): each layer it lists, or a pattern row covers, by colour,
+    linetype, lineweight, plot and description; a layer it does not list
+    against its name pattern, else reported as not in it; its required layers
+    must be there. 'office' is the office's own list loaded on this PC with
+    autocad_layer_standard; until one is loaded it is the generic MEP example,
+    and the check is then not decided. A DXF reference is
     read by Heron itself, a DWG or DWS by the ODA File Converter when it is on
     this PC, else by AutoCAD's own reader without opening it on screen; the
     answer says which. Nothing is changed in either drawing.
@@ -310,7 +334,8 @@ async def autocad_check_standards(
     Returns:
         JSON: {"checked", "passed", "source", "pass_means", "summary" {rule: count},
                "findings" [...], "truncated", "reference" {"file", "read_by",
-               "compared", "left_out"}}
+               "compared", "left_out"}, "layer_standard" {"source", "file",
+               "example", "layers", "compared", "left_out"}}
 
     Examples:
         - Use when: "does this drawing follow our layer standard" - before
@@ -318,6 +343,8 @@ async def autocad_check_standards(
         - Use when: "check this drawing against our office DWS" or "against
           the template S:\\CAD\\MEP.dwt" -> reference; the layers and styles
           that are missing or differ.
+        - Use when: "check the layers against our office layer standard" ->
+          layer_standard='office'; "against this CSV" -> its path.
         - Use when: after a batch of drawing, to catch objects left on the
           wrong layer.
         - Don't use when: you want it put right rather than reported -
@@ -326,10 +353,13 @@ async def autocad_check_standards(
           the standard.
         - Don't use when: the modeller's own check list is wanted -
           autocad_checklist.
+        - Don't use when: loading or showing the office layer standard -
+          autocad_layer_standard.
     """
     has_rules = bool(rules) or bool(rules_path)
-    wanted = _load_rules(rules, rules_path) if has_rules or not reference else {}
+    wanted = _load_rules(rules, rules_path) if has_rules or not (reference or layer_standard) else {}
     reference_path = _reference_path(reference) if reference else None
+    by_standard, standard_info = layer_files.resolve(layer_standard) if layer_standard else (None, None)
     found: dict[str, Any] = {}
     if reference_path:
         found["reference"], found["note"] = await _reference_from_file(reference_path)
@@ -340,7 +370,8 @@ async def autocad_check_standards(
 
     def work() -> dict[str, Any]:
         doc = get_doc()
-        layers = [describe_layer(doc.Layers.Item(i)) for i in range(doc.Layers.Count)]
+        layer_objects = [doc.Layers.Item(i) for i in range(doc.Layers.Count)]
+        layers = [describe_layer(layer) for layer in layer_objects]
         entities: list[dict] = []
         capped = False
         if needs_entities:
@@ -375,6 +406,13 @@ async def autocad_check_standards(
             here = com_tables(doc, layers)
             more = standard_compare.compare(here, standard["tables"], flag_extra)
             sources.append(f"the reference drawing {reference_path}")
+        if by_standard is not None:
+            rows = layers
+            if any("description" in row for row in by_standard["layers"]):
+                rows = [{**row, "description": str(_get(layer, "Description", "") or "")}
+                        for row, layer in zip(layers, layer_objects, strict=True)]  # fmt: skip
+            more = more + layer_rules.check(rows, by_standard, flag_extra)
+            sources.append(standard_info["source"])
         report = check(layers, entities, wanted, more)
         report["source"] = " and ".join(sources)
         report["pass_means"] = PASS_MEANS
@@ -402,6 +440,30 @@ async def autocad_check_standards(
                 if report["passed"]:
                     report["passed"] = None
                     report["reference"]["warning"] += " Nothing was found to differ, but that is not decided."
+        if by_standard is not None:
+            report["checked"]["layer_standard"] = len(by_standard["layers"])
+            report["layer_standard"] = {
+                "source": standard_info["source"],
+                "file": standard_info["file"],
+                "name": by_standard["name"],
+                "example": standard_info["example"],
+                "layers": len(by_standard["layers"]),
+                "compared": layer_rules.COMPARED,
+                "left_out": layer_rules.LEFT_OUT,
+            }
+            if standard_info["example"]:
+                report["layer_standard"]["note"] = (
+                    "This is the generic MEP example that ships with Heron, not an office's standard: say so "
+                    "in the answer."
+                )
+            if standard_info.get("fallback"):
+                # Asked about the office's standard, which is not there: not a pass (D-64, D-120).
+                report["layer_standard"]["warning"] = layer_files.not_loaded() + (
+                    " Checked against the example instead, so nothing is decided by it: its findings are "
+                    "only what the example would say."
+                )
+                if not set(report["summary"]) - set(layer_rules.RULES):
+                    report["passed"] = None
         if capped:
             report["warning"] = f"Only the first {max_entities} objects were read; raise max_entities to read more."
             if report["passed"]:
