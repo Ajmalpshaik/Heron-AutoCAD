@@ -8,7 +8,16 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
+## Latest - 2026-11-22 (Heron AI's AutoCAD side: the capability manifest, #75, D-122)
+
+`tools/export_capabilities.py` writes `dist/capabilities.json` from the code: each tool's padlock,
+`Use when` lines, inputs, what it needs of the plug-in and its NEEDS-CHECKING proof state. Every
+release zip carries it. What Heron AI would need and the steps when its registry is ready:
+[14](14-heron-ai-adapter.md). Heron AI itself was not touched. Tests:
+`tests/test_export_capabilities.py`. **Next:** nothing on this PC; #75 stays open until Heron AI's
+registry is built. When a live row is next run, name its tool in backticks so the manifest counts it.
+
+## Earlier - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
 
 Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**198** in all):
 `autocad_add_pyramid`, `autocad_add_polysolid`, `autocad_edit_solid_faces` (offset, taper, move,

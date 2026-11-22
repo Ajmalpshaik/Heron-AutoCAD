@@ -83,7 +83,7 @@ def match_name(wanted: str, available: list[str]) -> str | None:
     return lowered.get(wanted.strip().lower())
 
 
-@mcp.tool(name="autocad_list_materials", **tool_meta("List Materials"))
+@mcp.tool(name="autocad_list_materials", **tool_meta("List Materials", read_only=True, idempotent=True))
 @tool_errors
 async def autocad_list_materials() -> str:
     """List the materials in this drawing, and which objects are using them.
