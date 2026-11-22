@@ -278,6 +278,13 @@ pieces after it are not sent, so keep each `(command ...)` whole inside one top-
   while `ActiveLayout.Block` still answered. `autocad_status` now reports `paper_space_entities`
   from the layout's block (or null) instead of failing whole, and `autocad_add_viewport` falls back
   to MVIEW typed with the two corners. Both NOT RUN live (NEEDS-CHECKING S8, S9).
+- Since [D-90](DECISIONS.md) the plug-in makes sheets and viewports in .NET, in the layout's own
+  block, so neither touches `doc.PaperSpace`; title blocks go into `layout.Block`; `space="paper"`
+  falls back to the active layout's block; `autocad_status` names a fact it cannot read in
+  `unreadable` instead of failing. COM (and MVIEW) is left for a plug-in older than this. Still
+  NOT RUN live (NEEDS-CHECKING AF1-AF11). The two places that pick the space themselves (the
+  wipeout in `tools/drafting.py`, the dimension edits in `tools/dimensions_edit.py`) use the same
+  fallback (#169).
 - `create_material(replace=true)` with only `diffuse_rgb` kept the old texture image, which covers
   the colour; from plug-in **1.4.2** the image is cleared (K16, NOT RUN).
 

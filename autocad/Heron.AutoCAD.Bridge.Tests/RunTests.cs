@@ -210,6 +210,19 @@ public class RunTests
     }
 
     [Fact]
+    public void Sheets_and_viewports_are_changes_and_the_active_sheet_a_read()
+    {
+        // #64, #39, D-90: a sheet or a viewport needs the Changes padlock; status reading the sheet never does.
+        foreach (var name in new[] { "create_layout", "add_viewport" })
+        {
+            Assert.True(PluginOperations.TryLevel(name, out var level), name);
+            Assert.Equal(Risk.Change, level);
+        }
+        Assert.True(PluginOperations.TryLevel("active_sheet", out var read));
+        Assert.Equal(Risk.Read, read);
+    }
+
+    [Fact]
     public void An_associative_array_and_the_geographic_location_read_as_reads_and_change_as_changes()
     {
         // D-110, D-111: reading the drawing's location needs no padlock; making an
