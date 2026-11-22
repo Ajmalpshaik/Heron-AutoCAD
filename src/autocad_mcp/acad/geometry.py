@@ -177,6 +177,106 @@ def path_outside(vertices: Sequence[Sequence[float]], box: Box) -> list[list[Poi
     return runs
 
 
+def _inside(p: Sequence[float], box: Box) -> bool:
+    return box[0] + EPS < p[0] < box[2] - EPS and box[1] + EPS < p[1] < box[3] - EPS
+
+
+def _arc_param(seg: Segment, x: float, y: float) -> float:
+    """How far round an arc a point on its circle is, 0 at its start and 1 at its end."""
+    assert seg.centre is not None
+    turned = math.atan2(y - seg.centre[1], x - seg.centre[0]) - seg.start_angle
+    if seg.sweep < 0:
+        turned = -turned
+    return (turned % (2.0 * math.pi)) / abs(seg.sweep)
+
+
+def _arc_cuts(seg: Segment, box: Box) -> list[float]:
+    """Where an arc crosses the four sides of a box, as fractions of the way round it (0 to 1, ends left out)."""
+    assert seg.centre is not None
+    cx, cy, r = seg.centre[0], seg.centre[1], seg.radius
+    found: list[float] = []
+    for fixed, lo, hi, vertical in ((box[0], box[1], box[3], True), (box[2], box[1], box[3], True),
+                                    (box[1], box[0], box[2], False), (box[3], box[0], box[2], False)):
+        across = fixed - (cx if vertical else cy)
+        if abs(across) > r + EPS:
+            continue
+        half = math.sqrt(max(r * r - across * across, 0.0))
+        for along in ((cy if vertical else cx) - half, (cy if vertical else cx) + half):
+            if lo - EPS <= along <= hi + EPS:
+                x, y = (fixed, along) if vertical else (along, fixed)
+                t = _arc_param(seg, x, y)
+                if 1e-9 < t < 1.0 - 1e-9 and all(abs(t - u) > 1e-9 for u in found):
+                    found.append(t)
+    return sorted(found)
+
+
+def _arc_at(seg: Segment, t: float) -> Point:
+    if t <= 0.0:
+        return seg.start
+    if t >= 1.0:
+        return seg.end
+    x, y, _ = _on_segment(seg, seg.length * t)
+    return (x, y)
+
+
+def _segment_outside(seg: Segment, box: Box) -> tuple[list[tuple[Point, Point, float]], bool]:
+    """The pieces of one segment outside a box, each with its own bulge, and whether any of it was cut."""
+    if seg.centre is None:
+        parts = outside_pieces(seg.start, seg.end, box)
+        whole = len(parts) == 1 and parts[0] == (seg.start, seg.end)
+        return [(a, b, 0.0) for a, b in parts], not whole
+    marks = [0.0, *_arc_cuts(seg, box), 1.0]
+    kept: list[list[float]] = []
+    for a, b in zip(marks, marks[1:], strict=False):
+        if _inside(_arc_at(seg, (a + b) / 2.0), box):
+            continue
+        if kept and abs(kept[-1][1] - a) < 1e-12:
+            kept[-1][1] = b  # an arc that only touches the box stays one piece
+        else:
+            kept.append([a, b])
+    whole = len(kept) == 1 and kept[0] == [0.0, 1.0]
+    if whole:
+        return [(seg.start, seg.end, seg.bulge)], False
+    return [(_arc_at(seg, a), _arc_at(seg, b), math.tan(seg.sweep * (b - a) / 4.0)) for a, b in kept], True
+
+
+def bulged_outside(
+    vertices: Sequence[Sequence[float]], bulges: Sequence[float], closed: bool, box: Box
+) -> tuple[list[dict], bool]:
+    """A polyline, arcs included, cut by a box: the runs left outside it, and whether anything was cut.
+
+    Each run is {"points": [...], "bulges": [...]}, one bulge per segment of
+    the run. A cut arc keeps its centre and radius: each piece's bulge is
+    tan(its own sweep / 4), with the sign of the arc it came from. On a closed
+    polyline the piece that ends where the loop started is joined to the one
+    that starts there, so a loop cut once is one open run, not two.
+    """
+    segs = segments(vertices, bulges, closed)
+    runs: list[dict] = []
+    current: dict | None = None
+    cut = False
+    for seg in segs:
+        pieces, was_cut = _segment_outside(seg, box)
+        cut = cut or was_cut
+        for a, b, bulge in pieces:
+            if current is not None and math.dist(current["points"][-1], a) < 1e-7:
+                current["points"].append(b)
+                current["bulges"].append(bulge)
+            else:
+                if current is not None:
+                    runs.append(current)
+                current = {"points": [a, b], "bulges": [bulge]}
+    if current is not None:
+        runs.append(current)
+    if closed and cut and len(runs) > 1 and segs:
+        first, last = runs[0], runs[-1]
+        start = segs[0].start
+        if math.dist(first["points"][0], start) < 1e-7 and math.dist(last["points"][-1], start) < 1e-7:
+            joined = {"points": last["points"] + first["points"][1:], "bulges": last["bulges"] + first["bulges"]}
+            runs = [joined, *runs[1:-1]]
+    return runs, cut
+
+
 def connected(items: Sequence[dict], seed: str, tolerance: float = 1e-3) -> dict:
     """Every item joined end to end with the seed (Lee Mac's Chain Selection idea).
 
@@ -256,6 +356,49 @@ def _de_boor(u: float, degree: int, knots: Sequence[float], ctrl: list[list[floa
             alpha = 0.0 if abs(den) < EPS else (u - knots[i]) / den
             d[j] = [(1 - alpha) * a + alpha * b for a, b in zip(d[j - 1], d[j], strict=False)]
     return d[degree]
+
+
+MOST_SPLINE_DEGREE = 10
+
+
+def control_spline(
+    points: Sequence[Sequence[float]], degree: int = 3, closed: bool = False
+) -> tuple[list[list[float]], list[float]]:
+    """The control points and knots of a spline drawn by its control points (the SPLINE command's CV method).
+
+    Open: the knots are clamped (the curve starts on the first control point
+    and ends on the last, leaving along the first and last legs of the
+    frame) and evenly spaced between. Closed: the first ``degree`` points are
+    repeated at the end and the knots are evenly spaced all the way, so the
+    curve comes round and meets itself smoothly, with no corner where it
+    started. Returns (control points as [x, y, z], knots).
+    """
+    p = int(degree)
+    if p < 1 or p > MOST_SPLINE_DEGREE:
+        raise ValueError(f"the degree must be 1 to {MOST_SPLINE_DEGREE}; 3 is the usual smooth curve")
+    pts = [[float(v[0]), float(v[1]), float(v[2]) if len(v) > 2 else 0.0] for v in points]
+    if closed and len(pts) > 1 and math.dist(pts[0], pts[-1]) <= EPS:
+        pts.pop()
+    for a, b in zip(pts, pts[1:], strict=False):
+        if math.dist(a, b) <= EPS:
+            raise ValueError("two control points in a row are at one place; take one of them out")
+    least = max(p + 1, 3 if closed else 2)
+    if len(pts) < least:
+        raise ValueError(
+            f"a {'closed ' if closed else ''}degree {p} spline needs at least {least} control points; "
+            f"there are {len(pts)}"
+        )
+    if closed:
+        wrapped = pts + [list(v) for v in pts[:p]]
+        return wrapped, [float(i) for i in range(len(wrapped) + p + 1)]
+    inner = len(pts) - p - 1
+    knots = [0.0] * (p + 1) + [float(i) for i in range(1, inner + 1)] + [float(inner + 1)] * (p + 1)
+    return pts, knots
+
+
+def spline_point(control: Sequence[Sequence[float]], knots: Sequence[float], degree: int, u: float) -> list[float]:
+    """The point on a (non-rational) spline at parameter u, by de Boor's algorithm."""
+    return _de_boor(u, int(degree), knots, [list(map(float, c)) for c in control])
 
 
 def nurbs_length(control: Sequence[float], knots: Sequence[float], degree: int, weights: Sequence[float],

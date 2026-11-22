@@ -68,6 +68,20 @@ def poly(
     return op
 
 
+def fill(
+    points: Sequence[Point],
+    bulges: Sequence[float] | None = None,
+    layer: str | None = None,
+    color: Any = None,
+) -> Op:
+    """One solid fill of a closed outline (the batch's hatch operation, #51)."""
+    op: Op = {"type": "hatch", "points": [[round(x, 9), round(y, 9)] for x, y in points]}
+    if bulges and any(abs(b) > EPS for b in bulges):
+        op["bulges"] = [round(float(b), 12) for b in bulges]
+    op.update(_style(layer, color))
+    return op
+
+
 def circle(centre: Point, radius: float, layer: str | None = None, color: Any = None) -> Op:
     op: Op = {"type": "circle", "center": [round(centre[0], 9), round(centre[1], 9)],
               "radius": round(float(radius), 9)}
@@ -738,29 +752,28 @@ def detail_bubble(number: Any, radius: float, origin: Any = None, sheet: Any = N
 
 
 def _arrowhead(tip: Point, degrees: float, size: float, layer: str | None,
-               color: Any) -> Op:
-    """A triangular arrowhead pointing along an angle, as a closed polyline.
-
-    An outline, not a filled head: a batch has no solid fill. Hatch it, or use
-    the office block, when a filled head matters.
-    """
+               color: Any, filled: bool = False) -> list[Op]:
+    """A triangular arrowhead pointing along an angle: a closed polyline, and with ``filled`` its solid fill."""
     back = turn((-size, 0.0), degrees)
     wing = size * 0.3
     left = turn((-size, wing), degrees)
     right = turn((-size, -wing), degrees)
-    return poly([tip, (tip[0] + left[0], tip[1] + left[1]),
-                 (tip[0] + back[0], tip[1] + back[1]),
-                 (tip[0] + right[0], tip[1] + right[1])],
-                closed=True, layer=layer, color=color)
+    outline = [tip, (tip[0] + left[0], tip[1] + left[1]),
+               (tip[0] + back[0], tip[1] + back[1]),
+               (tip[0] + right[0], tip[1] + right[1])]
+    ops = [poly(outline, closed=True, layer=layer, color=color)]
+    if filled:
+        ops.append(fill(outline, layer=layer, color=color))
+    return ops
 
 
 def section_mark(length: float, origin: Any = None, label: Any = "A", size: float | None = None,
                  rotation: float = 0.0, flip: bool = False, text_height: float | None = None,
-                 layer: str | None = None, color: Any = None) -> list[Op]:
+                 layer: str | None = None, color: Any = None, filled: bool = False) -> list[Op]:
     """A section cut mark: the cut line, a tail and an arrow each end, and a bubble each end.
 
     origin = where the cut line starts. The arrows point the way the section is
-    looked at; ``flip`` turns them round.
+    looked at; ``flip`` turns them round; ``filled`` gives them solid heads.
     """
     run = _positive(length, "length")
     start = _point(origin)
@@ -776,8 +789,8 @@ def section_mark(length: float, origin: Any = None, label: Any = "A", size: floa
         # The tail runs off the cut line, then the arrow points along the view.
         tail = place([(at, 0.0), (at, side * mark)], start, rotation)
         ops.append(line(tail[0], tail[1], layer=layer, color=color))
-        ops.append(_arrowhead(tail[1], rotation + (90.0 if side > 0 else -90.0), mark * 0.5,
-                              layer, color))
+        ops.extend(_arrowhead(tail[1], rotation + (90.0 if side > 0 else -90.0), mark * 0.5,
+                              layer, color, filled))
         bubble = place([(at, side * (mark + mark * 0.9))], start, rotation)[0]
         ops.extend(detail_bubble(label, mark * 0.9, bubble, text_height=height,
                                  layer=layer, color=color))
@@ -786,14 +799,20 @@ def section_mark(length: float, origin: Any = None, label: Any = "A", size: floa
 
 def north_arrow(size: float, origin: Any = None, rotation: float = 0.0,
                 text_height: float | None = None, layer: str | None = None,
-                color: Any = None) -> list[Op]:
-    """A north point. origin = the base of the arrow; it points up before rotation."""
+                color: Any = None, filled: bool = False) -> list[Op]:
+    """A north point. origin = the base of the arrow; it points up before rotation.
+
+    ``filled`` fills its right half solid: the classic half-filled north point.
+    """
     s = _positive(size, "size")
     start = _point(origin)
     height = float(text_height) if text_height else s * 0.18
-    # A slim kite: the classic half-filled north point, as an outline.
+    # A slim kite, split down its spine.
     body = [(0.0, 0.0), (s * 0.18, s * 0.3), (0.0, s), (-s * 0.18, s * 0.3)]
     ops = [poly(place(body, start, rotation), closed=True, layer=layer, color=color)]
+    if filled:
+        half = [(0.0, 0.0), (s * 0.18, s * 0.3), (0.0, s)]
+        ops.append(fill(place(half, start, rotation), layer=layer, color=color))
     spine = place([(0.0, 0.0), (0.0, s)], start, rotation)
     ops.append(line(spine[0], spine[1], layer=layer, color=color))
     at = place([(0.0, s + height * 1.4)], start, rotation)[0]
@@ -803,12 +822,14 @@ def north_arrow(size: float, origin: Any = None, rotation: float = 0.0,
 
 def scale_bar(scale: Any, length: float, origin: Any = None, divisions: int = 5,
               height: float | None = None, text_height: float | None = None,
-              units: str = "", layer: str | None = None, color: Any = None) -> list[Op]:
+              units: str = "", layer: str | None = None, color: Any = None,
+              filled: bool = False) -> list[Op]:
     """A graphic scale bar. origin = the bottom-left of the bar.
 
     ``length`` is the bar's length **on the paper**; the labels are the real
     distances that length stands for at ``scale``. A 100 mm bar at 1:50 reads
-    0 to 5000.
+    0 to 5000. ``filled`` fills every other division solid instead of
+    crossing it.
     """
     from .sheets import parse_typed_scale, scale_text
 
@@ -825,9 +846,11 @@ def scale_bar(scale: Any, length: float, origin: Any = None, divisions: int = 5,
     for i in range(n):
         box = [(i * step, 0.0), ((i + 1) * step, 0.0), ((i + 1) * step, bar), (i * step, bar)]
         ops.append(poly(shift(box, start), closed=True, layer=layer, color=color))
-        # Every other division gets a diagonal, which reads as the filled
-        # alternate box a scale bar is meant to have.
-        if i % 2 == 0:
+        # Every other division is filled, or without a fill gets a diagonal,
+        # which reads as the filled alternate box a scale bar is meant to have.
+        if i % 2 == 0 and filled:
+            ops.append(fill(shift(box, start), layer=layer, color=color))
+        elif i % 2 == 0:
             cross = shift([(i * step, 0.0), ((i + 1) * step, bar)], start)
             ops.append(line(cross[0], cross[1], layer=layer, color=color))
     for i in range(n + 1):
@@ -843,11 +866,12 @@ def scale_bar(scale: Any, length: float, origin: Any = None, divisions: int = 5,
 
 def level_mark(level: Any, origin: Any = None, size: float = 100.0,
                text_height: float | None = None, below: bool = False,
-               layer: str | None = None, color: Any = None) -> list[Op]:
+               layer: str | None = None, color: Any = None, filled: bool = False) -> list[Op]:
     """A spot level: a triangle on the point, with the level beside it.
 
     origin = the point the level is taken at. ``below`` puts the triangle and
     the text under the point instead of over it, for a soffit or an invert.
+    ``filled`` makes the triangle solid.
     """
     s = _positive(size, "size")
     at = _point(origin)
@@ -857,6 +881,8 @@ def level_mark(level: Any, origin: Any = None, size: float = 100.0,
     base = s * 0.5
     pts = [tip, (at[0] - base, at[1] + side * s), (at[0] + base, at[1] + side * s)]
     ops = [poly(pts, closed=True, layer=layer, color=color)]
+    if filled:
+        ops.append(fill(pts, layer=layer, color=color))
     bar = (at[0] - base * 2.2, at[1] + side * s), (at[0] + base * 2.2, at[1] + side * s)
     ops.append(line(bar[0], bar[1], layer=layer, color=color))
     ops.append(
