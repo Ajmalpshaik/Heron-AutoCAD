@@ -4,6 +4,19 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.8.1 - 2026-11-22 - The setup connects the Claude app (#233)
+
+**Heron AI for AutoCAD plug-in 1.8.1, with server 1.10.2 inside.** Tag `v1.8.1`, a full release
+(GitHub's *Latest*, as the owner chose for 1.8.0), with `HeronAutoCAD-1.8.1-setup.exe`,
+`HeronAutoCAD-1.8.1-win64.zip` and `checksums.txt`, built by `release.yml` from the tagged code.
+It is made for [#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233), and it also
+carries the three changes merged after 1.8.0 (D-123, D-124 with the code fix for
+[#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), D-125), so the release, `main`
+and the package are one version. Those three are **tested offline only: their live rows are NOT
+RUN.** Not code-signed (#164). Server 1.10.2 because `src/` changed (D-125).
+
 - **The setup connects Claude when Claude is only the Claude desktop app (2026-11-22,
   [#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233), [D-126](docs/DECISIONS.md)).**
   1.8.0's setup said `Claude Code: not found, skipped` and `Claude Desktop: not found, skipped` on
