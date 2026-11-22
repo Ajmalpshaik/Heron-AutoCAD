@@ -203,6 +203,39 @@ this side does only what it can on its own:
   live answer. Issue #75 stays open until Heron's registry lists these tools.
   Design and the steps: [14](14-heron-ai-adapter.md).
 
+## D-123 - The erase question can be switched off in Settings; it is on at every AutoCAD start
+
+**Decided:** 2026-11-22 by Ajmal PS. **Status:** in force; amends D-50 (the erase question) and adds a
+fifth switch to D-44's Settings window. D-59 stands: nothing is read from or written to a file.
+While Claude re-placed labels and dimensions it had just drawn on a split AC detail set, every
+delete-and-redraw brought up "Heron erased 2 objects" (D-50). Ajmal asked for a setting so it does not
+ask every time.
+- **A fifth switch in Settings: "Ask before keeping erased objects"** (`Padlock.EraseQuestion`, and the
+  command `HERONASKERASE`). ON (green, as Ask to Keep) asks as before; OFF keeps what a job erases
+  without the box. Like Ask to Keep, switching the question **off** is the risky side, so that is what
+  asks first ("Stop asking before keeping erased objects?"); switching it back on never asks.
+- **In memory only; no file remembers it.** Any file or registry key the modeller's account can
+  write, a chat can write too, and a chat that can switch the erase question off approves its own
+  deletes, which is exactly what D-50 and D-59 stop.
+- **Remembered only through the administrator's key** (Ajmal chose this, 2026-11-22): DWORD
+  `AskBeforeErasing` = 0 under `HKLM\SOFTWARE\Policies\Heron\AutoCAD` (D-60's key) starts the erase
+  question **off** at every AutoCAD start on that PC. Only an administrator can write HKLM, so a chat
+  (which never runs elevated) cannot. It is **not a hold**: the modeller can click it on, and a
+  click wins until AutoCAD restarts. Until a click it follows the key as it is now, so setting or
+  deleting the value applies at the next job. Any other value, or none, starts it on. Settings says
+  "This PC's administrator setting starts it off"; the answer's note names the key (`offBy:
+  "policy"` from the plug-in), never Settings.
+- **The plug-in decides, not the server.** The server still asks `ask_erase` after every job that
+  erased something; `BridgeProtocol.AskErase` reads the switch and, when it is off, answers
+  `keep_erased` with `"asked": false` without showing the box. A Read or View job still cannot ask.
+- **The answer stays honest (D-62).** The first line still counts what was erased ("DONE - 0 added, 0
+  changed, 2 erased."); the note says they stay erased **without asking** because the erase question
+  is off in Settings, and never "the modeller chose". `ping` reports the switch (`eraseQuestion`);
+  a plug-in of 1.8.0 or older does not send `asked` or `eraseQuestion`, and is read as asking, which
+  it always does.
+- **Unchanged:** Keep or Discard (Ask to Keep on) still covers an erase; a dry run still takes it all
+  back; `autocad_undo_last` still asks nothing. Ctrl+Z still brings back what a job erased.
+
 ## D-113 - Offset, taper, move and delete faces, imprint and separate are plug-in operations; one face tool with an action
 
 **Decided:** 2026-11-21, for issue #184 (part 3 of #119). **Status:** in force (built and tested
@@ -1976,7 +2009,9 @@ input queue runs to its end; Esc in AutoCAD is the only way to cut it.
 ## D-50 - The plug-in counts what a job really did; every erase gets a human yes
 
 **Decided:** 2026-11-15, from Heron AI for Revit's changed-set report and delete question (its
-D-142). **Status:** in force. The server only knew what a tool said it did, and the delete check
+D-142). **Status:** in force; amended by [D-123](#d-123---the-erase-question-can-be-switched-off-in-settings-it-is-on-at-every-autocad-start)
+(2026-11-22, Ajmal asked): the modeller may switch the erase question off in Settings until AutoCAD
+restarts. The server only knew what a tool said it did, and the delete check
 was the chat setting its own `confirm=true`. Now the add-in hooks `ObjectAppended`,
 `ObjectModified` and `ObjectErased` on every drawing and counts (`JobChanges`) while a Change, Admin
 or Publish job runs: entities added and modified; entities and table records (layers, blocks,

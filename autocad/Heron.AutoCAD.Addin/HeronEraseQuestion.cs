@@ -14,7 +14,9 @@ namespace Heron.AutoCAD.Addin
     /// after every job that erased something, whether Ask to Keep is on or off
     /// (D-50), because a chat could otherwise approve its own delete. Enter,
     /// Esc, closing the box or no answer in time all bring them back: only a
-    /// clear "keep them erased" erases. Main thread only.
+    /// clear "keep them erased" erases. Main thread only. Not shown at all
+    /// while the modeller has turned the erase question off in Settings: the
+    /// bridge answers "kept, not asked" itself (BridgeProtocol.AskErase).
     /// </summary>
     internal static class HeronEraseQuestion
     {
@@ -65,7 +67,9 @@ namespace Heron.AutoCAD.Addin
             top.Children.Add(choices);
             var body = new StackPanel();
             body.Children.Add(top);
-            body.Children.Add(S.Footer(S.Body("Esc or closing this window brings them back.", S.TextMuted, 12)));
+            body.Children.Add(S.Footer(S.Body(
+                "Esc or closing this window brings them back. To stop this question, turn off \""
+                + HeronActions.EraseQuestionName + "\" in Settings.", S.TextMuted, 12)));
 
             shell = S.Build(Title, CardWidth, body, S.AccentColour, () => Answer("restore"));
             var window = shell.Window;

@@ -6,8 +6,8 @@ using System.Text.Json;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// The switches the bridge obeys for one call. The padlocks and Ask to Keep
-    /// come from this AutoCAD's memory (HeronPadlocks, D-59); only connect at
+    /// The switches the bridge obeys for one call. The padlocks, Ask to Keep and
+    /// the erase question come from this AutoCAD's memory (HeronPadlocks, D-59); only connect at
     /// start and the banner come from %APPDATA%\Heron\autocad\heron-autocad.config.
     /// </summary>
     public sealed class HeronConfig
@@ -16,6 +16,16 @@ namespace Heron.AutoCAD.Bridge
         public bool PublishEnabled { get; set; }
         public bool AdminEnabled { get; set; }
         public bool AskBeforeKeeping { get; set; }
+        /// <summary>
+        /// The erase question (D-50): ask before keeping what a job erased.
+        /// On unless the modeller turned it off in Settings in this AutoCAD.
+        /// </summary>
+        public bool AskBeforeErasing { get; set; } = true;
+        /// <summary>
+        /// The erase question is off because this PC's administrator key starts
+        /// it off (D-123) and the modeller has not clicked it since.
+        /// </summary>
+        public bool EraseQuestionOffByPolicy { get; set; }
         public bool ActivityBanner { get; set; } = true;
 
         /// <summary>The padlocks a Windows policy holds off (D-60), so a refusal can say so.</summary>
