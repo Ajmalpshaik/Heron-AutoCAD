@@ -31,7 +31,22 @@ jobs:
           prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
           # The code-review command reads the PR with gh, runs helper agents
           # (Task) and posts its summary with `gh pr comment` - all must be
-          # allowed, or it stops in about 2 seconds with nothing posted and
-          # is_error (every run from 2026-11-15 to 11-21, issue #34). Heron AI
-          # for Revit met and fixed the same on 2026-11-11; this list is its.
+          # allowed. This list is Heron AI for Revit's, where the review works.
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),Task,Read,Glob,Grep"'
+      # The action hides Claude's answer, even in a debug re-run. Every real
+      # review here has stopped in about 2 seconds before reaching the model
+      # (issue #34), so on a failure print only Claude's own short answer (a
+      # sign-in, access or usage message) to say what to fix. It is Claude's
+      # reply text, never the token; GitHub masks secrets in the log as well.
+      - name: Why the review failed
+        if: failure()
+        run: |
+          f="$RUNNER_TEMP/claude-execution-output.json"
+          if [ ! -f "$f" ]; then
+            echo "Claude never started: there is no output file."
+            exit 0
+          fi
+          jq -r '(if type == "array" then .[] else . end)
+                 | select(type == "object" and .type == "result")
+                 | "Claude answered: " + ((.result // "no message") | tostring | .[0:300])' "$f" \
+            || echo "The output file could not be read as JSON."
