@@ -468,9 +468,11 @@ From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
   drawing is followed under its new name.
 - **A Save As during a batch job** stops its input (the name in front is not the job's), though
   it is the same drawing: run the batch again after `autocad_status`.
-- **Only the plug-in's quiet input stops at a switch mid-job.** A long job (a sequence) whose next
-  step works over COM (a layer a batch makes, a COM draw) still goes to whichever drawing is in
-  front. Do not switch drawings while the banner shows a job ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)).
+- **A switch mid-job stops the job at its next check, not at once.** The plug-in's quiet input
+  stops straight away, and `autocad_sequence` stops before its next step
+  ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)). Inside one step, COM work
+  (a layer a batch makes first, a COM draw) still goes to whichever drawing is in front. Do not
+  switch drawings while the banner shows a job.
 - **200 events are kept.** Each change the guard lets through moves its mark up, so only a chat
   idle through more than 200 opens, switches, saves and closes misses some; what is left is still
   judged, a Save As is then not followed, and the names are compared as before #48.
@@ -523,3 +525,95 @@ From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
   regen shrinks them after an erase is not proven (AM4); a ZOOM Extents does.
 - Close-ups need a plan view in the world UCS (or a window you give): in a 3D view the plan box does
   not match the picture, so they are skipped with the reason.
+
+## 34. Multileader and table styles, and plot style tables
+
+From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NEEDS-CHECKING group AN).
+- **A plot style table (.ctb / .stb) cannot be made by Heron.** It is a file in AutoCAD's Plot
+  Styles folder, and neither COM nor AutoCAD's .NET API can write one (checked in the 2021 and 2027
+  reference assemblies). Make or copy it in AutoCAD's Plot Style Manager, then set it on a sheet with
+  `autocad_page_setup(plot_style_table=...)`.
+- **A multileader style is text only, with straight leaders.** No block content (a tag bubble), no
+  spline leaders, no frame, no colours or lineweights set by Heron (they stay what AutoCAD gives
+  a new style), no angle constraints. Bring a style like that in with `autocad_import_from_drawing`.
+- **Annotative styles are not made here.** A new style carries its scale ('scale': '1:50'); an
+  existing annotative style keeps following the annotation scale, and a `scale` asked for it is
+  noted, not set.
+- **`replace=true` sets the whole style again**, defaults included: an option left out goes back to
+  Heron's default (TLD attachment, closed filled arrow, scale 1), not to what the style had.
+- **A table style sets the whole row type**: one text style for every row, and the same margins
+  for title, header and data. Grid lines, colours, cell formats (number, date) and a table's
+  direction stay AutoCAD's own. Text is always in the vertical middle of the cell.
+- **The arrow block** of a non-default arrow is made by naming it in DIMBLK, which is put back
+  straight after; that block stays even when a later step of the same style fails.
+- **Margins default to a third of the text height**, AutoCAD's own Standard proportion. A margin
+  of 0 is allowed; text then touches the grid lines.
+
+## 35. Overkill, boundary, eTransmit, underlays and clips have their own limits
+
+From issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md)); all NOT RUN
+live (NEEDS-CHECKING group AD). The plug-in parts (underlays, xref and underlay clips, boundary,
+eTransmit's file list) need the plug-in **newer than 1.7.0**; an older one answers that it does not
+have the operation, and nothing is sent.
+
+- **`autocad_overkill` never breaks or changes a polyline.** A polyline is erased only when it is
+  an exact copy of another (either direction, any start corner); overlaps on polylines, a polyline
+  doubling back on itself, and a loose line lying only partly on one are listed under `left`.
+  Widths are not compared. Only lines, arcs, circles and polylines lying flat in plan (normal +Z)
+  are looked at; a line with its ends at two heights, a curve-fit or spline-fit 2D polyline, and
+  anything else are counted as skipped. Arcs that together go all the way round are left (one arc
+  cannot be a circle).
+- **It reads the curves over COM one by one:** at most 20,000 curves (200,000 objects in the
+  space); give `layers` or `handles` (from that one space only), or type OVERKILL in AutoCAD for
+  more. The second call (`confirm=true`) must carry the first call's `plan_id`: it looks again and
+  does nothing if the drawing changed since the list. Only the first 200 of each kind are listed in
+  the chat; the counts are whole, and AutoCAD's erase question gives the total.
+- **When the modeller says no to Heron's erase question** ([D-50](DECISIONS.md)), the erased
+  objects come back and the stretched lines stay stretched: the lines overlap again, nothing is
+  lost. Ctrl+Z takes the whole step back.
+- **The tolerance is in drawing units** and defaults to OVERKILL's 0.000001. It never adds up: a
+  line is erased or merged only when both its ends lie within it of the line that is kept (the
+  oldest), and that line is only ever stretched along itself; arcs the same with the kept arc's
+  circle. So a curve drawn as many short lines is never straightened. A very short piece a little
+  more askew than the drawing's typical line may be missed; it is left as it was. An arc whose start
+  and end angles are the same is skipped, not erased.
+- **`autocad_trace_boundary` uses `Editor.TraceBoundary`, never -BOUNDARY or BPOLY typed** (on a big
+  plan the typed command hung AutoCAD for over 100 s). The trace looks at what is on screen, so give
+  a `window` round the room: AutoCAD zooms there, counts what is in it (over `most_objects`, 5,000 by
+  default, nothing is traced), traces, and zooms back. An xref counts as one object however big it
+  is: unload or freeze a heavy one first ([§23](#23-sheets-with-a-heavy-3d-xref-and-a-paper-space-that-will-not-answer)).
+  Heron stops waiting after `timeout` seconds (60 by default), but a trace that has started cannot
+  be stopped: AutoCAD may still finish it and make the outline. Whether `TraceBoundary` looks only at
+  what is in view, as BOUNDARY's "current viewport" set does, is the reason for row AD7.
+- **eTransmit packs the drawing as last saved** and refuses one with unsaved changes. Everything goes
+  in one folder (or zip) beside the drawing, without rewriting the paths saved in it: AutoCAD finds
+  an xref, image or font by its bare name in the drawing's folder (row AD10 proves it on another PC).
+  Two different files with one name cannot both go in: the second is listed under `clashes`. Plot
+  styles go in `PlotStyles` for the receiver to copy into their own plot styles folder. Images and
+  underlays inside a loaded xref are packed; an unloaded xref is packed but not looked inside, and
+  the answer names it (`not_looked_inside`): reload it and pack again. Fonts in Windows' own Fonts
+  folder are listed (`system_fonts`), not packed. AutoCAD's transmittal COM
+  library is not used.
+- **A raster image at scale 1** is the size its own resolution gives, or 1 drawing unit wide when it
+  has none: give `width`. Corners given with `coords='ucs'` make a rectangle square to the UCS
+  (turned in the world, for a turned UCS); a clip polyline must be drawn flat facing up (normal +Z). A DWF with no `page` given uses whatever AutoCAD picks for an empty sheet
+  name (row AD3). An underlay clip is stored in the underlay's own coordinates, an xref clip in the
+  block's: both are worked out from the world outline (rows AD5, AD6 check a rotated, scaled one).
+
+## 36. PDF Import has its own limits
+
+From [D-106](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AO).
+- **Typed, not an API.** `autocad_import_pdf` answers `-PDFIMPORT`'s six questions at once. If this
+  AutoCAD asks one more, or one fewer (a one-page PDF might not ask for the page: AO1), the command
+  is cancelled and the answer says so; it is never left open. Releases other than 2021-2027 are
+  refused, nothing sent.
+- **A scan has no lines.** A scanned PDF is a picture; nothing comes in. Pictures are always left
+  out (AutoCAD would write each one out as a file): attach the PDF as an underlay to see them.
+- **SHX text comes in as lines.** A PDF plotted from AutoCAD draws SHX text as strokes; only
+  TrueType text comes in as text. AutoCAD's PDFSHXTEXT turns strokes back into text; Heron does not.
+- **The size at scale 1 is AutoCAD's.** Check one known length with `autocad_measure` and import
+  again with the right scale (AO9 will say what scale 1 means).
+- **A big page takes time.** If AutoCAD is still importing when Heron's wait ends (about 10 s), the
+  answer is OUTCOME UNKNOWN and what came in is not counted or moved: let it finish and look.
+- **Layers.** With `layer`, everything goes onto that one layer and the PDF layers AutoCAD made are
+  left empty (named in `layers_added`, for `autocad_purge`). Without it, PDFIMPORTLAYERS decides.

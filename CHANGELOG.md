@@ -5,7 +5,7 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **Pyramid, polysolid and the rest of SOLIDEDIT (2026-11-21, #182, #183, #184; part 3 of #119).**
-  Five new tools done by the plug-in (**184** in all): `autocad_add_pyramid` (PYRAMID: 3 to 32
+  Five new tools done by the plug-in (**196** in all): `autocad_add_pyramid` (PYRAMID: 3 to 32
   sides, a point or a flat top, or a hopper; on the centre of its base, one side to the front),
   `autocad_add_polysolid` (POLYSOLID: a wall of a width and height along a flat path, centred,
   left, right, inside or outside), `autocad_edit_solid_faces` (offset, taper, move or delete faces,
@@ -13,6 +13,80 @@ Newest first. Dates are when the change was made.
   plug-in operations in their own files; the API has no polysolid call, so Heron builds the same
   wall from the path ([D-112](docs/DECISIONS.md), [D-113](docs/DECISIONS.md)). Live rows AR1-AR14
   NOT RUN.
+
+- **The live-check runner covers groups AS and AO too (2026-11-21, D-118).** AS5 is measured (a
+  layer of rays and an empty layer say why they have no extents); the other AS rows compare the plug-in
+  with a second server started with --no-bridge, and the AO rows need the PDFs they name, so they have
+  their reason. 198 rows measured in all, 201 with a reason.
+
+- **The entity summary and a layer's extents are read by the plug-in in one go (2026-11-21, #74).**
+  `autocad_list_entities(summary_only=true)` and `autocad_get_extents(layer=...)` looked at every
+  object over COM, one or more round trips each. Plug-in 1.8.0 does both reads itself
+  (`count_entities`, `entity_extents`) with the same filter, and the server builds the same answer
+  from either path; an older plug-in is read over COM as before ([D-114](docs/DECISIONS.md)). A
+  layer with only rays or construction lines now says it has no extents instead of answering
+  Infinity. Which tools come next, ranked: [docs/13](docs/13-moving-tools-into-the-plug-in.md).
+  No new tool. Live rows AS1-AS9 NOT RUN.
+
+- **PDF Import (2026-11-21, #113).** `autocad_import_pdf` turns one page of a vendor's or
+  consultant's PDF into lines, text and hatches (choose with `what`), at a point, scale and
+  rotation, all on one layer if asked, and says what came in: counts by type, the box round it, the
+  layers AutoCAD made. There is no API for it, so it types `-PDFIMPORT` with every answer in one
+  form after checking the release (2021-2027), the file and the page, and cancels the command if
+  AutoCAD still asks something; it is never left open. Pictures in the PDF are left out. 191 tools
+  ([D-106](docs/DECISIONS.md)). Live rows AO1-AO10 NOT RUN.
+
+- **The live-check runner covers group AD too (2026-11-21, D-118).** Overkill's list, a room traced
+  round a column, eTransmit's refusal and list: 3 rows measured, 9 with their reason (the confirm step
+  erases, the rest need files, the big plan or an eye). 197 rows measured in all, 183 with a reason.
+
+- **Cleaning up an import and working with references (2026-11-21, #112, #104, #118, #114).**
+  `autocad_overkill` finds doubled and overlapping lines, arcs and circles, lists them by handle,
+  and only with `confirm=true` erases and stretches them in one undo step, then Heron's erase
+  question asks the modeller; polylines are never broken. `autocad_attach_underlay` attaches an
+  image or a PDF / DWF / DGN underlay; `autocad_clip_reference` clips an xref, image or underlay to
+  two corners or a closed polyline. `autocad_trace_boundary` makes a closed outline round a point
+  with the plug-in's `Editor.TraceBoundary` (never -BOUNDARY or BPOLY typed), inside a window, with
+  an object limit and a timeout. `autocad_etransmit` packs the saved drawing with its xrefs, images,
+  underlays, fonts and plot styles into a zip or folder and lists what was missing (Publish). Five
+  new tools, 190 in all with main. Needs the next plug-in ([D-84](docs/DECISIONS.md), [D-85](docs/DECISIONS.md)). Live rows
+  AD1-AD12 NOT RUN.
+
+- **The live-check runner covers group AQ too (2026-11-21, D-118).** Arrays, tiled viewports,
+  hyperlinks and geographic location: 6 rows measured, 8 with their reason (making an array erases
+  its sources, so Heron asks). 194 rows measured in all, 174 with a reason.
+- **A sequence stops when another drawing comes to the front (2026-11-21, #165).** Between its
+  steps `autocad_sequence` asks the plug-in whether a drawing switch happened during the job; if
+  so it stops, like HERONSTOP, so no later step lands in the other drawing ([D-98](docs/DECISIONS.md)).
+  Live row AJ8 NOT RUN.
+
+- **The live-check runner measures the new groups (2026-11-21, D-118).** `tools/live_check.py` now
+  measures 122 rows of groups M to Z, AA to AP and RV as well as D, E and F (188 in all), and gives
+  the other 140 rows of those groups their NOT RUN reason. It reads the padlocks first: Changes off
+  or Ask to Keep on stops it, saying what to do; it never switches one. A row can need Admin or
+  Publish on or off; a NOT RUN reason never overwrites a result written by hand. Every new check is
+  tested offline against a good and a bad recorded answer (`tests/live_fakes.py`). Found: V1, V4 and
+  V7 cannot open their box as written (#213).
+- **Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (2026-11-21,
+  #175, #176, #178, #179, #180; part 2 of #119).** Six new tools (**185** in all):
+  `autocad_associative_array` (ARRAY's editable path, grid and ring array, by the plug-in, refused
+  if AutoCAD puts the items anywhere but where asked, [D-110](docs/DECISIONS.md)),
+  `autocad_tiled_viewports` (the Model tab in 1-4 viewports, COM, a View tool),
+  `autocad_hyperlinks` and `autocad_list_hyperlinks` (links on objects, COM),
+  `autocad_geo_location` and `autocad_get_geo_location` (GEOGRAPHICLOCATION by the plug-in, proved
+  with AutoCAD's own transform; the sun's place follows the site). `autocad_export` writes **DWF**
+  through the DWF6 ePlot plotter, the PDF way ([D-111](docs/DECISIONS.md)). Plug-in operations
+  `associative_array`, `geo_location`, `set_geo_location`. Live rows AQ1-AQ14 NOT RUN.
+
+- **Multileader and table styles (2026-11-21, #68).** `autocad_create_styles` takes
+  `multileader_styles` and `table_styles`, made by Heron's plug-in because COM has no call for
+  either. A multileader style is Ajmal's TLD label unless asked otherwise (text style, height,
+  arrow, dogleg, landing gap; the leader ends under the text; sizes as they plot with the style's
+  scale). A table style sets title, header and data text heights and margins for the sheet scale,
+  with text in the vertical middle of every cell. The rules are in the Bridge with their own tests
+  ([D-104](docs/DECISIONS.md)). A plot style table cannot be made: AutoCAD's .NET API cannot write
+  the file ([D-105](docs/DECISIONS.md), 05 §34). Two new plug-in operations, no new tool. Live rows
+  AN1-AN12 NOT RUN.
 
 - **Construction lines, regions, donuts, divide and measure (2026-11-21, #173, #174, #177, #181;
   part 1 of #119).** Four new tools (**179** in all) in `tools/draw_extra.py`: `autocad_add_construction_line`

@@ -19,8 +19,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# A table row whose first cell is a row id like D4, E12, A8e.
-_ROW = re.compile(r"^\|\s*(?P<id>[A-Z]\d+[a-z]?)\s*\|")
+# A table row whose first cell is a row id like D4, E12, A8e, AA12, AC5b.
+_ROW = re.compile(r"^\|\s*(?P<id>[A-Z]{1,2}\d+[a-z]?)\s*\|")
 
 
 @dataclass(frozen=True)
@@ -79,6 +79,24 @@ def set_result(line: str, result: str) -> str:
     return f"{lead}|" + "|".join(parts) + f"|{tail}"
 
 
+def recorded_by_hand(line: str) -> bool:
+    """A row whose result is already more than NOT RUN: a PASS, a FAIL, NO MACHINE, a note written by hand."""
+    try:
+        last = cells(line)[-1].strip()
+    except ValueError:
+        return False
+    return not last.startswith("NOT RUN")
+
+
+def kept_by_hand(markdown: str, outcomes: list[Outcome]) -> list[str]:
+    """The rows a NOT RUN outcome would leave alone, because a result is already recorded there."""
+    skipped = {o.row for o in outcomes if o.skipped}
+    return sorted({
+        found for line in markdown.splitlines()
+        if (found := row_id(line)) in skipped and recorded_by_hand(line)
+    })
+
+
 def apply_results(
     markdown: str, outcomes: list[Outcome], when: str, version: str
 ) -> tuple[str, list[str], list[str]]:
@@ -87,12 +105,21 @@ def apply_results(
     Returns (new text, rows written, rows not found). A row id that is not in
     the register is reported rather than invented, and a row that appears twice
     is written both times - the register is the authority on which rows exist.
+
+    A NOT RUN outcome (a row that needs an eye, or a padlock that was not so this
+    time) is written only over a row that says NOT RUN already: it never wipes a
+    PASS, a FAIL or NO MACHINE someone recorded. Such a row counts as found.
     """
     by_row = {o.row: o for o in outcomes}
     written: list[str] = []
+    seen: list[str] = []
     out: list[str] = []
     for line in markdown.splitlines(keepends=True):
         found = row_id(line)
+        if found and found in by_row and by_row[found].skipped and recorded_by_hand(line):
+            seen.append(found)
+            out.append(line)
+            continue
         if found and found in by_row:
             try:
                 out.append(set_result(line, format_result(by_row[found], when, version)))
@@ -101,7 +128,7 @@ def apply_results(
             except ValueError:
                 pass  # not a row we can rewrite; leave it exactly as it is
         out.append(line)
-    missing = sorted(set(by_row) - set(written))
+    missing = sorted(set(by_row) - set(written) - set(seen))
     return "".join(out), written, missing
 
 

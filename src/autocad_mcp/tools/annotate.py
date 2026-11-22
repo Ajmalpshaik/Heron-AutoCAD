@@ -178,7 +178,7 @@ async def autocad_add_multileader(
     ] = None,
     style: Annotated[
         str | None,
-        Field(default=None, description="Multileader style name. It must already be in the drawing — there is no Automation call to create one; bring yours in with autocad_import_from_drawing."),
+        Field(default=None, description="Multileader style name, already in the drawing: make one with autocad_create_styles(multileader_styles=...), or bring yours in with autocad_import_from_drawing."),
     ] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     color: Annotated[str | StrictInt | None, COLOR_OPT] = None,
@@ -271,8 +271,8 @@ async def autocad_add_multileader(
                     raise_if_busy(exc)
                     raise AutocadError(
                         f"This drawing has no multileader style called '{style}' "
-                        f"({com_message(exc)}). There is no Automation call to create one: "
-                        "make it in AutoCAD, or copy it in with autocad_import_from_drawing."
+                        f"({com_message(exc)}). Make it with autocad_create_styles(multileader_styles=...), "
+                        "or copy it in with autocad_import_from_drawing."
                     ) from exc
 
             if block:
@@ -382,7 +382,7 @@ async def autocad_add_table(
     ] = None,
     style: Annotated[
         str | None,
-        Field(default=None, description="Table style name, already in the drawing. There is no Automation call to create one; copy yours in with autocad_import_from_drawing."),
+        Field(default=None, description="Table style name, already in the drawing: make one with autocad_create_styles(table_styles=...), or copy yours in with autocad_import_from_drawing."),
     ] = None,
     layer: Annotated[str | None, LAYER_OPT] = None,
     space: Annotated[str, Field(default="model", description="'model' or 'paper'. A schedule normally belongs on the sheet, so 'paper'.", pattern="^(model|paper)$")] = "model",
@@ -489,7 +489,8 @@ async def autocad_add_table(
                     raise_if_busy(exc)
                     raise AutocadError(
                         f"This drawing has no table style called '{style}' ({com_message(exc)}). "
-                        "Make it in AutoCAD, or copy it in with autocad_import_from_drawing."
+                        "Make it with autocad_create_styles(table_styles=...), or copy it in with "
+                        "autocad_import_from_drawing."
                     ) from exc
 
             # A new table starts with a title row (merged across) and a header

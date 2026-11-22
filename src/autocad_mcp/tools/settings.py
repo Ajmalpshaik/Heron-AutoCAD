@@ -2,8 +2,8 @@
 
 Units and precision, the drawing scale and everything that follows from it
 (DIMSCALE, LTSCALE, the annotation scale), object snaps, point style, text
-styles, dimension styles. Thirty minutes of clicking through dialogs, in two
-calls.
+styles, dimension styles, multileader styles and table styles. Thirty minutes of
+clicking through dialogs, in two calls.
 
 **Why these are CHANGE and not ADMIN.** ``autocad_set_variable`` is ADMIN
 because it will set *any* system variable, which is an escape hatch. The tools
@@ -12,6 +12,10 @@ DIM variables behind a dimension style. They cannot save a file, run a command
 or reach outside that list, so they need the Changes padlock, like drawing a
 line does. Every call reports the old value beside the new one, and
 ``dry_run`` shows the whole plan without writing a thing.
+
+Multileader and table styles have no Automation call, so Heron's plug-in makes
+them (D-104); its rules are in ``Heron.AutoCAD.Bridge/StylePlans.cs``. A plot
+style table is a file AutoCAD's .NET API cannot write (D-105).
 
 The mapping from plain words to variables is a set of pure functions at the top
 of the file, tested without AutoCAD.
@@ -26,11 +30,13 @@ from pydantic import Field
 from ..acad import sheets as plan
 from ..acad.tables import validate_name
 from ..acad.units import INSUNITS, rad
+from ..core.bridge import BridgeRefused
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
-from ._shared import before_after
+from . import _shared
+from ._shared import PLUGIN_ONLY, before_after, in_plugin
 
 # ---------------------------------------------------------------------------
 # Plain words to system variables (pure: no AutoCAD below this line)
@@ -375,6 +381,51 @@ def plan_dim_style(options: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# What a multileader or table style made by the plug-in takes (D-104). The
+# plug-in reads exactly these (Heron.AutoCAD.Bridge/StylePlans.cs, kept in step
+# by a test); a misspelt option is refused here, before anything is written,
+# instead of being quietly ignored there.
+MULTILEADER_OPTIONS = frozenset(
+    {"name", "text_style", "text_height", "arrow", "arrow_size", "dogleg", "dogleg_length",
+     "landing_gap", "attachment", "scale", "current"}
+)
+TABLE_OPTIONS = frozenset(
+    {"name", "text_style", "text_height", "header_text_height", "title_text_height", "margin",
+     "horizontal_margin", "vertical_margin", "alignment", "header_alignment", "title_alignment",
+     "title_row", "header_row", "scale", "current"}
+)
+PLUGIN_STYLES = {
+    "multileader_styles": ("multileader_style", "multileader style", MULTILEADER_OPTIONS),
+    "table_styles": ("table_style", "table style", TABLE_OPTIONS),
+}
+
+
+def plan_plugin_styles(
+    asked: dict[str, list[dict[str, Any]] | None], replace: bool
+) -> list[tuple[str, str, dict[str, Any]]]:
+    """The plug-in operations a call's multileader and table styles come down to.
+
+    Each is ``(result key, operation, args)``. Only the name and the option
+    words are checked here; the values are the plug-in's to check, so the
+    rules live in one place (StylePlans.cs).
+    """
+    planned: list[tuple[str, str, dict[str, Any]]] = []
+    for key, (operation, kind, options) in PLUGIN_STYLES.items():
+        for entry in asked.get(key) or []:
+            if not isinstance(entry, dict):
+                raise ValueError(f"Every {kind} is an object with a 'name'. Got: {entry!r}")
+            unknown = sorted(str(option) for option in entry if option not in options)
+            if unknown:
+                raise ValueError(
+                    f"{kind.capitalize()} '{entry.get('name')}': {', '.join(unknown)} "
+                    f"{'is not an option' if len(unknown) == 1 else 'are not options'}. "
+                    f"Use: {', '.join(sorted(options))}. replace is given once for the whole call."
+                )
+            name = validate_name(str(entry.get("name") or ""), kind)
+            planned.append((key, operation, {**entry, "name": name, "replace": bool(replace)}))
+    return planned
+
+
 # ---------------------------------------------------------------------------
 # The AutoCAD side
 # ---------------------------------------------------------------------------
@@ -562,7 +613,7 @@ def _same(before: Any, after: Any) -> bool:
     return str(before).strip().lower() == str(after).strip().lower()
 
 
-@mcp.tool(name="autocad_create_styles", **tool_meta("Create Text And Dimension Styles"))
+@mcp.tool(name="autocad_create_styles", **tool_meta("Create Text, Dimension, Multileader And Table Styles"))
 @tool_errors
 async def autocad_create_styles(
     text_styles: Annotated[
@@ -593,27 +644,74 @@ async def autocad_create_styles(
             ),
         ),
     ] = None,
+    multileader_styles: Annotated[
+        list[dict[str, Any]] | None,
+        Field(
+            default=None,
+            description=(
+                "Multileader styles to create or update, made by Heron's plug-in. Each is an object:\n"
+                '{"name": "MEP-LABEL-50", "text_style": "ROMANS", "text_height": 2.5, '
+                '"arrow": "closed_filled", "arrow_size": 2.5, "dogleg": true, '
+                '"dogleg_length": 2.5, "landing_gap": 0.6, "attachment": "underline_bottom_line", '
+                '"scale": "1:50", "current": true}\n'
+                "Sizes are as they plot; 'scale' (50 or '1:50') makes them drawing sizes, as "
+                "the Multileader Style dialog does. Only name and text_height are needed: the "
+                "rest is Ajmal's TLD label — the leader ends under the text "
+                "(underline_bottom_line), arrow and dogleg as big as the text. 'arrow' is one "
+                "of AutoCAD's arrowheads: closed_filled, closed_blank, closed, dot, "
+                "architectural_tick, oblique, open, right_angle, dot_small, box_filled, none... "
+                "'dogleg' is the short horizontal landing the leader ends in. "
+                "'text_style' must be in the drawing or in text_styles of this call."
+            ),
+        ),
+    ] = None,
+    table_styles: Annotated[
+        list[dict[str, Any]] | None,
+        Field(
+            default=None,
+            description=(
+                "Table styles to create or update, made by Heron's plug-in. Each is an object:\n"
+                '{"name": "SCHEDULE-50", "text_style": "ROMANS", "text_height": 2.5, '
+                '"header_text_height": 2.5, "title_text_height": 3.5, "margin": 1, '
+                '"alignment": "centre", "header_alignment": "centre", "title_alignment": "centre", '
+                '"title_row": true, "header_row": true, "scale": "1:50", "current": true}\n'
+                "Text heights and margins are as they plot and are multiplied by 'scale' "
+                "(2.5 at 1:50 is 125 in the style). Only name and text_height are needed; the "
+                "margins default to a third of the text height. Every row keeps its text in "
+                "the vertical middle of each cell: alignment takes left, centre or right."
+            ),
+        ),
+    ] = None,
     replace: Annotated[
         bool,
         Field(default=False, description="Update a style of the same name that already exists, instead of refusing."),
     ] = False,
 ) -> str:
-    """Create the text and dimension styles a drawing needs, with real values.
+    """Create the text, dimension, multileader and table styles a drawing needs, with real values.
 
     A dimension style is built the way AutoCAD's own API requires: the DIM
     variables are set, the style is added, the style copies them off the
     document, and the drawing's variables are then put back — so the style
     holds the settings and the drawing is left as it was.
 
-    Multileader styles have no Automation API, so they are not created here;
-    make one in AutoCAD's Multileader Style Manager, or bring one in from your
-    standards drawing with autocad_import_from_drawing.
+    Multileader and table styles have no Automation call, so Heron's plug-in
+    makes them through AutoCAD's .NET API (D-104), after the text styles of
+    the same call, so a style can use a text style made with it. Each comes
+    back as AutoCAD then holds it. A multileader style is Ajmal's TLD label
+    unless asked otherwise: the leader ends under the text. A table style
+    keeps text in the vertical middle of every cell.
+
+    Plot style tables (.ctb / .stb) are not made here: they are files, and
+    AutoCAD's .NET API has no way to write one (D-105). Make or copy the file
+    in AutoCAD's Plot Style Manager, then set it with autocad_page_setup.
 
     One undo step.
 
     Args:
         text_styles (Optional[list[dict]]): styles to create; see the field.
         dim_styles (Optional[list[dict]]): styles to create; see the field.
+        multileader_styles (Optional[list[dict]]): styles to create; see the field.
+        table_styles (Optional[list[dict]]): styles to create; see the field.
         replace (bool): update a style of the same name.
 
     Returns:
@@ -621,25 +719,52 @@ async def autocad_create_styles(
           "text_styles": [{"name", "created", "font", "height", "current",
                            "notes": [str]}],
           "dim_styles": [{"name", "created", "variables": {...}, "current",
-                          "notes": [str]}]
+                          "notes": [str]}],
+          "multileader_styles": [{"name", "created", "current", "text_style",
+                                  "text_height", "arrow", "arrow_size", "dogleg",
+                                  "dogleg_length", "landing_gap", "attachment",
+                                  "scale", "arrow_block_added", "notes"}],
+          "table_styles": [{"name", "created", "current", "text_style", "scale",
+                            "text_heights": {"title", "header", "data"},
+                            "alignment": {...}, "margins": {"horizontal",
+                            "vertical"}, "title_row", "header_row"}]
         }
+        The multileader and table keys come back only when asked for.
 
     Examples:
         - Use when: "make our ROMANS text style and a 1:50 dim style".
         - Use when: dimension text is the wrong size on every sheet.
+        - Use when: "make a multileader style for 1:50 labels" —
+          multileader_styles=[{"name": "MEP-LABEL-50", "text_height": 2.5,
+          "scale": "1:50", "current": true}].
+        - Use when: "set up a table style for the equipment schedule" —
+          table_styles=[{"name": "SCHEDULE-50", "text_height": 2.5,
+          "scale": "1:50"}], then autocad_add_table with style='SCHEDULE-50'.
+        - Use when: autocad_add_multileader or autocad_add_table says the
+          drawing has no such style, or the next step would be MLEADERSTYLE
+          or TABLESTYLE by hand (an mleader style, a schedule's table style).
         - Don't use when: your office standards drawing already has them —
           autocad_import_from_drawing copies them across as they are.
+        - Don't use when: you want a plot style table (.ctb / .stb); AutoCAD's
+          .NET API cannot make one. Set an existing one with autocad_page_setup.
 
     Error Handling:
         - A style name already in the drawing is refused unless replace=true.
         - A font AutoCAD cannot find is reported against that style; the other
           styles are still made.
         - The drawing's own DIM variables are put back even if a style fails.
+        - A misspelt multileader or table option, or a bad name, is refused
+          before anything is written.
+        - A multileader or table style AutoCAD refuses (no such text style,
+          a scale like 0.02 that could be read two ways) is reported against
+          that style, and nothing of it is kept; the others are still made.
+        - Without Heron's plug-in, a call with multileader or table styles is
+          refused before anything is written.
     """
-    if not text_styles and not dim_styles:
-        raise AutocadError("Give text_styles, dim_styles, or both.")
+    if not text_styles and not dim_styles and not multileader_styles and not table_styles:
+        raise AutocadError("Give text_styles, dim_styles, multileader_styles or table_styles.")
     for entry in list(text_styles or []) + list(dim_styles or []):
-        if not isinstance(entry, dict) or not str(entry.get("name", "")).strip():
+        if not isinstance(entry, dict) or not str(entry.get("name") or "").strip():
             raise AutocadError(f"Every style needs a 'name'. Got: {entry!r}")
     plans = []
     for entry in dim_styles or []:
@@ -647,20 +772,66 @@ async def autocad_create_styles(
             plans.append((validate_name(str(entry["name"]), "dimension style"), plan_dim_style(entry), entry))
         except ValueError as exc:
             raise AutocadError(f"Dimension style '{entry.get('name')}': {exc}") from exc
+    try:
+        plugin_styles = plan_plugin_styles(
+            {"multileader_styles": multileader_styles, "table_styles": table_styles}, replace
+        )
+    except ValueError as exc:
+        raise AutocadError(f"{exc} Nothing was changed.") from exc
 
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
+        if plugin_styles and _shared.plugin_runner() is None:
+            raise AutocadError(PLUGIN_ONLY.format(what="Making multileader and table styles") + " Nothing was changed.")
         result: dict[str, Any] = {"text_styles": [], "dim_styles": []}
+        for key, _operation, _args in plugin_styles:
+            result.setdefault(key, [])
 
         with undo_mark(doc):
             for entry in text_styles or []:
                 result["text_styles"].append(_make_text_style(doc, entry, replace))
             for name, variables, entry in plans:
                 result["dim_styles"].append(_make_dim_style(doc, name, variables, entry, replace))
+            _make_plugin_styles(result, plugin_styles)
         return result
 
     return dumps(await run(work))
+
+
+PLUGIN_STYLE_WORDS = {"multileader_style": "Making a multileader style", "table_style": "Making a table style"}
+
+
+def _made_anything(result: dict[str, Any]) -> bool:
+    """Whether any style so far was made or updated: a row that is more than a refusal."""
+    return any(set(row) - {"name", "created", "notes"} or row.get("created")
+               for rows in result.values() if isinstance(rows, list) for row in rows)
+
+
+def _make_plugin_styles(result: dict[str, Any], planned: list[tuple[str, str, dict[str, Any]]]) -> None:
+    """Have the plug-in make each multileader and table style, one transaction each (D-104).
+
+    AutoCAD refusing one style is that style's row, and nothing of it is kept.
+    The plug-in not answering, or being stopped, ends the rest: an unknown
+    outcome is never followed by a second try. With nothing made yet the error
+    goes up whole, as any tool's would.
+    """
+    stopped: str | None = None
+    for key, operation, args in planned:
+        name = args["name"]
+        if stopped is not None:
+            result[key].append({"name": name, "created": False, "notes": [f"Not tried: {stopped}"]})
+            continue
+        try:
+            row = in_plugin(operation, args, PLUGIN_STYLE_WORDS[operation])
+        except AutocadError as exc:
+            text = str(exc)
+            if isinstance(exc, BridgeRefused) or text.startswith("Outcome unknown"):
+                if not _made_anything(result):
+                    raise
+                stopped = text
+            row = {"name": name, "created": False, "notes": [text]}
+        result[key].append(row)
 
 
 def _existing(collection: Any, name: str) -> Any:

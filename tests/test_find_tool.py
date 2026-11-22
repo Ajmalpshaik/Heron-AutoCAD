@@ -68,6 +68,8 @@ CASES = [
     ("line the UCS up with that block", "autocad_set_ucs"),
     ("set DIMSCALE and LTSCALE for 1 to 50", "autocad_drawing_setup"),
     ("make a dimension style for the shop drawing", "autocad_create_styles"),
+    ("make a multileader style for 1:50 labels", "autocad_create_styles"),
+    ("create a table style for the equipment schedule", "autocad_create_styles"),
     ("dimension along that wall as a chain", "autocad_dimension_run"),
     ("put centre crosses on all the holes", "autocad_add_centre_marks"),
     ("one note pointing at three bolts", "autocad_add_multileader"),

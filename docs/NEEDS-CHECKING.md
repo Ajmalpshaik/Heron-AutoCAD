@@ -9,17 +9,22 @@
 `tools/install_plugin.py`), start AutoCAD, open a scratch drawing, and connect Claude Code in this
 folder.
 
-**Groups D, E and F run themselves.** With AutoCAD open and the Changes padlock on:
+**Many rows run themselves** (groups D, E, F, M to Z, AA to AS, RV; D-118). With AutoCAD open,
+Heron pressed, **Changes on in Settings** and Ask to Keep off:
 
 ```bash
 .venv\Scripts\python.exe tools/live_check.py --group all --write
 ```
 
-It works in a scratch drawing it makes itself, *measures* each row (a cone development's arcs
-against the girths they roll onto, a 1:100 viewport's CustomScale, a solid's base against z=0)
-and writes the answer and its evidence into the last column here. Most of the 90 rows are
-measurable that way. The rest need an eye and are written **NOT RUN** with the reason;
-`--list` names them. A row the padlocks refuse is **NOT RUN** too, never PASS.
+It reads the padlocks first and stops, saying what to do, if Changes is off or Ask to Keep is on; it
+never switches one. It works in scratch drawings it makes itself, *measures* each row (a cone
+development's arcs against the girths they roll onto, a 1:100 viewport's CustomScale, a trimmed
+line's ends, the first line of a change answer) and writes the answer and its evidence into the last
+column here. Rows that need an eye, a click in a Heron window, a restart, the registry or a second
+AutoCAD are written **NOT RUN** with the reason; `--list` names them. A row marked
+`[needs Admin on]` (or Publish on or off) runs only when that padlock already is so; run again
+with the padlocks set that way for those rows. A row the padlocks refuse is **NOT RUN** too, never PASS, and a
+NOT RUN reason never overwrites a result already written here.
 
 ## Group A - AutoCAD 2027 (this PC)
 
@@ -669,6 +674,53 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 | AC17 | After AC3, make a SKID block holding one VALVE TAG insert, insert SKID twice. Change VALVE TAG's definition again; `autocad_sync_attributes(block='VALVE TAG', nested=true, dry_run=true)`, then without (#156) | The dry run lists the insert inside SKID with `"inside": "SKID"`; after the sync both SKID copies show the nested tag with its new attributes and its typed value kept; without `nested` it is not listed | NOT RUN |
 
+## Group AS - Reads the plug-in does in one go: the entity summary and a layer's extents (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-114](DECISIONS.md), issue #74). Built and tested offline only
+(`tests/test_plugin_reads.py` compares the plug-in and COM answers on one fake drawing;
+`EntityReadsTests.cs` the plug-in's counting and filter). The plug-in operations `count_entities` and
+`entity_extents` build for all three targets but have never run. Needs the plug-in rebuilt and
+reinstalled at **1.8.0 or newer** (an older one is read over COM), and the server restarted. "Over
+COM" below means the same call to a second server started with `--no-bridge` (developer use: it
+reads over COM only); the plug-in's log (`%LOCALAPPDATA%\Heron\autocad\logs`) shows
+`operation count_entities` / `operation entity_extents` when the plug-in read it. **Every row below
+is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AS1 | A real project drawing with model space and two sheets (title blocks, viewports). `autocad_list_entities(summary_only=true)`, then the same over COM | The log shows `operation count_entities`; `total_matching`, `by_type` and `by_layer` are the same both ways, key order too, paper-space objects (viewports, title blocks) included in both | NOT RUN |
+| AS2 | Same drawing: `summary_only=true` with `layer='M-*'`, `layer='m-duct'` (other case), `entity_type='dimension'`, `block_name='<a block>'`, `color='red'`, and a layer that does not exist | Each the same as over COM; the missing layer is a count of 0, not an error | NOT RUN |
+| AS3 | A drawing with 20,000 or more objects: time `autocad_list_entities(summary_only=true)` with the plug-in and over COM | Same answer; write both times in the result. Pass: the plug-in is clearly faster | NOT RUN |
+| AS4 | `autocad_get_extents(layer=<a layer with lines, text, a block and a 3D solid>)`, then over COM | The log shows `operation entity_extents`; `min`, `max`, `width`, `height`, `center` and `entity_count` are the same to the last digit | NOT RUN |
+| AS5 | A layer holding one XLINE and one RAY: `autocad_get_extents(layer=...)` both ways; and a layer with nothing on it | Both: "has 2 object(s), but none with extents"; the empty layer: "has no geometry", as before | NOT RUN |
+| AS6 | Draw a line yourself, run AS1 and AS4, then press Ctrl+Z once | The Ctrl+Z takes away **your line**: the reads left no undo step (the plug-in's transaction is aborted; COM's reused selection set adds none) | NOT RUN |
+| AS7 | Install plug-in 1.7.0 (or any older one), run AS1 and AS4 | Both answer over COM (no `operation` line in the log), no error, the same answers as with 1.8.0 | NOT RUN |
+| AS8 | Select two objects yourself, run AS1, then type SELECT and P (previous) | Note what is selected before and after, with the plug-in and over COM; Pass: the read does not leave AutoCAD's own selection or "previous" set different from what COM leaves | NOT RUN |
+| AS9 | Start LINE and leave it waiting for a point; run AS1 | The read answers, or gives the busy answer naming LINE; no error box; LINE is still waiting | NOT RUN |
+
+## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only
+(`tests/test_pdf_import.py`). Server only, no plug-in change: restart the server after pulling.
+The six questions and the three variables were read from Autodesk's help **through a search**
+(the help site could not be opened from the session that wrote this): AO1 and AO2 prove them.
+Use a PDF printed from AutoCAD (two pages, a few lines and some TrueType text) and a scanned
+one-page PDF. `autocad_status` first. After each row press **Ctrl+Z once** and check the drawing
+is back as it was (one undo step). **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AO1 | Before anything else, type `-PDFIMPORT` by hand with FILEDIA 0 and choose File, and write down every prompt it shows, in order, up to the end; then the same on a **one-page** PDF | Exactly: underlay or [File] / file name / page number / insertion point / scale factor / rotation, and nothing after. If the one-page PDF skips the page prompt, or any prompt differs, this row is **FAIL**: write the prompts here; the fix is in `acad/pdf_import.py` (`command_form`) | NOT RUN |
+| AO2 | `(getvar "PDFIMPORTFILTER")`, `(getvar "PDFIMPORTMODE")` before; then `autocad_import_pdf(path=<two-page PDF>, page=2, insertion=[1000,1000], scale=1, layer='M-PDF')` | Page 2 comes in at 1000,1000 on M-PDF (lines, text as MTEXT or TEXT, fills as hatches), `imported`, `by_type` and `box` match what is seen; afterwards both variables, FILEDIA, OSMODE, AUNITS, ANGBASE and ANGDIR are what they were; `Command:` is free; one Ctrl+Z takes all of it away, M-PDF too | NOT RUN |
+| AO3 | Same PDF, `what=['lines']`, then `what=['text']` | First: no text, no hatches; second: only text | NOT RUN |
+| AO4 | `autocad_import_pdf` with `page=3` on the two-page PDF | Refused before AutoCAD is asked ("has 2 pages"); nothing sent | NOT RUN |
+| AO5 | Tick **Import as block** in the PDF Import dialog once (PDFIMPORTMODE then has bit 1), cancel it; run AO2 again | The page comes in as loose objects, not one block, `"release": 2027`; afterwards PDFIMPORTMODE is what it was, bit 1 still on | NOT RUN |
+| AO6 | The scanned one-page PDF | Nothing comes in (or only what AutoCAD makes of the picture: nothing, since pictures are left out); the answer says it is most likely a scan; `Command:` is free | NOT RUN |
+| AO7 | A UCS turned 30 degrees (`autocad_set_ucs`), `autocad_import_pdf(insertion=[0,5000], rotation=0)` (world) | The page's lower-left corner is at world 0,5000 and its bottom edge runs along world X, not the UCS X | NOT RUN |
+| AO8 | `autocad_import_pdf` on a PDF whose name and folder have spaces and an Arabic or accented letter | It comes in; the path is not cut at the space | NOT RUN |
+| AO9 | Scale: import a 1:100 A1 PDF of a mm drawing at `scale=1`, measure one known dimension with `autocad_measure`, work out the scale that makes it true, import again with it | Write the scale that was right here (it says how AutoCAD sizes a page at 1), so the tool's help can say it plainly | NOT RUN |
+| AO10 | On AutoCAD 2025 or 2026, and on 2021-2024: AO1 and AO2 | Same prompts and result | NO MACHINE |
+
 ## Group AP - The smaller draw gaps: construction line and ray, region, donut, divide / measure (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-108](DECISIONS.md); issues #173, #174, #177, #181, part 1 of #119). Built and
@@ -691,6 +743,35 @@ were not checked against Autodesk's reference (D-108); each row compares with Au
 | AP9 | An L-shaped polyline at elevation 2700 (0,0 -> 600,0 -> 600,600), a block SUPPORT with an arrow along +X: `autocad_divide_curve(interval=500, block_name='SUPPORT', layer='M-SUPPORT')`; then MEASURE Block SUPPORT aligned on a copy | Two supports at 500,0 and 600,400, z 2700, turned 0 and 90 degrees, on M-SUPPORT, matching MEASURE's. With `from_end=true`: record whether MEASURE turns blocks the other way when counted from the far end | NOT RUN |
 | AP10 | A line drawn in a UCS tilted out of plan, and a line sloping in Z: `autocad_divide_curve(segments=2)` on each; a polyline in paper space on a sheet | The first two refused plainly, nothing placed; the paper-space one gets its points on that sheet | NOT RUN |
 | AP11 | AutoCAD 2025 / 2026 and 2021-2024 builds: AP1, AP2, AP5, AP6 | As in AutoCAD 2027 | NO MACHINE |
+
+## Group AQ - Associative and path arrays, tiled viewports, hyperlinks, DWF, geographic location (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-110](DECISIONS.md), [D-111](DECISIONS.md); issues #175, #176, #178, #179,
+#180, part 2 of #119). Built and tested offline only (`tests/test_ribbon_gaps_part2.py`,
+`tests/test_export.py`, `Bridge.Tests/ArrayPlanTests.cs`, `GeoPlaceTests.cs`). **New plug-in
+operations** (`associative_array`, `geo_location`, `set_geo_location`): build and install the
+plug-in, restart the server. Scratch drawing in millimetres, `autocad_status` first. After each
+change row press **Ctrl+Z once** and check the drawing is back as it was. The .NET names were read
+from Autodesk's reference DLLs and the COM numbers from Autodesk's interop DLL; what they *mean*
+(an array's base point and angles, a geo location's reference point) was not, so each row compares
+with AutoCAD's own command. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AQ1 | A line 0,0 to 9000,0 and a block HANGER at 0,0: `autocad_associative_array(handles=[HANGER], pattern='path', path=the line, spacing=1500)` | One array object (LIST says an associative array / ARRAY); 7 hangers at 0, 1500 ... 9000, each turned along the line; `associative: true`, `items: 7`. Click it: the ARRAY contextual tab opens; stretch the line to 12000: the hangers follow (Measure keeps 1500). One Ctrl+Z: back to the line and one loose hanger | NOT RUN |
+| AQ2 | An arc and a polyline with a bend: `pattern='path', count=5` on each, then `align_items=false` | 5 items spread end to end (first and last on the ends), turned with the path; without align, all square. **Record if any answer was refused "somewhere other than asked"**, and what ARRAYPATH puts at the same counts | NOT RUN |
+| AQ3 | A 600 x 600 diffuser block: `pattern='rectangular', rows=3, columns=4, row_spacing=1200, column_spacing=1200` | 12 diffusers, the original where it was, the grid growing up and to the right; ARRAYEDIT changes the count and the grid follows. Negative spacings build down and left | NOT RUN |
+| AQ4 | A circle r=20 at 100,0: `pattern='polar', count=8, center=[0,0]`; then `fill_angle=90, count=3`; then `rotate_items=false` | 8 circles evenly round 0,0 at radius 100, the first where the original is; then 3 over a quarter (0, 45, 90 degrees). **Record whether AutoCAD read the angles as degrees** (a refusal "somewhere other than asked" means it did not) and whether the centre came out at 0,0 | NOT RUN |
+| AQ5 | A line in model space and one on a layout as the objects; a path that is one of the objects; 9 items at 1500 on a 10 m line | Refused plainly before anything is made: "different spaces", "cannot also be one of the objects", "at most 7 fit" | NOT RUN |
+| AQ6 | `autocad_tiled_viewports(layout='two_vertical')`, then `'four'`, `'three_right'`, then `'one'`; then no layout | Two side by side, four in a 2 x 2, three with the big one on the right, then one; each starts from the view that was on screen; `arrangement` matches each time, no warning. **Record AutoCAD's own words** for acViewport2Vertical (side by side?) and acViewport3Right. VPORTS > Named shows "Heron" | NOT RUN |
+| AQ7 | On a layout tab: `autocad_tiled_viewports(layout='two_vertical')` | Refused, "switch to the Model tab", pointing at autocad_add_viewport; nothing changed. The Changes padlock off makes no difference on the Model tab (a View tool) | NOT RUN |
+| AQ8 | A block on the drawing: `autocad_hyperlinks(handles=[it], url='C:\\Temp\\test.pdf', description='Data sheet')`; hover, then Ctrl+click | The hover shows "Data sheet"; Ctrl+click opens the PDF; HYPERLINK on the object shows the same address. Then `url='https://www.autodesk.com'`: the old link is replaced, one link only. One Ctrl+Z takes it back | NOT RUN |
+| AQ9 | `autocad_list_hyperlinks()` with three linked objects and many without; then `action='remove'` on one; then list again | Exactly the three, with their links (the PE_URL selection works); after remove, two. An object on a locked layer: in `failed`, the rest done | NOT RUN |
+| AQ10 | A sheet with a title block: `autocad_export(path='C:\\Temp\\sheet.dwf', area='layout', scale='1:1')`, Publish padlock on; then with it off | A .dwf that opens in Autodesk Viewer / Design Review and looks like the PDF of the same sheet; the layout's page setup unchanged afterwards (PAGESETUP). Padlock off: refused | NOT RUN |
+| AQ11 | Drawing units mm. `autocad_geo_location(latitude=25.29, longitude=51.53, point=[0,0], north_angle=12)` | `located: true`, `reference_form` given (**record which: grid or lon_lat**); GEOGRAPHICLOCATION shows the marker at Doha, north 12 degrees to the right of up; `autocad_get_geo_location` reads 25.29, 51.53 and `agrees: true`; LATITUDE / LONGITUDE read 25.29 / 51.53. GEOMAP AERIAL (signed in): the map sits under the drawing at the right size (a 10 m line is 10 m on the map) | NOT RUN |
+| AQ12 | A new drawing never placed: `autocad_geo_location()` with no place; then `autocad_set_sun(latitude=9.93, longitude=76.27)` and `autocad_geo_location(point=[1000,2000])` | First refused, San Francisco named; then the location is Kochi at 1000,2000 and the sun's place did not move (`moved: false`) | NOT RUN |
+| AQ13 | INSUNITS 0: `autocad_geo_location(latitude=25.29, longitude=51.53)`; then units mm and `coordinate_system='UTM84-39N'`; then `'NOT-A-SYSTEM'`; then `action='remove'` | No units: refused; UTM84-39N: located at the same place; the unknown code: refused, nothing changed; remove: GEOGRAPHICLOCATION shows no location; one Ctrl+Z brings it back | NOT RUN |
+| AQ14 | AutoCAD 2025 / 2026 and 2021-2024 builds: AQ1, AQ4, AQ6, AQ8, AQ11 | As in AutoCAD 2027 | NO MACHINE |
 
 ## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
 
@@ -781,7 +862,7 @@ and the server restarted. **Every row below is NOT RUN.**
 | AJ5b | `autocad_status` on a.dwg; Save As a-rev2.dwg; open a.dwg from disk again and keep it in front; ask Heron to draw a line | REFUSED: "a.dwg was opened at hh:mm:ss, after Heron checked a drawing"; after `autocad_status` it draws | NOT RUN |
 | AJ6 | `autocad_batch_draw` of the A22 batch (41 objects) with the plug-in connected, then F2 | About 9 `Command:` prompts (it was about 27), all 41 made, no `missing` in the answer, no LISP text in the history. **Write the count down** | NOT RUN |
 | AJ7 | `autocad_batch_draw` of 2,000 lines, then of one 800-vertex polyline and 50 texts | `created` = `requested`, no `missing`, `completed` true: every piece up to 1,500 characters arrived. If any is missing, or AutoCAD sits at a `(_>` prompt (a piece cut short), write the batch size and lower `QUIET_CHUNK_LIMIT` | NOT RUN |
-| AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, on layer 0 (no `layer`: a new layer is made over COM, in whichever drawing is in front, [#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)); press Ctrl+Tab to b.dwg while it runs | The steps after the switch are refused: "The drawing in front changed while this job ran ... so Heron typed none of this input"; nothing from Heron lands in b.dwg; a.dwg has the steps before the switch | NOT RUN |
+| AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, each on a new layer; press Ctrl+Tab to b.dwg while it runs | The sequence stops before its next step: hint "The drawing in front changed after step N ... nothing landed in the other drawing" (or, for a switch inside a step, that step's input is refused: "so Heron typed none of this input"); no Heron object and no new layer in b.dwg; a.dwg has the steps before the switch ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)) | NOT RUN |
 | AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
 | AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
 
@@ -813,6 +894,29 @@ drawing is back as it was. The test box for AR8-AR12 is
 | AR13 | Ask to keep on: run AR1, AR4, AR8 and AR12, answering Discard each time | Each is taken back whole: no pyramid or wall left, the box its old size, the union one solid again | NOT RUN |
 | AR14 | AR1-AR13 on AutoCAD 2025/2026 and 2021-2024 | As AR1-AR13 | NOT RUN (no PC with those versions yet) |
 
+## Group AN - Multileader and table styles made by the plug-in (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-104](DECISIONS.md), [D-105](DECISIONS.md); issue #68). Built and tested
+offline only (`StylePlansTests.cs`, `tests/test_create_styles_plugin.py`; the add-in compiles against
+the 2021, 2025 and 2027 reference assemblies). Needs the plug-in built from this change (it knows the
+operations `multileader_style` and `table_style`), reinstalled, and the server restarted. Work in a
+scratch metric drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AN1 | `autocad_create_styles(multileader_styles=[{"name": "HERON-LABEL-50", "text_height": 2.5, "scale": "1:50", "current": true}])`, then open MLEADERSTYLE | The row says `created: true`, `attachment: underline_bottom_line`, `arrow: closed_filled`, arrow size and dogleg 2.5, `scale: 50`, `current: true`. In the dialog: content Mtext, text height 2.5, left **and** right attachment "Underline bottom line", arrowhead Closed filled 2.5, "Automatically include landing" ticked, landing distance 2.5, "Specify scale" 50, and it is the current style. **Write down the landing gap it shows** (AutoCAD's own default) | NOT RUN |
+| AN2 | After AN1, `autocad_add_multileader(landing=[1000,1000], arrows=[[0,0]], text="2 NOS FCU")` (it uses the current style) | The note's text sits on the landing line, the line running under the text (TLD look); text 125 high on screen (2.5 x 50); no `not_set` | NOT RUN |
+| AN3 | `autocad_create_styles(text_styles=[{"name": "ROMANS", "font": "romans.shx"}], multileader_styles=[{"name": "TAG-DOT", "text_style": "ROMANS", "text_height": 2.5, "arrow": "dot", "arrow_size": 1.5, "landing_gap": 0.5, "attachment": "middle"}])` in a drawing that has never used the dot arrow | Both made in one call; `arrow_block_added: "_DOT"`; the dialog shows text style ROMANS, arrowhead Dot 1.5, landing gap 0.5, attachment "Middle of multi-line text". **Then SETVAR DIMBLK**: empty (closed filled) as before, and the DIMSTYLE dialog shows **no** "Style overrides" | NOT RUN |
+| AN4 | AN3, then Ctrl+Z once | The text style, the multileader style and the `_DOT` block are all gone in one step (one undo mark round COM and the plug-in). **If it takes more than one Ctrl+Z, write how many** | NOT RUN |
+| AN5 | `autocad_create_styles(multileader_styles=[{"name": "HERON-LABEL-50", "text_height": 3.5}])` after AN1; then the same with `replace=true` | First: the row says `created: false` and "already ... Pass replace=true", nothing changed. Second: `created: false`, text height 3.5; the dialog shows 3.5 and the scale back at 1 (a replaced style takes the same defaults as a new one) | NOT RUN |
+| AN6 | `multileader_styles=[{"name": "BAD", "text_height": 2.5, "text_style": "NOPE"}, {"name": "GOOD", "text_height": 2.5}]` | BAD's row: "no text style called 'NOPE' ... Nothing was changed."; GOOD is made; MLEADERSTYLE lists GOOD, not BAD | NOT RUN |
+| AN7 | `autocad_create_styles(table_styles=[{"name": "SCHEDULE-50", "text_height": 2.5, "scale": "1:50", "alignment": "left", "current": true}])`, then open TABLESTYLE | `text_heights` 125 / 125 / 125, `margins` 41.67 both (125 / 3), alignment title and header `middle_centre`, data `middle_left`, `current: true`. In the dialog, for Title, Header and Data: text height 125, alignment Middle Center / Middle Center / **Middle Left**, horizontal and vertical margins 41.67; it is the current table style | NOT RUN |
+| AN8 | After AN7, `autocad_add_table(position=[0,0], title="AHU SCHEDULE", headers=["TAG","CFM"], rows=[["AHU-1","2000"]], style="SCHEDULE-50")` | The table takes the style: text 125 high, in the vertical middle of every cell, data left-aligned; `rows_aligned_middle: 3` | NOT RUN |
+| AN9 | `table_styles=[{"name": "NO-TITLE", "text_height": 2.5, "title_row": false, "header_row": false}]`, then `autocad_add_table` with that style and rows only | `title_row: false`, `header_row: false`; the dialog's "Title" / "Header" rows show as off (the style's suppress flags); the new table starts with a data row | NOT RUN |
+| AN10 | `table_styles=[{"name": "A", "text_height": 2.5, "alignment": "top left"}]`, then `multileader_styles=[{"name": "B", "text_height": 2.5, "scale": 0.02}]`, then `multileader_styles=[{"name": "C", "text_height": 2.5, "arow": "dot"}]` | A's row: "... vertical middle ...", B's: "'0.02' could be a ratio or a scale factor ... '1:50'", C: refused before anything ("arow is not an option"). None of the three is in the drawing | NOT RUN |
+| AN11 | With Changes **off**: AN1 again | Refused by the padlock before anything; MLEADERSTYLE unchanged | NOT RUN |
+| AN12 | AN1 with a plug-in built before this change | Refused: "Heron in AutoCAD does not have the operation 'multileader_style'. Update Heron ..."; nothing changed. With a text style in the same call: the text style is made and the multileader row carries that message | NOT RUN |
+
 ## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
 
 | Row | Do | Pass looks like | Result |
@@ -838,6 +942,29 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 | AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
 | AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
 | AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
+
+## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 for issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+[05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
+Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
+parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and
+the server restarted. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AD1 | Open an architect's DWG exported from Revit. `autocad_overkill` (no confirm), then `autocad_show` on three of the listed handles | A list by handle with reasons; the shown ones really lie on the kept line; the drawing is unchanged (nothing in Ctrl+Z, no erase question) | NOT RUN |
+| AD2 | Same options with `confirm=true`; answer the erase question "keep them erased"; then Ctrl+Z once | Erased and stretched as listed; one undo step; the question names the count; Ctrl+Z brings every line back as it was. Again answering "bring them back": the erased lines return, the stretched ones stay stretched | NOT RUN |
+| AD3 | `autocad_attach_underlay` a PNG with `width=42000`; a PDF with `page='2'`; a DWF without `page`; a DGN | The image is 42000 wide (LIST); page 2 of the PDF shows at the insertion point, scale and rotation asked; DWF and DGN show (write which sheet / model the DWF took); each on the layer asked; one undo step each | NOT RUN |
+| AD4 | `autocad_clip_reference` the image to two corners, then `remove=true` | Only the inside of the rectangle shows; the clip comes off and the whole image shows | NOT RUN |
+| AD5 | An xref attached at 5000,2000, scale 2, rotation 30. Draw a closed polyline with one arc over part of it; clip the xref to it. Then XCLIP > Generate polyline | The xref shows only inside the polyline; XCLIP's generated outline lies on the drawn one (arc in short steps) | NOT RUN |
+| AD6 | A PDF underlay rotated 45, scale 0.5: clip it to a rectangle, then `remove=true` | The clip lies on the rectangle in the world (not shifted, not turned); remove shows the whole sheet | NOT RUN |
+| AD7 | On the big plan that hung -BOUNDARY: `autocad_trace_boundary` inside one room with a `window` round it. Time it. Then the same with no window, zoomed to extents | With the window: the outline in a few seconds, area as LIST gives, the view back where it was, no BOUNDARY on the command line. Zoomed out with no window: refused over most_objects, nothing traced. Also write whether a room outside the window but on screen before the zoom changed the result | NOT RUN |
+| AD8 | A room with a column inside: trace with `islands=true`, then `make='region'` | Polyline: outline + one island, `net_area` = outline - column. Region: one region with the hole, its area = `net_area` | NOT RUN |
+| AD9 | On the big plan, trace with `timeout=1` and a window round the whole floor (raise `most_objects`) | Heron says it stopped waiting after 1 s; when AutoCAD finishes, at most one outline is made; a second call is not run twice | NOT RUN |
+| AD10 | A saved drawing with a nested xref, a JPG, a PDF underlay, an SHX text style and a .ctb: `autocad_etransmit`. Unzip it on another PC (or rename the project folder) and open the drawing | The zip holds the drawing, both xrefs, the image, the PDF, the .shx, PlotStyles/x.ctb and the report; on the other PC every xref, image, underlay and font is found from the drawing's folder | NOT RUN |
+| AD11 | `autocad_etransmit` on an unsaved drawing; on a saved one with Publish off; with `list_only=true` | Unsaved: refused, "save it first". Publish off: refused naming Publish, no file. list_only: the list, no file written | NOT RUN |
+| AD12 | With the 1.7.0 plug-in still installed: attach a PDF, clip an xref, trace a boundary, eTransmit | Each says the plug-in does not have the operation and to update it; nothing changes in the drawing | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

@@ -45,7 +45,7 @@ The group headings below give the level.
 | `autocad_check_folder` | **View.** Runs a check list over every `.dwg` in a folder (`subfolders` too): each opened read only, checked with its own project's changes, closed unsaved; an open drawing is checked where it is; the modeller's drawing is active again at the end. Verdict and coverage per drawing, worst first; one that will not open is NOT RUN with the reason ([D-70](DECISIONS.md)) |
 | `autocad_companion` | **Read.** Opens the Heron Companion page: one HTML file per chat on this PC with the drawing, units, layout, view, selection and this chat's activity, rewritten after every Heron job. No server, no port, no script; it sends nothing to AutoCAD. `stop` ends the updates ([D-71](DECISIONS.md)) |
 | `autocad_use_autocad` | **Read.** List the AutoCADs connected to Heron, or pick the one to work in. One connected: used without asking. Two or more: nothing is sent until one is picked ([D-49](DECISIONS.md)) |
-| `autocad_export` | PDF, DXF, WMF, SAT, BMP, EPS, STL. PDF takes `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
+| `autocad_export` | PDF, DWF, DXF, WMF, SAT, BMP, EPS, STL. DWF plots like PDF, through `DWF6 ePlot.pc3` ([D-111](DECISIONS.md)). PDF and DWF take `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
 | `autocad_show` | **View, done by the plug-in.** Selects the objects given by handle and zooms to them, so "which ones?" is answered in the drawing; `isolate` hides the rest for now (ISOLATEOBJECTS, not saved), `end_isolation` brings it back. At most 500 at once |
 | `autocad_publish_pdf` | **Publish, done by the plug-in.** The drawing's sheets in ONE multi-page PDF through AutoCAD's publisher, in tab order, each with its own page setup; `layouts` to choose, `include_model`, `overwrite`. Made from the drawing as last saved: unsaved changes are refused ([D-41](DECISIONS.md)) |
@@ -80,6 +80,17 @@ reply gives the paper height. An annotative dimension is not given the drawing's
 | `autocad_attach_xref` | XATTACH a .dwg: name from the file, insertion, scale, rotation, `overlay`. A name already in the drawing is refused. `autocad_list_blocks` lists xrefs with their paths |
 | `autocad_manage_xref` | `reload`, `unload`, `detach`, `bind` (names kept apart, NAME$0$...) or `insert` (names merged). Detach and both binds need `confirm=true` |
 | `autocad_xref_tree` | **Read.** Every xref with the xrefs inside it (8 levels), its saved path, the file found on this PC and `loaded` / `unloaded` / `not found`; `broken` lists the ones that lead nowhere ([11](11-adn-repos-study.md)) |
+| `autocad_attach_underlay` | Attach a raster image (PNG, JPG, TIF...) over COM, or a PDF / DWF / DGN underlay by the plug-in: insertion, scale, rotation, `page` (PDF page, DWF sheet, DGN model), layer; `width` sizes an image in drawing units ([D-84](DECISIONS.md)) |
+| `autocad_clip_reference` | Clip an xref, a block, an image or an underlay to two corners or a closed polyline (arcs in short steps); `remove=true` takes the clip off. Image over COM, the rest by the plug-in |
+| `autocad_import_pdf` | PDF Import: one page of a PDF as lines, text and hatches (`what`), at a point, scale and rotation, everything on `layer` if given; reports what came in (`by_type`, `box`, `layers_added`). No API exists: it types `-PDFIMPORT` with every answer in one form, after checking the release (2021-2027), and cancels a command left asking. Pictures in the PDF are left out ([D-106](DECISIONS.md); live rows AO, NOT RUN) |
+
+## Cleaning up an import, and packing a drawing (Change; eTransmit is Publish)
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_overkill` | Change | OVERKILL: doubled and overlapping lines, arcs and circles, zero-length lines, copies of polylines, loose lines lying on a polyline. The first call lists by handle what would go and why, with a `plan_id`; `confirm=true` with that `plan_id` erases and stretches exactly that in one undo step (nothing, if the drawing changed), then Heron's erase question asks the modeller. Polylines are never broken: overlaps on them are listed under `left` ([D-84](DECISIONS.md)) |
+| `autocad_trace_boundary` | Change | BOUNDARY / BPOLY round a point, by the plug-in's `Editor.TraceBoundary`, never typed: zooms to a `window` first, counts what is in it (refused over `most_objects`), waits at most `timeout` s. A polyline per loop, or one region with the islands cut out; returns the handle and area |
+| `autocad_etransmit` | Publish | eTransmit: the saved drawing with its xrefs (nested too), images, underlays, font files and plot styles in one .zip or folder beside it, with `transmittal report.txt`; what was not found is listed under `missing`. An unsaved drawing is refused; `list_only=true` writes nothing ([D-85](DECISIONS.md)) |
 
 ## Custom hatch patterns and linetypes (Publish)
 
@@ -139,11 +150,11 @@ arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autoli
 
 | Tool | Purpose |
 |---|---|
-| `autocad_list_entities` | Filter by type, layer, block or colour; paginated; summary mode |
+| `autocad_list_entities` | Filter by type, layer, block or colour; paginated; summary mode (counted by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
 | `autocad_get_entity` | All properties and bounding box of one entity |
 | `autocad_get_selection` | What you have selected in AutoCAD right now |
 | `autocad_find_text` | Search text, mtext and block attributes |
-| `autocad_get_extents` | Bounding box of the drawing or one layer |
+| `autocad_get_extents` | Bounding box of the drawing or one layer (a layer measured by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
 | `autocad_measure` | Point-to-point distance, or total length / area of entities or a layer |
 | `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000) |
 
@@ -152,6 +163,9 @@ arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autoli
 `autocad_move_entities`, `autocad_copy_entities`, `autocad_rotate_entities`,
 `autocad_scale_entities`, `autocad_mirror_entities`, `autocad_offset_entities`,
 `autocad_array_entities`, `autocad_modify_entity`, `autocad_delete_entities`
+
+`autocad_array_entities` makes loose copies. For ARRAY's one editable array, or copies along a
+path, use `autocad_associative_array` (below).
 
 `autocad_delete_entities` needs `confirm=true`. Without it the tool returns a preview and changes
 nothing.
@@ -271,7 +285,7 @@ One named area, used for a plot, a viewport and a measurement. Detail:
 | Tool | Purpose |
 |---|---|
 | `autocad_drawing_setup` | Units, precision, the drawing `scale` (which sets DIMSCALE, the annotation scale and LTSCALE), `paper_text_height`, object snaps, point style, linetype scaling, limits. `dry_run` shows the plan; writes only from a fixed list ([D-28](DECISIONS.md)) |
-| `autocad_create_styles` | Text styles (font, height, width factor, oblique) and dimension styles (scale, text height, arrows, precision, or raw `DIM...` variables). The drawing's own DIM variables are put back |
+| `autocad_create_styles` | Text styles (font, height, width factor, oblique) and dimension styles (scale, text height, arrows, precision, or raw `DIM...` variables; the drawing's own DIM variables are put back). Multileader styles (text style, height, arrow, dogleg, landing gap, attachment; Ajmal's TLD label by default) and table styles (text heights, margins, left / centre / right in the vertical middle) made by the plug-in ([D-104](DECISIONS.md)). Not plot style tables: AutoCAD's .NET API cannot write one ([D-105](DECISIONS.md)) |
 
 ## An import into a shop drawing (Change)
 
@@ -379,9 +393,10 @@ until the solid changes.
 | `autocad_add_surface` | Change | PLANESURF (from closed outlines or regions, or two corners) or SURFNETWORK (through u and v curves). The curves are kept |
 | `autocad_add_mesh` | Change | MESH primitives (box, wedge, cylinder, cone, sphere, torus, pyramid) placed by the centre of the base, smoothness 0-4; or a mesh made from a solid, surface or region (MESHSMOOTH), which is kept |
 
-The attribute sync and the Excel table link and update are plug-in operations too
-(`sync_attributes`, `excel_table`, `update_table_links`); their tools are listed with the blocks
-and the tables above.
+The attribute sync, the Excel table link and update, and the multileader and table styles are
+plug-in operations too (`sync_attributes`, `excel_table`, `update_table_links`,
+`multileader_style`, `table_style`); their tools are listed with the blocks, the tables and the
+settings above.
 
 ## Materials (Change; listing is Read)
 
@@ -421,6 +436,22 @@ camera and the sun's date, which COM has no call for. Not proven in AutoCAD yet:
 | `autocad_list_lights` | Read | Every light, in model space and in light blocks, with on / off, intensity and unit, Kelvin; plus the sun, DEFAULTLIGHTING, LIGHTINGUNITS and the exposure, and why a render may be dark |
 | `autocad_switch_lights` | Change | Lights on or off by name or handle, or all; the sun (SUNSTATUS) and default lighting (DEFAULTLIGHTING) on or off. One unknown name switches nothing |
 | `autocad_set_render_exposure` | Change | Exposure (EV, -6 to 21, lower is brighter) and White balance (K) as EXPVALUE / EXPWHITEBALANCE; an AutoCAD without them is told to use RENDEREXPOSURE |
+
+## Associative arrays, tiled viewports, hyperlinks, geographic location
+
+Part 2 of the smaller ribbon gaps ([#119](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/119);
+[D-110](DECISIONS.md), [D-111](DECISIONS.md)). The array and the location are done by the plug-in,
+which COM has no call for; the rest is COM. Not proven in AutoCAD yet:
+[NEEDS-CHECKING group AQ](NEEDS-CHECKING.md).
+
+| Tool | Level | Purpose |
+|---|---|---|
+| `autocad_associative_array` | Change | ARRAY's one editable array: along a path (`count` end to end, or `spacing`; items follow the path), a grid, or a ring. Refused, with nothing changed, if AutoCAD puts the items anywhere but where asked |
+| `autocad_tiled_viewports` | View | The Model tab in 1, 2, 3 or 4 tiled viewports (VPORTS), or the tiles read back with what they look like; layouts are refused (`autocad_add_viewport` is for sheets) |
+| `autocad_hyperlinks` | Change | A link (a file, a data sheet, a web page, a named view) set on objects, replacing any they had, or removed; before and after per object |
+| `autocad_list_hyperlinks` | Read | The links on given objects, or every linked object in the drawing (found by the link's extended data, PE_URL) |
+| `autocad_geo_location` | Change | GEOGRAPHICLOCATION: a drawing point at a latitude and longitude, north in degrees clockwise from up; proved with AutoCAD's own transform; the sun's place (LATITUDE, LONGITUDE) follows the site. `action='remove'` takes it off |
+| `autocad_get_geo_location` | Read | The location, and whether the sun's place agrees with it |
 
 ## Seeing and checking (Read)
 

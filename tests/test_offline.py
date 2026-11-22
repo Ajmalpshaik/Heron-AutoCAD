@@ -84,6 +84,7 @@ class TestColorParsing:
 
 # Every tool that takes a 'color' option.
 COLOR_TOOLS = (
+    "autocad_associative_array",
     "autocad_create_layer",
     "autocad_draw_line",
     "autocad_draw_circle",
@@ -123,6 +124,7 @@ COLOR_TOOLS = (
     "autocad_section_plane",
     "autocad_add_surface",
     "autocad_add_mesh",
+    "autocad_trace_boundary",
 )
 
 
@@ -319,7 +321,7 @@ class TestToolSurface:
     asserted rather than assumed."""
 
     async def test_all_tools_registered(self, tools):
-        assert len(tools) == 184
+        assert len(tools) == 196
 
     async def test_every_name_is_namespaced(self, tools):
         assert all(tool.name.startswith("autocad_") for tool in tools)
