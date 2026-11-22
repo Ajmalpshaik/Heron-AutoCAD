@@ -180,6 +180,17 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
 - `autocad_thicken_surface(both_sides=true)`: AutoCAD's API does not say whether the thickness is
   split between the two sides or added to each. Row H9 measures it; until then read the volume it
   reports.
+- **Pyramid, polysolid and the face edits** ([D-112](DECISIONS.md), [D-113](DECISIONS.md)) need
+  the plug-in built with them (eight more operations); an older one says it does not know them.
+  `autocad_add_pyramid` stands straight up from its base (no tilted axis): turn or move it after.
+  `autocad_add_polysolid` needs a path flat in plan and makes a plain rectangular section going
+  straight up; a path that turns tighter than the wall is wide, or crosses itself, is refused. It
+  is one solid with no POLYSOLID grips: change it by editing faces or by drawing it again.
+- `autocad_edit_solid_faces(action="taper")`: which way a positive angle leans is SOLIDEDIT's (in)
+  by intent, not proven for the API; read `volume_after` (smaller is in) until row AR9 passes.
+  Face rotate and copy, and colouring a face, are not built. Imprint keeps the objects it presses
+  on; it takes lines, arcs, circles, polylines, splines, regions and solids, not text or blocks.
+  Separate keeps the solid as one of the pieces; pieces that touch, even at an edge, stay one.
 - A plug-in operation keeps the one-chat hold for as long as it runs, and checks the padlock
   again when it starts. It may wait up to 30 s for AutoCAD to be free; a disconnect in those
   seconds does not stop it.

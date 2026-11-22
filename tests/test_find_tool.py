@@ -145,6 +145,13 @@ CASES = [
     ("thicken this roof surface", "autocad_thicken_surface"),
     ("fill the terrace with the paver block like a hatch", "autocad_super_hatch"),
     ("superhatch this area with a block", "autocad_super_hatch"),
+    # Pyramid, polysolid and the rest of SOLIDEDIT (D-112, D-113; #182-#184).
+    ("make a pyramid 600 square 900 high", "autocad_add_pyramid"),
+    ("draw a 200 thick bund wall round the tank", "autocad_add_polysolid"),
+    ("taper the sides of the plinth 5 degrees", "autocad_edit_solid_faces"),
+    ("move the end face of the beam 200", "autocad_edit_solid_faces"),
+    ("imprint this rectangle on the top face", "autocad_imprint_solid"),
+    ("separate this solid into its pieces", "autocad_separate_solid"),
     # Lights and materials for a render (2026-11-05).
     ("put a warm white LED downlight over the dining table", "autocad_add_light"),
     ("add an IES web light for the bedroom", "autocad_add_light"),
