@@ -4,6 +4,21 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Sheets, preview and counts fixed after the SAC2 split AC set (2026-11-22, [D-125](docs/DECISIONS.md)).**
+  Built and tested offline only; live rows AF19-AF24 are NOT RUN. The server part works after a
+  server restart; the plug-in part needs a plug-in built from this change.
+  - `autocad_add_viewport`: the plug-in no longer sets `StandardScale = CustomScale`, which AutoCAD
+    refused with eInvalidInput on every viewport. Until that plug-in is installed, the server makes
+    the viewport over COM when AutoCAD refuses the plug-in's (`made_by: "com"`, `plugin_note`).
+  - `autocad_create_layout` and `autocad_page_setup`: a sheet's plot is no longer left turned 90
+    degrees by the template, so an A1 landscape reads 841 x 594 with its frame and title block corner
+    to match; `orientation` alone now turns the same sheet size round instead of being ignored; a
+    turned sheet carries a note and one not the way round asked is warned.
+  - `autocad_preview`, `autocad_export` and sheet tools with no layout named use the tab on screen
+    (CTAB), not a stale COM active layout.
+  - The plug-in no longer counts viewports AutoCAD changes itself while it switches tabs, so a
+    `(setvar "CTAB" ...)` is not "1 erased" and brings no erase question.
+  - `autocad_dimension_run`: `total` is the run end to end for every mode (it was 0 for an overall).
 - **Activity palette: Select, Zoom and Undo only where they can act (2026-11-22, D-124).** A card
   for a save, an export, a refused job, a dry run or any job that made and changed nothing now has no buttons
   (before, a "Save Drawing ... made 0, changed 0, erased 0" card still offered all three). Select and

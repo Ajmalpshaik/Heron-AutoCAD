@@ -229,6 +229,19 @@ def plan_run(
     return plan
 
 
+def run_total(entries: Sequence[tuple[str, float]]) -> float:
+    """The run end to end, as the answer's "total" says.
+
+    A chain adds up to it; otherwise it is the longest dimension in the run (an
+    overall, the last of a baseline set, the farthest ordinate). It used to add
+    up chain dimensions only, so mode='overall' drew 4400 and said 0 (2026-11-22).
+    """
+    chain = [float(length) for kind, length in entries if kind == "chain"]
+    if chain:
+        return round(sum(chain), 6)
+    return round(max((float(length) for _, length in entries), default=0.0), 6)
+
+
 def centre_mark_ops(
     centre: Sequence[float],
     radius: float,
@@ -571,7 +584,7 @@ async def autocad_dimension_run(
                     "dimensions": [
                         {**entry, "expected": round(entry["measurement"], 6)} for entry in plan
                     ],
-                    "total": round(sum(e["measurement"] for e in plan if e["kind"] == "chain"), 6),
+                    "total": run_total([(e["kind"], e["measurement"]) for e in plan]),
                     **({"dim_style": dim_style} if dim_style else {}),
                     "hint": "Nothing was drawn. Call again with dry_run=false.",
                 }
@@ -683,7 +696,7 @@ async def autocad_dimension_run(
             "created": len(rows),
             "handles": [r["handle"] for r in rows],
             "dimensions": rows,
-            "total": round(sum(r["expected"] for r in rows if r["kind"] == "chain"), 6),
+            "total": run_total([(r["kind"], r["expected"]) for r in rows]),
             "failed": failed,
             "dim_scale": scale,
         }

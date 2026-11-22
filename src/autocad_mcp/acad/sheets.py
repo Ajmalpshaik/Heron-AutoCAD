@@ -85,6 +85,23 @@ def media_dimensions(media: str) -> tuple[float, float] | None:
     return (width, height)
 
 
+def plot_turned(media: str, orientation: str | None) -> bool:
+    """Whether a sheet on this medium must plot turned 90 degrees to come out the way asked.
+
+    The same rule as the plug-in's SheetMath.PlotTurned (D-125). The medium is
+    matched the right way round whenever the plotter offers it, so the answer
+    is almost always False: the plot is not turned, whatever a template had.
+    Only a medium offered the other way round only is turned.
+    """
+    key = str(orientation or "").strip().lower()
+    if key not in ("portrait", "landscape"):
+        return False
+    size = media_dimensions(media)
+    if not size or size[0] == size[1]:
+        return False
+    return (size[0] < size[1]) != (key == "portrait")
+
+
 def parse_scale(value: str | float) -> float:
     """A scale as paper units per drawing unit.
 

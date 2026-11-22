@@ -225,6 +225,12 @@ namespace Heron.AutoCAD.Addin
                 {
                     written.Add(("paper_size", LocaleName(psv, ps, plan.Media)));
                     if (plan.Orientation.Length > 0) written.Add(("orientation", plan.Orientation));
+                    // The medium was picked the right way round, so the plot is not turned,
+                    // whatever the template had (D-125): a new layout kept the template's 90
+                    // degrees on an 841 x 594 sheet and was reported upright (2026-11-22).
+                    var turned = SheetMath.PlotTurned(plan.Media, plan.Orientation);
+                    psv.SetPlotRotation(ps, turned ? PlotRotation.Degrees090 : PlotRotation.Degrees000);
+                    written.Add(("plot_rotation", turned ? "90" : "0"));
                 }
                 psv.SetPlotType(ps, Autodesk.AutoCAD.DatabaseServices.PlotType.Layout);
                 psv.SetUseStandardScale(ps, true);
@@ -413,7 +419,9 @@ namespace Heron.AutoCAD.Addin
             vp.TwistAngle = twist * Math.PI / 180.0;
             SheetMath.ViewCentre(look[0], look[1], twist, out var dx, out var dy);
             vp.ViewCenter = new Point2d(dx, dy);
-            vp.StandardScale = StandardScaleType.CustomScale;
+            // CustomScale alone: it makes the scale a custom one itself. Setting
+            // StandardScale to CustomScale is refused with eInvalidInput, which failed
+            // every viewport on 2026-11-22 (add-in log, Sheets.cs set_StandardScale; D-125).
             vp.CustomScale = ratio;
 
             string clippedTo = "";

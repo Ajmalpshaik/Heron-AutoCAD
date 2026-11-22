@@ -8,7 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (Activity palette buttons, D-124)
+## Latest - 2026-11-22 (six problems from the SAC2 split AC set, D-125)
+
+Found drawing the SAC2 set live; fixed and tested offline in one PR, nothing run in AutoCAD.
+The add-in log (`%LOCALAPPDATA%\Heron\autocad\logs\addin-20261122.log`) named the viewport's bad
+line. What is left is live: rows **AF19-AF24**, all NOT RUN. **AF20 first**: the four SAC2 sheets
+may really be turned 90 degrees, so Page Setup on each wants a look before any PDF is made. The
+server part works after a server restart; the viewport and tab-switch parts of the plug-in need a
+plug-in built from this change (it compiles for all three builds). Decision number D-125 and rows
+AF19-AF24 were taken while #236 (D-123) and #237 (D-124, X26-X28) were open; both are merged.
+
+## Earlier - 2026-11-22 (Activity palette buttons, D-124)
 
 The Activity palette now shows Select / Zoom / Undo only where they can act (`PaletteRows.Buttons`,
 D-124): a save, export, dry run or empty job gets none. Built and tested offline; rows X26-X28 NOT

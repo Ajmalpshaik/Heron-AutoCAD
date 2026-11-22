@@ -130,6 +130,49 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-125 - Sheets follow the tab on screen and are never left turned; a tab switch is not an erase
+
+**Decided:** 2026-11-22, after the SAC2 split AC set was drawn live (AutoCAD 2027, server 1.10.1,
+plug-in 1.8.0). **Status:** in force; live rows AF19-AF24, all NOT RUN. Five things went wrong:
+
+- **Every viewport was refused** "AutoCAD refused it (InvalidInput)". The add-in log named the line:
+  `Viewport.StandardScale = CustomScale`, which AutoCAD refuses (custom is what `CustomScale` sets by
+  itself). The line is gone. Until a plug-in with that fix is installed, the server makes the
+  viewport over COM (row D16's PASS route) when the plug-in's answer is "AutoCAD refused it (" -
+  the plug-in aborted, so nothing is made twice. A clipped viewport (plug-in only) and Heron's own
+  refusals (padlock, bad layer name, HERONSTOP) are still the answer. The MVIEW + ZOOM xp LISP that
+  worked by hand is not built in: it needs Admin and leaves a command open if one prompt is wrong.
+- **An A1 landscape sheet read back 594 x 841 with a 90 degree plot.** A new layout kept the
+  template's plot rotation while taking the 841 x 594 medium. The medium is already picked the
+  right way round, so a new sheet's plot is now **never turned** (`SheetMath.PlotTurned` /
+  `plot_turned`: only a medium the plotter offers one way round only is turned), in the plug-in,
+  in `autocad_page_setup` (when an orientation is passed) and, for plug-in 1.8.0, by the server
+  afterwards over COM; a busy AutoCAD there is a note, never a failure of a sheet already made.
+  `orientation` alone now turns the same sheet size round instead of being ignored. A turned sheet
+  says so (`plot_turned_note`) and a sheet not the way round asked is warned. **Left open on
+  purpose:** for a sheet that *is* turned, the plug-in's read swaps the sides (Autodesk's
+  GetMaximumExtents rule) and the COM read does not. The one live fact (841 x 594 on screen at 90
+  degrees) agrees with the COM read, so it is not changed blind; AF20 and AF21 decide which side
+  is wrong. New sheets are not turned, so both agree on them.
+- **The preview plotted SAC2-102 while SAC2-104 was on screen.** COM's `ActiveLayout` had not
+  followed the tab the plug-in put up. The preview, the PDF export and every sheet tool with no
+  layout named now take the tab from CTAB, and a plot first makes that tab COM's active one (it is
+  already on screen, so nothing visible changes) and says so (`layout_note`).
+- **A run_lisp that only set CTAB said "8 changed, 1 erased" and asked the erase question.**
+  AutoCAD turns viewports off and on, and may erase and remake a sheet's paper-space viewport, as it
+  switches tabs. Between AutoCAD's "CTAB changing" and "CTAB changed" events (`TabSwitchWindow`,
+  a window that shuts by itself after 5 s) the add-in leaves **viewports** out of the change count;
+  every other object is still counted, so a lost event can never hide a real erase of the
+  modeller's work. Which object was erased on 2026-11-22 was not logged (the modeller
+  kept it erased); AF23 records it. `JobChanges` itself is not changed.
+- **`dimension_run` mode='overall' said `"total": 0`.** The total added up chain dimensions only;
+  it is now the chain's sum, or else the longest dimension in the run (`run_total`).
+
+The P-trap block whose polyline looked grey was checked: `autocad_make_block` copies the members
+as they are and sets only the insert's layer, so it changes no member's colour or layer. A member
+on layer 0 or ByBlock takes the insert's layer (the current one when `layer` is not given), and a
+thin line in a preview can look grey. AF24 checks it once; nothing was changed for it.
+
 ## D-120 - A layer standard is a CSV the office fills on its own PC; Heron ships only a generic example
 
 **Decided:** 2026-11-22, for issue #70. **Status:** in force; live rows Group AT, all NOT RUN. Builds

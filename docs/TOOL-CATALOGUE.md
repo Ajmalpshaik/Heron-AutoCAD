@@ -1652,7 +1652,7 @@ Filtering happens inside AutoCAD rather than in Python, so this stays fast on dr
 **Limits and versions.**
 - Uses the plug-in for speed when it can (from plug-in 1.8.0); otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows A31, AS1, AS3, AN13, AL1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows A31, AF24, AS1, AS3, AN13, AL1).
 
 ### `autocad_list_groups`
 
@@ -3511,7 +3511,7 @@ Use for every separate part (fitting, elbow, clamp, plate, anchor, support piece
 - A tag with a space, a tag given twice, a constant attribute with no default, or constant and preset together are refused before anything is made.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **PARTLY**: rows A25 passed in AutoCAD 2027; the rest are NOT RUN (rows A25, K7, AC1, AC2).
+**Live proof.** **PARTLY**: rows A25 passed in AutoCAD 2027; the rest are NOT RUN (rows A25, K7, AC1, AC2, AF24).
 
 ### `autocad_manage_xref`
 
@@ -4144,7 +4144,7 @@ Say where to look — a point, a window, a saved view, or a set of objects — a
 - A saved view the drawing does not have is reported with the ones it has.
 - The plug-in does part of the work (`add_viewport`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **PARTLY**: rows D16 passed in AutoCAD 2027; the rest are NOT RUN (rows D13, D14, D15, D16, D19, AF5, AF6, AF7, AF8, AF11, AQ7, AL7, S9).
+**Live proof.** **PARTLY**: rows D16 passed in AutoCAD 2027; the rest are NOT RUN (rows D13, D14, D15, D16, D19, AF5, AF6, AF7, AF8, AF11, AF19, AQ7, AL7, S9).
 
 ### `autocad_create_layout`
 
@@ -4178,7 +4178,7 @@ Returns the sheet's arithmetic worked out — paper size, frame, the corner a ti
 - copy_from naming a layout that is not there lists the ones that are.
 - The plug-in does part of the work (`create_layout`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **FAIL**: a live row failed and has not passed since (rows D8, D9, J5, AF1, AF3, AF11, AF17). Do not rely on it.
+**Live proof.** **FAIL**: a live row failed and has not passed since (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22). Do not rely on it.
 
 ### `autocad_list_layouts`
 
@@ -4296,7 +4296,7 @@ This is AutoCAD's Page Setup, done to one sheet or to every sheet at once — th
 - The plotter is set before the sheet size, because a device only offers its own sizes.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D10, D11).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D10, D11, AF20, AF21).
 
 ### `autocad_place_title_block`
 
@@ -6082,7 +6082,7 @@ The format comes from the file extension. DXF, WMF, SAT, BMP, EPS and STL are wr
 - An unknown paper_size lists the sizes the plotter does offer.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D19, D20, AQ10).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D19, D20, AF22, AQ10).
 
 ### `autocad_list_drawings`
 
@@ -6413,7 +6413,7 @@ Use after drawing something, to check it looks right before reporting it done. P
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AM1, AM2, AM4, AM5, AM6, AH1, AR1).
+**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, AM1, AM2, AM4, AM5, AM6, AH1, AR1).
 
 ### `autocad_project_notes`
 
@@ -6509,7 +6509,7 @@ Unlike autocad_send_command, this gets a value back. AutoCAD's COM interface has
 - One top-level form over LISP_MAX_CHARS (2,000) characters is refused, never cut: AutoCAD drops longer command-line text without a word.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, S10).
+**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, S10).
 
 ### `autocad_saved_command`
 

@@ -730,3 +730,107 @@ def test_a_sheet_made_but_not_as_asked_is_listed_and_stops_the_set(drawing, monk
     assert out["sheets"][0]["layout"] == "M-101" and "went busy" in out["sheets"][0]["warning"]
     assert out["sheets"][0]["unfinished"] is True
     assert out["stopped"]["number"] == "M-101"
+
+
+# ---------------------------------------------------------------------------
+# 2026-11-22, the SAC2 set (D-125)
+# ---------------------------------------------------------------------------
+
+REFUSED = "AutoCAD refused it (eInvalidInput). Nothing was changed."
+
+
+class TestAutoCADRefusingThePlugInsViewport:
+    """Plug-in 1.8.0 set StandardScale = CustomScale, which AutoCAD refuses: every viewport failed."""
+
+    def _com(self, monkeypatch):
+        made = []
+
+        class Viewport:
+            Handle = "3B0"
+            Layer = "0"
+
+        monkeypatch.setattr(sheets, "_activate", lambda d, s: None)
+        monkeypatch.setattr(sheets, "_new_viewport", lambda d, name, cx, cy, pw, ph: made.append(name) or Viewport())
+        monkeypatch.setattr(sheets, "_aim", lambda d, v, w, a, r, locked, annotation: {"scale_set": r})
+        return made
+
+    def test_it_is_made_over_com_and_the_answer_says_why(self, drawing, monkeypatch):
+        _, plugin = drawing
+        plugin.refuse["add_viewport"] = REFUSED
+        made = self._com(monkeypatch)
+        out = call(sheets.autocad_add_viewport(layout="Layout1", centre=[2000, 1000], scale="1:25"))
+        assert made == ["Layout1"]
+        assert out["made_by"] == "com" and out["handle"] == "3B0"
+        assert "eInvalidInput" in out["plugin_note"] and "over COM" in out["plugin_note"]
+
+    def test_a_clipped_one_is_not_made_over_com(self, drawing, monkeypatch):
+        _, plugin = drawing
+        plugin.refuse["add_viewport"] = REFUSED
+        made = self._com(monkeypatch)
+        answer = error(sheets.autocad_add_viewport(layout="Layout1", centre=[0, 0], scale="1:50", clip_outline=[[0, 0], [10, 0], [10, 10]]))
+        assert "eInvalidInput" in answer and made == []
+
+    def test_herons_own_refusal_stays_the_answer(self, drawing, monkeypatch):
+        _, plugin = drawing
+        plugin.refuse["add_viewport"] = "'G|VPRT' cannot be a layer name. Nothing was changed."
+        made = self._com(monkeypatch)
+        assert "cannot be a layer name" in error(sheets.autocad_add_viewport(layout="Layout1", centre=[0, 0], scale="1:50"))
+        assert made == []
+
+
+class TestASheetLeftTurnedByTheTemplate:
+    """create_layout(A1, landscape) by plug-in 1.8.0: the 841 x 594 medium, a template's 90 degrees kept."""
+
+    def _turned(self, plugin, rotation=90):
+        real = plugin.__call__
+
+        def made(operation, args):
+            report = real(operation, args)
+            if operation == "create_layout":
+                report["paper"].update(size=[594.0, 841.0], plot_rotation_degrees=rotation)
+                plugin.doc.Layouts.items[-1].PlotRotation = 1 if rotation == 90 else 0
+            return report
+
+        return made
+
+    def test_the_turn_is_taken_off_and_the_sheet_reads_landscape(self, drawing, monkeypatch):
+        doc, plugin = drawing
+        monkeypatch.setattr(_shared, "plugin_runner", lambda: self._turned(plugin))
+        out = call(sheets.autocad_create_layout(name="SAC2-101", paper_size="A1", orientation="landscape"))
+        layout = doc.Layouts.items[-1]
+        assert layout.PlotRotation == 0
+        assert out["page_setup"]["plot_rotation"] == 0 and out["page_setup"]["plot_rotation_was"] == 90
+        assert out["paper"]["paper"] == [841.0, 594.0]
+        assert out["sheet"]["orientation"] == "landscape"
+        assert out["sheet"]["frame"] == [20.0, 10.0, 831.0, 584.0]
+        assert out["sheet"]["title_block_at"] == [831.0, 10.0]
+        assert "warning" not in out
+
+    def test_a_sheet_already_right_is_left_alone(self, drawing):
+        doc, _ = drawing
+        out = call(sheets.autocad_create_layout(name="SAC2-101", paper_size="A1"))
+        assert "plot_rotation_was" not in out["page_setup"]
+        assert out["sheet"]["orientation"] == "landscape"
+
+    def test_a_turn_autocad_will_not_take_off_is_warned(self, drawing, monkeypatch):
+        doc, plugin = drawing
+        monkeypatch.setattr(_shared, "plugin_runner", lambda: self._turned(plugin))
+        monkeypatch.setattr(sheets, "_write", lambda target, name, value: False)
+        out = call(sheets.autocad_create_layout(name="SAC2-101", paper_size="A1", orientation="landscape"))
+        assert "would not change that" in out["page_setup"]["plot_rotation_note"]
+        assert "asked for landscape but reads portrait" in out["warning"]
+
+
+def test_a_busy_autocad_while_taking_the_turn_off_never_fails_a_made_sheet(drawing, monkeypatch):
+    # #40: AutoCAD goes busy just after a layout is made. The sheet exists, so a retry would only
+    # be told the name is taken: the answer must be the sheet, with a note.
+    doc, plugin = drawing
+    monkeypatch.setattr(_shared, "plugin_runner", lambda: TestASheetLeftTurnedByTheTemplate()._turned(plugin))
+
+    def busy(target, name, value):
+        raise BUSY
+
+    monkeypatch.setattr(sheets, "_write", busy)
+    out = call(sheets.autocad_create_layout(name="SAC2-101", paper_size="A1", orientation="landscape"))
+    assert out["created"] is True and out["layout"] == "SAC2-101"
+    assert "would not change that just now" in out["page_setup"]["plot_rotation_note"]

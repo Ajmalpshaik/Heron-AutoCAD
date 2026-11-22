@@ -91,6 +91,27 @@ namespace Heron.AutoCAD.Bridge
         }
 
         /// <summary>
+        /// Whether a sheet on this medium must plot turned 90 degrees to come out the way
+        /// asked (D-125). The medium is matched the right way round whenever the plotter
+        /// offers it (an A1 landscape is the 841 x 594 one), so this is false and the plot
+        /// is not turned: a template's own 90 degrees is not kept, or the landscape medium
+        /// would come out upright. Only a medium the plotter offers one way round only
+        /// (a printer's 594 x 841 for "A1 landscape") is turned. No orientation asked, a
+        /// square sheet, or a name with no size in it: not turned.
+        /// </summary>
+        public static bool PlotTurned(string media, string orientation)
+        {
+            var key = (orientation ?? "").Trim().ToLowerInvariant();
+            if (key != "portrait" && key != "landscape") return false;
+            var match = MediaName.Match(Normal(media));
+            if (!match.Success) return false;
+            if (!double.TryParse(match.Groups["w"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var width)) return false;
+            if (!double.TryParse(match.Groups["h"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var height)) return false;
+            if (width == height) return false;
+            return (width < height) != (key == "portrait");
+        }
+
+        /// <summary>
         /// A layout's sheet and margins as paper space sees them. AutoCAD keeps them in
         /// millimetres and the media's own way round: divide by <paramref name="perUnit"/>
         /// (25.4 for an inch layout) and swap the sides when the plot is turned 90 or 270
