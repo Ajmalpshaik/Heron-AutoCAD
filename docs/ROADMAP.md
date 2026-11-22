@@ -35,6 +35,8 @@ done looks like here.
 - [ ] Sign the add-in DLLs, so AutoCAD's SECURELOAD never asks. ([#72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72))
 - [ ] An installer `.exe` / `.msi` for modellers (today: two Python scripts). ([#73](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/73))
 - [ ] Move tools into the plug-in one at a time where it pays off (speed, true transactions), keeping COM as the fallback. ([#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74))
+  The entity summary and a layer's extents moved first ([D-114](DECISIONS.md)); the ranked list of
+  what comes next, one issue each: [13](13-moving-tools-into-the-plug-in.md).
 
 ## Found in the first live checks (2026-10-26)
 

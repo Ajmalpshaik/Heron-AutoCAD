@@ -130,6 +130,42 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-106 - PDF Import types -PDFIMPORT with every answer in one form, through autocad_run_lisp's sender
+
+**Decided:** 2026-11-21, for issue #113. **Status:** in force; live rows Group AO, all NOT RUN.
+`autocad_import_pdf` (Change) brings one page of a PDF in as lines, text and hatches.
+- **No API.** Neither COM nor .NET has a PDF import (Autodesk on its .NET forum, 2019; nothing
+  since). Attaching an underlay and converting it in the plug-in is no better: it still has to run
+  the same command, with more questions (area, then Keep / Detach / Unload). So the command is
+  typed, as the ribbon audit said ([12](12-autocad-ribbon-coverage.md)).
+- **One form, every answer.** `(command "_.-PDFIMPORT" "_File" <path>)`, then page, point, scale
+  and angle, each given only while CMDNAMES still says PDFIMPORT, so a command that ends early
+  never gets the rest typed at the Command prompt. The path is one LISP string, so a space in it is not an Enter; the point is a LISP
+  list in the current UCS; the angle is degrees, with AUNITS, ANGBASE and ANGDIR set to 0 for the
+  call. It goes through `advanced.send_lisp_pieces`, the sender `autocad_run_lisp` now uses too:
+  object snaps off, a command still asking is cancelled and named (known limit 21), the pieces
+  after it are not sent, one undo step. Nothing is loaded from a file (D-21).
+- **Checked first, refused plainly:** a missing file, one not a PDF inside, a page past the last
+  (read only from the page tree's root, in the file or its object streams; anything less sure means
+  AutoCAD answers), a release not 2021-2027 (ACADVER: an answer to the wrong question lands at the
+  next prompt), an AutoCAD with no PDFIMPORTMODE, a tilted or flipped UCS. A busy AutoCAD is asked
+  again, never called "no PDF Import"; a setting it was too busy to put back is named, and then the
+  call is not asked again (it would read Heron's values as his).
+- **What comes in** is set for the call and put back: FILEDIA 0 (the file name on the command
+  line), PDFIMPORTFILTER from `what` (bits leave out 1 geometry, 2 TrueType text, 4 fills; 8
+  pictures always: AutoCAD writes each picture out as a file, which a Change tool must not do),
+  PDFIMPORTMODE with bit 1 (one block) off and bit 8 (fills as hatches) on, his lineweight and join
+  bits kept.
+- **What came in** is walked in LISP from the object that was last before the command: counted
+  by type, boxed, and moved onto `layer` if given (made only after the command finished, so a
+  cancelled import leaves no layer). The PDF layers AutoCAD made are named, for a purge.
+- **Not proven:** the six questions and the variable bits were read from Autodesk's help through a
+  search, because help.autodesk.com could not be opened from this session; whether a one-page PDF
+  still asks for the page is the first thing AO1 checks. How big a page comes in at scale 1 is not
+  said until AO9 measures it.
+- **By hand**, if a row fails: Insert > Import > PDF Import, pick the file and the page, untick
+  Specify insertion point on-screen or pick it, set the layers option, OK.
+
 ## D-118 - The live-check runner measures the later groups, never moves a padlock, never answers a box
 
 **Decided:** 2026-11-21. **Status:** in force. Adds to the runner's own design (`tools/live_check.py`,
@@ -137,7 +173,7 @@ groups D, E and F).
 `tools/live_check.py` now also measures the rows of groups M to Z, AA to AP and RV that a script can
 judge: a count, a size, a refusal's words, a value read back with another tool. One file per area
 (`live_check_edits.py` AA, `live_check_layers.py` AB, `live_check_blocks.py` AC and Y,
-`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL, `live_check_ribbon2.py` AQ, `live_check_cleanup.py` AD,
+`live_check_render.py` AE, `live_check_drawing.py` AP and AM, `live_check_mep3d.py` AH, `live_check_styles.py` AN and AL, `live_check_ribbon2.py` AQ, `live_check_cleanup.py` AD, `live_check_reads.py` AS and AO,
 `live_check_heron.py` M to Z, AG, AJ and RV), sharing `live_common.py`.
 - **The padlocks come first, and are only read.** Since D-59 every AutoCAD starts with them off. The
   runner reads them from the plug-in before anything else: Changes off stops it with "Turn Changes on
@@ -184,6 +220,31 @@ D-69 / D-75, which stand. Nothing Ajmal decided changes (D-59, D-60, D-73, #158)
   and the folder-close test now reaches the code it tests.
 - **Left to issues, in areas other sessions are changing:** #189-#191 and #206-#212 (the palette
   Undo's guessed mark and the batch text escape first). Live rows: Group RV (NOT RUN).
+
+## D-114 - A read over the whole drawing may move into the plug-in for speed; COM stays the fallback
+
+**Decided:** 2026-11-21, on issue #74 ("move tools into the plug-in one at a time where it pays
+off, keeping COM as the fallback"). **Status:** in force; extends D-14 and D-40. D-40 moved a job
+into the plug-in only when COM has no call for it. Now a tool may also move when COM can do it but
+only one round trip per object: a read over the whole drawing or a layer, and later a change that
+needs one transaction. The first two: `autocad_list_entities(summary_only=true)` (plug-in operation
+`count_entities`) and `autocad_get_extents(layer=...)` (`entity_extents`), both at Read. The rules:
+(1) the plug-in selects with the same DXF filter COM selects with (`acad/selection.filter_pairs`,
+all of the drawing as ssget "X" takes it) and hands back raw facts: the class name COM gives as
+ObjectName, the layer, unrounded corners. The server builds the answer from either path with the
+same code, so it is the same either way; offline tests compare the two as text. (2) COM is kept,
+and used when the plug-in is not in the job, is older than `READS_SINCE` (1.8.0, read from its
+address file), says it does not have the operation, or could not do the read. A stop, "Outcome
+unknown" or another chat's hold is said, never read again over COM. (3) The answer does not say
+which path read it, so a chat never acts differently because of it; the plug-in's log names each
+operation, for the live check. (4) One tool at a time, each with its own issue and PR, in the order
+of [13](13-moving-tools-into-the-plug-in.md), and never a tool another session is changing.
+`READS_SINCE` assumes the release that carries these reads is 1.8.0; a test fails if the plug-in
+version is bumped to anything between. Rejected: a general "read any property of every object"
+request (a second COM in JSON, with nothing to check what it reads), and dropping the COM path (an
+older plug-in, or one whose read fails, would lose a tool that worked). Also from this: a layer
+holding only rays or construction lines now says it has no extents, on both paths, instead of
+answering Infinity.
 
 ## D-111 - Tiled viewports and hyperlinks are COM; DWF goes the PDF way; the geographic location is the plug-in's and shares the sun's place
 

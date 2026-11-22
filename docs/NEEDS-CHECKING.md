@@ -9,7 +9,7 @@
 `tools/install_plugin.py`), start AutoCAD, open a scratch drawing, and connect Claude Code in this
 folder.
 
-**Many rows run themselves** (groups D, E, F, M to Z, AA to AQ, RV; D-118). With AutoCAD open,
+**Many rows run themselves** (groups D, E, F, M to Z, AA to AS, RV; D-118). With AutoCAD open,
 Heron pressed, **Changes on in Settings** and Ask to Keep off:
 
 ```bash
@@ -703,6 +703,53 @@ folder of three small saved drawings, one with an xref. **Every row below is NOT
 | AF16 | AF1-AF15, AF17 and AF18 on AutoCAD 2025/2026 and 2021-2024 | As those rows | NOT RUN (no PC with those versions yet) |
 | AF17 | `autocad_create_layout(name="AF-ANSI", plotter="DWG To PDF.pc3", paper_size="ANSI D")` in a drawing from acad.dwt (inch paper units); then a sheet copied from a template whose page setup plots at 90 degrees | The answer's `paper` is 34 x 22 (inches, not 863.6 x 558.8) and the frame matches PAGESETUP; on the turned sheet the frame is the right way round. If either is 25.4 times too big or swapped, the plug-in's paper read (`SheetMath.PaperInUnits`) is wrong | NOT RUN |
 | AF18 | A drawing whose xref has its own xref (nested); rename the nested one's file; publish the folder | Refused naming `<xref>|<nested>`; put the file back and it publishes | NOT RUN |
+
+## Group AS - Reads the plug-in does in one go: the entity summary and a layer's extents (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-114](DECISIONS.md), issue #74). Built and tested offline only
+(`tests/test_plugin_reads.py` compares the plug-in and COM answers on one fake drawing;
+`EntityReadsTests.cs` the plug-in's counting and filter). The plug-in operations `count_entities` and
+`entity_extents` build for all three targets but have never run. Needs the plug-in rebuilt and
+reinstalled at **1.8.0 or newer** (an older one is read over COM), and the server restarted. "Over
+COM" below means the same call to a second server started with `--no-bridge` (developer use: it
+reads over COM only); the plug-in's log (`%LOCALAPPDATA%\Heron\autocad\logs`) shows
+`operation count_entities` / `operation entity_extents` when the plug-in read it. **Every row below
+is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AS1 | A real project drawing with model space and two sheets (title blocks, viewports). `autocad_list_entities(summary_only=true)`, then the same over COM | The log shows `operation count_entities`; `total_matching`, `by_type` and `by_layer` are the same both ways, key order too, paper-space objects (viewports, title blocks) included in both | NOT RUN |
+| AS2 | Same drawing: `summary_only=true` with `layer='M-*'`, `layer='m-duct'` (other case), `entity_type='dimension'`, `block_name='<a block>'`, `color='red'`, and a layer that does not exist | Each the same as over COM; the missing layer is a count of 0, not an error | NOT RUN |
+| AS3 | A drawing with 20,000 or more objects: time `autocad_list_entities(summary_only=true)` with the plug-in and over COM | Same answer; write both times in the result. Pass: the plug-in is clearly faster | NOT RUN |
+| AS4 | `autocad_get_extents(layer=<a layer with lines, text, a block and a 3D solid>)`, then over COM | The log shows `operation entity_extents`; `min`, `max`, `width`, `height`, `center` and `entity_count` are the same to the last digit | NOT RUN |
+| AS5 | A layer holding one XLINE and one RAY: `autocad_get_extents(layer=...)` both ways; and a layer with nothing on it | Both: "has 2 object(s), but none with extents"; the empty layer: "has no geometry", as before | NOT RUN |
+| AS6 | Draw a line yourself, run AS1 and AS4, then press Ctrl+Z once | The Ctrl+Z takes away **your line**: the reads left no undo step (the plug-in's transaction is aborted; COM's reused selection set adds none) | NOT RUN |
+| AS7 | Install plug-in 1.7.0 (or any older one), run AS1 and AS4 | Both answer over COM (no `operation` line in the log), no error, the same answers as with 1.8.0 | NOT RUN |
+| AS8 | Select two objects yourself, run AS1, then type SELECT and P (previous) | Note what is selected before and after, with the plug-in and over COM; Pass: the read does not leave AutoCAD's own selection or "previous" set different from what COM leaves | NOT RUN |
+| AS9 | Start LINE and leave it waiting for a point; run AS1 | The read answers, or gives the busy answer naming LINE; no error box; LINE is still waiting | NOT RUN |
+
+## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only
+(`tests/test_pdf_import.py`). Server only, no plug-in change: restart the server after pulling.
+The six questions and the three variables were read from Autodesk's help **through a search**
+(the help site could not be opened from the session that wrote this): AO1 and AO2 prove them.
+Use a PDF printed from AutoCAD (two pages, a few lines and some TrueType text) and a scanned
+one-page PDF. `autocad_status` first. After each row press **Ctrl+Z once** and check the drawing
+is back as it was (one undo step). **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AO1 | Before anything else, type `-PDFIMPORT` by hand with FILEDIA 0 and choose File, and write down every prompt it shows, in order, up to the end; then the same on a **one-page** PDF | Exactly: underlay or [File] / file name / page number / insertion point / scale factor / rotation, and nothing after. If the one-page PDF skips the page prompt, or any prompt differs, this row is **FAIL**: write the prompts here; the fix is in `acad/pdf_import.py` (`command_form`) | NOT RUN |
+| AO2 | `(getvar "PDFIMPORTFILTER")`, `(getvar "PDFIMPORTMODE")` before; then `autocad_import_pdf(path=<two-page PDF>, page=2, insertion=[1000,1000], scale=1, layer='M-PDF')` | Page 2 comes in at 1000,1000 on M-PDF (lines, text as MTEXT or TEXT, fills as hatches), `imported`, `by_type` and `box` match what is seen; afterwards both variables, FILEDIA, OSMODE, AUNITS, ANGBASE and ANGDIR are what they were; `Command:` is free; one Ctrl+Z takes all of it away, M-PDF too | NOT RUN |
+| AO3 | Same PDF, `what=['lines']`, then `what=['text']` | First: no text, no hatches; second: only text | NOT RUN |
+| AO4 | `autocad_import_pdf` with `page=3` on the two-page PDF | Refused before AutoCAD is asked ("has 2 pages"); nothing sent | NOT RUN |
+| AO5 | Tick **Import as block** in the PDF Import dialog once (PDFIMPORTMODE then has bit 1), cancel it; run AO2 again | The page comes in as loose objects, not one block, `"release": 2027`; afterwards PDFIMPORTMODE is what it was, bit 1 still on | NOT RUN |
+| AO6 | The scanned one-page PDF | Nothing comes in (or only what AutoCAD makes of the picture: nothing, since pictures are left out); the answer says it is most likely a scan; `Command:` is free | NOT RUN |
+| AO7 | A UCS turned 30 degrees (`autocad_set_ucs`), `autocad_import_pdf(insertion=[0,5000], rotation=0)` (world) | The page's lower-left corner is at world 0,5000 and its bottom edge runs along world X, not the UCS X | NOT RUN |
+| AO8 | `autocad_import_pdf` on a PDF whose name and folder have spaces and an Arabic or accented letter | It comes in; the path is not cut at the space | NOT RUN |
+| AO9 | Scale: import a 1:100 A1 PDF of a mm drawing at `scale=1`, measure one known dimension with `autocad_measure`, work out the scale that makes it true, import again with it | Write the scale that was right here (it says how AutoCAD sizes a page at 1), so the tool's help can say it plainly | NOT RUN |
+| AO10 | On AutoCAD 2025 or 2026, and on 2021-2024: AO1 and AO2 | Same prompts and result | NO MACHINE |
 
 ## Group AP - The smaller draw gaps: construction line and ray, region, donut, divide / measure (AutoCAD 2027, this PC)
 

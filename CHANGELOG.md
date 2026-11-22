@@ -10,7 +10,7 @@ Newest first. Dates are when the change was made.
   (`made_by` says which), and over COM a busy moment after the layout is added is answered from
   the drawing read back instead of "Outcome unknown". `copy_from` copies a sheet with everything on
   it. Viewports can be **clipped** to an outline or a closed shape on the sheet, and get their
-  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**191** in all):
+  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**192** in all):
   a drawing list (number, title, scale, view) into sheets, viewports and filled title blocks, checked
   whole first, one undo step. `autocad_publish_pdf` takes a **folder** or a **list of drawings**,
   refusing an unsaved one or a missing xref by name. Title blocks go into the layout's own block;
@@ -18,6 +18,27 @@ Newest first. Dates are when the change was made.
   falls back to the active layout's block. Three new plug-in operations
   ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). `align_to_ucs` now twists the view the other way (337 for a UCS turned 23; reasoned, AF6). Live rows AF1-AF18 NOT RUN.
 
+- **The live-check runner covers groups AS and AO too (2026-11-21, D-118).** AS5 is measured (a
+  layer of rays and an empty layer say why they have no extents); the other AS rows compare the plug-in
+  with a second server started with --no-bridge, and the AO rows need the PDFs they name, so they have
+  their reason. 198 rows measured in all, 201 with a reason.
+
+- **The entity summary and a layer's extents are read by the plug-in in one go (2026-11-21, #74).**
+  `autocad_list_entities(summary_only=true)` and `autocad_get_extents(layer=...)` looked at every
+  object over COM, one or more round trips each. Plug-in 1.8.0 does both reads itself
+  (`count_entities`, `entity_extents`) with the same filter, and the server builds the same answer
+  from either path; an older plug-in is read over COM as before ([D-114](docs/DECISIONS.md)). A
+  layer with only rays or construction lines now says it has no extents instead of answering
+  Infinity. Which tools come next, ranked: [docs/13](docs/13-moving-tools-into-the-plug-in.md).
+  No new tool. Live rows AS1-AS9 NOT RUN.
+
+- **PDF Import (2026-11-21, #113).** `autocad_import_pdf` turns one page of a vendor's or
+  consultant's PDF into lines, text and hatches (choose with `what`), at a point, scale and
+  rotation, all on one layer if asked, and says what came in: counts by type, the box round it, the
+  layers AutoCAD made. There is no API for it, so it types `-PDFIMPORT` with every answer in one
+  form after checking the release (2021-2027), the file and the page, and cancels the command if
+  AutoCAD still asks something; it is never left open. Pictures in the PDF are left out. 191 tools
+  ([D-106](docs/DECISIONS.md)). Live rows AO1-AO10 NOT RUN.
 
 - **The live-check runner covers group AD too (2026-11-21, D-118).** Overkill's list, a room traced
   round a column, eTransmit's refusal and list: 3 rows measured, 9 with their reason (the confirm step

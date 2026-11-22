@@ -26,6 +26,12 @@ drawing; refuse a change to a different drawing than last time; ask the plug-in 
 one chat at a time, padlock for the tool's level from `core/risk.py`); run; after a change, `ask_keep`;
 `end`; write the audit line. The plug-in side and the protocol: [06](06-heron-plugin.md).
 
+COM draws; the plug-in guards ([D-14](DECISIONS.md)). Inside a job the plug-in also does the
+operations COM has no call for ([D-40](DECISIONS.md)), and a few reads over the whole drawing that
+COM could do only one round trip per object ([D-114](DECISIONS.md)): for those, COM stays the
+fallback and the answer is the same either way. Which tools may move next, and why:
+[13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
+
 ## Layers of the code
 
 ```

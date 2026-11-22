@@ -82,6 +82,7 @@ reply gives the paper height. An annotative dimension is not given the drawing's
 | `autocad_xref_tree` | **Read.** Every xref with the xrefs inside it (8 levels), its saved path, the file found on this PC and `loaded` / `unloaded` / `not found`; `broken` lists the ones that lead nowhere ([11](11-adn-repos-study.md)) |
 | `autocad_attach_underlay` | Attach a raster image (PNG, JPG, TIF...) over COM, or a PDF / DWF / DGN underlay by the plug-in: insertion, scale, rotation, `page` (PDF page, DWF sheet, DGN model), layer; `width` sizes an image in drawing units ([D-84](DECISIONS.md)) |
 | `autocad_clip_reference` | Clip an xref, a block, an image or an underlay to two corners or a closed polyline (arcs in short steps); `remove=true` takes the clip off. Image over COM, the rest by the plug-in |
+| `autocad_import_pdf` | PDF Import: one page of a PDF as lines, text and hatches (`what`), at a point, scale and rotation, everything on `layer` if given; reports what came in (`by_type`, `box`, `layers_added`). No API exists: it types `-PDFIMPORT` with every answer in one form, after checking the release (2021-2027), and cancels a command left asking. Pictures in the PDF are left out ([D-106](DECISIONS.md); live rows AO, NOT RUN) |
 
 ## Cleaning up an import, and packing a drawing (Change; eTransmit is Publish)
 
@@ -149,11 +150,11 @@ arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autoli
 
 | Tool | Purpose |
 |---|---|
-| `autocad_list_entities` | Filter by type, layer, block or colour; paginated; summary mode |
+| `autocad_list_entities` | Filter by type, layer, block or colour; paginated; summary mode (counted by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
 | `autocad_get_entity` | All properties and bounding box of one entity |
 | `autocad_get_selection` | What you have selected in AutoCAD right now |
 | `autocad_find_text` | Search text, mtext and block attributes |
-| `autocad_get_extents` | Bounding box of the drawing or one layer |
+| `autocad_get_extents` | Bounding box of the drawing or one layer (a layer measured by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
 | `autocad_measure` | Point-to-point distance, or total length / area of entities or a layer |
 | `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000) |
 

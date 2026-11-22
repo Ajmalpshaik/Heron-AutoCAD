@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (sheets by the plug-in: #64-#67, #39, #40; D-90, D-91)
 
-One new tool, `autocad_sheet_set` (**191** with the other sessions' work), and three new
+One new tool, `autocad_sheet_set` (**192** with the other sessions' work), and three new
 plug-in operations (`create_layout`, `add_viewport`, `active_sheet`); `publish_pdf` takes a list
 of drawings. `autocad_create_layout` and `autocad_add_viewport` ask the plug-in first and fall back
 to COM; viewports clip (`clip_outline`, `clip_handle`) and take an annotation scale; title blocks go
@@ -22,6 +22,37 @@ version is not bumped here (the parent does it). #39 and #40 stay open until the
 rows **AF1-AF15, AF17, AF18**. AF9 decides whether the sheet set really is one undo step; AF6 checks the twist sign,
 which this PR flipped from the code (the old COM path too); AF10 is row D33 again.
 
+## Earlier - 2026-11-21 (tools into the plug-in where it pays off: #74, D-114)
+
+The first two reads moved into the plug-in for speed, with COM kept as the fallback:
+`autocad_list_entities(summary_only=true)` (`count_entities`) and `autocad_get_extents(layer=...)`
+(`entity_extents`). Same filter, same answer either way (`tests/test_plugin_reads.py` runs each
+tool both ways over one fake drawing and compares the text; `EntityReadsTests.cs` for the plug-in
+side). The server uses them only with plug-in **1.8.0** or newer (`READS_SINCE` in `core/bridge.py`;
+a test fails if the version is bumped to anything between 1.7.0 and that). No new tool, no version
+bump. The ranking of what to move next, with each tool's session area:
+[13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md); one issue per tool,
+linked from #74, which stays open as the umbrella.
+
+**Next (on this PC):** rebuild and reinstall the plug-in, restart AutoCAD and Claude, then live rows
+AS1-AS9 against a real project drawing. AS3 is the one that says whether it was worth it: write
+both times in the result.
+
+## Earlier - 2026-11-21 (PDF Import, #113, D-106)
+
+One new Change tool, `autocad_import_pdf` (**191** in all, with the other sessions' work): one page of a PDF as lines, text and
+hatches, at a point, scale and rotation, on one layer, with a report of what came in. No API exists
+(COM or .NET), so it types `-PDFIMPORT` with every answer in one AutoLISP form, through the sender
+`autocad_run_lisp` uses (now `advanced.send_lisp_pieces`): snaps off, a command still asking is
+cancelled and named, one undo step. It checks the release (2021-2027), the file and the page count
+first, and puts back every variable it sets. Server only, no plug-in change. Offline tests:
+`tests/test_pdf_import.py`. Limits: [05 §36](05-known-limits.md#36-pdf-import-has-its-own-limits).
+
+**Next (on this PC):** pull, restart Claude (server only), then live rows AO1-AO9. **AO1 first**:
+type `-PDFIMPORT` by hand on a two-page and a one-page PDF and write the prompts down. The six
+questions were read from Autodesk's help through a search only, and whether a one-page PDF still
+asks for the page is not known; if it differs, the fix is `command_form` in `acad/pdf_import.py`.
+AO9 says what scale 1 means, so the help can say it plainly.
 
 ## Earlier - 2026-11-21 (overkill, boundary, eTransmit, underlays and clips: #112, #104, #118, #114)
 
@@ -43,10 +74,10 @@ when another drawing came to the front. Tested offline; live row AJ8 NOT RUN. Ve
 
 ## Earlier - 2026-11-21 (the live-check runner covers the new groups, D-118)
 
-`tools/live_check.py` now measures 197 rows (131 new, in groups M-Z, AA-AP, RV) and names the
-reason for the other 183 of its groups. One file per area: `live_check_edits.py` (AA),
+`tools/live_check.py` now measures 198 rows (132 new, in groups M-Z, AA-AP, RV) and names the
+reason for the other 201 of its groups. One file per area: `live_check_edits.py` (AA),
 `live_check_layers.py` (AB), `live_check_blocks.py` (AC, Y), `live_check_render.py` (AE),
-`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_ribbon2.py` (AQ), `live_check_cleanup.py` (AD), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
+`live_check_drawing.py` (AP, AM), `live_check_mep3d.py` (AH), `live_check_styles.py` (AN, AL), `live_check_ribbon2.py` (AQ), `live_check_cleanup.py` (AD), `live_check_reads.py` (AS, AO), `live_check_heron.py` (M-Z, AG, AJ, RV), sharing `live_common.py`. Offline, `tests/live_fakes.py` plays a good and
 a bad recorded answer into each check. Nothing has run in AutoCAD: every row is still NOT RUN.
 
 **Next (on this PC):** pull, restart Claude, press Heron, turn Changes on in Settings (Ask to Keep

@@ -49,6 +49,7 @@ def register_all() -> None:
         model_viewports,
         modify,
         patterns,
+        pdf_import,
         project_notes,
         publish,
         query,

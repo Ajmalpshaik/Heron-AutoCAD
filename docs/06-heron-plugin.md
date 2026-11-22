@@ -207,6 +207,8 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `sync_attributes` | `autocad_sync_attributes` | `AttributeReference.SetAttributeFromBlock`, `AttributeCollection.AppendAttribute` (ATTSYNC, [D-82](DECISIONS.md)) |
 | `excel_table` | `autocad_table_from_excel` | `DataLinkManager.AddDataLink`, `Cell.SetDataLink` ([D-83](DECISIONS.md)) |
 | `update_table_links` | `autocad_update_table_links` | `Table.UpdateDataLink(SourceToData, SkipFormat)` |
+| `count_entities` (Read) | `autocad_list_entities(summary_only=true)` | `Editor.SelectAll` with the same DXF filter COM uses; each object's class and layer ([D-114](DECISIONS.md)) |
+| `entity_extents` (Read) | `autocad_get_extents(layer=...)` | `Editor.SelectAll`, `Entity.GeometricExtents` ([D-114](DECISIONS.md)) |
 | `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
 | `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |
 | `attach_underlay` | `autocad_attach_underlay` (PDF, DWF, DGN) | `PdfDefinition` / `DwfDefinition` / `DgnDefinition` in the drawing's dictionary, loaded, and a `PdfReference` / `DwfReference` / `DgnReference` ([D-84](DECISIONS.md)) |
@@ -216,6 +218,12 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.
+
+**Reads the plug-in does faster than COM (plug-in 1.8.0, [D-114](DECISIONS.md)).** `count_entities`
+and `entity_extents` are not "COM has no call for it": COM can do them, but one round trip per
+object. With an older plug-in, or one that cannot do the read, the tool reads over COM instead and
+gives the same answer; a stop or "Outcome unknown" is said, not read again. Which tools come next:
+[13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
 
 ## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)
 
