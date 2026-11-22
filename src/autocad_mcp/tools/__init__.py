@@ -60,6 +60,7 @@ def register_all() -> None:
         sequence,
         settings,
         shapes,
+        sheet_set,
         sheets,
         solid_edits,
         solid_faces,

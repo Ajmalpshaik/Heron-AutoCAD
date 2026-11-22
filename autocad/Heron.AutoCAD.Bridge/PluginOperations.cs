@@ -57,6 +57,11 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // Sheets made in .NET, so neither needs doc.PaperSpace (#64, D-90); the
+            // active sheet's own count for autocad_status (#39).
+            ["active_sheet"] = Risk.Read,
+            ["create_layout"] = Risk.Change,
+            ["add_viewport"] = Risk.Change,
             // MLINE's own Close, a spline by control points, and a spline's fit
             // points moved, added or taken away: COM has no call for any (D-97).
             ["close_multiline"] = Risk.Change,
