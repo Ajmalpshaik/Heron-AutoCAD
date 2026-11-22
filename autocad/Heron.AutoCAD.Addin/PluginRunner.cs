@@ -124,6 +124,9 @@ namespace Heron.AutoCAD.Addin
                 case "sync_attributes": return BlockAttributes.Sync(db, tr, args);
                 case "excel_table": return ExcelTables.Make(db, tr, args);
                 case "update_table_links": return ExcelTables.Update(db, tr, args);
+                case "close_multiline": return Drafting.CloseMultiline(db, tr, args);
+                case "add_cv_spline": return Drafting.AddControlSpline(db, tr, args);
+                case "edit_spline_fit_points": return Drafting.EditFitPoints(db, tr, args);
                 case "flat_views": return Sections.FlatViews(db, tr, args);
                 case "section_plane": return Sections.SectionPlaneOp(db, tr, args);
                 case "loft_surface": return Surfaces.LoftSurface(db, tr, args);
