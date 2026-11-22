@@ -110,8 +110,9 @@ def test_each_tool_has_its_use_when_lines_and_inputs(by_name, registered):
 
 def test_a_tool_that_only_reads_is_marked_read_only_for_mcp_clients(by_name):
     # A client may let a read-only tool run without asking; a registry may too. So every Read tool
-    # says so, except the two that keep something of their own: notes on disk, the chosen AutoCAD.
-    keeps_its_own = {"autocad_project_notes", "autocad_use_autocad"}
+    # says so, except the three that keep something of their own: notes on disk, the chosen AutoCAD,
+    # the office layer standard imported into Heron's folder (D-120).
+    keeps_its_own = {"autocad_project_notes", "autocad_use_autocad", "autocad_layer_standard"}
     for name, row in by_name.items():
         if row["hints"]["read_only"]:
             assert row["padlock"] in ("read", "view"), f"{name} is read-only but needs a padlock"

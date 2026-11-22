@@ -1,0 +1,52 @@
+# Heron layer standard - GENERIC MEP EXAMPLE. Not any office's standard.
+# The names follow the common discipline-major-minor pattern (as in the US National CAD Standard's layer guidelines);
+# they were picked for this example and are not a copy of that list. Colours and lineweights are plain choices.
+# An office's own list stays on its own PC: autocad_layer_standard(action="template"), fill it, then action="import".
+# name: Generic MEP example (discipline-major-minor style)
+# example: yes
+# name_pattern: ^[A-Z]{1,2}-[A-Z0-9]{4}(-[A-Z0-9]{4}){0,2}(-[A-Z])?$
+layer,color,linetype,lineweight,plot,description,replaces,required
+M-HVAC-SUPP,4,Continuous,0.35,yes,Supply air ductwork,MECH-SUPPLY*;*SUPPLY-DUCT*,no
+M-HVAC-RETN,3,Continuous,0.35,yes,Return air ductwork,MECH-RETURN*;*RETURN-DUCT*,no
+M-HVAC-EXHS,30,Continuous,0.35,yes,Exhaust air ductwork,MECH-EXHAUST*;*EXHAUST-DUCT*,no
+M-HVAC-OUTA,140,Continuous,0.35,yes,Outside (fresh) air ductwork,MECH-FRESH*;*FRESH-AIR*,no
+M-HVAC-CDFF,4,Continuous,0.25,yes,Diffusers and grilles,*DIFFUSER*;*GRILLE*,no
+M-HVAC-DAMP,1,Continuous,0.25,yes,Fire and volume dampers,*DAMPER*,no
+M-HVAC-EQPM,6,Continuous,0.50,yes,HVAC equipment (air handlers / fan coils / fans),MECH-EQUIP*,no
+M-HVAC-INSL,8,DASHED,0.18,yes,Duct insulation and lining,,no
+M-PIPE-CHWS,5,Continuous,0.35,yes,Chilled water supply,*CHW-SUPPLY*;*CHWS*,no
+M-PIPE-CHWR,5,DASHED,0.35,yes,Chilled water return,*CHW-RETURN*;*CHWR*,no
+M-PIPE-COND,140,HIDDEN,0.25,yes,Condensate drain,*CONDENSATE*,no
+M-PIPE-REFG,6,Continuous,0.25,yes,Refrigerant pipework,*REFRIG*,no
+M-CTRL-DEVC,2,Continuous,0.18,yes,Controls: thermostats and sensors,,no
+M-*-IDEN,7,Continuous,0.18,yes,,,no
+P-DOMW-CWTR,5,Continuous,0.35,yes,Domestic cold water,PLUMB-CW*;*COLD-WATER*,no
+P-DOMW-HWTR,1,Continuous,0.35,yes,Domestic hot water,PLUMB-HW*;*HOT-WATER*,no
+P-DOMW-HWRT,1,DASHED,0.25,yes,Domestic hot water return,*HW-RETURN*,no
+P-SANR-PIPE,30,Continuous,0.50,yes,Soil and waste drainage,PLUMB-SOIL*;PLUMB-WASTE*,no
+P-SANR-VENT,30,HIDDEN,0.25,yes,Vent pipework,*VENT-PIPE*,no
+P-STRM-PIPE,3,Continuous,0.50,yes,Storm water drainage,PLUMB-STORM*;PLUMB-RAIN*,no
+P-SANR-FIXT,8,Continuous,0.25,yes,Plumbing fixtures,PLUMB-FIXTURE*;*SANITARY*,no
+P-DOMW-EQPM,6,Continuous,0.50,yes,Plumbing equipment (pumps / tanks / water heaters),PLUMB-EQUIP*,no
+P-*-IDEN,7,Continuous,0.18,yes,,,no
+F-SPRN-PIPE,1,Continuous,0.35,yes,Sprinkler pipework,*SPRINKLER-PIPE*;FP-PIPE*,no
+F-SPRN-HEAD,1,Continuous,0.25,yes,Sprinkler heads,*SPRINKLER-HEAD*,no
+F-STND-PIPE,1,CENTER,0.50,yes,Standpipe / hydrant / hose reel pipework,*STANDPIPE*;*HYDRANT*,no
+F-PROT-EQPM,6,Continuous,0.50,yes,Fire protection equipment (pumps / valves / extinguishers),FP-EQUIP*,no
+F-ALRM-DEVC,2,Continuous,0.25,yes,Fire alarm devices (detectors / call points / sounders),*FIRE-ALARM*,no
+F-*-IDEN,7,Continuous,0.18,yes,,,no
+E-LITE-FIXT,2,Continuous,0.25,yes,Light fittings,ELEC-LIGHT*;*LIGHTING*,no
+E-LITE-EMER,1,Continuous,0.25,yes,Emergency and exit lighting,*EMERGENCY-LIGHT*,no
+E-LITE-CIRC,2,HIDDEN,0.18,yes,Lighting circuits,,no
+E-POWR-DEVC,6,Continuous,0.25,yes,Power outlets and isolators,ELEC-POWER*;*SOCKET*,no
+E-POWR-CIRC,6,HIDDEN,0.18,yes,Power circuits,,no
+E-POWR-PANL,6,Continuous,0.50,yes,Panels and distribution boards,*DISTRIBUTION-BOARD*;ELEC-PANEL*,no
+E-CABL-TRAY,6,Continuous,0.35,yes,Cable tray and trunking,*CABLE-TRAY*;*TRUNKING*,no
+E-COMM-DEVC,3,Continuous,0.25,yes,Data and telephone outlets,ELEC-DATA*;*TELEPHONE*,no
+E-SECU-DEVC,4,Continuous,0.25,yes,Security devices (CCTV / access control),*CCTV*;*ACCESS-CONTROL*,no
+E-GRND-COND,3,DASHED,0.25,yes,Earthing and lightning protection,ELEC-EARTH*;*LIGHTNING-PROT*,no
+E-*-IDEN,7,Continuous,0.18,yes,,,no
+G-ANNO-TEXT,7,Continuous,0.18,yes,Notes and general text,,no
+G-ANNO-DIMS,7,Continuous,0.18,yes,Dimensions,,no
+G-ANNO-TTLB,7,Continuous,0.35,yes,Title block and sheet border,,no
+G-ANNO-NPLT,8,Continuous,Default,no,Construction lines and notes that never plot,,no

@@ -28,14 +28,15 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/layer_states.py` | layer states (by the plug-in), isolate and un-isolate, merge layers |
 | `tools/advanced.py` | send command, run LISP, purge, regen, audit |
 | `tools/explain.py` | `autocad_why` (why one job cannot run) and `autocad_gaps` (what failed and was slow, from the audit log): both need no AutoCAD (D-67) |
-| `tools/standards.py` | standards check (rules, or a reference `.dws` / `.dwg` / `.dxf`, D-92), attribute extraction |
+| `tools/standards.py` | standards check (rules, a reference `.dws` / `.dwg` / `.dxf`, D-92, or a layer standard, D-120), attribute extraction |
+| `tools/layer_standard.py` | `autocad_layer_standard`: which layer standard `office` means, and the office's own CSV loaded into `%LOCALAPPDATA%\Heron\autocad\standards\`; needs no AutoCAD (D-120). The format, check and remap rules are `acad/layer_standard.py`; the generic MEP example is `data/layer-standard-example-mep.csv` |
 | `tools/files.py` | `autocad_read_file`: a DXF / DWG on disk with AutoCAD closed, read only; needs no AutoCAD (D-92). The reading is `acad/dxf_file.py`, the reference compare `acad/standard_compare.py` |
 | `tools/checklist_share.py` | `autocad_share_checklist` (Publish): the office list into the office folder, a project's changes into its folder, never over a teammate's file silently (D-93) |
 | `tools/coordinates.py` | the UCS: read it, set it, convert points through it |
 | `tools/sheets.py` | layouts, page setup, title blocks, viewports |
 | `tools/views.py` | saved views: one named location, plotted and viewported, or the 3D view on screen |
 | `tools/settings.py` | drawing settings, text and dimension styles |
-| `tools/convert.py` | an import into a shop drawing: remap layers, tidy overrides |
+| `tools/convert.py` | an import into a shop drawing: remap layers (also from a layer standard, D-120), tidy overrides |
 | `tools/sequence.py` | `autocad_sequence`: several tools in one call |
 | `tools/shapes.py` | `autocad_make_shape`: 24 named shapes from their dimensions, and two 3D ones (duct run, pipe spool) |
 | `acad/shapes3d.py` | The 3D shapes as pieces in their own frames with the matrix that places each: pure, tested offline (D-94) |
