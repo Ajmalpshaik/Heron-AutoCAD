@@ -167,7 +167,7 @@ Patterns, and radial, diametric and angular dimensions, stay with `autocad_add_h
 | `autocad_find_text` | Search text, mtext and block attributes |
 | `autocad_get_extents` | Bounding box of the drawing or one layer (a layer measured by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
 | `autocad_measure` | Point-to-point distance, or total length / area of entities or a layer |
-| `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000) |
+| `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000; counted by the plug-in in one go, COM for an older one, #193) |
 
 ## Modifying (Change)
 

@@ -384,3 +384,79 @@ class TestBothSidesKnowTheReads:
     def test_the_server_asks_only_for_those(self):
         source = (ROOT / "src" / "autocad_mcp" / "tools" / "query.py").read_text(encoding="utf-8")
         assert set(re.findall(r'faster_read\("(\w+)"', source)) == set(OPERATIONS)
+
+
+class TestDrawingReportCount:
+    """autocad_drawing_report's model space count through count_entities (#193)."""
+
+    class Items:
+        def __init__(self, things):
+            self.things = things
+
+        @property
+        def Count(self):  # noqa: N802
+            return len(self.things)
+
+        def Item(self, i):  # noqa: N802
+            return self.things[i]
+
+    class Doc:
+        def __init__(self, names):
+            self.ModelSpace = TestDrawingReportCount.Items([Entity(n, "0") for n in names])
+            empty = TestDrawingReportCount.Items([])
+            self.Layers = self.Blocks = self.TextStyles = self.DimStyles = self.Linetypes = self.Layouts = empty
+
+        def GetVariable(self, name):  # noqa: N802
+            return 4
+
+    @pytest.fixture
+    def report(self, monkeypatch):
+        from autocad_mcp.tools import drawing_report
+
+        state = {"calls": [], "echo": True}
+
+        def plugin(operation, args):
+            state["calls"].append((operation, dict(args)))
+            assert operation == "count_entities" and args["space"] == "model"
+            things, limit, classes = state["doc"].ModelSpace.things, args["limit"], {}
+            for e in things[:limit]:
+                classes[e.ObjectName] = classes.get(e.ObjectName, 0) + 1
+            out = {"total": len(things), "by_class": [[k, n] for k, n in classes.items()], "by_layer": []}
+            return {**out, "space": "model"} if state["echo"] else out
+
+        async def run(fn):
+            return fn()
+
+        monkeypatch.setattr(drawing_report, "run", run)
+        monkeypatch.setattr(drawing_report, "get_doc", lambda: state["doc"])
+        monkeypatch.setattr(_shared, "plugin_version", lambda: READS_SINCE)
+
+        def go(names, *, plugin_on=True):
+            state["doc"] = self.Doc(names)
+            monkeypatch.setattr(_shared, "plugin_runner", (lambda: plugin) if plugin_on else (lambda: None))
+            return answer(drawing_report.autocad_drawing_report())
+
+        go.state = state
+        go.module = drawing_report
+        return go
+
+    NAMES = ["AcDbLine", "AcDbRotatedDimension", "AcDbLine", "AcDbMText", "AcDbAlignedDimension", "AcDbCircle"]
+
+    def test_the_same_report_either_way(self, report):
+        assert report(self.NAMES) == report(self.NAMES, plugin_on=False)
+        assert report.state["calls"][0] == ("count_entities", {"filter": [], "space": "model", "limit": 50_000})
+
+    def test_the_cut_off_is_the_same_either_way(self, report, monkeypatch):
+        monkeypatch.setattr(report.module, "MOST_TO_COUNT", 3)
+        by_plugin, by_com = report(self.NAMES), report(self.NAMES, plugin_on=False)
+        assert by_plugin == by_com
+        model = json.loads(by_plugin)["model_space"]
+        assert model["total"] == 6 and model["by_type"] == {"line": 2, "dimension": 1}
+        assert "first 3 of 6" in model["note"]
+
+    def test_a_plugin_that_ignores_the_model_space_option_is_not_believed(self, report):
+        # Built between #202 and #193, it would count the whole drawing; its answer lacks "space".
+        report.state["echo"] = False
+        out = json.loads(report(self.NAMES))
+        assert len(report.state["calls"]) == 1 and out["model_space"]["total"] == 6
+        assert out == json.loads(report(self.NAMES, plugin_on=False))

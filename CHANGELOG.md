@@ -11,6 +11,8 @@ Newest first. Dates are when the change was made.
   again for "make a tag block with a TAG attribute" (every finder phrase now in the top three).
   Live row AN13 NOT RUN.
 
+- **The drawing report's model space count is the plug-in's too (2026-11-22, #193).** `autocad_drawing_report` counted model space two COM round trips per object (up to 50,000). `count_entities` now takes `space: model` and the same cut-off, walks model space in COM's own order, and says so in its answer; without that, or with an older plug-in, the report counts over COM as before. Same answer either way ([D-114](docs/DECISIONS.md)). Live rows AS10-AS11 NOT RUN.
+
 - **Check lists never PASS on a read that failed (2026-11-22, #211).** A dimension or text whose
   size could not be read makes `no_overlapping_dimensions` / `text_heights` NO DATA, and a block
   table that cannot be read makes `xrefs_found` NO DATA instead of "every xref found"

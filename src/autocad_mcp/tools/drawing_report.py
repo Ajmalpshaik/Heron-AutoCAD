@@ -9,6 +9,7 @@ fresh over COM; no code was copied.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from typing import Annotated, Any
 
 from pydantic import Field
@@ -17,6 +18,7 @@ from ..acad.units import unit_name
 from ..core.connection import get_doc, run
 from ..core.errors import raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
+from ._shared import faster_read
 
 # Model space is counted up to this many objects; a 200,000-object survey
 # would otherwise hold AutoCAD for minutes over COM.
@@ -109,17 +111,45 @@ def _blocks(doc: Any) -> tuple[list[str], list[dict[str, str]]]:
     return sorted(blocks, key=str.lower), sorted(xrefs, key=lambda x: x["name"].lower())
 
 
-def _count(space: Any, limit: int) -> tuple[int, Counter, bool]:
+def model_space_answer(total: int, classes: Iterable[tuple[str, int]], limit: int) -> dict[str, Any]:
+    """The model_space part of the report, from class counts in the order first met. Pure.
+
+    COM counts the objects one by one, the plug-in in one go (#193, D-114);
+    both hand their class counts here, so the answer is the same either way.
+    """
     kinds: Counter = Counter()
+    for name, count in classes:
+        kinds[_kind(str(name))] += int(count)
+    model: dict[str, Any] = {"total": int(total), "by_type": dict(kinds.most_common())}
+    if total > limit:
+        model["note"] = f"Only the first {limit:,} of {total:,} objects were counted by type."
+    return model
+
+
+def _count(space: Any, limit: int) -> tuple[int, list[tuple[str, int]]]:
+    """Model space over COM: the total, and the classes of the first `limit` objects."""
+    classes: Counter = Counter()
     total = int(_try(lambda: space.Count, 0))
-    seen = 0
     for i in range(min(total, limit)):
         item = _try(lambda i=i: space.Item(i))
         if item is None:
             continue
-        kinds[_kind(str(_try(lambda x=item: x.ObjectName, "")))] += 1
-        seen += 1
-    return total, kinds, total > limit
+        classes[str(_try(lambda x=item: x.ObjectName, ""))] += 1
+    return total, list(classes.items())
+
+
+def _count_by_plugin(limit: int) -> tuple[int, list[tuple[str, int]]] | None:
+    """Model space counted by the plug-in in one go, or None: count it over COM.
+
+    The plug-in walks model space in the order COM's ModelSpace.Item does and
+    stops classifying at the same limit. A plug-in that does not know the
+    model-space option counts the whole drawing and does not say "model":
+    that answer is not used.
+    """
+    counted = faster_read("count_entities", {"filter": [], "space": "model", "limit": limit})
+    if counted is None or counted.get("space") != "model":
+        return None
+    return int(counted.get("total", 0)), [(str(n), int(c)) for n, c in counted.get("by_class", [])]
 
 
 def _layouts(doc: Any) -> list[dict[str, Any]]:
@@ -202,11 +232,8 @@ async def autocad_drawing_report(
             "layouts": _layouts(doc),
         }
         if count_objects:
-            total, kinds, capped = _count(doc.ModelSpace, MOST_TO_COUNT)
-            model: dict[str, Any] = {"total": total, "by_type": dict(kinds.most_common())}
-            if capped:
-                model["note"] = f"Only the first {MOST_TO_COUNT:,} of {total:,} objects were counted by type."
-            result["model_space"] = model
+            counted = _count_by_plugin(MOST_TO_COUNT) or _count(doc.ModelSpace, MOST_TO_COUNT)
+            result["model_space"] = model_space_answer(*counted, MOST_TO_COUNT)
         if xrefs:
             result["advice"] = "autocad_xref_tree says which xrefs are loaded and which are broken."
         return result

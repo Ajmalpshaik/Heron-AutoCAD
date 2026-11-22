@@ -697,6 +697,8 @@ is NOT RUN.**
 | AS7 | Install plug-in 1.7.0 (or any older one), run AS1 and AS4 | Both answer over COM (no `operation` line in the log), no error, the same answers as with 1.8.0 | NOT RUN |
 | AS8 | Select two objects yourself, run AS1, then type SELECT and P (previous) | Note what is selected before and after, with the plug-in and over COM; Pass: the read does not leave AutoCAD's own selection or "previous" set different from what COM leaves | NOT RUN |
 | AS9 | Start LINE and leave it waiting for a point; run AS1 | The read answers, or gives the busy answer naming LINE; no error box; LINE is still waiting | NOT RUN |
+| AS10 | The AS1 drawing: `autocad_drawing_report()`, then the same over COM (#193) | The log shows `operation count_entities`; `model_space` (`total`, `by_type`, key order too) is the same both ways, and counts model space only (not the sheets' title blocks) | NOT RUN |
+| AS11 | A drawing with more than 50,000 objects in model space: `autocad_drawing_report()` both ways, timed | The same `total`, `by_type` and "Only the first 50,000" note both ways; write both times in the result | NOT RUN |
 
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 

@@ -20,16 +20,46 @@ namespace Heron.AutoCAD.Addin
     /// </summary>
     internal static class EntityReads
     {
-        /// <summary>count_entities: how many objects of each class and on each layer.</summary>
+        /// <summary>
+        /// count_entities: how many objects of each class and on each layer.
+        /// With space "model", model space only, walked in its own order (the
+        /// order COM's ModelSpace.Item uses), and with limit, only the first
+        /// that many counted by class: autocad_drawing_report's count (#193).
+        /// The answer then says "space": "model", so the server knows this
+        /// plug-in honoured it.
+        /// </summary>
         public static RunResult Count(Document doc, Transaction tr, RunArgs args)
         {
             var tally = new EntityTally();
-            foreach (var id in Select(doc, args))
+            var model = args.Text("space").Trim().ToLowerInvariant() == "model";
+            if (model)
             {
-                var found = tr.GetObject(id, OpenMode.ForRead, false);
-                tally.Count(found.GetRXClass().Name, found is Entity entity ? entity.Layer : "<unknown>");
+                var limit = (long)args.Number("limit", 0);
+                var space = (BlockTableRecord)tr.GetObject(SymbolUtilityServices.GetBlockModelSpaceId(doc.Database), OpenMode.ForRead);
+                foreach (ObjectId id in space)
+                {
+                    if (limit > 0 && tally.Total >= limit)
+                    {
+                        tally.Skip();
+                        continue;
+                    }
+                    var found = tr.GetObject(id, OpenMode.ForRead, false);
+                    tally.Count(found.GetRXClass().Name, found is Entity entity ? entity.Layer : "<unknown>");
+                }
             }
-            return RunResult.Done(tally.WriteCounts);
+            else
+            {
+                foreach (var id in Select(doc, args))
+                {
+                    var found = tr.GetObject(id, OpenMode.ForRead, false);
+                    tally.Count(found.GetRXClass().Name, found is Entity entity ? entity.Layer : "<unknown>");
+                }
+            }
+            return RunResult.Done(w =>
+            {
+                if (model) w.WriteString("space", "model");
+                tally.WriteCounts(w);
+            });
         }
 
         /// <summary>entity_extents: the box round every selected object that has extents.</summary>

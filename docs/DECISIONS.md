@@ -246,6 +246,11 @@ older plug-in, or one whose read fails, would lose a tool that worked). Also fro
 holding only rays or construction lines now says it has no extents, on both paths, instead of
 answering Infinity.
 
+**Added 2026-11-22 (#193):** `autocad_drawing_report`'s model space count goes the same way:
+`count_entities` with `space: model` walks model space in COM's own order with the same cut-off,
+and its answer says `"space": "model"`; an answer without it (a plug-in that ignored the option)
+is not used, and COM counts instead.
+
 ## D-111 - Tiled viewports and hyperlinks are COM; DWF goes the PDF way; the geographic location is the plug-in's and shares the sun's place
 
 **Decided:** 2026-11-21, part 2 of issue #119, split into #176, #178, #179 and #180. **Status:** in
