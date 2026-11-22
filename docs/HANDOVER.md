@@ -8,7 +8,23 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (the first release prepared; session 2 of 3)
+## Latest - 2026-11-22 (v1.8.0 checked and installed on the owner's PC; session 3 of 3)
+
+**State today:** tag **v1.8.0** = bc196d6; plug-in **1.8.0**, server **1.10.1**, **199** tools. The
+three published assets match their SHA-256. The zip's bundle points every AutoCAD range at a DLL
+that is there, and the packed server starts offline and lists 199 tools. Every tool index names the
+same 199 tools, with `autocad_render` only as history.
+
+The setup was run on the owner's PC and AutoCAD 2027 loaded 1.8.0:
+- AK12 and AK14 **PASS**.
+- AK13 **FAIL** ([#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233)): the setup finds neither Claude Code nor Claude Desktop when Claude is only the Claude desktop app, so the entry is added by hand ([INSTALL section 5](INSTALL.md#5-connect-claude)).
+- X25 **FAIL** ([#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234)): the palette's Select and Zoom throw `eInvalidInput`.
+
+Two things are open:
+- **Not run:** the wizard pages, SmartScreen and the unsigned-plug-in box (AK1, AK9, AK10). The setup ran quietly from a file with no download mark.
+- **Owner's call:** whether #233 needs a v1.8.1.
+
+## Earlier - 2026-11-22 (the first release prepared; session 2 of 3)
 
 **State today:** plug-in **1.8.0** (bumped from 1.7.0: the tag must equal it, and the server asks for
 1.8.0 for the faster reads), server **1.10.1**, **199** tools. New: [INSTALL](INSTALL.md) (for a

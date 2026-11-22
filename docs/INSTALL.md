@@ -17,7 +17,7 @@ want to build Heron from its source instead, read [SETUP.md](SETUP.md).
 |---|---|
 | **Windows 64-bit** | Heron talks to AutoCAD through Windows COM, so there is no Mac version. |
 | **Full AutoCAD 2021 to 2027** | **Not AutoCAD LT**: LT has no COM, so Heron cannot reach it. Open AutoCAD once before the first install, so it has registered itself. |
-| **Claude Code or the Claude Desktop app, signed in** | Heron adds one entry called `autocad` to each one it finds. |
+| **Claude Code or the Claude Desktop app, signed in** | Heron adds one entry called `autocad` to each one it finds. It looks for the `claude` command and for `%APPDATA%\Claude`. The Claude desktop app may keep its settings elsewhere and run Claude Code inside itself; then the setup finds neither, and you add the entry by hand ([section 5](#5-connect-claude)). |
 | Some disk space | The install size is not measured yet: the setup holds the server as one program plus the plug-in. |
 
 Which plug-in build each AutoCAD uses (the bundle holds all three and AutoCAD picks its own):
@@ -79,7 +79,9 @@ is open or while Claude is using Heron's installed server.
    [section 4](#4-the-warnings-you-will-see-the-files-are-unsigned).)
 2. The first page says **NOT FINISHED** and what the setup changes. Press **Next**, then **Install**.
 3. The last page lists what it did, for example `Claude Code: connected (all projects)` and
-   `Claude Desktop: connected (restart it ...)`. Press **Finish**.
+   `Claude Desktop: connected (restart it ...)`. Press **Finish**. If a line says
+   `not found, skipped` although Claude is installed (seen on a PC with only the Claude desktop
+   app, 2026-11-22), the files are still in place: connect Claude by hand ([section 5](#5-connect-claude)).
 4. Start the Claude Desktop app again if you use it.
 
 It writes only for your Windows user:
@@ -138,8 +140,22 @@ The installer already did it. It adds an entry named `autocad` that starts
   not enough) and open it again. The AutoCAD tools appear under the tools icon in the chat box.
 - **Claude Code:** new chats see it. To check, run `claude mcp list` in a terminal: you should see
   `autocad`.
-- **Neither app was found when you installed:** install Claude, then run the setup again (or
-  `Install.bat`); it is safe to run over itself.
+- **Claude was not installed when you installed Heron:** install Claude, then run the setup again
+  (or `Install.bat`); it is safe to run over itself.
+- **Claude is installed, but the setup said `not found, skipped`:** running it again does not help
+  ([#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233)). This happens when Claude is
+  only the Claude desktop app: its Code tab runs Claude Code inside the app, with no `claude`
+  command, and the app keeps its settings under `%LOCALAPPDATA%\Claude-Data`, not in
+  `%APPDATA%\Claude`, where the setup looks. Add the entry by hand. For the Code tab, put a file
+  named `.mcp.json` in the folder you open in Claude, with this text (`<you>` is your Windows user
+  folder's name):
+
+  ```json
+  {"mcpServers": {"autocad": {"command": "C:\\Users\\<you>\\AppData\\Local\\Heron\\autocad\\autocad-mcp.exe"}}}
+  ```
+
+  Then start a new chat in that folder. If Claude asks whether to use the project's MCP server,
+  allow it.
 
 Nothing reaches AutoCAD yet: Heron is **off until you press its button** (next section).
 
