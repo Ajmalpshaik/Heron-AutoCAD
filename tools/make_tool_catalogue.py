@@ -270,14 +270,13 @@ def tool_section(row: dict[str, Any], description: str) -> list[str]:
         result.append("Claude reads the answer back to you in words; nothing in the drawing changes.")
     if returns:
         shape = re.sub(r"^str:\s*", "", _flat(returns))
-        result.append(f"Technical shape of the answer: `{_cut(shape, 300)}`")
+        result.append(f"Technical shape of the answer: `{_cut(shape, 240)}`")
     lines += ["", "**The result to expect.**"] + [f"- {r}" for r in result]
 
     limits: list[str] = []
     for item in re.findall(r"^- (.+?)(?=^- |\Z)", parts.get("Error Handling", ""), re.M | re.S)[:3]:
         limits.append(_cut(item, 240))
     limits.append(_plugin_text(row))
-    limits.append("Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.")
     lines += ["", "**Limits and versions.**"] + [f"- {x}" for x in limits]
     lines += ["", f"**Live proof.** {_proof_text(row)}", ""]
     return lines

@@ -169,6 +169,14 @@ def test_the_start_menu_has_the_update_check_and_remove():
     assert "-CheckUpdate" in (TOOLS / "release_files" / "CheckForUpdate.bat").read_text(encoding="ascii")
 
 
+def test_the_update_check_sees_pre_releases():
+    # GitHub's /releases/latest never returns a pre-release, and every Heron release is one for now:
+    # asking it would say "no release yet" for ever. The list is read and the first non-draft taken.
+    text = INSTALL_PS1.read_text(encoding="utf-8")
+    assert "releases/latest" not in text
+    assert "releases?per_page=" in text and "-not $_.draft" in text
+
+
 # ---------------------------------------------------------------------------
 # Behaviour: per user, refuses while AutoCAD runs, sets Claude up as Install.bat does
 # ---------------------------------------------------------------------------

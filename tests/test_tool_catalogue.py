@@ -72,3 +72,8 @@ def test_proof_lines_come_from_the_register(generated):
     # Every section ends in a proof line, and a tool that no register row names says so.
     assert generated.count("**Live proof.**") == len(maker.GROUP_OF)
     assert "**NO ROW**" in generated or "**NOT RUN**" in generated
+
+
+def test_catalogue_stays_under_githubs_render_limit():
+    # GitHub stops rendering a Markdown file at 512 KB: split the catalogue by group before it gets there.
+    assert CATALOGUE.stat().st_size < 500_000

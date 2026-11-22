@@ -278,7 +278,6 @@ For setting-out: grid and centre references, a line at an angle to work from. Th
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AP1).
 
@@ -312,7 +311,6 @@ Each is a closed polyline of two half circles with one width: the line runs midw
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AP5).
 
@@ -345,7 +343,6 @@ The boundary must already exist and be closed — draw it first with autocad_dra
 **Limits and versions.**
 - Names the offending handle when a boundary entity is an open shape, which is the usual cause of a failed hatch.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G10, S4).
 
@@ -378,7 +375,6 @@ A region is a flat face: its area and centre can be read, it can be extruded, an
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AP2, AP3, AP4).
 
@@ -412,7 +408,6 @@ Say what to cloud: a boundary, a rectangle, or an object — clouding round an o
 - Says so when the thing named reports no extents to cloud round.
 - An arc length that would need thousands of arcs is refused with the count, rather than filling the drawing.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E20).
 
@@ -447,7 +442,6 @@ A WIPEOUT, in the space that is current (model or the active layout). Typical: c
 - Fewer than three corners, corners in a line, an open polyline or one with arcs are refused before anything is typed.
 - If AutoCAD is still asking when the command should be done, it is cancelled and the tool says so; nothing is left half made.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G5, G6).
 
@@ -477,13 +471,12 @@ Use this whenever you are drawing more than about ten things — a floor plan, a
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: { "created": int, # entities actually made "failed": int, # operations AutoCAD rejected "requested": int, "handles": [str], # in order; empty if return_handles=false "completed": bool, # false if the script died partway "layers_created": [str], "elapsed_seconds": float, "entities_per_second" ...`
+- Technical shape of the answer: `JSON: { "created": int, # entities actually made "failed": int, # operations AutoCAD rejected "requested": int, "handles": [str], # in order;`
 
 **Limits and versions.**
 - An unknown operation type, or a missing required field, is reported with its index before the batch runs.
 - If AutoCAD rejects individual operations (locked layer, degenerate geometry), "failed" counts them and "created" reflects what did land.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows A8c, A22, A21 passed in AutoCAD 2027; the rest are NOT RUN (rows A8c, A22, A21, D4, D7, E36, N8, AJ6, AJ7, AJ8, AI4, AI5, AI6, AI7, S1).
 
@@ -514,7 +507,6 @@ This is AutoLISP's ``trans``. Use it whenever the modeller gives you coordinates
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D3, D7).
 
@@ -549,7 +541,6 @@ For a hatch acad.pat does not have: an insulation or sleeve pattern, an office-s
 - Spacing 0, more than six dashes, a line over 80 characters or a name that cannot be a file name are refused before anything is written.
 - An existing file is not written over without replace=true.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G10).
 
@@ -582,7 +573,6 @@ DIVIDE leaves the ends of an open run free (N parts give N - 1 marks); on a clos
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AP6, AP7, AP8, AP9, AP10).
 
@@ -616,7 +606,6 @@ Angles are degrees counter-clockwise from East, matching how AutoCAD displays th
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI1, AI3).
 
@@ -649,7 +638,6 @@ Taking diameter directly avoids the halving mistakes that arise when a drawing c
 **Limits and versions.**
 - Returns an error if neither radius nor diameter is given, or if both are, rather than silently picking one.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T4, AL3).
 
@@ -682,7 +670,6 @@ Taking diameter directly avoids the halving mistakes that arise when a drawing c
 **Limits and versions.**
 - Returns an error if minor_radius exceeds major_radius, since AutoCAD would otherwise reject the axis ratio with an opaque COM failure.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -712,11 +699,10 @@ Coordinates are in the drawing's own units — call autocad_status first if you 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "line", "layer": str, "length": float, "angle_degrees": float} With coords="ucs" on a UCS that is not the world one: also "converted_from_ucs" (the UCS the points were read in). The angle reported is the world one.`
+- Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "line", "layer": str, "length": float, "angle_degrees": float} With coords="ucs" on a UCS that is not the world one: also "converted_from_ucs" (the UCS the points were read in).`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows L5, L7, V3, W5, RV3).
 
@@ -753,7 +739,6 @@ One object for a run of wall, a double-line duct or a road in plan, with its sty
 - Automation has no "close" for a multiline, so a closed one is drawn open and Heron's plug-in closes it the way MLINE's Close does, mitring the last corner ("mitred": true).
 - The drawing's current multiline style is put back afterwards.
 - The plug-in does part of the work (`close_multiline`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G3, AI8).
 
@@ -785,7 +770,6 @@ Points render as a bare dot by default and can be effectively invisible. Set PDM
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -814,11 +798,10 @@ A polyline is one object, so it can be offset, filleted and area-measured as a u
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "polyline", "layer": str, "vertex_count": int, "closed": bool, "length": float, "area": float} "area" appears only when closed is true. With coords="ucs" on a UCS that is not the world one: also "converted_from_ucs".`
+- Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "polyline", "layer": str, "vertex_count": int, "closed": bool, "length": float, "area": float} "area" appears only when closed is true.`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI3).
 
@@ -850,7 +833,6 @@ A polyline is one object, so it can be offset, filleted and area-measured as a u
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI1).
 
@@ -888,7 +870,6 @@ By fit points (the SPLINE command's default): the curve goes through every point
 - By control points: too few points for the degree, two in a row at one place, or tangents given are refused before anything is drawn; so is running without the plug-in.
 - A closed spline AutoCAD will not close is drawn open and says so in "not_set".
 - The plug-in does part of the work (`add_cv_spline`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G1, AI10).
 
@@ -924,7 +905,6 @@ Give the drawing scale once and the settings that hang off it follow — DIMSCAL
 - An unknown unit, snap, format or point style is named, with the values that are accepted, before anything is written.
 - A variable this AutoCAD will not accept is reported in "failed"; the rest of the plan still lands.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D21, D22, D32, G11, AB1, S5).
 
@@ -950,11 +930,10 @@ Call this before giving coordinates read off the modeller's screen. Every coordi
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: { "current": { "name", "is_world", "origin", "x_axis", "y_axis", "z_axis", "rotation_degrees", "moved", "rotated", "tilted", "flipped" }, "space": "model" | "paper", "elevation": float, # current ELEVATION in this space "advice": str | null, # what to do about it, when not world "saved" ...`
+- Technical shape of the answer: `JSON: { "current": { "name", "is_world", "origin", "x_axis", "y_axis", "z_axis", "rotation_degrees", "moved", "rotated", "tilted", "flipped" }, "space": "model" | "paper", "elevation": float, # current ELEVATION in this space "advice": str ...`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D2).
 
@@ -986,14 +965,13 @@ For the vendor's general arrangement, the consultant's layout or an old drawing 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"imported": int, "by_type": {type: count}, "box": {"min", "max"} | null (world), "layer": str | null, "layer_created": bool, "moved_to_layer": int, "layers_added": [str], "page": int, "path": str, "release": int, "space": str, "note": str}`
+- Technical shape of the answer: `JSON: {"imported": int, "by_type": {type: count}, "box": {"min", "max"} | null (world), "layer": str | null, "layer_created": bool, "moved_to_layer": int, "layers_added": [str], "page": int, "path": str, "release": int, "space": str ...`
 
 **Limits and versions.**
 - A missing file, a file that is not a PDF, or a page past the PDF's last page is refused before AutoCAD is asked.
 - An AutoCAD release whose PDFIMPORT questions are not known (not 2021-2027), or a tilted or flipped UCS, is refused, nothing sent.
 - If AutoCAD is still asking when every answer is given, the command is cancelled and the answer says so.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AO2, AO4, AO7, AO8).
 
@@ -1033,7 +1011,6 @@ This is the "simple words to complex geometry" path. Give the shape's name and t
 - A missing setting is named; so is a setting the shape does not take, with the full list of what it does take.
 - Dimensions that cannot make the shape are refused with the reason and the limit — a fillet bigger than half the side, a slot no longer than it is wide, a cone that opens past a full circle.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E1, E9, E10, W3, AH1, AH2, AI14).
 
@@ -1068,7 +1045,6 @@ What the modeller sees: the UCS icon moves and turns, and from then on they type
 - mode='named' with a name the drawing does not have lists what it has.
 - mode='3point' with three points in a line is refused: they define no plane.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D5, D6, E13, AO7, AI3).
 
@@ -1099,14 +1075,13 @@ Paving, cladding panels, a tiled ceiling, a grating: any block, laid in a grid f
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created": true, "handle": str, "block": str, "tile": str, "tile_kind": "block" | "image" | "xref" | "wipeout", "tiles": int, "spacing": [float, float], "boundary": str, "tile_block_made": bool, "xref_attached": bool, "verified": bool}`
+- Technical shape of the answer: `JSON: {"created": true, "handle": str, "block": str, "tile": str, "tile_kind": "block" | "image" | "xref" | "wipeout", "tiles": int, "spacing": [float, float], "boundary": str, "tile_block_made": bool, "xref_attached": bool, "verified" ...`
 
 **Limits and versions.**
 - An open, tilted or non-curve outline is refused before anything is made.
 - A block that is not in the drawing points at autocad_list_blocks.
 - More than 10,000 tiles (2,000 image tiles) is refused: make the spacing or scale bigger.
 - The plug-in does part of the work (`super_hatch`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H10, I6, AH12, AH13, AH14).
 
@@ -1144,7 +1119,6 @@ For a room or zone outline to measure its area, hatch it or label it. Done by th
 - More objects in view than most_objects: nothing is traced; give a smaller window or freeze layers.
 - No closed outline round the point: nothing is made, and it says so.
 - The plug-in does part of the work (`trace_boundary`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD7).
 
@@ -1182,7 +1156,6 @@ Move, copy, trim, fillet, change properties, and the tools that find and measure
 **Limits and versions.**
 - Rejects a rectangular array of 1x1, and a polar array with no centre, before AutoCAD is asked to build it.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI2).
 
@@ -1215,14 +1188,13 @@ The array stays associative: in AutoCAD the modeller clicks it and edits the cou
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created": true, "handle": str, "associative": bool, "pattern": str, "items": int, "base_point": [x, y, z], "sources": [str], "sources_still_loose": [str], "extents": {"min", "max"}, "verified": bool, ...the pattern's own numbers (rows, columns / count, center / path, method, spacing)}`
+- Technical shape of the answer: `JSON: {"created": true, "handle": str, "associative": bool, "pattern": str, "items": int, "base_point": [x, y, z], "sources": [str], "sources_still_loose": [str], "extents": {"min", "max"}, "verified": bool, ...the pattern's own numbers ...`
 
 **Limits and versions.**
 - A pattern given without its numbers (a path with neither count nor spacing, a ring with no centre, a 1 x 1 grid) is refused before AutoCAD is asked.
 - More items than fit on the path names how many do fit.
 - An array AutoCAD builds somewhere other than asked is refused, and nothing is changed.
 - The plug-in does part of the work (`associative_array`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ1).
 
@@ -1257,7 +1229,6 @@ A closed polyline broken at one point opens there; a circle needs two points and
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA9).
 
@@ -1290,7 +1261,6 @@ A closed polyline broken at one point opens there; a circle needs two points and
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC15).
 
@@ -1322,7 +1292,6 @@ This removes geometry. The whole call lands as one undo step, so the user can re
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N6).
 
@@ -1356,7 +1325,6 @@ Written to the space's draw order table (ACAD_SORTENTS), as DRAWORDER does. The 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA14).
 
@@ -1395,7 +1363,6 @@ SPLINEDIT's Fit data: the spline keeps its handle, layer and end tangents and is
 - A spline with no fit points (drawn by control points) is refused.
 - Without the plug-in it is refused before anything is read.
 - The plug-in does part of the work (`edit_spline_fit_points`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI12, AI13).
 
@@ -1429,7 +1396,6 @@ An arc next to a moved vertex stays an arc (its bulge is kept, as when you drag 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA11).
 
@@ -1462,7 +1428,6 @@ The pieces are new objects; the original is erased, so Heron asks the modeller t
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA13).
 
@@ -1498,7 +1463,6 @@ Two lines: each is trimmed or extended to the arc's tangent point (or the chamfe
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA6).
 
@@ -1526,7 +1490,6 @@ Two lines: each is trimmed or extended to the arc's tangent point (or the chamfe
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI12, AL1).
 
@@ -1557,7 +1520,6 @@ Use this to size a sheet, place a title block clear of the drawing, or work out 
 - Returns an empty-drawing error when there is no geometry to measure, rather than the meaningless extents AutoCAD reports for a blank file.
 - A layer holding only rays or construction lines has no extents either, and says so.
 - Uses the plug-in for speed when it can (from plug-in 1.8.0); otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AS4, AS5, AM1).
 
@@ -1591,7 +1553,6 @@ A group is a set of objects picked together; unlike a block, each stays its own 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA17).
 
@@ -1628,7 +1589,6 @@ In AutoCAD, Ctrl+click on the object opens the link: a supplier's data sheet on 
 - 'set' with neither a url nor a location is refused before anything changes.
 - An object that refuses (a locked layer) is listed under "failed"; the rest are still done.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ8).
 
@@ -1662,7 +1622,6 @@ Lines in one straight line become one line; arcs of one circle one arc; anything
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA10).
 
@@ -1688,11 +1647,10 @@ Filtering happens inside AutoCAD rather than in Python, so this stays fast on dr
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON. With summary_only=false: { "total_matching": int, # matches before paging "count": int, # entities in this response "offset": int, "has_more": bool, "next_offset": int | null, "filters": {...}, # what was actually applied "entities": [ {"handle": str, "type": str, "layer": str, "color": int ...`
+- Technical shape of the answer: `JSON. With summary_only=false: { "total_matching": int, # matches before paging "count": int, # entities in this response "offset": int, "has_more": bool, "next_offset": int | null, "filters": {...}, # what was actually applied "entities" ...`
 
 **Limits and versions.**
 - Uses the plug-in for speed when it can (from plug-in 1.8.0); otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows A31, AS1, AS3, AN13, AL1).
 
@@ -1722,7 +1680,6 @@ Unnamed groups (AutoCAD names them *A1, *A2 ...) are listed too, marked.
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA17).
 
@@ -1754,7 +1711,6 @@ Each object's handle, type and layer, with its link: the address or file it open
 - A handle that is not in the drawing points at autocad_list_entities.
 - The whole-drawing search covers model space and every layout, not objects nested inside other objects.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ9).
 
@@ -1789,7 +1745,6 @@ AutoCAD's MATCHPROP, with the properties named. Only values that differ are writ
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA15).
 
@@ -1814,12 +1769,11 @@ Three modes, picked by which arguments you pass: - point1 + point2: straight-lin
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON. Point-to-point mode: {"mode": "distance", "distance": float, "dx": float, "dy": float, "angle_degrees": float, "units": str} Totalling mode: {"mode": "totals", "entity_count": int, "total_length": float, "total_area": float, "units": str, "by_type": {"line": int, ...}, "counted_length": int ...`
+- Technical shape of the answer: `JSON. Point-to-point mode: {"mode": "distance", "distance": float, "dx": float, "dy": float, "angle_degrees": float, "units": str} Totalling mode: {"mode": "totals", "entity_count": int, "total_length": float, "total_area": float, "units" ...`
 
 **Limits and versions.**
 - Returns an error naming the three modes if no usable combination of arguments is given.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA7, AO9).
 
@@ -1851,7 +1805,6 @@ Three modes, picked by which arguments you pass: - point1 + point2: straight-lin
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -1886,7 +1839,6 @@ Only the arguments you pass are changed; everything else is left alone. Properti
 **Limits and versions.**
 - Reports a locked layer explicitly, and can work around it when layer_lock_override is true.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T4, T6, AA16, AL6).
 
@@ -1918,7 +1870,6 @@ Only the arguments you pass are changed; everything else is left alone. Properti
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI2).
 
@@ -1952,7 +1903,6 @@ This is how wall thicknesses, kerbs, setbacks and pipe runs get drawn from a sin
 **Limits and versions.**
 - Text, blocks, hatches and dimensions cannot be offset; each is reported in "failed" with its type rather than aborting the call.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -1983,14 +1933,13 @@ An import from Revit or IFC often draws every wall line twice, or in pieces lyin
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"confirmed": bool, "plan_id": str, "looked_at": int, "erase_count": int, "stretch_count": int, "erase": [{"handle", "type", "reason", "kept"}], "change": [{"handle", "type", "start", "end" | "start_angle", "end_angle", "was", "why"}], "left": [{"handles", "why"}], "skipped_count": int}`
+- Technical shape of the answer: `JSON: {"confirmed": bool, "plan_id": str, "looked_at": int, "erase_count": int, "stretch_count": int, "erase": [{"handle", "type", "reason", "kept"}], "change": [{"handle", "type", "start", "end" | "start_angle", "end_angle", "was" ...`
 
 **Limits and versions.**
 - Over 20,000 curves (or 200,000 objects in the space) is refused: give layers or handles, or type OVERKILL in AutoCAD.
 - A locked layer among the objects to change is named, and nothing is changed.
 - confirm=true without the listing's plan_id, or after the drawing changed, does nothing and says to list again.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD1).
 
@@ -2019,7 +1968,6 @@ The centroid (closed shapes) is the place for a room or zone tag.
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows W7, AA8).
 
@@ -2051,7 +1999,6 @@ The centroid (closed shapes) is the place for a room or zone tag.
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI2).
 
@@ -2084,7 +2031,6 @@ The centroid (closed shapes) is the place for a room or zone tag.
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2114,7 +2060,6 @@ Returns its handles, total length and open ends (where the run stops), e.g. one 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2149,7 +2094,6 @@ Lines and polylines are reshaped (arcs in a polyline keep their bulge). A circle
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA12).
 
@@ -2184,7 +2128,6 @@ The second half of turning an export into a shop drawing. An IFC or Revit drawin
 - A locked or frozen layer is reported per object in "failed"; the rest still lands.
 - Nothing is deleted unless delete_empty is passed, and never on a dry run.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D26).
 
@@ -2213,7 +2156,6 @@ Lengths are in drawing units (check autocad_status). Splines and ellipses are me
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PASS** in AutoCAD 2027 (rows A26).
 
@@ -2249,7 +2191,6 @@ Works in plan on lines, arcs and polylines (a polyline arc is cut on its arc; a 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA1, AA4).
 
@@ -2286,7 +2227,6 @@ Edit the run and the label updates on the next regen. Several objects give their
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2321,7 +2261,6 @@ Use for every label on a drawing. Default is Ajmal's TLD style: MTEXT, and a LEA
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PASS** in AutoCAD 2027 (rows A24).
 
@@ -2355,7 +2294,6 @@ Use this for general notes, specification blocks and any text longer than a few 
 
 **Limits and versions.**
 - The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2392,7 +2330,6 @@ Use it when a single note serves several things — "4 No. M16 BOLTS" with an ar
 - A style or block the drawing does not have is named; the leader is not left half-made.
 - Properties a locked style refuses come back in "not_set" rather than failing the call.
 - The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E16, E17, AB10, AN2, AN13).
 
@@ -2429,7 +2366,6 @@ A table the modeller can edit, sort and restyle, with a title and headings. Text
 - Cells AutoCAD refuses are counted and the row and column are reported; the table itself still lands.
 - A text height or text style AutoCAD refuses is in "not_set" with its reason; the table keeps its style's own.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D33, E18, E19, AC13, AF10, AN8, AN9, AN13).
 
@@ -2462,7 +2398,6 @@ Use this for short labels, tags and callouts. For paragraphs, or text that must 
 
 **Limits and versions.**
 - The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB9, AI1, AI3).
 
@@ -2494,7 +2429,6 @@ Use this for short labels, tags and callouts. For paragraphs, or text that must 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T7).
 
@@ -2531,7 +2465,6 @@ An annotative note carries one size per scale: give it 1:50 and 1:100 and it rea
 - A removal that would leave an annotative object with no scale is refused, and nothing is changed.
 - A scale the drawing has not got is refused, unless add_missing_to_drawing is true and it is written like 1:25.
 - The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB9, AB11).
 
@@ -2564,7 +2497,6 @@ Use instead of calling autocad_add_label again and again — a column of 15 labe
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows A30 passed in AutoCAD 2027; the rest are NOT RUN (rows A30, A31).
 
@@ -2592,7 +2524,6 @@ Use instead of calling autocad_add_label again and again — a column of 15 labe
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2623,14 +2554,13 @@ A dimension style is built the way AutoCAD's own API requires: the DIM variables
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: { "text_styles": [{"name", "created", "font", "height", "current", "notes": [str]}], "dim_styles": [{"name", "created", "variables": {...}, "current", "notes": [str]}], "multileader_styles": [{"name", "created", "current", "text_style", "text_height", "arrow", "arrow_size", "dogleg" ...`
+- Technical shape of the answer: `JSON: { "text_styles": [{"name", "created", "font", "height", "current", "notes": [str]}], "dim_styles": [{"name", "created", "variables": {...}, "current", "notes": [str]}], "multileader_styles": [{"name", "created", "current" ...`
 
 **Limits and versions.**
 - A style name already in the drawing is refused unless replace=true.
 - A font AutoCAD cannot find is reported against that style; the other styles are still made.
 - The drawing's own DIM variables are put back even if a style fails.
 - The plug-in does part of the work (`multileader_style`, `table_style`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, AN1, AN3, AN5, AN7, AN13).
 
@@ -2663,7 +2593,6 @@ Use for revisions: a renamed room, a changed size, a new project name. Try dry_r
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T2, T6, T7).
 
@@ -2689,11 +2618,10 @@ This is the fastest way to locate something described by its label — a room na
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"query": str, "count": int, "truncated": bool, "matches": [{"handle": str, "type": str, "layer": str, "text": str, "position": [x, y, z], "source": "text" | "mtext" | "attribute", "attribute_tag": str, # attribute matches only "block_name": str}]} # attribute matches only`
+- Technical shape of the answer: `JSON: {"query": str, "count": int, "truncated": bool, "matches": [{"handle": str, "type": str, "layer": str, "text": str, "position": [x, y, z], "source": "text" | "mtext" | "attribute", "attribute_tag": str, # attribute matches only ...`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2726,7 +2654,6 @@ Optionally between crossings with another layer (lengths between tees and branch
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2753,11 +2680,10 @@ An annotative object shows only in a viewport whose scale it carries (with ANNOA
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"current": {"name", "paper", "drawing"}, "cannoscale": str, "scales": [{"name", "paper", "drawing"}], "anno_all_visible": bool, "objects": [{"handle", "type", "annotative": "yes"|"no"|"cannot", "scales": [str], "height", "paper_height"}]}`
+- Technical shape of the answer: `JSON: {"current": {"name", "paper", "drawing"}, "cannoscale": str, "scales": [{"name", "paper", "drawing"}], "anno_all_visible": bool, "objects": [{"handle", "type", "annotative": "yes"|"no"|"cannot", "scales": [str], "height" ...`
 
 **Limits and versions.**
 - The plug-in does part of the work (`annotation_scales`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB9).
 
@@ -2786,7 +2712,6 @@ Read this before adding annotation so new text and dimensions match what the dra
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2817,7 +2742,6 @@ Sorted by rows, columns or along a run, so the numbering follows the drawing. On
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2853,7 +2777,6 @@ For a schedule on the sheet that needs a few values corrected or a row added, wi
 **Limits and versions.**
 - A handle that is not a table, a cell given twice, or a cell outside the table without grow is refused before anything changes.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC11, AC12).
 
@@ -2889,7 +2812,6 @@ The Insert > Data Link job: a schedule kept in Excel (pumps, fans, a door schedu
 **Limits and versions.**
 - A file, sheet or range that is not there, or a range bigger than 500 rows, 40 columns or 5,000 cells, is refused before anything is made.
 - The plug-in does part of the work (`excel_table`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC5b, AC7, AC9).
 
@@ -2919,7 +2841,6 @@ The Insert > Data Link job: a schedule kept in Excel (pumps, fans, a door schedu
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2951,7 +2872,6 @@ After the workbook behind a linked table was edited and saved, this reads it aga
 
 **Limits and versions.**
 - The plug-in does part of the work (`update_table_links`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC8).
 
@@ -2989,7 +2909,6 @@ Give the handles, or a layer and every circle and arc on it is marked. ``extend`
 **Limits and versions.**
 - A handle that is not a circle or an arc is counted in "skipped" and named, rather than failing the call.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E15).
 
@@ -3021,7 +2940,6 @@ The dimension takes the drawing's current dimension style, so it follows the she
 **Limits and versions.**
 - Names the specific missing argument when a dimension type needs a point that was not supplied.
 - The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB10, AI2).
 
@@ -3056,7 +2974,6 @@ Each dimension gets a gap in its dimension and extension lines wherever another 
 - Anything that is not a dimension, a dimension in another space, or one on a locked or frozen layer is refused before anything is typed.
 - If AutoCAD is still asking when DIMBREAK should be done, it is cancelled and the tool says so.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB4).
 
@@ -3087,14 +3004,13 @@ This is the dimensioning a drawing actually needs. Give the feature points along
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: { "mode", "axis", "count", "handles": [str], "dimensions": [{"kind", "point1", "point2", "text_position", "expected", "measured", "handle", "row"}], "total": float, # the run end to end "failed": [{"index", "reason"}], "dim_style": str, # with dim_style: the style, as the drawing names it ...`
+- Technical shape of the answer: `JSON: { "mode", "axis", "count", "handles": [str], "dimensions": [{"kind", "point1", "point2", "text_position", "expected", "measured", "handle", "row"}], "total": float, # the run end to end "failed": [{"index", "reason"}], "dim_style" ...`
 
 **Limits and versions.**
 - A dim_style the drawing does not have is refused before anything is drawn, naming the styles it has.
 - Points that land on top of each other along the axis are skipped rather than making a zero dimension; if none are left, that is said.
 - A dimension AutoCAD rejects is reported in "failed" with its index; the rest of the run still lands.
 - The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E11, AB1, AB10, Z5, S7).
 
@@ -3131,7 +3047,6 @@ The base dimension stays put. Every other one keeps the side of it that it is on
 - A dimension that is not parallel to the base is left where it is and listed in "skipped"; one that is not linear or aligned is skipped too.
 - Fewer than two dimensions, a base that is not in the list, or a negative spacing is refused before anything moves.
 - The plug-in does part of the work (`dimension_lines`, `move_dimension_lines`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB2).
 
@@ -3172,7 +3087,6 @@ Each row is matched to its block by the Handle column. A cell is written only wh
 - A row whose block is gone, or a value under a tag the block does not have: listed, the rest still applied.
 - A cell AutoCAD would not take (a locked layer): listed in 'failed'.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y2, RV2).
 
@@ -3210,7 +3124,6 @@ The consultant's background as a PDF, a scanned survey, a site photo: it shows i
 - A file that is not there, or not an image or underlay type, is refused before AutoCAD is asked.
 - A PDF page or DWF sheet that is not in the file is refused by the plug-in, and nothing is changed.
 - The plug-in does part of the work (`attach_underlay`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD3).
 
@@ -3245,7 +3158,6 @@ The architect's plan under the services, a survey under the site plan: the other
 - A file that is not there is named before AutoCAD is asked.
 - A name already used by a block or xref in this drawing is refused, pointing at autocad_manage_xref to reload the one that is there.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G7).
 
@@ -3278,7 +3190,6 @@ Uses each block's extents (square to the drawing), plus 'gap'. A polyline with a
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI7).
 
@@ -3316,7 +3227,6 @@ Show only the part of the architect's plan, the survey or the PDF that the sheet
 - An outline that is open, crosses itself or encloses no area is refused before anything changes.
 - Both or neither of corners and boundary (without remove) is refused.
 - The plug-in does part of the work (`clip_reference`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD4).
 
@@ -3353,7 +3263,6 @@ The copies land in the active drawing, the one Heron checked with autocad_status
 **Limits and versions.**
 - A source that is not open, is this drawing, or a handle that is not in it is refused before anything is copied.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC14).
 
@@ -3382,7 +3291,6 @@ Dynamic blocks are counted by their real name, not the *U names AutoCAD gives th
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows A26 passed in AutoCAD 2027; the rest are NOT RUN (rows A26, W7).
 
@@ -3418,7 +3326,6 @@ One row per block reference, one column per tag, with the block's handle, name a
 - An unsaved drawing has no folder: it says to save it first.
 - No block with attributes: it says so and writes nothing.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y1, RV2).
 
@@ -3446,7 +3353,6 @@ Use for "make a camera schedule", "list all equipment tags", or to check tag val
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E19, S3).
 
@@ -3475,7 +3381,6 @@ Use before autocad_set_dynamic_properties to see the names and choices (visibili
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PASS** in AutoCAD 2027 (rows A27).
 
@@ -3508,7 +3413,6 @@ Use to load company standard symbols and layers in one call. The source file is 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -3542,7 +3446,6 @@ Use to load company standard symbols and layers in one call. The source file is 
 - Lists the drawing's available block names when the requested one is not defined, so the next call can use a valid name.
 - Reports requested attribute tags the block does not have in "attributes_not_found" rather than failing the whole insertion.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows A28 passed in AutoCAD 2027; the rest are NOT RUN (rows A28, AI1).
 
@@ -3567,11 +3470,10 @@ Use this before autocad_insert_block to get exact names, and to see what attribu
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"count": int, "blocks": [{"name": str, "entity_count": int, # entities in the definition "instances": int, # times placed in the drawing "is_xref": bool, "dynamic": bool, # a dynamic block "attribute_tags": [str], "path": str}]} # xrefs only`
+- Technical shape of the answer: `JSON: {"count": int, "blocks": [{"name": str, "entity_count": int, # entities in the definition "instances": int, # times placed in the drawing "is_xref": bool, "dynamic": bool, # a dynamic block "attribute_tags": [str], "path": str}]} # ...`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows A28 passed in AutoCAD 2027; the rest are NOT RUN (rows A28, AC2).
 
@@ -3608,7 +3510,6 @@ Use for every separate part (fitting, elbow, clamp, plate, anchor, support piece
 **Limits and versions.**
 - A tag with a space, a tag given twice, a constant attribute with no default, or constant and preset together are refused before anything is made.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows A25 passed in AutoCAD 2027; the rest are NOT RUN (rows A25, K7, AC1, AC2).
 
@@ -3646,7 +3547,6 @@ Reload after the other consultant issues a new revision; unload to hide one with
 - A name that is not in the drawing, or a block that is not an xref, is refused before anything changes.
 - Without confirm, detach, bind and insert change nothing and say so.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G8, G9).
 
@@ -3679,7 +3579,6 @@ For sprinklers, lights, diffusers, supports and cameras along a corridor. Number
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -3710,7 +3609,6 @@ For device, pole and camera schedules, or setting-out points from a survey.
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -3741,7 +3639,6 @@ Same values for all, or one row per block from a list or CSV, matched by a tag o
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -3773,7 +3670,6 @@ Names are matched without regard to case. Each value is converted to the propert
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PASS** in AutoCAD 2027 (rows A27).
 
@@ -3804,13 +3700,12 @@ After a block's definition changed (an attribute added, removed, moved or resize
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"block", "touched", "changing_tags", "values_kept", "attributes_added", "attributes_dropped", "inserts": [{handle, keep, add, drop}], "skipped": [{handle, why}], "definitions_added": [tag], "synced": what the plug-in did, "before_after"}`
+- Technical shape of the answer: `JSON: {"block", "touched", "changing_tags", "values_kept", "attributes_added", "attributes_dropped", "inserts": [{handle, keep, add, drop}], "skipped": [{handle, why}], "definitions_added": [tag], "synced": what the plug-in did ...`
 
 **Limits and versions.**
 - A block that is not in the drawing points at autocad_list_blocks.
 - A new tag that the block already has is refused before anything changes.
 - The plug-in does part of the work (`sync_attributes`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC3, AC6, AC17).
 
@@ -3844,7 +3739,6 @@ For each xref: its name, the path saved in the drawing, the file it points to on
 - A drawing with no xrefs answers count 0, not an error.
 - A nested xref that refers back up the tree is marked, not followed.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows I1).
 
@@ -3881,7 +3775,6 @@ Safe to call repeatedly: an existing layer is updated with whatever properties y
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q1, T2, T4, AL5).
 
@@ -3916,7 +3809,6 @@ Safe to call repeatedly: an existing layer is updated with whatever properties y
 - Text and dashes together, a quote in the text, a pattern that starts with a gap, more than 12 dashes, or a description over 47 characters are refused before anything is written.
 - A linetype already in the drawing, or a text style it lacks, is refused before the file is written.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G11, G12).
 
@@ -3948,7 +3840,6 @@ AutoCAD will not delete layer 0, the current layer, or a layer that still holds 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -3983,7 +3874,6 @@ AutoCAD's LAYISO and LAYUNISO. Before the first isolate, Heron saves the layers 
 - 'unisolate' with nothing isolated by Heron says so and changes nothing.
 - A layer name the drawing has not got is refused before anything changes.
 - The plug-in does part of the work (`layer_state`, `layer_state_names`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB6).
 
@@ -4012,11 +3902,10 @@ A layer standard is one row per layer: name (or a pattern with * and ?), colour,
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: show {"in_force", "file", "folder", "office_standard", "standard" {"name", "example", "counts", "layers"}, "next"}; template {"template", "next"}; import {"imported", "imported_from", "standard", "previous"}; remove {"removed", "kept_as"}.`
+- Technical shape of the answer: `JSON: show {"in_force", "file", "folder", "office_standard", "standard" {"name", "example", "counts", "layers"}, "next"}; template {"template", "next"}; import {"imported", "imported_from", "standard", "previous"};`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AT1, AT5).
 
@@ -4053,7 +3942,6 @@ A layer state remembers which layers are on, frozen and locked (and, unless you 
 - Saving over a state that is there already needs overwrite=true.
 - Restoring or deleting a state the drawing has not got is refused, naming autocad_list_layers.
 - The plug-in does part of the work (`layer_state`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB5).
 
@@ -4079,11 +3967,10 @@ Reading the layer list first is the reliable way to use the drawing's own naming
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"count": int, "current_layer": str, "layers": [ {"name": str, "color": int, "linetype": str, "lineweight": int, "on": bool, "frozen": bool, "locked": bool, "plottable": bool, "entity_count": int}], "layer_states": [{"name": str, "remembers": [str], "description": str}]} "entity_count" ...`
+- Technical shape of the answer: `JSON: {"count": int, "current_layer": str, "layers": [ {"name": str, "color": int, "linetype": str, "lineweight": int, "on": bool, "frozen": bool, "locked": bool, "plottable": bool, "entity_count": int}], "layer_states": [{"name": str ...`
 
 **Limits and versions.**
 - The plug-in does part of the work (`layer_state_names`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q3, V2, AB5, AL1).
 
@@ -4113,12 +4000,11 @@ AutoCAD's LAYMERGE. Objects move from the old layers in model space, on every la
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"into", "moved": int, "counts": {layer: {"drawing", "blocks", "attributes"}}, "removed": [str], "kept": [{"layer", "why"}], "failed": [{"handle", "reason"}], "before_after": [...]} With confirm=false: the counts and a next step; nothing changed.`
+- Technical shape of the answer: `JSON: {"into", "moved": int, "counts": {layer: {"drawing", "blocks", "attributes"}}, "removed": [str], "kept": [{"layer", "why"}], "failed": [{"handle", "reason"}], "before_after": [...]} With confirm=false: the counts and a next step;`
 
 **Limits and versions.**
 - Layer 0, an xref's layer, a layer that is not there, or merging a layer into itself is refused before anything changes.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB7).
 
@@ -4148,13 +4034,12 @@ This is the first half of turning an IFC or Revit export into a shop drawing. Ru
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: { "dry_run": bool, "counts": {"read", "to_move", "already_right", "unmatched", "layers_wanted"}, "by_rule": {"*duct* -> M-HVAC-DUCT": 412, ...}, "layers": [{name, color, linetype, lineweight, plottable, created}], "moved": int, "failed": [{"handle", "to", "reason"}], "unmatched_sample" ...`
+- Technical shape of the answer: `JSON: { "dry_run": bool, "counts": {"read", "to_move", "already_right", "unmatched", "layers_wanted"}, "by_rule": {"*duct* -> M-HVAC-DUCT": 412, ...}, "layers": [{name, color, linetype, lineweight, plottable, created}], "moved": int ...`
 
 **Limits and versions.**
 - A rule with no target layer, or with nothing to match on, is refused before any object is touched: a rule that matches everything would sweep the drawing onto one layer.
 - A locked or frozen target layer is reported per object in "failed"; the rest of the move still lands.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D24, AT6, AT7).
 
@@ -4185,7 +4070,6 @@ Only needed when drawing several things onto one layer — the drawing tools all
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T5).
 
@@ -4218,7 +4102,6 @@ Only the states you pass are changed. Wildcards let one call cover a whole disci
 **Limits and versions.**
 - The current layer cannot be frozen or turned off; AutoCAD refuses it and the reason is reported per layer rather than failing the call.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T6).
 
@@ -4254,13 +4137,12 @@ Say where to look — a point, a window, a saved view, or a set of objects — a
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: { "created": true, "handle": str, "layout": str, "scale": "1:50", "scale_ratio": float, "fitted": bool, "paper_rect": [x1, y1, x2, y2], "model_window": [x1, y1, x2, y2], "looking_at": [x, y], "twist_degrees": float, "locked": bool, "clipped": bool, "annotation_scale": str, "made_by": "plugin" ...`
+- Technical shape of the answer: `JSON: { "created": true, "handle": str, "layout": str, "scale": "1:50", "scale_ratio": float, "fitted": bool, "paper_rect": [x1, y1, x2, y2], "model_window": [x1, y1, x2, y2], "looking_at": [x, y], "twist_degrees": float, "locked": bool ...`
 
 **Limits and versions.**
 - An area that will not fit the viewport at any standard scale says so and names the smallest one tried.
 - A saved view the drawing does not have is reported with the ones it has.
 - The plug-in does part of the work (`add_viewport`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows D16 passed in AutoCAD 2027; the rest are NOT RUN (rows D13, D14, D15, D16, D19, AF5, AF6, AF7, AF8, AF11, AQ7, AL7, S9).
 
@@ -4295,7 +4177,6 @@ Returns the sheet's arithmetic worked out — paper size, frame, the corner a ti
 - A name already in the drawing is refused before anything is made.
 - copy_from naming a layout that is not there lists the ones that are.
 - The plug-in does part of the work (`create_layout`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **FAIL**: a live row failed and has not passed since (rows D8, D9, J5, AF1, AF3, AF11, AF17). Do not rely on it.
 
@@ -4323,7 +4204,6 @@ Returns the sheet's arithmetic worked out — paper size, frame, the corner a ti
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -4352,7 +4232,6 @@ Use this to find a location someone already named — a detail area, a plotted r
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13).
 
@@ -4383,7 +4262,6 @@ Order runs first, then renumbering (in the new tab order), then renames, then co
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -4417,7 +4295,6 @@ This is AutoCAD's Page Setup, done to one sheet or to every sheet at once — th
 - A plotter or sheet size AutoCAD does not have is named in the error, with the sizes that plotter does offer.
 - The plotter is set before the sheet size, because a device only offers its own sizes.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D10, D11).
 
@@ -4453,7 +4330,6 @@ The corner is worked out from the sheet's own paper size and the frame margins, 
 - A block that is neither in the drawing nor a .dwg on disk is reported with the blocks the drawing does have.
 - Attribute tags the block does not carry come back in "attributes_not_found" rather than failing the sheet.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PASS** in AutoCAD 2027 (rows D12).
 
@@ -4492,7 +4368,6 @@ Each layout is plotted with its own page setup - paper, scale, plot style - as P
 - With folder / drawings: a file that is not there, not a .dwg, open with unsaved changes, or with an xref that cannot be found, is named, and nothing is published.
 - A layout name that is not in the drawing(s) is named.
 - The plug-in does part of the work (`active_sheet`, `publish_pdf`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows I3, I4, I5, I8, M7, AF12).
 
@@ -4528,7 +4403,6 @@ Give two corners, or the objects the area should cover, and it is saved as an Au
 - A name already saved is refused unless replace=true; a layout's (paper space) view of that name is refused even then.
 - Objects that report no extents are named rather than silently skipped.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13).
 
@@ -4559,13 +4433,12 @@ Each row of the list - sheet number, title, scale, view - becomes a layout named
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"count": int, "complete": bool, "sheets": [{"number", "layout", "title", "scale", "fitted", "viewport": str | null, "model_window", "title_block": str | null, "attributes_set", "attributes_not_found", "made_by"}], "undo": str, "stopped": {...}} # "stopped" only when a sheet could not be made`
+- Technical shape of the answer: `JSON: {"count": int, "complete": bool, "sheets": [{"number", "layout", "title", "scale", "fitted", "viewport": str | null, "model_window", "title_block": str | null, "attributes_set", "attributes_not_found", "made_by"}], "undo": str ...`
 
 **Limits and versions.**
 - A number used twice or already a layout, a scale it cannot read, a view the drawing does not have, a title block it cannot find: all said at once, and nothing is made.
 - A sheet AutoCAD refuses part-way stops the run: the answer lists the sheets made and why it stopped; one Ctrl+Z takes them all back.
 - The plug-in does part of the work (`add_viewport`, `create_layout`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AF9).
 
@@ -4604,14 +4477,13 @@ The view for a render, as AutoCAD's CAMERA command makes one: perspective on, th
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created" | "replaced": true, "name", "handle", "eye", "target", "lens_mm", "perspective": true, "field_of_view_degrees", "distance", "view_width", "view_height", "on_screen": bool (Heron asked AutoCAD to show it), "in_drawing": bool, "warning"?: str}`
+- Technical shape of the answer: `JSON: {"created" | "replaced": true, "name", "handle", "eye", "target", "lens_mm", "perspective": true, "field_of_view_degrees", "distance", "view_width", "view_height", "on_screen": bool (Heron asked AutoCAD to show it), "in_drawing" ...`
 
 **Limits and versions.**
 - The same eye and target, or a lens outside 10-600 mm, is refused.
 - A name already saved is refused unless replace=true; a layout's (paper space) view of that name is refused even then.
 - It works on the Model tab only: a layout is refused.
 - The plug-in does part of the work (`add_camera_view`, `current_view`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE2, AE4).
 
@@ -4651,7 +4523,6 @@ The lamp is set as a lighting designer would: brightness in lumens or candela, c
 - A falloff smaller than the hotspot is refused.
 - lux for a point, spot or web light, or cd / lm for a distant one, is refused: say which unit the number is in.
 - The plug-in does part of the work (`add_light`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows K1, K2, K3, K5, K6).
 
@@ -4687,7 +4558,6 @@ A mesh is faces and vertices that can be smoothed, which a render, an export to 
 - A primitive and from_handle together are refused.
 - from_handle that is not a solid, surface or region is named.
 - The plug-in does part of the work (`add_mesh`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH11).
 
@@ -4726,7 +4596,6 @@ Follows a line, arc, circle, polyline or spline drawn flat in plan, or a list of
 - A path not flat in plan is refused: the wall goes straight up.
 - A path that turns tighter than the wall is wide, or crosses itself, is refused with nothing changed.
 - The plug-in does part of the work (`add_polysolid`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR4, AR6).
 
@@ -4759,13 +4628,12 @@ Follows a line, arc, circle, polyline or spline drawn flat in plan, or a list of
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "3dsolid", "sides": int, "base": [x, y, z], "height": float, "radius": float, "corner_radius": float, "top_radius": float, "top_corner_radius": float, "rotation": float, "turned": bool, "remade_to_size": bool, "volume": float, "expected_volume": float ...`
+- Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "3dsolid", "sides": int, "base": [x, y, z], "height": float, "radius": float, "corner_radius": float, "top_radius": float, "top_corner_radius": float, "rotation": float, "turned": bool ...`
 
 **Limits and versions.**
 - Sides outside 3 to 32, or sizes not above zero, are refused before AutoCAD is asked.
 - Needs the Heron plug-in with this operation; an older one says to update.
 - The plug-in does part of the work (`add_pyramid`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR1, AR2, AR3).
 
@@ -4802,7 +4670,6 @@ AutoCAD's own calls place a solid by the centre of its bounding box, which is ha
 - Each shape names exactly the sizes it needs and which were missing.
 - radius and diameter together are refused rather than one quietly winning.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows J3 passed in AutoCAD 2027; the rest are NOT RUN (rows E22, E23, F1, J3, AL2, S7).
 
@@ -4840,7 +4707,6 @@ Planar: a flat surface filling each closed outline or region, or a rectangle fro
 - Fewer than two curves either way is refused for a network.
 - Curves AutoCAD cannot make a surface of are refused with nothing changed.
 - The plug-in does part of the work (`network_surface`, `planar_surface`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH10).
 
@@ -4873,7 +4739,6 @@ Materials change how a model *looks* — in a shaded or realistic visual style, 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows F19, F20, F21, K8).
 
@@ -4910,7 +4775,6 @@ AutoCAD chamfers the edges of one face: name the face, and by default every edge
 - A face word that picks more than one face is refused: give its number.
 - An edge that is not on that face is refused, with the face's edges.
 - The plug-in does part of the work (`chamfer_edges`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H5).
 
@@ -4944,7 +4808,6 @@ The question every coordination meeting asks: does the duct hit the beam? This p
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows F9, F11, F12, F13, W8).
 
@@ -4983,7 +4846,6 @@ For renders and realistic views: laterite walls, teak doors, granite floors, gla
 - An image path that is not there, or not an image, is refused.
 - texture_size without a texture or bump image, or texture_height without texture_size, is refused.
 - The plug-in does part of the work (`create_material`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows K8, K9, K10, K11, K12, K16, K15).
 
@@ -5017,7 +4879,6 @@ One object, so it moves and selects as one thing, and it can be used as a path l
 - Needs either points or the three helix settings, and says which are missing.
 - A path of fewer than two points is refused.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E32, E33).
 
@@ -5058,7 +4919,6 @@ Faces are picked by a word ('top', 'front'...) or by the numbers autocad_list_so
 - Deleting every face is refused; so is a face AutoCAD cannot close over (a box's side).
 - A face word that picks nothing, or a number not there, is refused with the range.
 - The plug-in does part of the work (`delete_faces`, `move_faces`, `offset_faces`, `taper_faces`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR8, AR9).
 
@@ -5096,7 +4956,6 @@ This is how every real part gets modelled — draw the section flat, then give i
 - A revolve without an axis, or with an angle of zero, is refused before anything is made.
 - More than one region from the curves is reported, with the count: that means the profile closed more than one loop, which is rarely meant.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E24, E26, E27, F4, S7).
 
@@ -5133,7 +4992,6 @@ One undo step.
 - A word that picks no edge, or a number that is not there, is refused with the range.
 - A radius too big for the faces beside an edge is refused with nothing changed.
 - The plug-in does part of the work (`fillet_edges`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows J3 passed in AutoCAD 2027; the rest are NOT RUN (rows H1, H3, J3, AR10).
 
@@ -5172,7 +5030,6 @@ Each view is the solids seen square on, hidden lines removed, made as a block of
 - A view name that is not one of the six is refused, with the list.
 - No lines for any view is refused with nothing changed.
 - The plug-in does part of the work (`flat_views`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH4, AH5).
 
@@ -5202,13 +5059,12 @@ AutoCAD's online map (GEOMAP) then shows under the drawing, and the sun follows 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"located": bool, "made": bool, "latitude", "longitude", "elevation", "point": [x, y, z], "north_angle": degrees, "coordinate_system": str, "units": str, "reference_form": str, "sun_place": {"latitude", "longitude", "moved": bool}, "not_set"?: [str]} or, for 'remove': {"removed": true ...`
+- Technical shape of the answer: `JSON: {"located": bool, "made": bool, "latitude", "longitude", "elevation", "point": [x, y, z], "north_angle": degrees, "coordinate_system": str, "units": str, "reference_form": str, "sun_place": {"latitude", "longitude", "moved": bool} ...`
 
 **Limits and versions.**
 - Without a latitude and longitude, and with the sun's place still AutoCAD's default (San Francisco), it asks for the place instead of locating the drawing in California.
 - A drawing with no units, an unknown coordinate system, or a place AutoCAD reads back wrong is refused, and nothing is changed.
 - The plug-in does part of the work (`set_geo_location`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ11, AQ12, AQ13).
 
@@ -5240,7 +5096,6 @@ The drawing point that is placed, its latitude, longitude and height, the north 
 - A drawing with no location answers located=false, not an error.
 - Without the plug-in it still gives the sun's place, and says why the location could not be read.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ11).
 
@@ -5275,7 +5130,6 @@ A face split this way can then be pulled, offset or coloured on its own: a plint
 - Anything that cannot be imprinted (text, a block) is named, with what it is.
 - An object that does not touch the solid changes nothing: the face count says so.
 - The plug-in does part of the work (`imprint_solid`, `solid_topology`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR11).
 
@@ -5303,13 +5157,12 @@ Like AutoCAD's Lights in Model palette, from the chat: each light's handle, name
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"count", "on", "off", "in_model_space", "in_blocks", "lights": [{"handle", "name", "kind", "on", "intensity", "intensity_unit", "kelvin"?, "layer", "position"?, "block"?, "inserts"?}], "default_lighting": bool, "lighting_units": int, "sun": {"on", "date", "time", "daylight_saving" ...`
+- Technical shape of the answer: `JSON: {"count", "on", "off", "in_model_space", "in_blocks", "lights": [{"handle", "name", "kind", "on", "intensity", "intensity_unit", "kelvin"?, "layer", "position"?, "block"?, "inserts"?}], "default_lighting": bool, "lighting_units" ...`
 
 **Limits and versions.**
 - Needs the Heron plug-in with the list_lights operation; an older one says it does not have it.
 - A variable this AutoCAD does not have reads as null.
 - The plug-in does part of the work (`list_lights`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE9, AE14).
 
@@ -5339,7 +5192,6 @@ Worth running before you try to apply one: only a material already in the drawin
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows F18).
 
@@ -5373,7 +5225,6 @@ Each face: its kind (plane, cylinder...), area, centre, which way a flat one fac
 - A handle that is not a 3D solid is named, with what it is.
 - Needs the Heron plug-in 1.2.0 or newer; an older one says to update.
 - The plug-in does part of the work (`solid_topology`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows J3 passed in AutoCAD 2027; the rest are NOT RUN (rows H2, J3).
 
@@ -5411,7 +5262,6 @@ A rectangular-to-round duct transition, a tapered column, a hopper: draw each ou
 - Guides and a path together are refused: a loft follows one or the other.
 - Outlines AutoCAD cannot loft (crossing, out of order) are refused with nothing changed.
 - The plug-in does part of the work (`loft`, `loft_surface`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H8, T5, AH9).
 
@@ -5448,7 +5298,6 @@ Raise a plinth, deepen a recess, stretch a box to a new length. One undo step.
 - A curved face is refused: this moves flat faces.
 - A distance of 0 is refused before AutoCAD is asked.
 - The plug-in does part of the work (`press_pull`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H7, AR11).
 
@@ -5487,7 +5336,6 @@ A section plane is put through the points and kept in the model; the 2D section 
 - A plane that cuts and sees none of the solids is refused with nothing changed.
 - A handle that is not a 3D solid is named, with what it is.
 - The plug-in does part of the work (`section_plane`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH6, AH7, AH8).
 
@@ -5520,7 +5368,6 @@ The solid keeps one piece; each other piece becomes a new solid on the same laye
 **Limits and versions.**
 - A solid that is one piece already is refused: there is nothing to separate.
 - The plug-in does part of the work (`separate_solid`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR12).
 
@@ -5553,7 +5400,6 @@ What you need before ``autocad_preview`` can show a 3D model usefully: a south-w
 - An unknown direction or visual style is named, with the list of real ones, before anything changes.
 - The visual style is set by typing the VSCURRENT command (it is a command, not a system variable). If AutoCAD does not take the option, the command is cancelled and the style is in "not_set".
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E34, E35, F20, K13, AE1, AM6, AH1).
 
@@ -5587,7 +5433,6 @@ Written to AutoCAD's EXPVALUE and EXPWHITEBALANCE variables, then read back. The
 - Values outside the ranges are refused before anything changes.
 - A variable this AutoCAD does not have refuses the call, naming the palette instead; nothing is changed.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE14).
 
@@ -5624,7 +5469,6 @@ The place is the drawing's LATITUDE, LONGITUDE and TIMEZONE; the date and time l
 - It works on the Model tab only: a layout is refused.
 - If the sun's date cannot be set after the place was, the error says the place was set and Ctrl+Z takes it back.
 - The plug-in does part of the work (`list_lights`, `set_sun`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE5, AE6, AE7, AE8, AQ12).
 
@@ -5659,7 +5503,6 @@ A tank, a tray, a sump, a box section: model the outside, then shell it. One und
 **Limits and versions.**
 - A wall thicker than the solid allows is refused with nothing changed.
 - The plug-in does part of the work (`shell`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H6).
 
@@ -5693,7 +5536,6 @@ This is how a 3D model becomes a section drawing: slice it at the level or on th
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows F5, F7, F8, S7).
 
@@ -5729,7 +5571,6 @@ The first solid is the one that remains and is modified; the others are **consum
 - A handle that is not a 3D solid or a region is named before anything is changed, so nothing is consumed by mistake.
 - The volume before and after is reported: a subtract that removed nothing shows up as an unchanged volume.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E28, E29, E30, AR12).
 
@@ -5755,12 +5596,11 @@ Give a density and the volume becomes a weight: that is the number a fabricator 
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: { "count": int, "total_volume": float, "total_area": float, "items": [{"handle", "type", "volume", "area", "perimeter", "centroid", "bounding_box", "size", "moment_of_inertia", "radii_of_gyration"}], "unreadable": [{"handle", "type"}] }`
+- Technical shape of the answer: `JSON: { "count": int, "total_volume": float, "total_area": float, "items": [{"handle", "type", "volume", "area", "perimeter", "centroid", "bounding_box", "size", "moment_of_inertia", "radii_of_gyration"}], "unreadable": [{"handle" ...`
 
 **Limits and versions.**
 - Anything that reports no volume or area is listed in "unreadable" with its type, rather than failing the call.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E31, AH1).
 
@@ -5797,7 +5637,6 @@ Name the lights or give their handles (autocad_list_lights lists them), or switc
 - A light on a locked layer refuses the switch: unlock the layer.
 - A variable AutoCAD refuses is in "not_set"; the rest are set.
 - The plug-in does part of the work (`switch_lights`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE10, AE11, AE12).
 
@@ -5833,7 +5672,6 @@ One undo step.
 - Anything that is not a surface is named, with what it is.
 - A thickness bigger than the surface's tightest curve is refused with nothing changed.
 - The plug-in does part of the work (`thicken`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H9, AH9).
 
@@ -5869,7 +5707,6 @@ The ordinary modify tools work on the flat: they move in XY and rotate about Z. 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows F14, F15, F16, F17, S7).
 
@@ -5906,7 +5743,6 @@ Run this when a drawing behaves oddly — entities that will not select, command
 **Limits and versions.**
 - AUDIT writes its findings to AutoCAD's text window rather than returning them over COM, so the counts are not available here. Check the .adt log file beside the drawing for the detail.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -5940,7 +5776,6 @@ The same check list as autocad_checklist, with each drawing's own project change
 - A drawing that will not open (newer version, damaged, a box AutoCAD showed): NOT RUN with AutoCAD's reason; the rest go on.
 - The modeller's emergency stop (HERONSTOP): the rest are left out.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y4).
 
@@ -5970,11 +5805,10 @@ Rules: a layer name pattern, required layers with colour and linetype, nothing o
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"checked", "passed", "source", "pass_means", "summary" {rule: count}, "findings" [...], "truncated", "reference" {"file", "read_by", "compared", "left_out"}, "layer_standard" {"source", "file", "example", "layers", "compared", "left_out"}}`
+- Technical shape of the answer: `JSON: {"checked", "passed", "source", "pass_means", "summary" {rule: count}, "findings" [...], "truncated", "reference" {"file", "read_by", "compared", "left_out"}, "layer_standard" {"source", "file", "example", "layers", "compared" ...`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D31, U10, AG5, AT4, AT8, S2).
 
@@ -6004,14 +5838,13 @@ The modeller says the checks in their own words ("nothing on layer 0", "every A1
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON. run: {"checklist", "verdict", "coverage", "counts", "pass_means", "lists" {"office", "project"}, "checks_used" [{"id", "label", "from"}], "results": [{"id", "check", "label", "state", "severity", "source", "from", "target", "project_changed", "failing", "handles" | "names", "clause" ...`
+- Technical shape of the answer: `JSON. run: {"checklist", "verdict", "coverage", "counts", "pass_means", "lists" {"office", "project"}, "checks_used" [{"id", "label", "from"}], "results": [{"id", "check", "label", "state", "severity", "source", "from", "target" ...`
 
 **Limits and versions.**
 - A check that is not in the catalogue, or is missing a parameter, is refused when saving, naming the line; nothing is saved.
 - A project change that adds a check, or changes anything but severity, target or on, is refused naming the line; nothing is kept.
 - A check that cannot be decided (no such title block, xrefs unreadable, only part of the objects read) is NO DATA with the reason, never a silent PASS.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O3, U1, U3, AG9).
 
@@ -6045,7 +5878,6 @@ The same run as autocad_checklist (office list plus this project's changes), sav
 - An unsaved drawing has no folder: it says to save it first, and writes nothing.
 - A file that appeared between choosing the name and writing it is never replaced: the call stops and says so.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows U6, U7).
 
@@ -6073,12 +5905,11 @@ The check before working on a consultant's or client's DWG: which units it is in
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"drawing": str, "path": str, "units": str, "layers": {"count": int, "names": [str], "off": [str], "frozen": [str], "locked": [str]}, "blocks": {"count": int, "names": [str]}, "xrefs": [{"name": str, "saved_path": str}], "text_styles": [str], "dimension_styles": [str], "linetypes": [str] ...`
+- Technical shape of the answer: `JSON: {"drawing": str, "path": str, "units": str, "layers": {"count": int, "names": [str], "off": [str], "frozen": [str], "locked": [str]}, "blocks": {"count": int, "names": [str]}, "xrefs": [{"name": str, "saved_path": str}] ...`
 
 **Limits and versions.**
 - Model space is counted up to 50,000 objects; past that the answer says so and gives the total.
 - Uses the plug-in for speed when it can (from plug-in 1.8.0); otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows I2, I8, AS10, AS11).
 
@@ -6108,7 +5939,6 @@ Purging only removes definitions nothing references, so it cannot delete visible
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows S6).
 
@@ -6146,7 +5976,6 @@ office_list writes '<office folder>\<list>.json' (the office folder is set once 
 - A different file already there: refused naming who and when, unless replace=true.
 - A wrong check or change is refused naming the line; nothing written.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AG9, AG13, AG14).
 
@@ -6180,7 +6009,6 @@ The new drawing becomes active immediately, so later drawing tools target it wit
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -6217,7 +6045,6 @@ For issuing a drawing to a consultant: the saved drawing, its xrefs (nested ones
 - A folder that does not exist is refused before anything is written.
 - Files not found are listed under 'missing', never guessed.
 - The plug-in does part of the work (`list_dependencies`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD10, AD11).
 
@@ -6254,7 +6081,6 @@ The format comes from the file extension. DXF, WMF, SAT, BMP, EPS and STL are wr
 - Verifies a new file actually appeared on disk afterwards, since AutoCAD's plotter can report success without writing anything — for example when the old PDF is open, and locked, in a viewer.
 - An unknown paper_size lists the sizes the plotter does offer.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D19, D20, AQ10).
 
@@ -6283,7 +6109,6 @@ Use before autocad_switch_drawing when more than one file is open, so the target
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -6313,7 +6138,6 @@ Use before autocad_switch_drawing when more than one file is open, so the target
 **Limits and versions.**
 - Returns a path error naming the resolved path if the file does not exist, before AutoCAD is contacted at all.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -6343,14 +6167,13 @@ Works with AutoCAD closed, and never changes the file. A DXF is read directly. A
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"file", "read_by", "note", ...}. summary: {"format", "units", "extents" {"min", "max", "from"}, "layers", "objects", "model_by_type", "text", "blocks", "most_placed_blocks", "layouts", "xrefs"}; layers / blocks / text / attributes: {"count", "rows", "truncated"};`
+- Technical shape of the answer: `JSON: {"file", "read_by", "note", ...}. summary: {"format", "units", "extents" {"min", "max", "from"}, "layers", "objects", "model_by_type", "text", "blocks", "most_placed_blocks", "layouts", "xrefs"};`
 
 **Limits and versions.**
 - A DWG with no ODA File Converter on this PC is refused with the three ways round it; nothing is downloaded.
 - A damaged DXF is read in recover mode and the answer says so; the file is never changed.
 - A file over 250 MB, a locked file or a missing one is refused, saying why.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AG1, AG2, AG4, AG15).
 
@@ -6381,7 +6204,6 @@ Works with AutoCAD closed, and never changes the file. A DXF is read directly. A
 **Limits and versions.**
 - A never-saved drawing with no path given returns an error asking for one, rather than triggering AutoCAD's blocking Save As dialog.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D30, T5).
 
@@ -6410,7 +6232,6 @@ All other tools act on the active drawing, so switch before working on a second 
 **Limits and versions.**
 - Lists the drawings that are actually open if the name does not match.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows RV3).
 
@@ -6446,7 +6267,6 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity** lists the sam
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -6476,7 +6296,6 @@ The page is one HTML file on this PC (one per chat). This call reads the drawing
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y6).
 
@@ -6507,7 +6326,6 @@ Works with AutoCAD closed. Reads Heron's audit log on this PC (one line per call
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows W2, W5, W6).
 
@@ -6536,7 +6354,6 @@ This is how a request like "move what I've selected" or "what did I just pick?" 
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -6565,7 +6382,6 @@ System variables carry drawing settings no other tool exposes — dimension scal
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows A31, Q4).
 
@@ -6592,11 +6408,10 @@ Use after drawing something, to check it looks right before reporting it done. P
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `The PNG image (then one per close-up, top left first), then JSON: {"area", "layout", "size", "pixels", "plotted": {"min", "max", "width", "height"}, "smallest_clear_text", "detail": [{"picture", "part", "corner1", "corner2"}], "detail_smallest_clear_text", "tip"}.`
+- Technical shape of the answer: `The PNG image (then one per close-up, top left first), then JSON: {"area", "layout", "size", "pixels", "plotted": {"min", "max", "width", "height"}, "smallest_clear_text", "detail": [{"picture", "part", "corner1", "corner2"}] ...`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AM1, AM2, AM4, AM5, AM6, AH1, AR1).
 
@@ -6629,7 +6444,6 @@ A project is the folder the drawing is saved in: every drawing in that folder sh
 **Limits and versions.**
 - An unsaved drawing has no project yet: it says to save it first, and keeps nothing.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -6658,7 +6472,6 @@ Worth calling after bulk edits, or when the screen no longer matches the data �
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -6688,14 +6501,13 @@ Unlike autocad_send_command, this gets a value back. AutoCAD's COM interface has
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - A save, an export, a command or AutoLISP cannot be tried with `dry_run`: a file written or a command run cannot be taken back.
-- Technical shape of the answer: `JSON: {"expression": str, "result": str, "timed_out": bool, "cancelled_command": str (only when one was left open), "note": str, "chunks": int and "chunks_finished": int (only when it was cut)} "result" is the last form's value rendered as a string; "nil" is LISP's empty/false value, not an error.`
+- Technical shape of the answer: `JSON: {"expression": str, "result": str, "timed_out": bool, "cancelled_command": str (only when one was left open), "note": str, "chunks": int and "chunks_finished": int (only when it was cut)} "result" is the last form's value rendered as ...`
 
 **Limits and versions.**
 - Reports timed_out=true if AutoCAD never wrote a result, which usually means the expression raised a LISP error or is waiting for input.
 - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are rejected before anything is sent, since AutoCAD would otherwise sit waiting for the closing bracket.
 - One top-level form over LISP_MAX_CHARS (2,000) characters is refused, never cut: AutoCAD drops longer command-line text without a word.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, S10).
 
@@ -6732,7 +6544,6 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Saved commands** lists t
 - A step a sequence would refuse, an input used but not declared (or declared but not used), or an input without an example is refused when saving; nothing is saved.
 - Running with an unknown or missing input names it; nothing is run.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T3).
 
@@ -6767,7 +6578,6 @@ This is the escape hatch for anything the typed tools do not cover — BOUNDARY,
 - Refuses commands known to open a modal dialog and names the command-line alternative, since a dialog would hang the connection.
 - expect_box without press (or the reverse), or a plug-in older than 1.7.0, is refused before anything is sent.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N4, V1, V4, V7, Z1, RV1).
 
@@ -6798,13 +6608,12 @@ This is AutoLISP's ``progn``: the steps that only make sense together, sent toge
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: { "ran": int, "failed": int, "skipped": int, "dry_run": bool, "steps": [{"index", "tool", "label", "level", "ok", "result": {...} | str, "skipped": bool}] } Each step's "result" is that tool's own answer, so handles from one step can be read out and used in the next call.`
+- Technical shape of the answer: `JSON: { "ran": int, "failed": int, "skipped": int, "dry_run": bool, "steps": [{"index", "tool", "label", "level", "ok", "result": {...} | str, "skipped": bool}] } Each step's "result" is that tool's own answer, so handles from one step can ...`
 
 **Limits and versions.**
 - An unknown tool, a Publish or Admin step, a nested sequence, or arguments a tool would reject: all are reported with the step number before anything runs.
 - A step that fails while running is reported with its own error text; the steps after it are marked skipped unless stop_on_error=false.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D27, D28, D29, D30, F23, N7, X24, Z5, AJ8, RV3).
 
@@ -6837,7 +6646,6 @@ This is AutoLISP's ``progn``: the steps that only make sense together, sent toge
 - Returns a type error rather than a COM failure when a numeric variable is given non-numeric text.
 - A point variable (LIMMAX, UCSORG) takes "x,y" or "x,y,z"; the wrong count of numbers is refused before anything is written.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T6, S5).
 
@@ -6872,7 +6680,6 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**: Select and Z
 - Handles that are not in the drawing come back in not_found; the rest are still shown.
 - Needs Heron's plug-in in AutoCAD (it does the selecting).
 - The plug-in does part of the work (`show`); it needs plug-in **1.7.0** or newer. An older plug-in refuses it and nothing is sent.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows M1, O3, AD1).
 
@@ -6904,7 +6711,6 @@ On the Heron tab: **Heron tab > Heron > Bridge Status** shows whether Heron is c
 
 **Limits and versions.**
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows J2 passed in AutoCAD 2027; the rest are NOT RUN (rows D1, D33, J2, L7, N1, N2, O1, O2, R10, AC14, AF10, AJ3, AJ4, AJ5, AJ5b, S8).
 
@@ -6939,7 +6745,6 @@ Each new viewport starts from the view on screen now; click in one to make it cu
 - On a layout it says to switch to the Model tab, and changes nothing.
 - A split AutoCAD built another way than asked is a warning with what it did build.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ6, AQ7).
 
@@ -6974,7 +6779,6 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**, the Undo but
 **Limits and versions.**
 - Refused when Heron made no change in this chat, when the drawing is another one, when anything changed since, when Heron zoomed or ran a command since (with Ask to Keep off), or with a plug-in older than 1.5.0.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1).
 
@@ -7007,7 +6811,6 @@ On the Heron tab: **Heron tab > Heron > Free this AutoCAD** lets another chat us
 **Limits and versions.**
 - A process that is not an AutoCAD connected to Heron is refused, with the list of those that are.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N2).
 
@@ -7038,7 +6841,6 @@ Works with AutoCAD closed. Finds the tool for the job, then checks what is in th
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows R9, W1, W2, W3, W4, AG15).
 
@@ -7067,6 +6869,5 @@ Worth calling after drawing something so the user can see the result, and before
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
-- Full AutoCAD only (not LT, which has no COM). The plug-in is built for AutoCAD 2021 to 2027; see the proof line for where it was run.
 
 **Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows J1, O7).
