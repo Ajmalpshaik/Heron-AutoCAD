@@ -3,7 +3,7 @@
 For a modeller who wants to **use** Heron. No Python, no .NET, no administrator password. If you
 want to build Heron from its source instead, read [SETUP.md](SETUP.md).
 
-> **This is a pre-release.** Heron has never been run in a real AutoCAD as a whole: only some
+> **This is the first release (v1.8.0), not a finished product.** Heron has never been run in a real AutoCAD as a whole: only some
 > pieces passed their live check, in AutoCAD 2027, and nothing at all in AutoCAD 2021 to 2026. The
 > files are **not code-signed**. Use it for testing, on drawings you can afford to undo. What was
 > really checked, row by row: [NEEDS-CHECKING](NEEDS-CHECKING.md). Every tool and its proof state:
@@ -17,7 +17,7 @@ want to build Heron from its source instead, read [SETUP.md](SETUP.md).
 |---|---|
 | **Windows 64-bit** | Heron talks to AutoCAD through Windows COM, so there is no Mac version. |
 | **Full AutoCAD 2021 to 2027** | **Not AutoCAD LT**: LT has no COM, so Heron cannot reach it. Open AutoCAD once before the first install, so it has registered itself. |
-| **Claude Code or the Claude Desktop app, signed in** | Heron adds one entry called `autocad` to each one it finds. |
+| **Claude Code or the Claude Desktop app, signed in** | Heron adds one entry called `autocad` to each one it finds. It looks for the `claude` command and for `%APPDATA%\Claude`. The Claude desktop app may keep its settings elsewhere and run Claude Code inside itself; then the setup finds neither, and you add the entry by hand ([section 5](#5-connect-claude)). |
 | Some disk space | The install size is not measured yet: the setup holds the server as one program plus the plug-in. |
 
 Which plug-in build each AutoCAD uses (the bundle holds all three and AutoCAD picks its own):
@@ -33,7 +33,8 @@ Which plug-in build each AutoCAD uses (the bundle holds all three and AutoCAD pi
 ## 2. Download
 
 1. Open the **[releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases)** and pick the
-   newest release. Releases are marked **Pre-release**.
+   newest release. v1.8.0 is marked **Latest**; a later version may first come out marked
+   **Pre-release**, for testing.
 2. Under **Assets**, download the setup (easiest) or the zip, and `checksums.txt`:
 
    | File | What it is |
@@ -79,7 +80,9 @@ is open or while Claude is using Heron's installed server.
    [section 4](#4-the-warnings-you-will-see-the-files-are-unsigned).)
 2. The first page says **NOT FINISHED** and what the setup changes. Press **Next**, then **Install**.
 3. The last page lists what it did, for example `Claude Code: connected (all projects)` and
-   `Claude Desktop: connected (restart it ...)`. Press **Finish**.
+   `Claude Desktop: connected (restart it ...)`. Press **Finish**. If a line says
+   `not found, skipped` although Claude is installed (seen on a PC with only the Claude desktop
+   app, 2026-11-22), the files are still in place: connect Claude by hand ([section 5](#5-connect-claude)).
 4. Start the Claude Desktop app again if you use it.
 
 It writes only for your Windows user:
@@ -138,8 +141,23 @@ The installer already did it. It adds an entry named `autocad` that starts
   not enough) and open it again. The AutoCAD tools appear under the tools icon in the chat box.
 - **Claude Code:** new chats see it. To check, run `claude mcp list` in a terminal: you should see
   `autocad`.
-- **Neither app was found when you installed:** install Claude, then run the setup again (or
-  `Install.bat`); it is safe to run over itself.
+- **Claude was not installed when you installed Heron:** install Claude, then run the setup again
+  (or `Install.bat`); it is safe to run over itself.
+- **Claude is installed, but the setup said `not found, skipped`:** running it again does not help
+  ([#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233)). This happens when Claude is
+  only the Claude desktop app: its Code tab runs Claude Code inside the app, with no `claude`
+  command, and the app keeps its settings under `%LOCALAPPDATA%\Claude-Data`, not in
+  `%APPDATA%\Claude`, where the setup looks. Add the entry by hand. For the Code tab, put a file
+  named `.mcp.json` in the folder you open in Claude, with this text (`<you>` is your Windows user
+  folder's name):
+
+  ```json
+  {"mcpServers": {"autocad": {"command": "C:\\Users\\<you>\\AppData\\Local\\Heron\\autocad\\autocad-mcp.exe"}}}
+  ```
+
+  Then start a new chat in that folder. If Claude asks whether to use the project's MCP server,
+  allow it. Not tried yet with the installed server (only with a server built from source, the
+  same way): if the AutoCAD tools do not appear, say so in #233.
 
 Nothing reaches AutoCAD yet: Heron is **off until you press its button** (next section).
 
@@ -167,7 +185,7 @@ as AutoCAD has not been run for this page.)
 1. **Press Heron** (or type `HERON` in AutoCAD). The heron goes from black to **orange**: a chat can
    now reach this AutoCAD. Press it again to disconnect. Until you press it, every tool answers that
    AutoCAD is not connected.
-2. **Padlocks are all OFF when AutoCAD starts**, every time, on purpose. Press **Settings**: four switches,
+2. **Padlocks are all OFF when AutoCAD starts**, every time, on purpose. Press **Settings**: five switches,
    each with an ON / OFF button:
 
    | Switch | Off (safe) | On |
@@ -176,10 +194,18 @@ as AutoCAD has not been run for this page.)
    | **Publish** | Heron may not save or export | Heron may save, export, plot |
    | **Admin** | no commands or AutoLISP | Heron may run commands, AutoLISP, system variables |
    | **Ask to Keep** | changes are kept at once | after each change, a box asks **Keep it / Discard it** |
+   | **Ask before keeping erased objects** (starts **ON**) | what Heron erases stays erased, no box | after Heron erases anything, a box asks **Bring them back / Keep them erased** |
 
-   Turning one on asks first; turning one off never asks. Switch on only what you need, for as long as
-   you need it. The same switches are the commands `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN` and
-   `HERONASKTOKEEP`; `HERONSTOP` stops every chat at once.
+   Turning a padlock on asks first; turning one off never asks. The two questions are the other way
+   round: switching one *off* asks first. Switch on only what you need, for as long as
+   you need it. The same switches are the commands `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
+   `HERONASKTOKEEP` and `HERONASKERASE`; `HERONSTOP` stops every chat at once.
+
+   The erase question comes back ON every time AutoCAD starts. To have it start **off** on your PC,
+   open a command prompt **as administrator** and run
+   `reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AskBeforeErasing /t REG_DWORD /d 0 /f`
+   (`reg delete HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AskBeforeErasing /f` undoes it). Only an
+   administrator can set this, so no chat can turn the question off by itself.
 3. **Ask Claude**, in the chat, for something harmless first:
 
    > Check the AutoCAD connection and tell me what's open.

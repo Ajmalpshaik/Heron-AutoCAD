@@ -41,5 +41,9 @@ namespace Heron.AutoCAD.Addin
 
         [CommandMethod("HERONASKTOKEEP", CommandFlags.Session)]
         public void AskToKeep() => HeronActions.TogglePadlock(Padlock.AskToKeep);
+
+        /// <summary>The erase question (D-50): turning it off asks first, like Settings.</summary>
+        [CommandMethod("HERONASKERASE", CommandFlags.Session)]
+        public void AskErase() => HeronActions.TogglePadlock(Padlock.EraseQuestion);
     }
 }

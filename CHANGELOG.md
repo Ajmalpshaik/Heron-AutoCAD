@@ -10,6 +10,18 @@ Newest first. Dates are when the change was made.
   Zoom show only when the job left objects to show; Undo only on Heron's newest change job that
   changed something. The remaining checks (drawing in front, a change since, UNDOCTL) still answer
   on the press. Rule in `PaletteRows.Buttons`, tested offline; live rows X26-X28 NOT RUN.
+- **The erase question can be switched off (2026-11-22, Ajmal asked; [D-123](docs/DECISIONS.md)).**
+  Settings has a fifth switch, **Ask before keeping erased objects** (command `HERONASKERASE`). ON,
+  the default at every AutoCAD start, asks "Heron erased N objects: bring them back or keep them
+  erased?" as before (D-50). OFF, what a Heron job erases stays erased with no box; turning it off
+  asks first. It lives in this AutoCAD's memory only, like the padlocks (D-59): no file can turn it
+  off. To have it **start off on every AutoCAD start**, the PC's administrator sets DWORD
+  `AskBeforeErasing` = 0 under `HKLM\SOFTWARE\Policies\Heron\AutoCAD` (Ajmal's choice); a click in
+  Settings still turns it on until AutoCAD restarts. The answer still counts what was erased, and its
+  note says they were kept **without asking**, naming Settings or the administrator key, never that
+  the modeller chose. The erase box now says where to switch it off. Offline: Bridge tests (both .NET
+  builds) and `tests/test_gate.py`, `tests/test_padlocks_from_plugin.py`; live rows N9 to N14 in
+  NEEDS-CHECKING are NOT RUN.
 
 ## 1.8.0 - 2026-11-22 - The first GitHub release (a pre-release)
 
@@ -20,6 +32,8 @@ tagged code. **Not yet checked in AutoCAD**: every live row not marked PASS in
 [NEEDS-CHECKING](docs/NEEDS-CHECKING.md) is NOT RUN, and nothing at all was run in AutoCAD 2021 to
 2026. **Not code-signed**, by the owner's decision (#164). Install it with
 [docs/INSTALL.md](docs/INSTALL.md).
+
+**2026-11-22:** made a full release (not a pre-release) on the owner's decision; same tag and files.
 
 **Why 1.8.0.** The release workflow insists that the tag equals the plug-in's version
 (`autocad/Directory.Build.props`), and names the zip and the setup after it. The plug-in was still

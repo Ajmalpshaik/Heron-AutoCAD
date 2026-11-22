@@ -50,7 +50,7 @@ if ($CheckUpdate) {
     Write-Host ('Installed: ' + $(if ($installed) { $installed } else { 'not installed' }))
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        # The 'latest release' address skips pre-releases, and every Heron release is one for now, so the list is read.
+        # The 'latest release' address skips pre-releases, and a new Heron version may first come out as one, so the list is read.
         $latest = @(Invoke-RestMethod -Uri $releases -TimeoutSec 15 | Where-Object { -not $_.draft }) | Select-Object -First 1
     } catch {
         $code = 0

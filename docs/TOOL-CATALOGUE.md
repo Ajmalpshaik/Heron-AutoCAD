@@ -1293,7 +1293,7 @@ This removes geometry. The whole call lands as one undo step, so the user can re
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N6).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N6, N11).
 
 ### `autocad_draw_order`
 

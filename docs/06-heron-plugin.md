@@ -15,7 +15,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Heron** (arrow) -> Heron palette | Opens or closes the docked Heron palette: Activity and Saved commands ([section 10](#10-the-heron-palette-plug-in-160-d-68)) | `HERONPALETTE` |
 | **Heron** (arrow) -> Stop Heron now | The emergency stop ([D-51](DECISIONS.md)): every chat is refused at once, a running job stops at its next request to the plug-in, and Esc is pressed for the command running now. Sticky until picked again. What AutoCAD already has queued (one batch) still finishes | `HERONSTOP` |
 | **Heron** (arrow) -> Free this AutoCAD | Lets another chat use this AutoCAD now, whichever chat holds it (not while one of its jobs is running). Changes nothing in a drawing | `HERONFREE` |
-| **Settings** | The four switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep; HELD when a Windows policy holds it off) | `HERONSETTINGS` |
+| **Settings** | The five switches in one window: per switch its padlock picture, its name, one line, and an ON / OFF button (red ON for a padlock, green ON for Ask to Keep and the erase question; HELD when a Windows policy holds it off) | `HERONSETTINGS` |
 
 | Switch in Settings | What it does | Command |
 |---|---|---|
@@ -23,17 +23,18 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Admin** | Allows any command, AutoLISP, system variables, purge, audit (needs Changes) | `HERONADMIN` |
 | **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
 | **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
+| **Ask before keeping erased objects** | The erase question ([D-50](DECISIONS.md), [D-123](DECISIONS.md)): after a job erases anything, ask **Bring them back** or **Keep them erased**. **ON at every AutoCAD start.** Off, what a job erases stays erased with no box, and the chat's answer says it was kept without asking | `HERONASKERASE` |
 
 - AutoCAD starts **disconnected** every time; only your press of **Heron** connects it
   ([D-73](DECISIONS.md)). Until you
   connect, a chat can learn only that AutoCAD is running and not connected: `autocad_status` returns
   no drawing name, path or contents, and every other tool is refused.
-- **Turning a padlock on asks first; turning it off never asks.** Ask to Keep is the other way round:
-  switching the question *off* is what asks.
+- **Turning a padlock on asks first; turning it off never asks.** Ask to Keep and the erase question
+  are the other way round: switching the question *off* is what asks.
 - Reading and viewing (status, lists, measure, preview, zoom, switch drawing) need no padlock, only
   the connection.
 - **The padlocks live only in this AutoCAD's memory** ([D-59](DECISIONS.md)). Every time AutoCAD
-  starts, Changes, Admin, Publish and Ask to Keep are **off**. Only your click
+  starts, Changes, Admin, Publish and Ask to Keep are **off** and the erase question is **on**. Only your click
   turns one on: in Settings, or in the same question `HERONCHANGES` / `HERONADMIN` /
   `HERONPUBLISH` open. No file can turn one on, so a chat that can write files cannot unlock itself.
 - **Each open AutoCAD has its own padlocks.** Turning Changes on in one does not turn it on in another.
@@ -52,8 +53,9 @@ sets DWORD values under `HKLM\SOFTWARE\Policies\Heron\AutoCAD`:
 | `AllowChanges` | Changes stays off |
 | `AllowAdmin` | Admin stays off |
 | `AllowPublish` | Publish stays off |
+| `AskBeforeErasing` | the erase question starts **off** at every AutoCAD start ([D-123](DECISIONS.md)); not a hold: a click in Settings turns it on until AutoCAD restarts |
 
-Any other value, or no value, leaves that padlock to the modeller. A held padlock shows **HELD** in
+Any other value, or no value, leaves that padlock to the modeller (and starts the erase question on). A held padlock shows **HELD** in
 Settings with the line "A Windows policy on this PC holds this off.", and cannot be pressed. A chat
 asking for it is told the policy holds it. A policy pushed while AutoCAD runs applies at the next
 call and turns that padlock off; when the policy is lifted, the padlock stays off until you turn it

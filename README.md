@@ -1,11 +1,11 @@
 # Heron AI for AutoCAD
 
-> **Dear Modelers - this is a pre-release for testing, not a finished product.**
+> **Dear Modelers - this is the first release (v1.8.0), for testing, not a finished product.**
 >
-> This repository is public so the work is open. A first **pre-release** is on the
-> [releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases), but the plug-in inside
-> AutoCAD has not passed its live checks ([NEEDS-CHECKING](docs/NEEDS-CHECKING.md)) and the files
-> are not code-signed. Install it only to help test, on drawings you can afford to undo
+> This repository is public so the work is open. The first **release (v1.8.0)** is on the
+> [releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases). It installs and the
+> plug-in loads in AutoCAD 2027, but most tools have not been checked in AutoCAD yet
+> ([NEEDS-CHECKING](docs/NEEDS-CHECKING.md)) and the files are not code-signed. Install it only to help test, on drawings you can afford to undo
 > ([INSTALL](docs/INSTALL.md)). I will announce it when it is ready for everyday work.
 >
 > **Programmers and AI engineers: your thoughts are welcome.** Read the code and share suggestions
@@ -50,7 +50,7 @@ Ribbon tab **Heron**, panel **AI Bridge**, laid out as in Heron for Revit:
 | Button | What it does |
 |---|---|
 | **Heron** | black heron: no chat can see this AutoCAD; orange heron: a chat can reach it. The arrow holds **Bridge Status**, **Heron palette** (recent changes with Select, Zoom and Undo, and your saved commands), **Free this AutoCAD** and **Stop Heron now** |
-| **Settings** | one window with the four switches below, each with its padlock picture and an ON / OFF button |
+| **Settings** | one window with the five switches below, each with its padlock picture and an ON / OFF button |
 
 | Switch in Settings | Off (safe) | On |
 |---|---|---|
@@ -58,15 +58,17 @@ Ribbon tab **Heron**, panel **AI Bridge**, laid out as in Heron for Revit:
 | **Admin** | no commands or AutoLISP | red ON: Heron may run commands, AutoLISP, system variables |
 | **Publish** | Heron may not save or export | red ON: Heron may save, export, plot |
 | **Ask to Keep** | changes are kept at once | green ON: after each change, **Keep it / Discard it** |
+| **Ask before keeping erased objects** | what a job erases stays erased, no box (until AutoCAD restarts; the PC's administrator can make it start off, [D-123](docs/DECISIONS.md)) | green ON (at every start): after a job erases anything, **Bring them back / Keep them erased** |
 
 While Heron works, Heron for Revit's status bar slides down at the top of AutoCAD: a glass card
 saying **"Heron AI · Reading"** or **"Heron AI · Changing"** (orange, with the drawing, the job and the
 time), then **Done** (green) or **Needs attention** (red). Every Heron window uses Revit's dark Heron
 style. The command line keeps a line such as `Heron: Draw Line. Done in 0.4 s`.
 
-Everything starts **off**. Turning a padlock on asks first; turning it off never asks. The same
+Everything starts **off**, except the erase question, which starts **on**. Turning a padlock on asks
+first; turning it off never asks (the two questions the other way round). The same
 switches are commands: `HERON`, `HERONSTATUS`, `HERONPALETTE`, `HERONFREE`, `HERONSTOP`, `HERONSETTINGS`, `HERONCHANGES`,
-`HERONPUBLISH`, `HERONADMIN`, `HERONASKTOKEEP`. Full detail: [docs/06-heron-plugin.md](docs/06-heron-plugin.md).
+`HERONPUBLISH`, `HERONADMIN`, `HERONASKTOKEEP`, `HERONASKERASE`. Full detail: [docs/06-heron-plugin.md](docs/06-heron-plugin.md).
 
 ## Parts
 
