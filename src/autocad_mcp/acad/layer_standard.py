@@ -38,7 +38,13 @@ from pathlib import Path
 from typing import Any
 
 from ..core.registry import ACI_COLORS
-from .props import LW_BYBLOCK, LW_BYLAYER, lineweight_value, lineweight_words
+from .props import (
+    LW_BYBLOCK,
+    LW_BYLAYER,
+    LW_DEFAULT,
+    lineweight_value,
+    lineweight_words,
+)
 
 FORMAT = 1
 EXAMPLE_FILE = Path(__file__).resolve().parents[1] / "data" / "layer-standard-example-mep.csv"
@@ -132,6 +138,8 @@ def _color(value: Any) -> int | None:
 def _lineweight(value: Any) -> int | None:
     if value is None or str(value).strip() == "":
         return None
+    if str(value).strip() == str(LW_DEFAULT):
+        return LW_DEFAULT  # AutoCAD's own number for Default, as Heron's JSON keeps it
     try:
         code = lineweight_value(value)
     except ValueError as exc:

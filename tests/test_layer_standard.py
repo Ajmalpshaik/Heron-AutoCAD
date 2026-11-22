@@ -145,8 +145,13 @@ class TestCsv:
 
 class TestJson:
     def test_what_import_writes_reads_back_the_same(self):
-        standard = ls.from_csv(csv_of("M-A,4,HIDDEN,0.25,no,Duct,OLD*,yes", "M-*-IDEN,7,,,,,,"))
+        standard = ls.from_csv(csv_of("M-A,4,HIDDEN,0.25,no,Duct,OLD*,yes", "M-B,1,,Default,,,,", "M-*-IDEN,7,,,,,,"))
+        assert standard["layers"][1]["lineweight"] == -3
         assert ls.from_json(json.loads(ls.to_json(standard))) == standard
+
+    def test_the_whole_example_survives_an_import_round_trip(self):
+        example = ls.read_file(ls.EXAMPLE_FILE)
+        assert ls.from_json(json.loads(ls.to_json(example))) == example
 
     def test_a_hand_written_json_list_is_a_standard(self):
         standard = ls.from_json([{"layer": "E-LITE", "color": "yellow", "replaces": ["ELEC-L*"]}])

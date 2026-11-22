@@ -84,7 +84,7 @@ def _named(text: str) -> Path:
     if not path.is_absolute():
         raise AutocadError(f"Give the layer standard as {CHOICE_HELP}: '{text}' is none of those.")
     if not path.is_file():
-        raise AutocadError(f"There is no layer standard at {path}. Nothing was checked.")
+        raise AutocadError(f"There is no layer standard at {path}.")
     return path
 
 
