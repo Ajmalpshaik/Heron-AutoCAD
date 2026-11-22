@@ -453,7 +453,10 @@ namespace Heron.AutoCAD.Bridge
         /// Anything a job erased is asked about, whatever Ask to Keep says
         /// (D-50): the server cannot let a chat approve its own delete. Only
         /// inside this chat's running job; anything but a clear "keep erased"
-        /// brings the objects back.
+        /// brings the objects back. Decided here, not by the server: when the
+        /// modeller turned the erase question off in Settings (only their click
+        /// can, D-59), they stay erased unasked and the answer says so
+        /// ("asked": false), so the chat cannot pass it off as the modeller's yes.
         /// </summary>
         private string AskErase(JsonElement root, string conversation)
         {
@@ -461,6 +464,16 @@ namespace Heron.AutoCAD.Bridge
             if (running == null || running.Risk == Risk.Read || running.Risk == Risk.View) return Refuse("Job", Texts.NoRunJob);
             var report = _host.Changes(Str(root, "job"));
             if (report == null || report.Erased == 0) return Ok(w => { w.WriteString("answer", "nothing_erased"); w.WriteNumber("restored", 0); });
+            if (!_config().AskBeforeErasing)
+            {
+                return Ok(w =>
+                {
+                    w.WriteString("answer", "keep_erased");
+                    w.WriteBoolean("asked", false);
+                    w.WriteNumber("erased", report.Erased);
+                    w.WriteNumber("restored", 0);
+                });
+            }
             EraseAnswer answer;
             try
             {
@@ -474,6 +487,7 @@ namespace Heron.AutoCAD.Bridge
             return Ok(w =>
             {
                 w.WriteString("answer", said);
+                w.WriteBoolean("asked", true);
                 w.WriteNumber("erased", report.Erased);
                 w.WriteNumber("restored", said == "restored" ? answer?.Restored ?? 0 : 0);
                 if (!string.IsNullOrEmpty(answer?.Message)) w.WriteString("message", answer!.Message);
@@ -593,6 +607,7 @@ namespace Heron.AutoCAD.Bridge
             w.WriteBoolean("publish", config.PublishEnabled);
             w.WriteBoolean("admin", config.AdminEnabled);
             w.WriteBoolean("askToKeep", config.AskBeforeKeeping);
+            w.WriteBoolean("eraseQuestion", config.AskBeforeErasing);
             w.WriteEndObject();
             w.WriteStartObject("held");
             w.WriteBoolean("changes", config.Held.Changes);

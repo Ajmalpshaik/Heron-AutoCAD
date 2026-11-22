@@ -151,7 +151,57 @@ public class EraseProtocolTests
         _host.EraseReply = new EraseAnswer { Answer = "keep_erased" };
         var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "x" });
         Assert.Equal("keep_erased", reply.GetProperty("answer").GetString());
+        Assert.True(reply.GetProperty("asked").GetBoolean());
         Assert.Equal(0, reply.GetProperty("restored").GetInt32());
+    }
+
+    [Fact]
+    public void With_the_erase_question_off_they_stay_erased_unasked_and_the_answer_says_so()
+    {
+        Begin("change");
+        _config.AskBeforeErasing = false;
+        _host.Report = new ChangeReport { Erased = 3, AllErasedHandles = new[] { "A", "B", "C" } };
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "x" });
+        Assert.True(reply.GetProperty("ok").GetBoolean());
+        Assert.Equal("keep_erased", reply.GetProperty("answer").GetString());
+        Assert.False(reply.GetProperty("asked").GetBoolean());
+        Assert.Equal(3, reply.GetProperty("erased").GetInt32());
+        Assert.Equal(0, reply.GetProperty("restored").GetInt32());
+        Assert.Empty(_host.EraseAsked); // no box
+    }
+
+    [Fact]
+    public void With_the_erase_question_off_a_read_job_still_cannot_ask_to_erase()
+    {
+        Begin("read");
+        _config.AskBeforeErasing = false;
+        _host.Report = new ChangeReport { Erased = 1, AllErasedHandles = new[] { "A" } };
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "x" });
+        Assert.False(reply.GetProperty("ok").GetBoolean());
+    }
+
+    [Fact]
+    public void The_erase_question_is_on_unless_turned_off()
+    {
+        Assert.True(new HeronConfig().AskBeforeErasing);
+        Assert.True(HeronConfig.Load(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "no-such-heron.config")).AskBeforeErasing);
+    }
+
+    [Fact]
+    public void No_file_can_turn_the_erase_question_off()
+    {
+        // D-59: a chat that can write a file must not approve its own deletes.
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "heron-erase-" + Guid.NewGuid().ToString("N") + ".config");
+        try
+        {
+            System.IO.File.WriteAllText(path, "{\"erase.ask\": false, \"eraseQuestion\": false, \"write.askBeforeErasing\": false}");
+            Assert.True(HeronConfig.Load(path).AskBeforeErasing);
+            Assert.True(new HeronPadlocks(new FakePolicy()).Snapshot(new HeronConfig { AskBeforeErasing = false }).AskBeforeErasing);
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
     }
 
     [Fact]

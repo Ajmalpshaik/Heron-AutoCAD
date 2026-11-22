@@ -167,7 +167,7 @@ as AutoCAD has not been run for this page.)
 1. **Press Heron** (or type `HERON` in AutoCAD). The heron goes from black to **orange**: a chat can
    now reach this AutoCAD. Press it again to disconnect. Until you press it, every tool answers that
    AutoCAD is not connected.
-2. **Padlocks are all OFF when AutoCAD starts**, every time, on purpose. Press **Settings**: four switches,
+2. **Padlocks are all OFF when AutoCAD starts**, every time, on purpose. Press **Settings**: five switches,
    each with an ON / OFF button:
 
    | Switch | Off (safe) | On |
@@ -176,10 +176,12 @@ as AutoCAD has not been run for this page.)
    | **Publish** | Heron may not save or export | Heron may save, export, plot |
    | **Admin** | no commands or AutoLISP | Heron may run commands, AutoLISP, system variables |
    | **Ask to Keep** | changes are kept at once | after each change, a box asks **Keep it / Discard it** |
+   | **Ask before keeping erased objects** (starts **ON**) | what Heron erases stays erased, no box | after Heron erases anything, a box asks **Bring them back / Keep them erased** |
 
-   Turning one on asks first; turning one off never asks. Switch on only what you need, for as long as
-   you need it. The same switches are the commands `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN` and
-   `HERONASKTOKEEP`; `HERONSTOP` stops every chat at once.
+   Turning a padlock on asks first; turning one off never asks. The two questions are the other way
+   round: switching one *off* asks first. Switch on only what you need, for as long as
+   you need it. The same switches are the commands `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
+   `HERONASKTOKEEP` and `HERONASKERASE`; `HERONSTOP` stops every chat at once.
 3. **Ask Claude**, in the chat, for something harmless first:
 
    > Check the AutoCAD connection and tell me what's open.

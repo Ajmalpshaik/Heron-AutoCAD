@@ -131,7 +131,7 @@ namespace Heron.AutoCAD.Addin
             HeronRibbon.Repaint();
         }
 
-        /// <summary>The Settings window: the four switches, as in Heron for Revit (D-44).</summary>
+        /// <summary>The Settings window: the five switches, as in Heron for Revit (D-44) plus the erase question (D-50).</summary>
         public static void ShowSettings()
         {
             HeronLog.Write("settings window");
@@ -148,7 +148,8 @@ namespace Heron.AutoCAD.Addin
                 SayHeld(padlock);
                 return;
             }
-            var asking = padlock == Padlock.AskToKeep ? on : !on;
+            // A padlock asks on the way on; a question asks on the way off.
+            var asking = padlock == Padlock.AskToKeep || padlock == Padlock.EraseQuestion ? on : !on;
             if (asking && !Confirm(padlock, !on)) return;
             if (on) padlocks.TurnOff(padlock);
             else if (!padlocks.TurnOn(padlock))
@@ -218,6 +219,22 @@ namespace Heron.AutoCAD.Addin
                         Caution = "Ctrl+Z can't undo a save, an export or a plot.",
                         ChangesOff = ChangesOff("Publish"),
                     };
+                case Padlock.EraseQuestion:
+                    return new HeronSwitchQuestion
+                    {
+                        Name = EraseQuestionName,
+                        Icon = "KeepNotAsking",
+                        Headline = "Stop asking before keeping erased objects?",
+                        What = "Whatever a Heron job erases stays erased at once: objects, and layers, blocks or styles a purge or delete removes.",
+                        Promises = new[]
+                        {
+                            "Ctrl+Z still brings back what a job erased.",
+                            "The chat's answer still says how many were erased.",
+                            "It asks again the next time AutoCAD starts.",
+                        },
+                        TurnOn = "Stop asking",
+                        Decline = "Keep asking",
+                    };
                 default:
                     return new HeronSwitchQuestion
                     {
@@ -232,7 +249,15 @@ namespace Heron.AutoCAD.Addin
             }
         }
 
-        private static string Name(Padlock padlock) => padlock == Padlock.AskToKeep ? "Ask to Keep" : padlock.ToString();
+        /// <summary>The erase question's name in Settings and on the command line (D-50).</summary>
+        internal const string EraseQuestionName = "Ask before keeping erased objects";
+
+        private static string Name(Padlock padlock) => padlock switch
+        {
+            Padlock.AskToKeep => "Ask to Keep",
+            Padlock.EraseQuestion => EraseQuestionName,
+            _ => padlock.ToString(),
+        };
 
         private static void OpenLogs()
         {

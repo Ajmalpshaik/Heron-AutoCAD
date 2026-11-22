@@ -3,8 +3,11 @@ using Microsoft.Win32;
 
 namespace Heron.AutoCAD.Bridge
 {
-    /// <summary>The four switches in Settings (D-44). Ask to Keep's risky side is off.</summary>
-    public enum Padlock { Changes, Publish, Admin, AskToKeep }
+    /// <summary>
+    /// The five switches in Settings (D-44). Ask to Keep's and the erase
+    /// question's risky side is off (D-50).
+    /// </summary>
+    public enum Padlock { Changes, Publish, Admin, AskToKeep, EraseQuestion }
 
     /// <summary>Which padlocks a Windows policy holds off on this PC (D-60).</summary>
     public sealed class PolicyHolds
@@ -22,7 +25,7 @@ namespace Heron.AutoCAD.Bridge
         public bool Publish { get; }
         public bool Admin { get; }
 
-        /// <summary>Ask to Keep has no policy: it is never held.</summary>
+        /// <summary>Ask to Keep and the erase question have no policy: they are never held.</summary>
         public bool Holds(Padlock padlock) => padlock switch
         {
             Padlock.Changes => Changes,

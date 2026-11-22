@@ -42,6 +42,41 @@ public class PadlockTests
     }
 
     [Fact]
+    public void The_erase_question_is_on_when_AutoCAD_starts()
+    {
+        // D-50: the safe side by default; only the modeller's click turns it off.
+        Assert.True(Now().AskBeforeErasing);
+        Assert.True(_padlocks.IsOn(Padlock.EraseQuestion));
+    }
+
+    [Fact]
+    public void The_erase_question_moves_on_its_own()
+    {
+        _padlocks.TurnOff(Padlock.EraseQuestion);
+        var config = Now();
+        Assert.False(config.AskBeforeErasing);
+        Assert.False(config.AskBeforeKeeping);
+        Assert.False(config.WriteEnabled);
+        Assert.True(_padlocks.TurnOn(Padlock.EraseQuestion));
+        Assert.True(Now().AskBeforeErasing);
+
+        // Ask to Keep no longer shares its slot with anything else.
+        Assert.True(_padlocks.TurnOn(Padlock.AskToKeep));
+        _padlocks.TurnOff(Padlock.EraseQuestion);
+        Assert.True(Now().AskBeforeKeeping);
+        Assert.False(Now().AskBeforeErasing);
+    }
+
+    [Fact]
+    public void No_policy_holds_the_erase_question()
+    {
+        _policy.Holds = new PolicyHolds(changes: true, publish: true, admin: true);
+        _padlocks.TurnOff(Padlock.EraseQuestion);
+        Assert.True(_padlocks.TurnOn(Padlock.EraseQuestion));
+        Assert.True(Now().AskBeforeErasing);
+    }
+
+    [Fact]
     public void A_click_turns_a_padlock_on_and_another_turns_it_off()
     {
         Assert.True(_padlocks.TurnOn(Padlock.Changes));
@@ -187,6 +222,7 @@ public class PadlockTests
         Assert.False(locks.GetProperty("publish").GetBoolean());
         Assert.False(locks.GetProperty("admin").GetBoolean());
         Assert.False(locks.GetProperty("askToKeep").GetBoolean());
+        Assert.True(locks.GetProperty("eraseQuestion").GetBoolean());
         var held = reply.GetProperty("held");
         Assert.True(held.GetProperty("publish").GetBoolean());
         Assert.False(held.GetProperty("changes").GetBoolean());

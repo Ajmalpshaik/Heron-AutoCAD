@@ -557,6 +557,19 @@ def test_keeping_them_erased_is_said(env):
     assert "keep the 2 erased object(s) erased" in result["heron_note"]
 
 
+def test_an_erase_kept_without_asking_never_says_the_modeller_chose(env):
+    # The modeller turned the erase question off in Settings: the plug-in kept them unasked (D-50).
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 2, "erased_handles": ["A", "B"]}
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0, "asked": False}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 2}')
+    result = json.loads(answered(call(erase), "DONE"))
+    assert [c[1] for c in FakeBridge.calls if c[0] == "ask_erase"] == ["job1"]  # still the plug-in's call
+    note = result["heron_note"]
+    assert "chose" not in note
+    assert "2 object(s)" in note and "without asking" in note
+    assert "Ask before keeping erased objects" in note and "off in Heron's Settings" in note
+
+
 def test_keep_or_discard_covers_an_erase_so_it_is_not_asked_twice(env):
     FakeBridge.ask_to_keep = True
     FakeBridge.counted = {"added": 0, "modified": 0, "erased": 1, "erased_handles": ["A"]}

@@ -3,10 +3,12 @@ using System;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// The padlocks and Ask to Keep, in this AutoCAD's memory only (D-59).
+    /// The padlocks, Ask to Keep and the erase question, in this AutoCAD's
+    /// memory only (D-59).
     ///
-    /// Every AutoCAD starts with Changes, Publish and Admin off, and Ask to Keep
-    /// off as before (the owner's choice, 2026-11-21). No file is read for them, so no
+    /// Every AutoCAD starts with Changes, Publish and Admin off, Ask to Keep
+    /// off as before (the owner's choice, 2026-11-21), and the erase question
+    /// on (D-50; the owner may turn it off, 2026-11-22). No file is read for them, so no
     /// program that can write a file (an AI chat included) can turn one on. Each
     /// open AutoCAD has its own. Only the plug-in's own windows call TurnOn and
     /// TurnOff, after the modeller's click; the pipe has no request that
@@ -23,6 +25,7 @@ namespace Heron.AutoCAD.Bridge
         private bool _publish;
         private bool _admin;
         private bool _askToKeep;
+        private bool _eraseQuestion = true;
 
         public HeronPadlocks(IHeronPolicy policy)
         {
@@ -60,6 +63,7 @@ namespace Heron.AutoCAD.Bridge
                     PublishEnabled = _publish,
                     AdminEnabled = _admin,
                     AskBeforeKeeping = _askToKeep,
+                    AskBeforeErasing = _eraseQuestion,
                     ActivityBanner = fileSettings.ActivityBanner,
                     Held = held,
                 };
@@ -77,7 +81,8 @@ namespace Heron.AutoCAD.Bridge
         }
 
         /// <summary>
-        /// The modeller clicked to turn it on (for Ask to Keep: to ask again).
+        /// The modeller clicked to turn it on (for Ask to Keep and the erase
+        /// question: to ask again).
         /// False, and nothing changes, when a Windows policy holds it off.
         /// </summary>
         public bool TurnOn(Padlock padlock)
@@ -92,7 +97,7 @@ namespace Heron.AutoCAD.Bridge
             }
         }
 
-        /// <summary>The modeller clicked to turn it off (for Ask to Keep: to stop asking).</summary>
+        /// <summary>The modeller clicked to turn it off (for Ask to Keep and the erase question: to stop asking).</summary>
         public void TurnOff(Padlock padlock)
         {
             lock (_gate) Set(padlock, false);
@@ -110,7 +115,9 @@ namespace Heron.AutoCAD.Bridge
             Padlock.Changes => _changes,
             Padlock.Publish => _publish,
             Padlock.Admin => _admin,
-            _ => _askToKeep,
+            Padlock.AskToKeep => _askToKeep,
+            Padlock.EraseQuestion => _eraseQuestion,
+            _ => false,
         };
 
         private void Set(Padlock padlock, bool on)
@@ -120,7 +127,8 @@ namespace Heron.AutoCAD.Bridge
                 case Padlock.Changes: _changes = on; break;
                 case Padlock.Publish: _publish = on; break;
                 case Padlock.Admin: _admin = on; break;
-                default: _askToKeep = on; break;
+                case Padlock.AskToKeep: _askToKeep = on; break;
+                case Padlock.EraseQuestion: _eraseQuestion = on; break;
             }
         }
     }

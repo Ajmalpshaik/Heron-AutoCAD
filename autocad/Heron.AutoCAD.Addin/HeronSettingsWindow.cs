@@ -10,9 +10,9 @@ namespace Heron.AutoCAD.Addin
 {
     /// <summary>
     /// Heron's Settings window (D-44), drawn as Heron for Revit's (D-45): the
-    /// four switches, each with its padlock picture, its name, one short line
+    /// five switches, each with its padlock picture, its name, one short line
     /// and the state as its own button - ON lit (Error for a padlock, Success
-    /// for Ask to Keep), OFF quiet.
+    /// for Ask to Keep and the erase question), OFF quiet.
     ///
     /// It decides nothing. Pressing a state runs the switch's own toggle
     /// (HeronActions.TogglePadlock): the same question on the way to the risky
@@ -46,13 +46,15 @@ namespace Heron.AutoCAD.Addin
             public bool OnIsSafe { get; }
         }
 
-        // The same order as Heron for Revit's Settings window.
+        // The same order as Heron for Revit's Settings window; the erase
+        // question (D-50, AutoCAD only) last, under Ask to Keep.
         private static readonly Setting[] Settings =
         {
             new Setting(Padlock.Changes, "Changes", "WriteUnlocked", "WriteLocked", false),
             new Setting(Padlock.Admin, "Admin", "AdminUnlocked", "AdminLocked", false),
             new Setting(Padlock.Publish, "Publish", "PublishUnlocked", "PublishLocked", false),
             new Setting(Padlock.AskToKeep, "Ask to Keep", "KeepAsking", "KeepNotAsking", true),
+            new Setting(Padlock.EraseQuestion, HeronActions.EraseQuestionName, "KeepAsking", "KeepNotAsking", true),
         };
 
         /// <summary>Main thread only. Shows the window until it is closed.</summary>
@@ -128,6 +130,7 @@ namespace Heron.AutoCAD.Addin
                 Padlock.Changes => config.WriteEnabled,
                 Padlock.Publish => config.PublishEnabled,
                 Padlock.Admin => config.AdminEnabled,
+                Padlock.EraseQuestion => config.AskBeforeErasing,
                 _ => config.AskBeforeKeeping,
             };
             var held = config.Held.Holds(setting.Padlock);
@@ -151,7 +154,7 @@ namespace Heron.AutoCAD.Addin
             words.Children.Add(line);
 
             // THE STATE IS THE BUTTON. Lit when on - Error for a padlock,
-            // Success for Ask to Keep - and quiet when off.
+            // Success for Ask to Keep and the erase question - and quiet when off.
             var state = held ? S.GhostButton("HELD") : on ? S.PrimaryButton("ON", setting.OnIsSafe ? S.SafeColour : S.DangerColour) : S.GhostButton("OFF");
             state.Width = 64;
             state.Margin = new Thickness(12, 0, 0, 0);
@@ -193,6 +196,10 @@ namespace Heron.AutoCAD.Addin
                     return "Heron can run commands, AutoLISP and system variables.";
                 case Padlock.Publish:
                     return "Heron can save, export and plot.";
+                case Padlock.EraseQuestion:
+                    return on
+                        ? "After a job erases anything: bring it back, or keep it erased?"
+                        : "What a job erases stays erased, without asking. On again at the next AutoCAD start.";
                 default:
                     if (on && HeronApplication.Server?.Protocol?.KeepGrantActive == true)
                         return "Keeping the rest of this job without asking.";

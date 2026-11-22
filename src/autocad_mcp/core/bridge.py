@@ -395,6 +395,8 @@ class Bridge:
             "publish": locks.get("publish") is True,
             "admin": locks.get("admin") is True,
             "ask_to_keep": locks.get("askToKeep") is True,
+            # A plug-in of 1.8.0 or older does not say, and always asks (D-50).
+            "erase_question": locks.get("eraseQuestion") is not False,
             "held": [name for name in ("changes", "publish", "admin") if held.get(name) is True],
         }
 
@@ -525,8 +527,11 @@ class Bridge:
     def ask_erase(self, job: str, summary: str) -> dict:
         """Ask the modeller about what the job erased; the plug-in brings them back unless kept.
 
-        {"answer": "keep_erased" | "restored" | "nothing_erased" | "unknown", "restored": int}.
-        "unknown" means the plug-in could not be asked: the objects may still be erased.
+        {"answer": "keep_erased" | "restored" | "nothing_erased" | "unknown", "restored": int,
+        "asked": bool}. "unknown" means the plug-in could not be asked: the objects may still
+        be erased. "asked" is False only when the plug-in kept them erased without asking,
+        because the modeller turned the erase question off in Settings (D-50); a plug-in of
+        1.8.0 or older does not say, and always asked.
         """
         try:
             reply = self.call("ask_erase", timeout=KEEP_TIMEOUT, job=job, summary=summary)
@@ -538,6 +543,7 @@ class Bridge:
         result = {
             "answer": answer if answer in {"keep_erased", "restored", "nothing_erased"} else "unknown",
             "restored": int(reply.get("restored", 0)),
+            "asked": reply.get("asked") is not False,
         }
         if reply.get("message"):
             result["message"] = str(reply["message"])
