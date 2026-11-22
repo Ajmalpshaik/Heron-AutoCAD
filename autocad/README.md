@@ -18,7 +18,7 @@ Every project builds three ways: `net48` (AutoCAD 2021-2024), `net8.0-windows` (
 | `HeronApplication.cs` | Load / unload; starts disconnected |
 | `HeronActions.cs` | What the buttons and commands do; padlock confirmations |
 | `HeronRibbon.cs` | Tab Heron, panel AI Bridge, icons, rebuild on workspace change |
-| `HeronCommands.cs` | `HERON`, `HERONSTATUS`, `HERONPALETTE`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`, `HERONASKTOKEEP` |
+| `HeronCommands.cs` | `HERON`, `HERONSTATUS`, `HERONPALETTE`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`, `HERONASKTOKEEP`, `HERONASKERASE` |
 | `AcadJobHost.cs` | Bridge -> AutoCAD: banner, command-line line, select and zoom, Keep box, operations |
 | `PluginRunner.cs` | The plug-in's own operations ([D-40](../docs/DECISIONS.md)): right drawing, document lock, one transaction, refusals that say "Nothing was changed." |
 | `SolidOperations.cs` | Loft, fillet / chamfer edges, shell, press-pull, thicken, and the numbered faces and edges (Brep) |

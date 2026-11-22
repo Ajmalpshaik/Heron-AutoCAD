@@ -23,12 +23,12 @@ register_all()
 ENTRIES = asyncio.run(resources._entries())
 
 
-def ping_reply(changes=False, publish=False, admin=False, ask=False, held=()):
+def ping_reply(changes=False, publish=False, admin=False, ask=False, held=(), erase=True):
     return {
         "ok": True,
         "protocolVersion": 1,
         "stopped": False,
-        "padlocks": {"changes": changes, "publish": publish, "admin": admin, "askToKeep": ask},
+        "padlocks": {"changes": changes, "publish": publish, "admin": admin, "askToKeep": ask, "eraseQuestion": erase},
         "held": {name: name in held for name in ("changes", "publish", "admin")},
     }
 
@@ -38,7 +38,52 @@ class TestBridgePadlocks:
         monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: ping_reply(changes=True, held=("publish",)))
         locks = Bridge(4242).padlocks()
         assert locks == {"changes": True, "publish": False, "admin": False, "ask_to_keep": False,
+                         "erase_question": True, "erase_question_off_at_start": False,
                          "held": ["publish"]}  # fmt: skip
+
+    def test_the_erase_question_turned_off_is_read(self, monkeypatch):
+        monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: ping_reply(erase=False))
+        assert Bridge(4242).padlocks()["erase_question"] is False
+
+    def test_a_plug_in_that_does_not_name_the_erase_question_always_asks(self, monkeypatch):
+        reply = ping_reply()
+        del reply["padlocks"]["eraseQuestion"]
+        monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: reply)
+        assert Bridge(4242).padlocks()["erase_question"] is True
+
+
+    def test_the_administrator_key_starting_the_erase_question_off_is_read(self, monkeypatch):
+        reply = ping_reply(erase=False)
+        reply["held"]["eraseQuestionOff"] = True
+        monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: reply)
+        locks = Bridge(4242).padlocks()
+        assert locks["erase_question"] is False and locks["erase_question_off_at_start"] is True
+        assert locks["held"] == []  # starting off is not a hold
+
+
+class TestBridgeAskErase:
+    """The erase question's answer (D-50): "asked" tells a modeller's yes from the switch being off."""
+
+    def _ask(self, monkeypatch, reply):
+        monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: reply)
+        return Bridge(4242).ask_erase("job1", "Delete")
+
+    def test_kept_without_asking_says_so(self, monkeypatch):
+        said = self._ask(monkeypatch, {"ok": True, "answer": "keep_erased", "asked": False, "erased": 2, "restored": 0})
+        assert said == {"answer": "keep_erased", "restored": 0, "asked": False, "off_by": "settings"}
+
+    def test_kept_without_asking_by_the_administrator_key_says_so(self, monkeypatch):
+        said = self._ask(monkeypatch, {"ok": True, "answer": "keep_erased", "asked": False, "offBy": "policy",
+                                       "erased": 1, "restored": 0})  # fmt: skip
+        assert said["off_by"] == "policy"
+
+    def test_kept_by_the_modeller(self, monkeypatch):
+        said = self._ask(monkeypatch, {"ok": True, "answer": "keep_erased", "asked": True, "erased": 2, "restored": 0})
+        assert said["asked"] is True
+
+    def test_a_plug_in_that_does_not_say_always_asked(self, monkeypatch):
+        said = self._ask(monkeypatch, {"ok": True, "answer": "keep_erased", "erased": 2, "restored": 0})
+        assert said["asked"] is True
 
     def test_an_older_plug_in_cannot_tell(self, monkeypatch):
         monkeypatch.setattr(Bridge, "call", lambda self, op, **kw: {"ok": True, "protocolVersion": 1, "stopped": False})

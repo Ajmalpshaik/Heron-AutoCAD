@@ -16,7 +16,27 @@ line. What is left is live: rows **AF19-AF24**, all NOT RUN. **AF20 first**: the
 may really be turned 90 degrees, so Page Setup on each wants a look before any PDF is made. The
 server part works after a server restart; the viewport and tab-switch parts of the plug-in need a
 plug-in built from this change (it compiles for all three builds). Decision number D-125 and rows
-AF19-AF24 were taken while #236 (D-123) and #237 (D-124, X26-X28) were open.
+AF19-AF24 were taken while #236 (D-123) and #237 (D-124, X26-X28) were open; both are merged.
+
+## Earlier - 2026-11-22 (Activity palette buttons, D-124)
+
+The Activity palette now shows Select / Zoom / Undo only where they can act (`PaletteRows.Buttons`,
+D-124): a save, export, dry run or empty job gets none. Built and tested offline; rows X26-X28 NOT
+RUN. Not plug-in-version bumped. Follow-up seen, not changed: an erase-only job whose objects the
+modeller had brought back by the erase question still offers Undo (its counts still say erased).
+
+## Earlier - 2026-11-22 (the erase question can be switched off, D-123)
+
+Ajmal asked for a way to stop "Heron erased N objects" asking every time Claude re-places its own
+labels. Settings now has a fifth switch, **Ask before keeping erased objects** (`HERONASKERASE`),
+ON at every AutoCAD start, in memory only like the padlocks (D-59): no file remembers it, because
+a file is something a chat could write. Ajmal chose the one safe way to remember "off": the
+administrator key, DWORD `AskBeforeErasing` = 0 under D-60's policy key, starts it off at every
+start (not a hold; a click wins until restart). The plug-in decides (`BridgeProtocol.AskErase`
+answers `keep_erased`, `"asked": false`, `offBy` settings or policy); the server's note says "kept
+without asking", never "the modeller chose". Offline tests pass; the add-in builds; live rows
+N9-N14 are NOT RUN. Not in a release yet (CHANGELOG "Unreleased"). Ajmal sets the key himself in an
+administrator prompt; no chat may (the padlock guard refuses it).
 
 ## Earlier - 2026-11-22 (v1.8.0 checked and installed on the owner's PC; session 3 of 3)
 

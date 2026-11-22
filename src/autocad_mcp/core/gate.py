@@ -65,6 +65,7 @@ BRIDGE_OFF = (
     "developer use): no padlocks, banner or Keep or Discard apply."
 )
 DIAGNOSE_HINT = "Read the resource autocad://diagnose: it checks the install, the connection and the versions."
+ERASE_QUESTION_NAME = "Ask before keeping erased objects"
 ERASE_WAITING = "Waiting for the answer in AutoCAD: the job erased {count} object(s), keep them erased? ({seconds} s so far)."
 # Jobs whose real effect the plug-in counts (D-50).
 WATCHED = (Risk.CHANGE, Risk.ADMIN, Risk.PUBLISH)
@@ -609,7 +610,9 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 )
                 ok = outcome != "failed"
             elif counted and counted["erased"] > 0:
-                # Anything erased gets a human yes, whatever Ask to Keep says (D-50).
+                # Anything erased gets a human yes, whatever Ask to Keep says (D-50),
+                # unless the modeller turned the erase question off in Settings:
+                # the plug-in decides that and says so, never the server.
                 result = await _ask_erase(job, result, counted["erased"])
 
             if job and risk in WATCHED:
@@ -792,7 +795,19 @@ async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
     finally:
         progress.stop(beat)
     said = answer.get("answer")
-    if said == "keep_erased":
+    if said == "keep_erased" and answer.get("asked") is False:
+        # Never "the modeller chose": nobody was asked (D-50, D-62).
+        where = (
+            "off on this PC by the administrator setting (AskBeforeErasing = 0, D-123)"
+            if answer.get("off_by") == "policy"
+            else "off in Heron's Settings"
+        )
+        note = (
+            f"The job erased {erased} object(s) and they stay erased without asking: "
+            f"the erase question ({ERASE_QUESTION_NAME}) is {where}. "
+            "Tell the modeller what was erased; Ctrl+Z in AutoCAD brings them back."
+        )
+    elif said == "keep_erased":
         note = f"The modeller chose to keep the {erased} erased object(s) erased."
     elif said == "restored":
         note = (

@@ -19,6 +19,24 @@ Newest first. Dates are when the change was made.
   - The plug-in no longer counts viewports AutoCAD changes itself while it switches tabs, so a
     `(setvar "CTAB" ...)` is not "1 erased" and brings no erase question.
   - `autocad_dimension_run`: `total` is the run end to end for every mode (it was 0 for an overall).
+- **Activity palette: Select, Zoom and Undo only where they can act (2026-11-22, D-124).** A card
+  for a save, an export, a refused job, a dry run or any job that made and changed nothing now has no buttons
+  (before, a "Save Drawing ... made 0, changed 0, erased 0" card still offered all three). Select and
+  Zoom show only when the job left objects to show; Undo only on Heron's newest change job that
+  changed something. The remaining checks (drawing in front, a change since, UNDOCTL) still answer
+  on the press. Rule in `PaletteRows.Buttons`, tested offline; live rows X26-X28 NOT RUN.
+- **The erase question can be switched off (2026-11-22, Ajmal asked; [D-123](docs/DECISIONS.md)).**
+  Settings has a fifth switch, **Ask before keeping erased objects** (command `HERONASKERASE`). ON,
+  the default at every AutoCAD start, asks "Heron erased N objects: bring them back or keep them
+  erased?" as before (D-50). OFF, what a Heron job erases stays erased with no box; turning it off
+  asks first. It lives in this AutoCAD's memory only, like the padlocks (D-59): no file can turn it
+  off. To have it **start off on every AutoCAD start**, the PC's administrator sets DWORD
+  `AskBeforeErasing` = 0 under `HKLM\SOFTWARE\Policies\Heron\AutoCAD` (Ajmal's choice); a click in
+  Settings still turns it on until AutoCAD restarts. The answer still counts what was erased, and its
+  note says they were kept **without asking**, naming Settings or the administrator key, never that
+  the modeller chose. The erase box now says where to switch it off. Offline: Bridge tests (both .NET
+  builds) and `tests/test_gate.py`, `tests/test_padlocks_from_plugin.py`; live rows N9 to N14 in
+  NEEDS-CHECKING are NOT RUN.
 
 ## 1.8.0 - 2026-11-22 - The first GitHub release (a pre-release)
 
