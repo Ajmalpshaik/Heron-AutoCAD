@@ -13,6 +13,16 @@ Newest first. Dates are when the change was made.
   No new tool, no runtime change, no live rows. How Heron AI would use this server, and what is
   still missing on its side: [14](docs/14-heron-ai-adapter.md) ([D-122](docs/DECISIONS.md)).
 
+- **Pyramid, polysolid and the rest of SOLIDEDIT (2026-11-21, #182, #183, #184; part 3 of #119).**
+  Five new tools done by the plug-in (**198** in all): `autocad_add_pyramid` (PYRAMID: 3 to 32
+  sides, a point or a flat top, or a hopper; on the centre of its base, one side to the front),
+  `autocad_add_polysolid` (POLYSOLID: a wall of a width and height along a flat path, centred,
+  left, right, inside or outside), `autocad_edit_solid_faces` (offset, taper, move or delete faces,
+  picked by a word or by number), `autocad_imprint_solid` and `autocad_separate_solid`. Eight new
+  plug-in operations in their own files; the API has no polysolid call, so Heron builds the same
+  wall from the path ([D-112](docs/DECISIONS.md), [D-113](docs/DECISIONS.md)). Live rows AR1-AR14
+  NOT RUN.
+
 - **Sheets by the plug-in, a drawing list in one call, one PDF of many drawings (2026-11-21, #64-#67, #39, #40).**
   `autocad_create_layout` and `autocad_add_viewport` are now done by the plug-in in .NET, so neither
   touches `doc.PaperSpace`, which threw on a sheet tab; COM is the fallback for an older plug-in

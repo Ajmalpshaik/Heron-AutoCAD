@@ -197,6 +197,14 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `shell` | `autocad_shell_solid` | `Solid3d.ShellBody` |
 | `press_pull` | `autocad_press_pull_faces` | `Solid3d.ExtrudeFaces` |
 | `thicken` | `autocad_thicken_surface` | `Surface.Thicken` |
+| `add_pyramid` | `autocad_add_pyramid` | `Solid3d.CreatePyramid`, read back by its corners, turned and moved ([D-112](DECISIONS.md)) |
+| `add_polysolid` | `autocad_add_polysolid` | `Curve.GetOffsetCurvesGivenPlaneNormal`, `Region.CreateFromCurves`, `Solid3d.CreateExtrudedSolid` (the API has no polysolid call) |
+| `offset_faces` | `autocad_edit_solid_faces` (offset) | `Solid3d.OffsetFaces` ([D-113](DECISIONS.md)) |
+| `taper_faces` | `autocad_edit_solid_faces` (taper) | `Solid3d.TaperFaces` |
+| `move_faces` | `autocad_edit_solid_faces` (move) | `Solid3d.TransformFaces` |
+| `delete_faces` | `autocad_edit_solid_faces` (delete) | `Solid3d.RemoveFaces` |
+| `imprint_solid` | `autocad_imprint_solid` | `Solid3d.ImprintEntity` |
+| `separate_solid` | `autocad_separate_solid` | `Solid3d.SeparateBody` |
 | `super_hatch` | `autocad_super_hatch` | a block of tiles, one reference, a spatial filter (XCLIP) |
 | `layer_state_names` (Read) | `autocad_list_layers`, `autocad_isolate_layers` | `LayerStateManager.GetLayerStateNames`, its mask and description ([D-81](DECISIONS.md)) |
 | `layer_state` | `autocad_layer_states`, `autocad_isolate_layers` | `LayerStateManager.SaveLayerState` / `RestoreLayerState` / `DeleteLayerState` |
