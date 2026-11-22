@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
+  drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,
+  `autocad_add_multileader`, `autocad_table_from_excel` when it fills); the refusal says nothing was
+  left. `autocad_update_table_links` lists what it really returns. `autocad_make_block` is found
+  again for "make a tag block with a TAG attribute" (every finder phrase now in the top three).
+  Live row AN13 NOT RUN.
+
 - **The live-check runner covers groups AS and AO too (2026-11-21, D-118).** AS5 is measured (a
   layer of rays and an empty layer say why they have no extents); the other AS rows compare the plug-in
   with a second server started with --no-bridge, and the AO rows need the PDFs they name, so they have

@@ -31,7 +31,15 @@ from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import double_array
-from ._shared import COLOR_OPT, COORDS_OPT, LAYER_OPT, point, ucs_for, world_coords
+from ._shared import (
+    COLOR_OPT,
+    COORDS_OPT,
+    LAYER_OPT,
+    discard_new,
+    point,
+    ucs_for,
+    world_coords,
+)
 from .annotation_scales import ANNOTATIVE_OPT, make_new_annotative, require_plugin
 from .batch import draw_operations
 
@@ -269,10 +277,11 @@ async def autocad_add_multileader(
                     mleader.StyleName = str(style).strip()
                 except BaseException as exc:  # noqa: BLE001
                     raise_if_busy(exc)
+                    gone = discard_new(mleader)
                     raise AutocadError(
                         f"This drawing has no multileader style called '{style}' "
                         f"({com_message(exc)}). Make it with autocad_create_styles(multileader_styles=...), "
-                        "or copy it in with autocad_import_from_drawing."
+                        "or copy it in with autocad_import_from_drawing." + (" Nothing was left in the drawing." if gone else " An empty one was left in the drawing; erase it.")
                     ) from exc
 
             if block:
@@ -487,10 +496,11 @@ async def autocad_add_table(
                     table.StyleName = str(style).strip()
                 except BaseException as exc:  # noqa: BLE001
                     raise_if_busy(exc)
+                    gone = discard_new(table)
                     raise AutocadError(
                         f"This drawing has no table style called '{style}' ({com_message(exc)}). "
                         "Make it with autocad_create_styles(table_styles=...), or copy it in with "
-                        "autocad_import_from_drawing."
+                        "autocad_import_from_drawing." + (" Nothing was left in the drawing." if gone else " An empty one was left in the drawing; erase it.")
                     ) from exc
 
             # A new table starts with a title row (merged across) and a header

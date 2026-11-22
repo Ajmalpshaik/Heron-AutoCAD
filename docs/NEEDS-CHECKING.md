@@ -888,6 +888,7 @@ scratch metric drawing. **Every row below is NOT RUN.**
 | AN10 | `table_styles=[{"name": "A", "text_height": 2.5, "alignment": "top left"}]`, then `multileader_styles=[{"name": "B", "text_height": 2.5, "scale": 0.02}]`, then `multileader_styles=[{"name": "C", "text_height": 2.5, "arow": "dot"}]` | A's row: "... vertical middle ...", B's: "'0.02' could be a ratio or a scale factor ... '1:50'", C: refused before anything ("arow is not an option"). None of the three is in the drawing | NOT RUN |
 | AN11 | With Changes **off**: AN1 again | Refused by the padlock before anything; MLEADERSTYLE unchanged | NOT RUN |
 | AN12 | AN1 with a plug-in built before this change | Refused: "Heron in AutoCAD does not have the operation 'multileader_style'. Update Heron ..."; nothing changed. With a text style in the same call: the text style is made and the multileader row carries that message | NOT RUN |
+| AN13 | `autocad_add_table(position=[0,0], rows=[["A"]], style="NOPE")`, then `autocad_add_multileader(landing=[500,500], arrows=[[0,0]], text="X", style="NOPE")` | Each refused: "no ... style called 'NOPE' ... Make it with autocad_create_styles ... Nothing was left in the drawing." No empty table or bare leader in model space (`autocad_list_entities`), #191 | NOT RUN |
 
 ## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
 
