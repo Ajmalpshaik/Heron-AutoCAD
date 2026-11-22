@@ -163,8 +163,12 @@ example:
   example and not copied from that list; marked `# example: yes`, which `import` refuses, so it can
   never become an office's standard by accident.
 - **The remap from a standard**: first every standard layer as itself (what is on it stays, the
-  layer gets the standard's colour, linetype, lineweight, plot and description), then each old name
-  a row replaces, in file order, matched on the **layer** only, never a block's name.
+  layer gets the standard's colour, linetype, lineweight, plot and description), then every pattern
+  row as a **keep** rule (a new remap key, `keep: true` in place of a target `layer`: what it
+  matches stays on its own layer, which gets the row's properties), so a layer the check accepts
+  through a pattern is never taken by an old name such as `*CHWS*`; then each old name a row
+  replaces, in file order, matched on the **layer** only, never a block's name. A plain old name a
+  pattern row covers is refused at import, as one that is a standard layer is.
 - **Left for later, on a need:** true colours, transparency and plot style names in the standard;
   keeping the standard on a shared office folder as the check lists do (D-93) - for now each PC
   imports the CSV.

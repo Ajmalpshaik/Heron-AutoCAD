@@ -105,7 +105,7 @@ MATCH_KEYS = frozenset(
     {"name_like", "source_layer", "source_color", "entity_type", "block_name", "text_contains"}
 )
 TARGET_KEYS = frozenset(
-    {"layer", "color", "linetype", "lineweight", "description", "plot", "lock", "freeze", "new_color"}
+    {"layer", "color", "linetype", "lineweight", "description", "plot", "lock", "freeze", "new_color", "keep"}
 )
 RULE_KEYS = MATCH_KEYS | TARGET_KEYS
 
@@ -155,9 +155,11 @@ def rule_hits(entity: dict[str, Any], rule: dict[str, Any]) -> bool:
 def validate_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Check a rule list before a single object is touched.
 
-    Every rule needs a target layer and at least one thing to match on;
-    a rule that matches everything would sweep the whole drawing onto one
-    layer, which is never what was meant.
+    Every rule needs a target layer, or ``keep: true`` (what it matches stays
+    on its own layer, and that layer gets the rule's properties: how a layer
+    standard's pattern rows protect the layers they cover, D-120), and at
+    least one thing to match on; a rule that matches everything would sweep
+    the whole drawing onto one layer, which is never what was meant.
     """
     if not rules:
         raise ValueError("no rules given: each rule needs something to match and a target layer")
@@ -171,11 +173,14 @@ def validate_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 f"rule {i} has unknown keys: {', '.join(stray)}. Known keys: "
                 + ", ".join(sorted(RULE_KEYS))
             )
-        if not str(rule.get("layer", "")).strip():
-            raise ValueError(f"rule {i} has no target 'layer'")
+        if rule.get("keep"):
+            if str(rule.get("layer", "")).strip():
+                raise ValueError(f"rule {i} has either a target 'layer' or keep=true (it stays where it is), not both")
+        elif not str(rule.get("layer", "")).strip():
+            raise ValueError(f"rule {i} has no target 'layer' (or keep=true, to leave what it matches where it is)")
         if not MATCH_KEYS & set(rule):
             raise ValueError(
-                f"rule {i} ('{rule['layer']}') matches nothing in particular, so it would move "
+                f"rule {i} ('{rule.get('layer') or 'keep'}') matches nothing in particular, so it would move "
                 "the whole drawing. Give it one of: " + ", ".join(sorted(MATCH_KEYS)) + ". "
                 "('color' sets the target layer's colour; to match an object's own colour "
                 "use 'source_color'.)"
@@ -207,7 +212,8 @@ def plan_remap(
             if not unmatched_layer:
                 continue
             hit = {"layer": unmatched_layer}
-        target = str(hit["layer"]).strip()
+        kept = bool(hit.get("keep"))
+        target = str(entity.get("layer", "")).strip() if kept else str(hit["layer"]).strip()
         wanted = {k: v for k, v in hit.items() if k in ("color", "linetype", "lineweight", "description", "plot", "lock", "freeze")}
         if target in layers:
             layers[target].update(wanted)
@@ -219,8 +225,9 @@ def plan_remap(
             or (f"colour {hit['source_color']}" if "source_color" in hit else "")
             or "unmatched"
         )
-        per_rule[f"{label} -> {target}"] = per_rule.get(f"{label} -> {target}", 0) + 1
-        if str(entity.get("layer", "")).strip().lower() == target.lower():
+        said = f"{label} -> {'(stays)' if kept else target}"
+        per_rule[said] = per_rule.get(said, 0) + 1
+        if kept or str(entity.get("layer", "")).strip().lower() == target.lower():
             continue
         moves.append(
             {
@@ -493,7 +500,9 @@ async def autocad_remap_layers(
                 "needs a target 'layer' and at least one thing to match on.\n"
                 "'color' is the TARGET layer's colour; to match an object's own "
                 "colour use 'source_color'. 'new_color' overrides the moved "
-                "objects themselves, which a shop drawing rarely wants."
+                "objects themselves, which a shop drawing rarely wants. 'keep': true "
+                "instead of a 'layer' leaves what the rule matches on its own layer "
+                "(and gives that layer the rule's properties)."
             ),
         ),
     ] = None,

@@ -17,9 +17,10 @@ What a check reports, per layer of the drawing:
 Layer 0, Defpoints and xref layers (XREF|NAME) are never "not listed": they are
 AutoCAD's own, or the xref's to check in the xref drawing.
 
-The remap rules: objects already on a standard layer stay there and the layer
-gets the standard's properties; objects on an old layer a row ``replaces`` move
-to that row's layer. A pattern row is never a target.
+The remap rules: objects already on a standard layer, or on one a pattern row
+covers, stay there and the layer gets the standard's properties; objects on an
+old layer a row ``replaces`` move to that row's layer. A pattern row is never a
+target.
 
 The example that ships with Heron (data/layer-standard-example-mep.csv) is a
 generic MEP list in the discipline-major-minor style. It is an example, never
@@ -123,7 +124,7 @@ def _color(value: Any) -> int | None:
     else:
         try:
             number = int(float(text))
-        except ValueError:
+        except (ValueError, OverflowError):
             raise StandardError(
                 f"colour '{value}' is not a colour: give the AutoCAD Color Index (1 to 255) or one of "
                 + ", ".join(sorted(k for k, v in ACI_COLORS.items() if 1 <= v <= 255))
@@ -215,8 +216,13 @@ def _finish(rows: list[tuple[str, dict[str, Any]]], settings: dict[str, Any], pr
     for where, row in rows:
         for old in row["replaces"]:
             key = old.lower()
+            covering = None if is_pattern(old) else next(
+                (other for _, other in rows if other["pattern"] and matches(other["layer"], old)), None)  # fmt: skip
             if key in seen and not is_pattern(old):
                 problems.append(f"{where}: '{old}' is a layer of the standard itself ({seen[key]}), so it cannot be an old name too")
+            elif covering is not None:
+                problems.append(f"{where}: '{old}' is covered by the pattern row {covering['layer']}, so it is a layer of "
+                                "the standard and cannot be an old name too")  # fmt: skip
             elif key in old_names:
                 problems.append(f"{where}: the old name '{old}' is already replaced by {old_names[key]}")
             else:
@@ -261,7 +267,7 @@ def _delimiter(text: str) -> str:
     """Comma, or the semicolon or tab Excel writes in some regions, read from the header line."""
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped and not stripped.startswith("#"):
+        if stripped and not stripped.lstrip('"').startswith("#"):
             counts = {mark: stripped.count(mark) for mark in (",", ";", "\t")}
             best = max(counts, key=lambda mark: counts[mark])
             return best if counts[best] else ","
@@ -472,7 +478,9 @@ def remap_rules(standard: dict[str, Any]) -> list[dict[str, Any]]:
     """autocad_remap_layers' rules from a standard, in the order that keeps standard layers where they are.
 
     First every standard layer as itself: what is on it stays, and the layer
-    gets the standard's properties. Then each old name a row replaces, in file
+    gets the standard's properties. Then every pattern row the same way, as a
+    keep rule: a layer the pattern covers is a standard layer too, so no old
+    name may take what is on it. Then each old name a row replaces, in file
     order. Matched on the layer only, never on a block's name: an old layer
     name is a layer name.
     """
@@ -481,6 +489,10 @@ def remap_rules(standard: dict[str, Any]) -> list[dict[str, Any]]:
     for row in targets:
         props = {key: row[key] for key in _PROPS if key in row}
         rules.append({"source_layer": row["layer"].replace("[", "[[]"), "layer": row["layer"], **props})
+    for row in standard["layers"]:
+        if row["pattern"]:
+            props = {key: row[key] for key in _PROPS if key in row}
+            rules.append({"source_layer": row["layer"].replace("[", "[[]"), "keep": True, **props})
     for row in targets:
         props = {key: row[key] for key in _PROPS if key in row}
         for old in row["replaces"]:

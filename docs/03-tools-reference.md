@@ -311,7 +311,7 @@ Both default to `dry_run=true`: read the counts, then run it. Detail:
 
 | Tool | Purpose |
 |---|---|
-| `autocad_remap_layers` | Rules match `name_like` (layer **or** block name), `source_layer`, `block_name`, `entity_type`, `source_color`, `text_contains`; the target layer is created with its colour, linetype, lineweight, description and plot setting. `preset="ifc"` is a starting point; `rules_path` takes an office standard written as rules; `layer_standard` (`office`, `example` or a `.csv` / `.json`) keeps objects on its layers, gives those layers its colour, linetype, lineweight, plot and description, and moves the old names each row `replaces`. `office` with none loaded is refused ([D-120](DECISIONS.md)) |
+| `autocad_remap_layers` | Rules match `name_like` (layer **or** block name), `source_layer`, `block_name`, `entity_type`, `source_color`, `text_contains`; the target layer is created with its colour, linetype, lineweight, description and plot setting. `preset="ifc"` is a starting point; `rules_path` takes an office standard written as rules; `layer_standard` (`office`, `example` or a `.csv` / `.json`) keeps objects on its layers (and on the layers its pattern rows cover), gives those layers its colour, linetype, lineweight, plot and description, and moves the old names each row `replaces`. A rule may say `keep: true` instead of a target `layer`: what it matches stays where it is. `office` with none loaded is refused ([D-120](DECISIONS.md)) |
 | `autocad_tidy_entities` | Colour / linetype / lineweight back to ByLayer, `flatten_z`, `zero_thickness`, `off_layer_0`, `delete_empty` |
 
 ## Several tools in one call (Change)

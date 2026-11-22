@@ -169,11 +169,12 @@ class TestJson:
 # ---- the example that ships ----------------------------------------------------------
 
 
-class TestTheExample:
-    @pytest.fixture(scope="class")
-    def example(self):
-        return ls.read_file(ls.EXAMPLE_FILE)
+@pytest.fixture(scope="module")
+def example():
+    return ls.read_file(ls.EXAMPLE_FILE)
 
+
+class TestTheExample:
     def test_it_is_marked_an_example_in_the_file_and_its_name(self, example):
         assert example["example"] is True
         assert "example" in example["name"].lower()
@@ -271,7 +272,8 @@ class TestRemapRules:
         assert rules[0] == {"source_layer": "M-DUCT", "layer": "M-DUCT", "color": 4, "linetype": "Continuous",
                             "lineweight": 35, "plot": True, "description": "Supply duct"}  # fmt: skip
         assert rules[-1]["source_layer"] == "OLD-DUCT*" and rules[-1]["layer"] == "M-DUCT"
-        assert all(rule["layer"] != "M-*-IDEN" for rule in rules)  # a pattern is never a target
+        assert all(rule.get("layer") != "M-*-IDEN" for rule in rules)  # a pattern is never a target
+        assert {"source_layer": "M-*-IDEN", "keep": True, "color": 7, "lineweight": 18} in rules  # it protects its layers
         objects = [
             {"handle": "1", "type": "line", "layer": "M-DUCT"},
             {"handle": "2", "type": "line", "layer": "old-duct-supply"},
@@ -502,3 +504,48 @@ class TestRemapLayers:
         write_office(csv_of("M-HVAC-SUPP,4,Continuous,0.35,yes,,MECH-SUPPLY*,"))
         plan = json.loads(asyncio.run(convert.autocad_remap_layers(layer_standard="office", dry_run=True)))
         assert plan["counts"] == {"read": 2, "to_move": 1, "already_right": 1, "unmatched": 0, "layers_wanted": 1}
+
+
+# ---- found in review: pattern layers, a colour that overflows, a quoted note ---------------------
+
+
+class TestReviewFindings:
+    def test_a_layer_a_pattern_row_covers_is_never_moved_by_an_old_name(self):
+        example = ls.read_file(ls.EXAMPLE_FILE)
+        objects = [{"handle": "1", "type": "line", "layer": "M-PIPE-CHWS-IDEN"},
+                   {"handle": "2", "type": "line", "layer": "MECH-CHWS-OLD"}]  # fmt: skip
+        assert ls.check([layer("M-PIPE-CHWS-IDEN", 7, lineweight=18)], example) == []
+        plan = convert.plan_remap(objects, convert.validate_rules(ls.remap_rules(example)))
+        assert [(m["handle"], m["to"]) for m in plan["moves"]] == [("2", "M-PIPE-CHWS")]
+        assert plan["counts"]["already_right"] == 1
+        assert plan["layers"]["M-PIPE-CHWS-IDEN"] == {"color": 7, "linetype": "Continuous", "lineweight": 18, "plot": True}
+
+    def test_a_pattern_layer_is_not_swept_onto_the_unmatched_layer(self):
+        plan = convert.plan_remap([{"handle": "1", "type": "line", "layer": "M-HVAC-IDEN"}],
+                                  convert.validate_rules(ls.remap_rules(STANDARD)), unmatched_layer="X-REVIEW")  # fmt: skip
+        assert plan["moves"] == [] and plan["unmatched"] == []
+
+    def test_an_old_name_a_pattern_row_covers_is_refused(self):
+        assert "covered by the pattern row M-*-IDEN" in problems(csv_of("M-*-IDEN,7,,,,,,", "M-DUCT,4,,,,,M-HVAC-IDEN,"))
+
+    @pytest.mark.parametrize("given", ["inf", "1e999", "nan"])
+    def test_a_colour_that_is_not_a_number_is_listed_not_a_crash(self, given):
+        assert f"colour '{given}'" in problems(csv_of(f"M-A,{given},,,,,,"))
+
+    def test_a_note_excel_put_in_quotes_does_not_pick_the_delimiter(self):
+        text = '"# separate old names with ; like A;B;C;D;E;F;G;H",,,,,,,\n' + csv_of("M-A,1,,,,,OLD-1;OLD-2,")
+        assert ls.from_csv(text)["layers"][0]["replaces"] == ["OLD-1", "OLD-2"]
+
+
+class TestKeepRules:
+    def test_a_keep_rule_leaves_objects_on_their_own_layer_and_sets_it(self):
+        rules = convert.validate_rules([{"source_layer": "M-*-IDEN", "keep": True, "color": 7}])
+        plan = convert.plan_remap([{"handle": "1", "type": "text", "layer": "M-HVAC-IDEN"}], rules)
+        assert plan["moves"] == [] and plan["layers"] == {"M-HVAC-IDEN": {"color": 7}}
+        assert plan["by_rule"] == {"M-*-IDEN -> (stays)": 1}
+
+    def test_a_rule_needs_a_target_layer_or_keep(self):
+        with pytest.raises(ValueError, match="has no target 'layer'"):
+            convert.validate_rules([{"source_layer": "M-*"}])
+        with pytest.raises(ValueError, match="either a target 'layer' or keep"):
+            convert.validate_rules([{"source_layer": "M-*", "keep": True, "layer": "M-X"}])
