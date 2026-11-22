@@ -179,8 +179,11 @@ done looks like here.
   ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [x] Draw an attribute schedule as an AutoCAD table: `autocad_add_table` ([10](10-geometry-annotation-3d.md)).
 - [x] Standards check against a reference DWG / DWS, not only a rules file: `autocad_check_standards(reference=...)`. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69), D-92; live rows AG5-AG8 NOT RUN)
-- [ ] A layer-standard rule file shipped for Ajmal's own office standard, beside the `ifc` preset
-  in `tools/convert.py` (which is a starting point, not a standard). ([#70](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/70))
+- [ ] A layer-standard rule file for Ajmal's own office standard, beside the `ifc` preset in
+  `tools/convert.py`. The format, a generic MEP example and the CSV import are built
+  (`autocad_layer_standard`, `layer_standard` on the check and the remap; D-120, live group AT NOT
+  RUN). **Waiting for Ajmal:** fill the CSV from the office's layer list on his own PC (it never
+  goes in this public repository) and import it. ([#70](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/70))
 - [x] Read DXF / DWG files without AutoCAD (ezdxf, plus the ODA converter for DWG), read only: `autocad_read_file`. ([#71](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/71), D-92; live rows AG1-AG4 NOT RUN)
 - [x] Paper-space layouts and viewports: `autocad_create_layout`, `autocad_page_setup`,
   `autocad_place_title_block`, `autocad_add_viewport` (D-27, [09](09-sheets-and-coordinates.md)).

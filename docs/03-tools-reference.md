@@ -38,6 +38,7 @@ The group headings below give the level.
 | `autocad_activity` | **Read.** What Heron did in this chat, newest first: tool, drawing, outcome, created handles, what the plug-in counted; and whether its last change can still be undone ([D-54](DECISIONS.md)) |
 | `autocad_why` | **Read, needs no AutoCAD.** For one job in plain words: the real reason it cannot run (no tool, nothing connected, a plug-in older than the tool needs, server and plug-in from different releases) and what to do, worst first; names the padlocks the job needs, which it cannot see from outside AutoCAD (D-59) ([D-67](DECISIONS.md)) |
 | `autocad_gaps` | **Read, needs no AutoCAD.** The last N days (1-90) of Heron's audit log: calls per tool, failures by plain reason with what to do, the slowest jobs. Drawings by file name only, no contents ([D-67](DECISIONS.md)) |
+| `autocad_layer_standard` | **Read, needs no AutoCAD.** The office layer standard: `template` puts an empty CSV (layer, color, linetype, lineweight, plot, description, replaces, required) in `%LOCALAPPDATA%\Heron\autocad\standards\`; `import` loads the filled CSV as the office standard (any problem: nothing imported, each named with its row); `show` says which standard `office` means and what it holds, or reads a named CSV without importing it; `remove` unloads it. Until one is loaded, `office` is the generic MEP example that ships with Heron ([D-120](DECISIONS.md)) |
 | `autocad_read_file` | **Read, needs no AutoCAD.** A `.dxf` on disk (with ezdxf), or a `.dwg` / `.dws` / `.dwt` when the free ODA File Converter is installed (found, never downloaded; else a plain refusal): `summary` (version, units, extents, counts, most placed blocks, layouts, xrefs), `layers` with objects per layer, `blocks` with placed / nested counts and attribute tags, `text`, `attributes` (JSON or CSV), `styles`. Never changes the file; reads what was last saved ([D-92](DECISIONS.md)) |
 | `autocad_undo_last` | **Change.** Undo Heron's own last change, only when the plug-in saw no change since (the modeller's work is never taken with it), in the same drawing, one level ([D-54](DECISIONS.md)) |
 | `autocad_project_notes` | **Read.** Keep the modeller's answers (scale, standard, text heights) for the project (the drawing's folder); `autocad_status` hands them to every chat ([D-53](DECISIONS.md)) |
@@ -309,7 +310,7 @@ Both default to `dry_run=true`: read the counts, then run it. Detail:
 
 | Tool | Purpose |
 |---|---|
-| `autocad_remap_layers` | Rules match `name_like` (layer **or** block name), `source_layer`, `block_name`, `entity_type`, `source_color`, `text_contains`; the target layer is created with its colour, linetype, lineweight, description and plot setting. `preset="ifc"` is a starting point; `rules_path` takes an office standard |
+| `autocad_remap_layers` | Rules match `name_like` (layer **or** block name), `source_layer`, `block_name`, `entity_type`, `source_color`, `text_contains`; the target layer is created with its colour, linetype, lineweight, description and plot setting. `preset="ifc"` is a starting point; `rules_path` takes an office standard written as rules; `layer_standard` (`office`, `example` or a `.csv` / `.json`) keeps objects on its layers, gives those layers its colour, linetype, lineweight, plot and description, and moves the old names each row `replaces`. `office` with none loaded is refused ([D-120](DECISIONS.md)) |
 | `autocad_tidy_entities` | Colour / linetype / lineweight back to ByLayer, `flatten_z`, `zero_thickness`, `off_layer_0`, `delete_empty` |
 
 ## Several tools in one call (Change)
@@ -470,7 +471,7 @@ which COM has no call for; the rest is COM. Not proven in AutoCAD yet:
 | Tool | Purpose |
 |---|---|
 | `autocad_preview` | Plot the extents, the current view or a window to PNG and return the **picture** to the AI. Use after drawing, before saying it is done. Says the area plotted and the smallest text that reads; `detail=2` or `3` adds close-ups of the same area, for a full sheet whose small text one picture cannot show (D-102). Page setup put back |
-| `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file. Or against a `reference` drawing (`.dws`, `.dwt`, `.dwg`, `.dxf`): layers, text styles, dimension styles (name only) and linetypes (name only) missing, different, or not in the standard (`flag_extra`); the answer says what read the reference ([D-92](DECISIONS.md)). `passed` means the rules given were met against the named `source`, never that the drawing complies; `null` when only part of the objects was read ([D-64](DECISIONS.md)) |
+| `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file. Or against a `reference` drawing (`.dws`, `.dwt`, `.dwg`, `.dxf`): layers, text styles, dimension styles (name only) and linetypes (name only) missing, different, or not in the standard (`flag_extra`); the answer says what read the reference ([D-92](DECISIONS.md)). Or a `layer_standard` (`office`, `example`, or a `.csv` / `.json` file): each listed layer, or one a pattern row covers, by colour, linetype, lineweight, plot and description; an unlisted layer against its name pattern; its required layers; `office` with none loaded is checked against the example and not decided ([D-120](DECISIONS.md)). `passed` means the rules given were met against the named `source`, never that the drawing complies; `null` when only part of the objects was read ([D-64](DECISIONS.md)) |
 | `autocad_extract_attributes` | Every block reference with attributes as rows (block, handle, layer, insertion, tags), JSON or CSV - for schedules |
 
 ## Resources and prompts
@@ -498,7 +499,7 @@ arguments.
 
 | Prompt | Arguments | What it walks through |
 |---|---|---|
-| `check_standards` | `rules_path` | Checks the drawing against a layer standard and reports. Changes nothing |
+| `check_standards` | `rules_path`, `layer_standard` | Checks the drawing against a layer standard and reports. Changes nothing |
 | `draw_from_spec` | `spec` | Draws from a written spec on named layers, then previews it |
 | `draw_detail` | `subject`, `scale` | The full drafting checklist: sheet plan, layers, parts as blocks, hatching, labels, dimensions, titles, notes, then look at it |
 | `make_sheet` | `sheet_name`, `paper_size`, `scale` | Layout, page setup, title block, viewport at a scale, and a saved view so the same location comes back |

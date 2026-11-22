@@ -8,7 +8,18 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (the drawing report's count by the plug-in, #193, rank 2 of #74)
+## Latest - 2026-11-22 (the office layer standard, #70, D-120)
+
+`autocad_layer_standard` (new, **193** tools): `template` / `import` / `show` / `remove` for the
+office's own layer list as a CSV, kept in `%LOCALAPPDATA%\Heron\autocad\standards\`; `layer_standard`
+on `autocad_check_standards` and `autocad_remap_layers` (`office`, `example` or a file path). The
+format and the check are `acad/layer_standard.py`; the generic MEP example is
+`src/autocad_mcp/data/layer-standard-example-mep.csv`. Tests: `tests/test_layer_standard.py`.
+**Next (Ajmal, on this PC):** `autocad_layer_standard(action="template")`, fill the CSV from the
+office list, `action="import"`, then live rows **AT1-AT8**. #70 closes when he confirms it matches
+his standard.
+
+## Earlier - 2026-11-22 (the drawing report's count by the plug-in, #193, rank 2 of #74)
 
 `autocad_drawing_report` counts model space through `count_entities` with `space: model` and the
 same 50,000 cut-off; the plug-in walks model space in COM's order and says `"space": "model"`, so a

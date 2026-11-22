@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The office layer standard (2026-11-22, #70).** One new tool, **193** in all.
+  `autocad_layer_standard` makes an empty CSV to fill from the office's layer list (layer, colour,
+  linetype, lineweight, plot, description, the old names it replaces, required), imports it into
+  `%LOCALAPPDATA%\Heron\autocad\standards\` on this PC (never into this repository), and says
+  which standard is in force; it needs no AutoCAD. `autocad_check_standards(layer_standard=...)`
+  checks every layer against it and `autocad_remap_layers(layer_standard=...)` moves objects off the
+  old names onto its layers. A generic MEP example ships with Heron; `office` with no list loaded is
+  checked against it and not decided, and a remap is refused ([D-120](docs/DECISIONS.md)). Live
+  group AT NOT RUN. #70 stays open until the office's own list is imported.
+
 - **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
   drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,
   `autocad_add_multileader`, `autocad_table_from_excel` when it fills); the refusal says nothing was

@@ -30,7 +30,7 @@ same standard carried through to the issued drawing.
 | 12 | **Title block in the corner** of every sheet, frame to ISO 5457 (20 mm binding edge, 10 elsewhere), attributes filled | `autocad_place_title_block(all_layouts=true, per_layout_attributes=...)` |
 | 13 | **One location, named once**, then plotted, viewported and measured from | `autocad_save_view`, then `view_name` on `autocad_add_viewport` and `area="view"` on `autocad_export` |
 | 14 | **Set the drawing up before drawing in it**: units, scale, snaps. The scale sets DIMSCALE, LTSCALE and the annotation scale together | `autocad_drawing_setup` |
-| 15 | **An import is not a drawing.** Layers first, then clear the per-object overrides, then flatten, then check the standard | `autocad_remap_layers`, `autocad_tidy_entities`, `autocad_check_standards` |
+| 15 | **An import is not a drawing.** Layers first, then clear the per-object overrides, then flatten, then check the standard | `autocad_remap_layers`, `autocad_tidy_entities`, `autocad_check_standards` (`layer_standard="office"`, [below](#the-office-layer-standard)) |
 
 ## The geometry and annotation rules
 
@@ -47,6 +47,27 @@ Added with the shape, dimension and 3D tools ([10](10-geometry-annotation-3d.md)
 | 21 | **A schedule is a table**, not a grid of loose text | `autocad_extract_attributes`, then `autocad_add_table` |
 | 22 | **Model the part, then take the numbers off it.** Draw the section, extrude or revolve it, boolean the holes out, read the volume | `autocad_extrude_profile`, `autocad_solid_boolean`, `autocad_solid_properties` |
 | 23 | **Look at a 3D model before saying it is done**: a south-west isometric in the hidden style, then preview | `autocad_set_3d_view`, `autocad_preview` |
+
+## The office layer standard
+
+Rule 7 says layers per discipline; which layers is the office's own list. Heron keeps that list on
+the modeller's PC, never in this public repository ([D-120](DECISIONS.md), issue #70):
+
+1. `autocad_layer_standard(action="template")` puts an empty CSV in
+   `%LOCALAPPDATA%\Heron\autocad\standards\office-layers.csv`.
+2. Fill it in Excel, one row per layer: `layer` (a name, or a pattern such as `M-*-IDEN`), `color`
+   (1-255 or a name), `linetype`, `lineweight` (in mm, or Default), `plot` (yes / no),
+   `description`, `replaces` (old layer names this layer takes over, `;` between them, wildcards
+   work) and `required` (yes when every drawing must have it). A blank cell is not checked.
+3. `autocad_layer_standard(action="import")`. Any problem: nothing is imported, and each is named
+   with its row.
+4. `autocad_check_standards(layer_standard="office")` checks a drawing against it;
+   `autocad_remap_layers(layer_standard="office")` puts an import's objects on its layers.
+
+Until a list is imported, `office` means the generic MEP example that ships with Heron
+(`src/autocad_mcp/data/layer-standard-example-mep.csv`), and a check against it is not decided.
+The example is mechanical, plumbing, fire and electrical layers in the discipline-major-minor
+style; it is an example, not anyone's standard.
 
 ## Where it came from
 

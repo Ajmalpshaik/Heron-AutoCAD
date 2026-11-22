@@ -847,6 +847,24 @@ start Claude again. Server only: no plug-in build is needed. **Every row below i
 | AG14 | Padlocks: Publish OFF. `autocad_share_checklist(share="office_list")` | Refused by the plug-in (Publish padlock); nothing written to the share | NOT RUN |
 | AG15 | `autocad_why(job="read the layers of a DXF file")` with AutoCAD closed | `can_run: true`, the tool `autocad_read_file`, no "press Heron" reason | NOT RUN |
 
+## Group AT - The office layer standard: the CSV, the import, the check and the remap (AutoCAD 2027, this PC)
+
+Added on 2026-11-22 ([D-120](DECISIONS.md); issue #70). Built and tested offline
+(`tests/test_layer_standard.py`): the format, the shipped example, which file wins, the CSV import,
+and the check and remap plans, on plain data and a stand-in drawing. Server only: no plug-in build
+is needed. Use a copy of a real MEP drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AT1 | AutoCAD **closed**. `autocad_layer_standard(action="template")`, open the CSV it names in Excel, put 5 of the office's real layers in it, save as **CSV UTF-8**, then `action="import"` | Answers with AutoCAD closed; `office-layers.json` appears in `%LOCALAPPDATA%\Heron\autocad\standards\` with the 5 layers; `action="show"` says the office standard is in force and lists them as typed | NOT RUN |
+| AT2 | Save the same CSV from Excel as plain **CSV (Comma delimited)**, with a layer description that has an accent or a degree sign, and import it | Imported; the description reads back the same in `show` | NOT RUN |
+| AT3 | Put a wrong colour (`reed`) and a lineweight of `0.33` in two rows, import | Refused; both problems named with the row numbers Excel shows; the office standard from AT1 is unchanged | NOT RUN |
+| AT4 | AutoCAD open, a project drawing active. `autocad_check_standards(layer_standard="office")` | `layer_standard.source` names the office file; each finding names a layer that really differs from the CSV (check two by hand in the Layer Properties Manager: colour, linetype, lineweight, plot, description) | NOT RUN |
+| AT5 | `autocad_layer_standard(action="remove")`, then AT4 again | `passed` is null; the warning says no office standard is loaded and that it was checked against the generic MEP example | NOT RUN |
+| AT6 | Import the AT1 CSV again with a `replaces` cell naming an old layer the drawing has (a consultant's `MECH-DUCT*`, say). `autocad_remap_layers(layer_standard="office")` (dry run), then `dry_run=false` | The dry run moves only objects on the old layers, onto the standard's layer; nothing already on a standard layer moves; after the run the target layer has the CSV's colour, linetype, lineweight and description, and one undo puts it all back | NOT RUN |
+| AT7 | `autocad_remap_layers(layer_standard="office")` with no office standard loaded | Refused before anything is read: no office standard is loaded, nothing was moved | NOT RUN |
+| AT8 | `autocad_check_standards(layer_standard="example")` on an MEP drawing | The answer says plainly it is the generic MEP example, not an office's standard | NOT RUN |
+
 ## Group AJ - Drawing events from the plug-in, fewer batch pieces (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-98](DECISIONS.md); issues #48, #45). Built and tested offline only
