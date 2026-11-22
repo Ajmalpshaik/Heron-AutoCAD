@@ -809,7 +809,8 @@ async def autocad_add_wipeout(
         # WIPEOUT draws where the work is: model space on the Model tab, and also
         # inside a layout viewport that is active (ActiveSpace still says paper).
         in_model = int(_try(lambda: doc.ActiveSpace, 1)) == 1 or bool(_try(lambda: doc.MSpace, False))
-        target = doc.ModelSpace if in_model else doc.PaperSpace
+        # get_space: doc.PaperSpace can throw on a sheet tab; the layout's block answers (#169).
+        target = doc.ModelSpace if in_model else get_space(doc, "paper")
         if outline is not None:
             owner, here = _try(lambda: outline.OwnerID), _try(lambda: target.ObjectID)
             if owner is not None and here is not None and owner != here:

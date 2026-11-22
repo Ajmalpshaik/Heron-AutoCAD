@@ -796,6 +796,88 @@ nothing beyond what every drawing has, never gives `passed: true` (it is `null`,
 naming it, instead of counting as empty; the converter gets the copy under a plain name of Heron's
 own (it reads that argument as a wildcard filter); header extents at the origin are used.
 
+## D-91 - One PDF from many drawings: the list is made in the server, each drawing is checked by the plug-in, and one problem stops the set
+
+**Decided:** 2026-11-21, for issue #67. **Status:** in force; extends D-41 (the multi-sheet PDF of
+the open drawing).
+`autocad_publish_pdf` takes `folder` (with `recursive`) or `drawings` as well as the open drawing.
+- **The list** is made in Python (`acad/publish_files.py`, tested offline): only `.dwg` files, each
+  once (paths compared without case, as Windows does), a folder sorted the way a drafter numbers
+  sheets (M-2 before M-10), a list kept in the order given. A file that is not there or not a .dwg is
+  refused by name, never quietly left out of the set. At most 300 drawings.
+- **Unsaved changes** are checked over COM before the plug-in is asked: a drawing of the set open in
+  AutoCAD whose `Saved` is false is refused, because the publisher reads the saved file. The plug-in
+  checks DBMOD again for the active drawing.
+- **Xrefs** are checked by the plug-in, which reads each drawing (the open one's database, else the
+  file read-only on the side): a loaded xref whose file is not at its saved path, beside the host, or
+  on AutoCAD's own search paths refuses the set, naming the drawing and the xref. An unloaded xref is
+  the modeller's choice and is left alone. Nested xrefs are checked through the xref that holds them.
+- **One problem stops the whole set**, and every problem is said at once (`PublishPlan.ChooseAcross`,
+  bridge tests): a PDF set with one sheet missing its background is worse than no PDF, and fixing
+  three drawings in one go beats three tries.
+- The pages go drawing by drawing, each in tab order; `layouts` picks the same-named sheets from
+  every drawing that has them. The level stays Publish (D-41).
+- Found in review (2026-11-21): a plug-in from before this would ignore `drawings` and publish the
+  open drawing in their place, so the server first asks it for `active_sheet` (added with this): one
+  without it is refused before anything is published, and an answer without `pages` is not taken
+  for the set. Nested xrefs are followed from the xref's own file, up to four deep. Page titles are
+  made unique, so two `M-101.dwg` in different folders do not share one.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF12-AF15, AF18).
+
+## D-90 - Sheets and viewports are made by the plug-in in .NET; COM stays the fallback; a drawing list is one call and one undo step
+
+**Decided:** 2026-11-21, for issues #64, #65, #66, #39 and #40. **Status:** in force; extends D-27 and
+D-40; known limit 23 is the reason.
+`doc.PaperSpace` threw a bare Automation error on a sheet made with `Layouts.Add` (2026-11-09), took
+`autocad_status` and `autocad_add_table(space="paper")` down with it on a sheet tab (2026-10-28, row
+D33), and every `autocad_create_layout` answered "Outcome unknown: AutoCAD went busy" although its tab
+was made (row D8). So:
+- **The plug-in makes the sheet** (`create_layout`, Change): every refusal (name taken, no such
+  plotter, sheet size or plot style table, a .ctb in a named-style drawing, copy source missing)
+  comes before the layout is made, tried first on a page setup that is not in the drawing, because
+  AutoCAD's layout manager is not trusted to take a layout back when a transaction aborts; should the
+  page setup still fail, the layout is deleted once the transaction is aborted;
+  the page setup is written through `PlotSettingsValidator` in the same transaction; `copy_from`
+  copies the layout **with everything on it** (`CopyLayout`), which COM's `CopyFrom` never did (it
+  copies the page setup only). The sheet is put on screen only after the commit, and with
+  LAYOUTCREATEVIEWPORT off while it first opens, so AutoCAD adds no default viewport of its own:
+  Heron cuts its viewports at a real scale.
+- **The plug-in makes the viewport** (`add_viewport`, Change) in the layout's own block, from numbers
+  the server works out as before (paper place, look-at point, twist, scale): the view centre is the
+  look-at point turned by the twist (`SheetMath.ViewCentre`, bridge tests), the scale is
+  `CustomScale`, then it is turned on and locked. No zoom, no model space through the viewport.
+  The paper it reports is in the layout's paper units and the way round it plots (AutoCAD keeps it
+  in millimetres and the media's own orientation).
+- **The twist is the view twist** (VIEWTWIST): the picture turns anticlockwise by it, by the same
+  rule as the view centre. So `align_to_ucs` on a UCS turned 23 degrees now gives 337 (-23), what
+  PLAN leaves on that UCS; before, it gave +23, which by that rule turns the plan 46 degrees off.
+  Found in review and reasoned from AutoCAD's display-coordinate rule, not measured: AF6 (and D15).
+- **Clip** (`clip_outline` corners, checked here: closed, not crossing itself, with area; or
+  `clip_handle`, a closed shape already on that sheet) sets the viewport's non-rectangular clip, as
+  VPCLIP does, and the viewport takes the box round the outline as its place. Plug-in only: with an
+  older plug-in a clip is refused and nothing is made, rather than a rectangular viewport passed off
+  as clipped.
+- **Annotation scale** defaults to `match`: the viewport's own scale, added to the drawing's list if
+  missing (last, after every refusal, as D-81 does), so annotative text inside it shows at its size.
+  Over COM it is tried with CANNOSCALE while in the viewport.
+- **COM stays the fallback** for a plug-in without these operations (older, or `--no-bridge`); the
+  answer's `made_by` says which made it. Over COM a busy AutoCAD after the layout is added is now
+  answered from the drawing read back: the sheet is made, check its page setup (#40), or "Outcome
+  unknown" naming the tab to look for.
+- **Title blocks** go into `layout.Block`, never `doc.PaperSpace`, and no tab is switched for them;
+  `get_space(doc, "paper")` falls back to the active layout's block; `autocad_status` reads each fact
+  on its own and names the ones AutoCAD would not give in `unreadable` instead of failing whole, with
+  the active sheet's count from its block, else from the plug-in (`active_sheet`, Read) (#39).
+- **`autocad_sheet_set`** (#66, Change) makes a drawing list (number, title, scale, view) into
+  layouts, viewports and filled title blocks. The whole list is checked first and every problem said
+  at once; the run is one undo mark (the plug-in's steps run inside it), so one Ctrl+Z or Discard takes
+  the set back. A sheet AutoCAD refuses part-way stops the run and the answer lists what was made,
+  rather than undoing by itself; a sheet whose layout was made but whose viewport or title block was
+  refused is listed too, as unfinished, so a retry is never told its name is taken. Not built on `autocad_sequence`: the sequence keeps one undo step per
+  step (D-29), and a sheet's title block needs its viewport's fitted scale.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF1-AF11, AF17). Whether the
+plug-in's transactions land in the server's one undo mark is AF9.
+
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 
 **Decided:** 2026-11-21, for issues #62 and #63. **Status:** in force; extends D-42, whose "never

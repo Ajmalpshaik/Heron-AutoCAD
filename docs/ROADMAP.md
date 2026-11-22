@@ -147,7 +147,7 @@ done looks like here.
   after a live check that the renderer reads it (D-87).
 - [x] **Quiet results** (D-77, 2026-11-21: `quiet=true`): an `autocad_sequence` of eight `autocad_dimension_run` steps returned about
   15,000 characters of per-dimension detail. A `quiet` option that returns counts and handles only. ([#44](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/44))
-- [ ] **Sheets by the plug-in**: make layouts and viewports in .NET (Layout + Viewport in the layout's
+- [x] **Sheets by the plug-in** (D-90, 2026-11-21: operations `create_layout`, `add_viewport`; COM the fallback; live rows AF1-AF11 NOT RUN): make layouts and viewports in .NET (Layout + Viewport in the layout's
   block), so neither depends on `doc.PaperSpace`, which threw on 2026-11-09 (known limit 23). ([#64](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/64))
 
 ## Server
@@ -190,15 +190,15 @@ done looks like here.
 - [x] Multileader and table style creation in the plug-in (D-104). A plot style table cannot be
   made: AutoCAD's .NET API has no way to write the file (D-105, a known limit, 05 §34).
   ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
-- [ ] `autocad_add_viewport`: clip a viewport to a polyline, and annotative viewport scales. ([#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65))
-- [ ] A sheet-set tool: one call per drawing list (sheet number, title, scale, view) across a whole
-  package, on top of `autocad_sequence`. ([#66](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/66))
+- [x] `autocad_add_viewport`: clip a viewport to a polyline, and annotative viewport scales (D-90, 2026-11-21: `clip_outline`, `clip_handle`, `annotation_scale`; live rows AF7, AF8 NOT RUN). ([#65](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/65))
+- [x] A sheet-set tool: one call per drawing list (sheet number, title, scale, view) across a whole
+  package (D-90, 2026-11-21: `autocad_sheet_set`, one undo step, not built on `autocad_sequence`; live row AF9 NOT RUN). ([#66](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/66))
 - [x] Split long `autocad_run_lisp` expressions instead of failing silently (D-76, 2026-11-21: cut between top-level forms; live rows Z2-Z4 NOT RUN). ([#46](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/46))
 - [x] From the ADN-DevTech study ([11](11-adn-repos-study.md), D-41, 2026-11-04): multi-sheet PDF
   (`autocad_publish_pdf`), xref tree, drawing report, the command name in the busy message,
   `tools/memory_check.py`, the Plant 3D known limit. Built; group I NOT RUN.
-- [ ] Multi-sheet PDF of **a folder of drawings**, not only the open one (the publisher takes other
-  DWGs; each must be checked for unsaved changes and xrefs first). ([#67](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/67))
+- [x] Multi-sheet PDF of **a folder of drawings**, not only the open one (the publisher takes other
+  DWGs; each must be checked for unsaved changes and xrefs first) (D-91, 2026-11-21: `folder` / `drawings`; live rows AF12-AF15 NOT RUN). ([#67](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/67))
 - [x] Use the add-in's command tracker for the server's own busy answers too (D-77, 2026-11-21: ping says `command`; live rows Z6-Z9 NOT RUN), not only plug-in
   operations ("Outcome unknown: AutoCAD went busy", rows D8, D33). ([#47](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/47))
 - [x] Document events to feed the wrong-drawing guard and a live activity list ([D-98](DECISIONS.md), 2026-11-21: the plug-in records them, the guard and `send_quiet` use them, the docked palette shows them live; the Companion page stays a file written after each job; live rows AJ1-AJ10 NOT RUN). ([#48](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/48))
@@ -229,5 +229,11 @@ done looks like here.
   `Exception occurred` (2026-10-28, row D33). Status is what the gate waits for, so every tool was
   blocked until the Model tab was clicked. Reproduce live, find the call (suspect `doc.PaperSpace`),
   and let status answer in paper space. ([#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39))
+  Fixed from the code 2026-11-21 (D-90): status reads each fact on its own and names the ones it
+  cannot read, the sheet's count from its block or the plug-in; `space="paper"` falls back to the
+  active layout's block. Left open until row AF10 is run live.
 - [ ] `autocad_create_layout` answered `Outcome unknown: AutoCAD went busy` on every call although
   the tabs were made (2026-10-28, row D8). Find which step goes busy. ([#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40))
+  2026-11-21 (D-90): the plug-in now makes the sheet in one transaction, with no COM after it; over
+  COM a busy moment after the layout is added is answered from the drawing read back. Left open
+  until rows AF1, AF2 and AF11 are run live: which COM step went busy is still not seen.
