@@ -174,6 +174,19 @@ async def an10_wrong_options_are_said_and_nothing_kept(ctx: Context) -> str:
     return "A: 'vertical middle'; B: 'could be a ratio or a scale factor ... 1:50'; C: 'arow is not an option'; none of the three was kept"
 
 
+async def an13_a_missing_style_leaves_nothing_behind(ctx: Context) -> str:
+    o = lc.origin("AN13")
+    before = await lc.entity_count()
+    table = lc.refusal(await annotate.autocad_add_table(position=[o[0], o[1]], rows=[["A"]], style="LC-AN13-NOPE"))
+    leader = lc.refusal(await annotate.autocad_add_multileader(landing=[o[0] + 500, o[1] + 500], arrows=[[o[0], o[1]]],
+                                                               text="X", style="LC-AN13-NOPE"))
+    after = await lc.entity_count()
+    for what, said in (("the table", table), ("the multileader", leader)):
+        expect("LC-AN13-NOPE" in said and "Nothing was left in the drawing" in said, f"{what} was answered: {said[:160]}")
+    expect(after == before, f"{after - before} objects were left behind")
+    return f"both refused with 'Nothing was left in the drawing'; the drawing still has {after} objects, as before"
+
+
 CHECKS: tuple[Check, ...] = (
     Check("AN1", "AN", "a TLD label style is made as asked", an1_a_tld_label_style_is_made_as_asked),
     Check("AN2", "AN", "a note takes the current style", an2_a_note_takes_the_current_style),
@@ -184,6 +197,7 @@ CHECKS: tuple[Check, ...] = (
     Check("AN8", "AN", "a table takes the style", an8_a_table_takes_the_style),
     Check("AN9", "AN", "a style without title or header rows", an9_a_style_without_title_or_header_rows),
     Check("AN10", "AN", "wrong options are said and nothing kept", an10_wrong_options_are_said_and_nothing_kept),
+    Check("AN13", "AN", "a missing style leaves nothing behind", an13_a_missing_style_leaves_nothing_behind),
 )
 
 _BUSY = "needs AutoCAD kept busy by hand (the Options dialog open, or a heavy REGEN) while it runs"

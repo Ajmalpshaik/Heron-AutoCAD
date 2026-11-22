@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
+  drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,
+  `autocad_add_multileader`, `autocad_table_from_excel` when it fills); the refusal says nothing was
+  left. `autocad_update_table_links` lists what it really returns. `autocad_make_block` is found
+  again for "make a tag block with a TAG attribute" (every finder phrase now in the top three).
+  Live row AN13 NOT RUN.
+
 - **Check lists never PASS on a read that failed (2026-11-22, #211).** A dimension or text whose
   size could not be read makes `no_overlapping_dimensions` / `text_heights` NO DATA, and a block
   table that cannot be read makes `xrefs_found` NO DATA instead of "every xref found"

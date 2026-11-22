@@ -67,6 +67,15 @@ AN10 = {"autocad_create_styles": seq(
     {"table_styles": [{"name": "LC-AN10-A", "created": True}],
      "multileader_styles": [{"name": "LC-AN10-B", "created": True}, {"name": "LC-AN10-C", "created": True}]},
 )}
+AN13 = {
+    "autocad_status": seq(*[{"active_drawing": {"model_space_entities": 40}}] * 2),
+    "autocad_add_table": "Error: This drawing has no table style called 'LC-AN13-NOPE' (Key not found). Make it with "
+                         "autocad_create_styles(table_styles=...), or copy it in with autocad_import_from_drawing. "
+                         "Nothing was left in the drawing.",
+    "autocad_add_multileader": "Error: This drawing has no multileader style called 'LC-AN13-NOPE' (Key not found). "
+                               "Make it with autocad_create_styles(multileader_styles=...), or copy it in with "
+                               "autocad_import_from_drawing. Nothing was left in the drawing.",
+}
 
 SAMPLES = {
     "AN1": (AN1, {"autocad_create_styles": ml("LC-AN1-LABEL-50", **{**AN1_ROW, "attachment": "middle"})}),
@@ -82,6 +91,8 @@ SAMPLES = {
     "AN9": (AN9, {"autocad_create_styles": ts("LC-AN9-NO-TITLE", created=True, title_row=True, header_row=False)}),
     "AN10": (AN10, {"autocad_create_styles": seq(*AN10["autocad_create_styles"].items[:3], {
         "table_styles": [{"name": "LC-AN10-A", "created": False}], "multileader_styles": []})}),
+    "AN13": (AN13, {"autocad_status": seq({"active_drawing": {"model_space_entities": 40}},
+                                             {"active_drawing": {"model_space_entities": 41}})}),
 }
 
 CHECKS = {c.row: c for c in styles.CHECKS}
@@ -107,4 +118,4 @@ def test_a_bad_answer_fails(monkeypatch, row):
 def test_every_an_and_al_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(styles.BY_EYE)
     assert not set(CHECKS) & set(styles.BY_EYE)
-    assert {f"AN{n}" for n in range(1, 13)} | {f"AL{n}" for n in range(1, 8)} == rows
+    assert {f"AN{n}" for n in range(1, 14)} | {f"AL{n}" for n in range(1, 8)} == rows
