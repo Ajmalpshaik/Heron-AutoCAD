@@ -314,6 +314,11 @@ def _failing(check: dict[str, Any], data: dict[str, Any]) -> tuple[str, list[str
     if data.get("capped") and not bad:
         # Nothing wrong in the part read is not a PASS for the whole drawing.
         return NO_DATA, [], f"only the first {data['capped']} objects were read; the rest were not checked"
+    unread = {"no_overlapping_dimensions": ("unread_boxes", "dimension(s) whose size"),
+              "text_heights": ("unread_heights", "text(s) whose height")}.get(key)  # fmt: skip
+    if unread and data.get(unread[0]) and not bad:
+        # An object whose size could not be read was not checked (#211).
+        return NO_DATA, [], f"{data[unread[0]]} {unread[1]} could not be read, so they were not checked"
     return (FAIL if bad else PASS), bad, f"{len(entities)} object(s) read"
 
 

@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Check lists never PASS on a read that failed (2026-11-22, #211).** A dimension or text whose
+  size could not be read makes `no_overlapping_dimensions` / `text_heights` NO DATA, and a block
+  table that cannot be read makes `xrefs_found` NO DATA instead of "every xref found"
+  ([D-64](docs/DECISIONS.md)). `gather` is now tested on its own.
+
 - **The live-check runner covers groups AS and AO too (2026-11-21, D-118).** AS5 is measured (a
   layer of rays and an empty layer say why they have no extents); the other AS rows compare the plug-in
   with a second server started with --no-bridge, and the AO rows need the PDFs they name, so they have
