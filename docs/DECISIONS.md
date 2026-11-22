@@ -169,6 +169,74 @@ example:
   keeping the standard on a shared office folder as the check lists do (D-93) - for now each PC
   imports the CSV.
 
+## D-113 - Offset, taper, move and delete faces, imprint and separate are plug-in operations; one face tool with an action
+
+**Decided:** 2026-11-21, for issue #184 (part 3 of #119). **Status:** in force (built and tested
+offline; live rows in [NEEDS-CHECKING group AR](NEEDS-CHECKING.md), NOT RUN); extends D-40. COM has
+none of SOLIDEDIT's face or body options, so each is a listed plug-in operation, Change level, one
+transaction: `offset_faces` (`Solid3d.OffsetFaces`), `taper_faces` (`TaperFaces`), `move_faces`
+(`TransformFaces` with a plain move), `delete_faces` (`RemoveFaces`), `imprint_solid`
+(`ImprintEntity`) and `separate_solid` (`SeparateBody`). Every call was checked in Autodesk's AutoCAD
+.NET reference (the AutoCAD.NET package's own documentation file) before it was written, and the
+plug-in compiles for all three builds.
+
+- **Faces are picked as the other solid edits pick them**, from the Brep built from the solid's
+  FullSubentityPath (the D-40 fix): a word that goes by the solid's box, or the numbers
+  `autocad_list_solid_faces_and_edges` gives. The four face edits are **one tool**,
+  `autocad_edit_solid_faces`, with an `action`: they take the same solid and the same faces, and
+  four more tools of nearly one shape would make the list harder to search. An option the action
+  does not take is refused, never quietly ignored.
+- **Taper pivots at the bottom of the picked faces** unless a base point is given: the plane square
+  to the draft direction (up by default) through their lowest point, so the bottom edges stay where
+  they are, as SOLIDEDIT Taper does from a base point at the bottom. Which way a positive angle
+  leans is SOLIDEDIT's (in) by intent but not proven for the API: the answer carries the volume
+  before and after, and row AR9 settles it. Rotating faces (SOLIDEDIT Face Rotate) is not built:
+  it was not in #119; `TransformFaces` takes a rotation, so it is a small step later.
+- **Imprint keeps the objects**, as SOLIDEDIT does by default; erasing them goes through Heron's
+  own erase, which asks. The tool counts the faces after (a second, read-only call), because an
+  object that does not touch the solid imprints nothing and AutoCAD does not say so.
+- **Separate** leaves the solid holding one piece and adds the others as new solids with its
+  properties (`SetPropertiesFrom`). A solid that is one piece already is refused, nothing changed.
+
+Rejected: typing SOLIDEDIT (it waits for picks on screen, as D-40 found for FILLETEDGE); one
+operation that takes any face edit by name (each is listed and checked on its own, as D-40 asks).
+
+## D-112 - A pyramid is AutoCAD's CreatePyramid, turned and placed; a polysolid is built, because the API has none
+
+**Decided:** 2026-11-21, for issues #182 and #183 (part 3 of #119). **Status:** in force (built and
+tested offline; live rows in [NEEDS-CHECKING group AR](NEEDS-CHECKING.md), NOT RUN); extends D-40.
+Neither PYRAMID nor POLYSOLID has an ActiveX call, so both are plug-in operations (`add_pyramid`,
+`add_polysolid`), Change level, one transaction, in their own add-in file (`SolidPrimitives.cs`).
+
+- **Pyramid.** `Solid3d.CreatePyramid(height, sides, radius, topRadius)`. Autodesk's reference says
+  the radii are of the circle **inside** the polygon (to the middle of a side) and that the solid is
+  made about the origin, half way up. Heron does not lean on the rest: it reads the corners AutoCAD
+  made (a Brep of the solid before it is in the drawing: only points are needed), turns the solid
+  so one side faces the front (as a box sits, as `autocad_add_solid` places its shapes), and moves
+  it so the base point is the centre of its base. If the corners say the radius was read another
+  way, it is made again to the size asked for. A hopper (top wider than the base) is made the usual
+  way up and turned over. `radius_to='corner'` takes a size across the corners. 3 to 32 sides, as
+  PYRAMID allows. The answer gives the volume AutoCAD measured and the one the sizes should give.
+- **Polysolid.** Checked in the reference: `Solid3d` has no polysolid call. So Heron builds the
+  same solid: the path offset to each face of the wall (`GetOffsetCurvesGivenPlaneNormal`), the two
+  joined at the ends (an open path) or one ring inside the other (a closed one), made a region and
+  extruded straight up. The path must be flat in plan and is kept (as DELOBJ off). Which way
+  AutoCAD's offset goes is read off the path, never assumed: the offset point nearest a point just
+  along the path from its start is on its left or its right. `side` is center, left or right (looking
+  along the path from its start), or inside / outside of a closed path, worked out from which way
+  the path runs. A path that turns tighter than the wall is wide, or crosses itself, is refused.
+  Points can stand in for a path; they make a temporary polyline that is never added. A path that
+  ends where it starts but is not closed (PLINE back to the first point without C) is closed on a
+  copy; the drawing's polyline is left as drawn. Fixes from an independent review: that case, a
+  probe for the offset's direction kept small so a small ring cannot fail it, and the open wall's
+  ends joined to the nearer ends.
+- The sums (pyramid turn and volume, left of a path, inside of a ring) are pure, in
+  `Bridge/SolidShapeMath.cs`, and tested offline.
+
+Rejected: typing POLYSOLID (it waits for points or an object picked on screen); a sweep of a
+rectangle along the path (corners and arcs come out less predictable than an offset outline, and a
+closed path needs its own case anyway).
+
 ## D-106 - PDF Import types -PDFIMPORT with every answer in one form, through autocad_run_lisp's sender
 
 **Decided:** 2026-11-21, for issue #113. **Status:** in force; live rows Group AO, all NOT RUN.
@@ -804,6 +872,88 @@ nothing beyond what every drawing has, never gives `passed: true` (it is `null`,
 `reference.warning`); a table AutoCAD cannot read (layers, styles, linetypes) stops the check,
 naming it, instead of counting as empty; the converter gets the copy under a plain name of Heron's
 own (it reads that argument as a wildcard filter); header extents at the origin are used.
+
+## D-91 - One PDF from many drawings: the list is made in the server, each drawing is checked by the plug-in, and one problem stops the set
+
+**Decided:** 2026-11-21, for issue #67. **Status:** in force; extends D-41 (the multi-sheet PDF of
+the open drawing).
+`autocad_publish_pdf` takes `folder` (with `recursive`) or `drawings` as well as the open drawing.
+- **The list** is made in Python (`acad/publish_files.py`, tested offline): only `.dwg` files, each
+  once (paths compared without case, as Windows does), a folder sorted the way a drafter numbers
+  sheets (M-2 before M-10), a list kept in the order given. A file that is not there or not a .dwg is
+  refused by name, never quietly left out of the set. At most 300 drawings.
+- **Unsaved changes** are checked over COM before the plug-in is asked: a drawing of the set open in
+  AutoCAD whose `Saved` is false is refused, because the publisher reads the saved file. The plug-in
+  checks DBMOD again for the active drawing.
+- **Xrefs** are checked by the plug-in, which reads each drawing (the open one's database, else the
+  file read-only on the side): a loaded xref whose file is not at its saved path, beside the host, or
+  on AutoCAD's own search paths refuses the set, naming the drawing and the xref. An unloaded xref is
+  the modeller's choice and is left alone. Nested xrefs are checked through the xref that holds them.
+- **One problem stops the whole set**, and every problem is said at once (`PublishPlan.ChooseAcross`,
+  bridge tests): a PDF set with one sheet missing its background is worse than no PDF, and fixing
+  three drawings in one go beats three tries.
+- The pages go drawing by drawing, each in tab order; `layouts` picks the same-named sheets from
+  every drawing that has them. The level stays Publish (D-41).
+- Found in review (2026-11-21): a plug-in from before this would ignore `drawings` and publish the
+  open drawing in their place, so the server first asks it for `active_sheet` (added with this): one
+  without it is refused before anything is published, and an answer without `pages` is not taken
+  for the set. Nested xrefs are followed from the xref's own file, up to four deep. Page titles are
+  made unique, so two `M-101.dwg` in different folders do not share one.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF12-AF15, AF18).
+
+## D-90 - Sheets and viewports are made by the plug-in in .NET; COM stays the fallback; a drawing list is one call and one undo step
+
+**Decided:** 2026-11-21, for issues #64, #65, #66, #39 and #40. **Status:** in force; extends D-27 and
+D-40; known limit 23 is the reason.
+`doc.PaperSpace` threw a bare Automation error on a sheet made with `Layouts.Add` (2026-11-09), took
+`autocad_status` and `autocad_add_table(space="paper")` down with it on a sheet tab (2026-10-28, row
+D33), and every `autocad_create_layout` answered "Outcome unknown: AutoCAD went busy" although its tab
+was made (row D8). So:
+- **The plug-in makes the sheet** (`create_layout`, Change): every refusal (name taken, no such
+  plotter, sheet size or plot style table, a .ctb in a named-style drawing, copy source missing)
+  comes before the layout is made, tried first on a page setup that is not in the drawing, because
+  AutoCAD's layout manager is not trusted to take a layout back when a transaction aborts; should the
+  page setup still fail, the layout is deleted once the transaction is aborted;
+  the page setup is written through `PlotSettingsValidator` in the same transaction; `copy_from`
+  copies the layout **with everything on it** (`CopyLayout`), which COM's `CopyFrom` never did (it
+  copies the page setup only). The sheet is put on screen only after the commit, and with
+  LAYOUTCREATEVIEWPORT off while it first opens, so AutoCAD adds no default viewport of its own:
+  Heron cuts its viewports at a real scale.
+- **The plug-in makes the viewport** (`add_viewport`, Change) in the layout's own block, from numbers
+  the server works out as before (paper place, look-at point, twist, scale): the view centre is the
+  look-at point turned by the twist (`SheetMath.ViewCentre`, bridge tests), the scale is
+  `CustomScale`, then it is turned on and locked. No zoom, no model space through the viewport.
+  The paper it reports is in the layout's paper units and the way round it plots (AutoCAD keeps it
+  in millimetres and the media's own orientation).
+- **The twist is the view twist** (VIEWTWIST): the picture turns anticlockwise by it, by the same
+  rule as the view centre. So `align_to_ucs` on a UCS turned 23 degrees now gives 337 (-23), what
+  PLAN leaves on that UCS; before, it gave +23, which by that rule turns the plan 46 degrees off.
+  Found in review and reasoned from AutoCAD's display-coordinate rule, not measured: AF6 (and D15).
+- **Clip** (`clip_outline` corners, checked here: closed, not crossing itself, with area; or
+  `clip_handle`, a closed shape already on that sheet) sets the viewport's non-rectangular clip, as
+  VPCLIP does, and the viewport takes the box round the outline as its place. Plug-in only: with an
+  older plug-in a clip is refused and nothing is made, rather than a rectangular viewport passed off
+  as clipped.
+- **Annotation scale** defaults to `match`: the viewport's own scale, added to the drawing's list if
+  missing (last, after every refusal, as D-81 does), so annotative text inside it shows at its size.
+  Over COM it is tried with CANNOSCALE while in the viewport.
+- **COM stays the fallback** for a plug-in without these operations (older, or `--no-bridge`); the
+  answer's `made_by` says which made it. Over COM a busy AutoCAD after the layout is added is now
+  answered from the drawing read back: the sheet is made, check its page setup (#40), or "Outcome
+  unknown" naming the tab to look for.
+- **Title blocks** go into `layout.Block`, never `doc.PaperSpace`, and no tab is switched for them;
+  `get_space(doc, "paper")` falls back to the active layout's block; `autocad_status` reads each fact
+  on its own and names the ones AutoCAD would not give in `unreadable` instead of failing whole, with
+  the active sheet's count from its block, else from the plug-in (`active_sheet`, Read) (#39).
+- **`autocad_sheet_set`** (#66, Change) makes a drawing list (number, title, scale, view) into
+  layouts, viewports and filled title blocks. The whole list is checked first and every problem said
+  at once; the run is one undo mark (the plug-in's steps run inside it), so one Ctrl+Z or Discard takes
+  the set back. A sheet AutoCAD refuses part-way stops the run and the answer lists what was made,
+  rather than undoing by itself; a sheet whose layout was made but whose viewport or title block was
+  refused is listed too, as unfinished, so a retry is never told its name is taken. Not built on `autocad_sequence`: the sequence keeps one undo step per
+  step (D-29), and a sheet's title block needs its viewport's fitted scale.
+Not proven in AutoCAD: all of it ([NEEDS-CHECKING group AF](NEEDS-CHECKING.md), AF1-AF11, AF17). Whether the
+plug-in's transactions land in the server's one undo mark is AF9.
 
 ## D-87 - Lights are listed and switched by the plug-in; the sun, default lighting and exposure are variables
 

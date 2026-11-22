@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-22 (the office layer standard, #70, D-120)
 
-`autocad_layer_standard` (new, **193** tools): `template` / `import` / `show` / `remove` for the
+`autocad_layer_standard` (new, **199** tools, with the other sessions' work): `template` / `import` / `show` / `remove` for the
 office's own layer list as a CSV, kept in `%LOCALAPPDATA%\Heron\autocad\standards\`; `layer_standard`
 on `autocad_check_standards` and `autocad_remap_layers` (`office`, `example` or a file path). The
 format and the check are `acad/layer_standard.py`; the generic MEP example is
@@ -18,6 +18,38 @@ format and the check are `acad/layer_standard.py`; the generic MEP example is
 **Next (Ajmal, on this PC):** `autocad_layer_standard(action="template")`, fill the CSV from the
 office list, `action="import"`, then live rows **AT1-AT8**. #70 closes when he confirms it matches
 his standard.
+
+## Earlier - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
+
+Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**198** in all):
+`autocad_add_pyramid`, `autocad_add_polysolid`, `autocad_edit_solid_faces` (offset, taper, move,
+delete), `autocad_imprint_solid`, `autocad_separate_solid`. Plug-in: `SolidPrimitives.cs` and
+`SolidFaceEdits.cs`, eight new operations; pure maths in `Bridge/SolidShapeMath.cs`. Every .NET
+call was checked in the AutoCAD.NET package's own reference file, and the add-in compiles for all
+three builds. Faces are picked from the Brep built from the solid's own path, as the D-40 fix
+found. The pyramid reads back the corners AutoCAD made and turns itself so a side faces the front;
+the polysolid is built (offset path, region, extrude) because the API has none. Limits:
+[05 §19](05-known-limits.md#19-the-plug-in-operations-3d-edits-super-hatch-have-their-own-limits).
+None of it has run in AutoCAD. Versions not bumped (the parent does).
+
+**Next (on this PC):** pull, build and install the plug-in, restart Claude, then live rows AR1-AR13
+([NEEDS-CHECKING group AR](NEEDS-CHECKING.md)). The answers the reference could not give: whether
+AutoCAD reads the pyramid's radius as its reference says (`remade_to_size`, AR1), and which way a
+positive taper leans (AR9).
+
+## Earlier - 2026-11-21 (sheets by the plug-in: #64-#67, #39, #40; D-90, D-91)
+
+One new tool, `autocad_sheet_set` (**193** with the other sessions' work), and three new
+plug-in operations (`create_layout`, `add_viewport`, `active_sheet`); `publish_pdf` takes a list
+of drawings. `autocad_create_layout` and `autocad_add_viewport` ask the plug-in first and fall back
+to COM; viewports clip (`clip_outline`, `clip_handle`) and take an annotation scale; title blocks go
+into the layout's own block; `autocad_status` no longer fails on a sheet tab; `autocad_publish_pdf`
+takes `folder` / `drawings`. Compiled for all three builds and checked offline only; the plug-in
+version is not bumped here (the parent does it). #39 and #40 stay open until their live rows run.
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then live
+rows **AF1-AF15, AF17, AF18**. AF9 decides whether the sheet set really is one undo step; AF6 checks the twist sign,
+which this PR flipped from the code (the old COM path too); AF10 is row D33 again.
 
 ## Earlier - 2026-11-22 (the drawing report's count by the plug-in, #193, rank 2 of #74)
 

@@ -32,6 +32,15 @@ namespace Heron.AutoCAD.Bridge
             ["shell"] = Risk.Change,
             ["press_pull"] = Risk.Change,
             ["thicken"] = Risk.Change,
+            // Pyramid and polysolid, and the rest of SOLIDEDIT (D-112, D-113).
+            ["add_pyramid"] = Risk.Change,
+            ["add_polysolid"] = Risk.Change,
+            ["offset_faces"] = Risk.Change,
+            ["taper_faces"] = Risk.Change,
+            ["move_faces"] = Risk.Change,
+            ["delete_faces"] = Risk.Change,
+            ["imprint_solid"] = Risk.Change,
+            ["separate_solid"] = Risk.Change,
             ["super_hatch"] = Risk.Change,
             ["add_light"] = Risk.Change,
             ["create_material"] = Risk.Change,
@@ -48,6 +57,11 @@ namespace Heron.AutoCAD.Bridge
             ["sync_attributes"] = Risk.Change,
             ["excel_table"] = Risk.Change,
             ["update_table_links"] = Risk.Change,
+            // Sheets made in .NET, so neither needs doc.PaperSpace (#64, D-90); the
+            // active sheet's own count for autocad_status (#39).
+            ["active_sheet"] = Risk.Read,
+            ["create_layout"] = Risk.Change,
+            ["add_viewport"] = Risk.Change,
             // MLINE's own Close, a spline by control points, and a spline's fit
             // points moved, added or taken away: COM has no call for any (D-97).
             ["close_multiline"] = Risk.Change,

@@ -4,7 +4,7 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
-- **The office layer standard (2026-11-22, #70).** One new tool, **193** in all.
+- **The office layer standard (2026-11-22, #70).** One new tool, **199** in all (with the other sessions' tools).
   `autocad_layer_standard` makes an empty CSV to fill from the office's layer list (layer, colour,
   linetype, lineweight, plot, description, the old names it replaces, required), imports it into
   `%LOCALAPPDATA%\Heron\autocad\standards\` on this PC (never into this repository), and says
@@ -13,6 +13,30 @@ Newest first. Dates are when the change was made.
   old names onto its layers. A generic MEP example ships with Heron; `office` with no list loaded is
   checked against it and not decided, and a remap is refused ([D-120](docs/DECISIONS.md)). Live
   group AT NOT RUN. #70 stays open until the office's own list is imported.
+
+- **Pyramid, polysolid and the rest of SOLIDEDIT (2026-11-21, #182, #183, #184; part 3 of #119).**
+  Five new tools done by the plug-in (**198** in all): `autocad_add_pyramid` (PYRAMID: 3 to 32
+  sides, a point or a flat top, or a hopper; on the centre of its base, one side to the front),
+  `autocad_add_polysolid` (POLYSOLID: a wall of a width and height along a flat path, centred,
+  left, right, inside or outside), `autocad_edit_solid_faces` (offset, taper, move or delete faces,
+  picked by a word or by number), `autocad_imprint_solid` and `autocad_separate_solid`. Eight new
+  plug-in operations in their own files; the API has no polysolid call, so Heron builds the same
+  wall from the path ([D-112](docs/DECISIONS.md), [D-113](docs/DECISIONS.md)). Live rows AR1-AR14
+  NOT RUN.
+
+- **Sheets by the plug-in, a drawing list in one call, one PDF of many drawings (2026-11-21, #64-#67, #39, #40).**
+  `autocad_create_layout` and `autocad_add_viewport` are now done by the plug-in in .NET, so neither
+  touches `doc.PaperSpace`, which threw on a sheet tab; COM is the fallback for an older plug-in
+  (`made_by` says which), and over COM a busy moment after the layout is added is answered from
+  the drawing read back instead of "Outcome unknown". `copy_from` copies a sheet with everything on
+  it. Viewports can be **clipped** to an outline or a closed shape on the sheet, and get their
+  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**193** in all):
+  a drawing list (number, title, scale, view) into sheets, viewports and filled title blocks, checked
+  whole first, one undo step. `autocad_publish_pdf` takes a **folder** or a **list of drawings**,
+  refusing an unsaved one or a missing xref by name. Title blocks go into the layout's own block;
+  `autocad_status` names a fact it cannot read instead of failing on a sheet tab; `space="paper"`
+  falls back to the active layout's block. Three new plug-in operations
+  ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). `align_to_ucs` now twists the view the other way (337 for a UCS turned 23; reasoned, AF6). Live rows AF1-AF18 NOT RUN.
 
 - **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
   drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,

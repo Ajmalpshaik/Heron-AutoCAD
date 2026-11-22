@@ -91,7 +91,7 @@ Nothing below may be called working until its row says PASS with a date and a ve
 | D12 | `autocad_place_title_block` with a real A1 title block, `all_layouts=true`, `per_layout_attributes` | One per sheet, bottom-right inside the ISO frame, right attributes per sheet; `replace_existing` does not stack a second | **PASS** 2026-10-28, AutoCAD 2027 (26.0s), with `layouts=[5 sheets]` (not `all_layouts`) and `anchor="paper"`: one title block per sheet at 831,10, all 9 attributes set per sheet, none missing. `replace_existing` not tried |
 | D13 | `autocad_add_viewport(scale="1:100", view_name=...)` | Viewport fills the frame clear of the title block; **measure a known 10 m wall on the plot: 100 mm**; the viewport is locked | NOT RUN |
 | D14 | `autocad_add_viewport` with no `scale` and a window | The reported scale is a standard one, the area fits, and the measurement matches that scale | NOT RUN |
-| D15 | `autocad_add_viewport(align_to_ucs=true)` on the 23 degree UCS | The plan reads upright on the sheet; nothing falls outside the frame; the reported twist matches. **If it comes out turned the wrong way, the sign of the twist in `_aim` (sheets.py) is inverted — flip it and re-run.** The twist follows VIEWTWIST, which is +23 for a plan view of a UCS turned +23, but that has only been reasoned, not measured | NOT RUN |
+| D15 | `autocad_add_viewport(align_to_ucs=true)` on the 23 degree UCS | The plan reads upright on the sheet; nothing falls outside the frame; the reported twist matches. **If it comes out turned the wrong way, the sign of the twist in `_aim` (sheets.py) is inverted — flip it and re-run.** The twist follows VIEWTWIST, which is +23 for a plan view of a UCS turned +23, but that has only been reasoned, not measured. **2026-11-21 (D-90): the sign was flipped from the code (it is now 360 - 23 = 337); run AF6** | NOT RUN |
 | D16 | `autocad_add_viewport(paper_centre=..., paper_width=..., paper_height=...)` | The viewport is where those numbers say, in paper units | **PASS** 2026-10-28, AutoCAD 2027 (26.0s): 12 viewports at 1:50, 1:20, 1:10, 1:2 and 1:1; each `paper_rect` matched the centre and size asked and the plotted sheets showed them there, locked |
 | D17 | After D13, zoom inside the viewport | Refused / no change: the lock held and the scale is still true | NOT RUN |
 | D18 | `autocad_save_view` from a window, then `autocad_list_views` | The corners come back the same; `zoom_to` showed the area | NOT RUN |
@@ -674,6 +674,36 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 | AC16 | Same as AC14 with objects in pump-room.dwg's paper space and `space='paper'` with a sheet tab active in plan.dwg | They land on plan.dwg's sheet | NOT RUN |
 | AC17 | After AC3, make a SKID block holding one VALVE TAG insert, insert SKID twice. Change VALVE TAG's definition again; `autocad_sync_attributes(block='VALVE TAG', nested=true, dry_run=true)`, then without (#156) | The dry run lists the insert inside SKID with `"inside": "SKID"`; after the sync both SKID copies show the nested tag with its new attributes and its typed value kept; without `nested` it is not listed | NOT RUN |
 
+## Group AF - Sheets by the plug-in: layouts, viewports, clip, annotation scale, drawing list, PDF of many drawings (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-90](DECISIONS.md), [D-91](DECISIONS.md); issues #64-#67, #39, #40). Built and
+tested offline only (`tests/test_sheets_plugin.py`, `tests/test_sheet_arithmetic.py`,
+`SheetMathTests.cs`); the add-in **compiles** for all three AutoCAD builds. Needs the plug-in built
+from this change (three new operations, and `publish_pdf` taking drawings) and a server restart.
+Use a drawing with saved views of a plan, a title block with DWG_NO / TITLE / SCALE attributes, and a
+folder of three small saved drawings, one with an xref. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AF1 | `autocad_create_layout(name="AF-101", paper_size="A1", plot_style_table="monochrome.ctb")` (row D8 again) | Answers at once with `made_by: "plugin"` and no "Outcome unknown"; the AF-101 tab is on screen; Page Setup shows DWG To PDF, ISO full bleed A1, Layout, 1:1, monochrome.ctb; the sheet has **no** viewport of AutoCAD's own; the answer's `frame` matches PAGESETUP; one Ctrl+Z removes the tab | NOT RUN |
+| AF2 | Five calls with `activate=false` (AF-102..106) | Five tabs, every answer `created: true`, none busy; the tab on screen does not change | NOT RUN |
+| AF3 | `autocad_create_layout(name="AF-107", copy_from="<a sheet with a title block and a viewport>")` | AF-107 has the same title block and viewport (CopyLayout), and its page setup is DWG To PDF A1 | NOT RUN |
+| AF4 | `paper_size="A7"`; then `plotter="No Such.pc3"`; then `plot_style_table="none.ctb"` | Each refused in words naming what the plotter does have; no tab is left behind | NOT RUN |
+| AF5 | On AF-101: `autocad_add_viewport(view_name="<plan>", scale="1:100", title_block_width=180, layer="G-VPRT")` | `made_by: "plugin"`; Properties: Custom scale 1:100, Display locked Yes, layer G-VPRT; the saved view's centre is in the middle of the viewport; the status bar's annotation scale in it is 1:100; nothing scrolls when you zoom inside | NOT RUN |
+| AF6 | On a UCS turned 23 degrees: `autocad_add_viewport(..., align_to_ucs=true)`; then `twist=-23` on a world UCS | Both answers say `twist_degrees: 337`; the plan drawn on the 23 degree grid reads square on the sheet, and the viewport still looks at the same centre. **The sign changed in this PR** (D-90: it was +23, which by the view-centre rule turns the plan 46 degrees off). If it now reads 46 degrees off, the reasoning is wrong: flip it back in `make_viewport` and in `SheetMath.ViewCentre` together, and re-run AF5 too | NOT RUN |
+| AF7 | Draw an L-shaped closed polyline on AF-101; `autocad_add_viewport(..., clip_handle="<its handle>")`; then `clip_outline=[[50,50],[250,50],[250,130],[130,130],[130,200],[50,200]]` | Both viewports show the plan only inside the L (as VPCLIP); the second draws the outline on the viewport's layer; Properties: Clipped Yes; one Ctrl+Z removes each viewport with its outline | NOT RUN |
+| AF8 | `autocad_add_viewport(..., scale="1:75")` in a drawing whose scale list has no 1:75; an annotative text 2.5 mm in the plan | The answer says `annotation_scale_added: true`; SCALELISTEDIT shows 1:75; the text shows 2.5 mm high on the paper in that viewport | NOT RUN |
+| AF9 | `autocad_sheet_set(sheets=[3 rows: one view at 1:100, one view with no scale, one cover], title_block="<block>", title_block_width=180, attributes={"PROJECT": "AF"})`; then one Ctrl+Z; then again with Ask to Keep on and Discard | Three tabs named by number, each with its title block filled (number, title, the fitted scale on the second), viewports at the scales said; **one** Ctrl+Z takes all three sheets back (the plug-in's steps are inside Heron's undo mark); Discard does the same. If Ctrl+Z takes them back one by one, D-90's one-undo-step claim fails | NOT RUN |
+| AF10 | With a sheet tab active (rows D33 and S8 again): `autocad_status`, then `autocad_add_table(space="paper", ...)` | Status answers with `active_space: "paper"`, `active_layout` the tab, no `unreadable`; the table lands on the sheet; if `doc.PaperSpace` throws, the table still lands (the layout's block) | NOT RUN |
+| AF11 | With the plug-in from before this change: `autocad_create_layout` and `autocad_add_viewport(... clip_outline=...)` | The layout and a plain viewport are made over COM (`made_by: "com"`, `plugin_note` says why); the clipped one is refused with nothing made; a busy moment answers "the sheet is made ... check it" instead of "Outcome unknown" | NOT RUN |
+| AF12 | `autocad_publish_pdf(path="<folder>\set.pdf", folder="<folder of 3 saved drawings>")` | One PDF, the drawings in name order (M-2 before M-10), each drawing's sheets in tab order, none blank; `pages` lists them; nothing in any drawing changes | NOT RUN |
+| AF13 | Open one of them, change something, do not save; publish the folder again | Refused before anything is plotted, naming that drawing and "unsaved changes"; no PDF written | NOT RUN |
+| AF14 | Rename the xref file of one drawing; publish the folder; then unload that xref in the drawing, save, publish | First refused naming the drawing and the xref; second publishes, the sheet without the unloaded xref | NOT RUN |
+| AF15 | `drawings=[<C>, <A>]` with C the active, saved drawing | The PDF has C's sheets first, then A's | NOT RUN |
+| AF16 | AF1-AF15, AF17 and AF18 on AutoCAD 2025/2026 and 2021-2024 | As those rows | NOT RUN (no PC with those versions yet) |
+| AF17 | `autocad_create_layout(name="AF-ANSI", plotter="DWG To PDF.pc3", paper_size="ANSI D")` in a drawing from acad.dwt (inch paper units); then a sheet copied from a template whose page setup plots at 90 degrees | The answer's `paper` is 34 x 22 (inches, not 863.6 x 558.8) and the frame matches PAGESETUP; on the turned sheet the frame is the right way round. If either is 25.4 times too big or swapped, the plug-in's paper read (`SheetMath.PaperInUnits`) is wrong | NOT RUN |
+| AF18 | A drawing whose xref has its own xref (nested); rename the nested one's file; publish the folder | Refused naming `<xref>|<nested>`; put the file back and it publishes | NOT RUN |
+
 ## Group AS - Reads the plug-in does in one go: the entity summary and a layer's extents (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-114](DECISIONS.md), issue #74). Built and tested offline only
@@ -885,6 +915,34 @@ and the server restarted. **Every row below is NOT RUN.**
 | AJ8 | Two drawings open. `autocad_sequence` of 6 `autocad_batch_draw` steps of 500 lines each in a.dwg, each on a new layer; press Ctrl+Tab to b.dwg while it runs | The sequence stops before its next step: hint "The drawing in front changed after step N ... nothing landed in the other drawing" (or, for a switch inside a step, that step's input is refused: "so Heron typed none of this input"); no Heron object and no new layer in b.dwg; a.dwg has the steps before the switch ([#165](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/165)) | NOT RUN |
 | AJ9 | With the palette's Activity open, let a chat draw in a.dwg, then switch to b.dwg | The job's row says "not in front" at once; Select answers "switch to a.dwg first" as before | NOT RUN |
 | AJ10 | AJ6 with a plug-in built before this change, and once with the bridge off (`--no-bridge`) | The batch works as before in 600-character pieces (about 25 prompts with the old plug-in; the history shows the LISP over COM with the bridge off) | NOT RUN |
+
+## Group AR - Pyramid, polysolid, offset / taper / move / delete faces, imprint, separate (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-112](DECISIONS.md), [D-113](DECISIONS.md); issues #182, #183, #184, part 3
+of #119). Built and tested offline only (`tests/test_solid_shapes_faces.py`,
+`SolidShapeMathTests.cs`); the add-in **compiles** for all three AutoCAD builds. Every row needs the
+plug-in built from this change (eight new operations) installed. Changes padlock on,
+`autocad_status` first, a scratch drawing in mm. After each row press **Ctrl+Z once** and check the
+drawing is back as it was. The test box for AR8-AR12 is
+`autocad_add_solid(shape="box", base=[0,0], length=1000, width=600, height=500)` (volume
+300,000,000), made again before each row. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AR1 | `autocad_add_pyramid(base=[0,0,0], radius=300, height=900)`, then `autocad_preview` in plan and SW iso | A 600 x 600 base sitting on z=0, centred on 0,0, its sides along X and Y (corners at ±300, ±300); the point at 0,0,900; `turned: true`; `volume` = `expected_volume` = 108,000,000. Write down `remade_to_size` (expected false: Autodesk's reference says the radius is to the middle of a side) | NOT RUN |
+| AR2 | `autocad_add_pyramid(base=[2000,0,0], sides=6, radius=200, radius_to="corner", top_radius=100, height=500)` | A hexagon with two corners on the X axis (at x 1800 and 2200) and flat sides facing front and back (y ±173.2), a flat hexagon top at z=500 with corners 100 out; `volume` = `expected_volume` (about 30,310,889) | NOT RUN |
+| AR3 | `autocad_add_pyramid(base=[0,3000,0], radius=150, top_radius=600, height=900)` (a hopper); then again with `rotation=45` and `coords="ucs"` on a UCS turned 30° | A 300 x 300 bottom on z=0 and a 1200 x 1200 top at z=900, sides along X and Y; the second turned 75° in the world (45 + the UCS's 30), its base at the UCS point | NOT RUN |
+| AR4 | `autocad_add_polysolid(points=[[0,0],[5000,0],[5000,3000]], width=200, height=1200)` | An L wall 200 thick centred on the line, 1200 high, with a square outside corner; `volume` 1,920,000,000 (8000 x 200 x 1200) | NOT RUN |
+| AR5 | AR4 again with `side="left"`, then with `side="right"` | Left: the wall on the +Y side of the first leg (y 0 to 200) and the -X side of the second (x 4800 to 5000), volume 1,872,000,000. Right: y -200 to 0 and x 5000 to 5200, volume 1,968,000,000 | NOT RUN |
+| AR6 | A closed 4000 x 3000 polyline drawn anticlockwise and a second drawn clockwise: `autocad_add_polysolid(path=<each>, side="inside", width=200, height=1200)`, then `side="outside"` | Inside: the wall's outer face on the outline for both, volume 3,168,000,000; outside: its inner face on the outline, volume 3,552,000,000. The polylines kept | NOT RUN |
+| AR7 | A polyline with an arc (a bulge) and a circle as paths, `width=200, height=1000`; then a rectangle drawn with PLINE back to its first point without typing C, `side="inside"`; then a polyline with an arc of radius 50 and `width=200` | The walls follow the arc and the circle smoothly (a ring for the circle); the unclosed rectangle makes a ring like a closed one (`closed: true`), the polyline itself left as drawn; the tight arc is refused "turns tighter than the wall is wide ... Nothing was changed" | NOT RUN |
+| AR8 | Test box: `autocad_edit_solid_faces(handle, action="offset", faces="top", distance=100)`; then (new box) `action="move", faces="right", by=[200,0,0]` | Offset: 600 high, `volume_after` 360,000,000. Move: 1200 long, 360,000,000 | NOT RUN |
+| AR9 | Test box: `autocad_edit_solid_faces(handle, action="taper", faces="front", angle=10)` | The front face leans, its bottom edge still on y=0. Write down whether it leaned **in** (`volume_after` about 277,959,000, smaller) or out (larger): the tool's wording says in, and is fixed to match if not | NOT RUN |
+| AR10 | Test box with its vertical edges filleted R50 (`autocad_fillet_solid_edges`); list its faces; `action="delete"` on one fillet face; then `action="delete", faces="top"` on a plain box | That corner is square again, volume up by about 268,000; deleting the top of a box is refused with nothing changed | NOT RUN |
+| AR11 | A 400 x 200 rectangle drawn on the test box's top (z=500): `autocad_imprint_solid(handle, objects=[<rectangle>])`; then `autocad_press_pull_faces` on the new face by number, distance 100; then imprint a line 5 m away | Imprint: `faces_after` = `faces_before` + 1 (7), the rectangle kept; the pull raises only the 400 x 200 pad. The far line: `note` says nothing new was imprinted | NOT RUN |
+| AR12 | Two test boxes 2000 apart, `autocad_solid_boolean` union into one solid; `autocad_separate_solid(<it>)`; then on a single box | `piece_count` 2, the second piece a new solid on the same layer and colour, the two volumes 300,000,000 each. The single box is refused "one piece already" | NOT RUN |
+| AR13 | Ask to keep on: run AR1, AR4, AR8 and AR12, answering Discard each time | Each is taken back whole: no pyramid or wall left, the box its old size, the union one solid again | NOT RUN |
+| AR14 | AR1-AR13 on AutoCAD 2025/2026 and 2021-2024 | As AR1-AR13 | NOT RUN (no PC with those versions yet) |
 
 ## Group AI - The drawing tools: UCS on every draw and modify tool, batch fills, arc breaks, closed multilines, control-point splines (AutoCAD 2027, this PC)
 

@@ -180,6 +180,17 @@ AutoCAD measures ordinates from ([D-37](DECISIONS.md)). A datum elsewhere is ref
 - `autocad_thicken_surface(both_sides=true)`: AutoCAD's API does not say whether the thickness is
   split between the two sides or added to each. Row H9 measures it; until then read the volume it
   reports.
+- **Pyramid, polysolid and the face edits** ([D-112](DECISIONS.md), [D-113](DECISIONS.md)) need
+  the plug-in built with them (eight more operations); an older one says it does not know them.
+  `autocad_add_pyramid` stands straight up from its base (no tilted axis): turn or move it after.
+  `autocad_add_polysolid` needs a path flat in plan and makes a plain rectangular section going
+  straight up; a path that turns tighter than the wall is wide, or crosses itself, is refused. It
+  is one solid with no POLYSOLID grips: change it by editing faces or by drawing it again.
+- `autocad_edit_solid_faces(action="taper")`: which way a positive angle leans is SOLIDEDIT's (in)
+  by intent, not proven for the API; read `volume_after` (smaller is in) until row AR9 passes.
+  Face rotate and copy, and colouring a face, are not built. Imprint keeps the objects it presses
+  on; it takes lines, arcs, circles, polylines, splines, regions and solids, not text or blocks.
+  Separate keeps the solid as one of the pieces; pieces that touch, even at an edge, stay one.
 - A plug-in operation keeps the one-chat hold for as long as it runs, and checks the padlock
   again when it starts. It may wait up to 30 s for AutoCAD to be free; a disconnect in those
   seconds does not stop it.
@@ -278,6 +289,13 @@ pieces after it are not sent, so keep each `(command ...)` whole inside one top-
   while `ActiveLayout.Block` still answered. `autocad_status` now reports `paper_space_entities`
   from the layout's block (or null) instead of failing whole, and `autocad_add_viewport` falls back
   to MVIEW typed with the two corners. Both NOT RUN live (NEEDS-CHECKING S8, S9).
+- Since [D-90](DECISIONS.md) the plug-in makes sheets and viewports in .NET, in the layout's own
+  block, so neither touches `doc.PaperSpace`; title blocks go into `layout.Block`; `space="paper"`
+  falls back to the active layout's block; `autocad_status` names a fact it cannot read in
+  `unreadable` instead of failing. COM (and MVIEW) is left for a plug-in older than this. Still
+  NOT RUN live (NEEDS-CHECKING AF1-AF11). The two places that pick the space themselves (the
+  wipeout in `tools/drafting.py`, the dimension edits in `tools/dimensions_edit.py`) use the same
+  fallback (#169).
 - `create_material(replace=true)` with only `diffuse_rgb` kept the old texture image, which covers
   the colour; from plug-in **1.4.2** the image is cleared (K16, NOT RUN).
 

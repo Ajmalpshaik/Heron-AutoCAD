@@ -21,7 +21,7 @@ from ..core.connection import get_app, get_doc, run
 from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, point_to_list
-from ._shared import before_after, current_ucs, in_plugin
+from ._shared import before_after, current_ucs, in_plugin, plugin_read
 
 # Formats doc.Export writes directly. PDF goes through the plotter instead.
 EXPORT_FORMATS = {"dxf", "wmf", "sat", "bmp", "eps", "stl"}
@@ -498,7 +498,8 @@ def _paper_space_count(doc: Any) -> int | None:
     ``doc.PaperSpace`` can throw a bare Automation error on a sheet AutoCAD has
     half set up (Luxury Suite 2, 2026-11-09: after a viewport hung on a sheet
     made with Layouts.Add), and one bad count used to sink the whole status
-    report. The active layout's own block still answers, so that is asked next.
+    report (#39). The active layout's own block still answered, so that is
+    asked next, and last the Heron plug-in, which counts the sheet in .NET.
     """
     try:
         return int(doc.PaperSpace.Count)
@@ -506,9 +507,39 @@ def _paper_space_count(doc: Any) -> int | None:
         raise_if_busy(exc)
     try:
         return int(doc.ActiveLayout.Block.Count)
-    except BaseException as exc:  # noqa: BLE001 - report the drawing without it
+    except BaseException as exc:  # noqa: BLE001 - the plug-in is asked next
         raise_if_busy(exc)
-        return None
+    report, _ = plugin_read("active_sheet")
+    # On the Model tab the plug-in counts model space, which is not a paper count.
+    if report and report.get("model") is False and isinstance(report.get("entities"), int):
+        return int(report["entities"])
+    return None
+
+
+def _active_space(doc: Any) -> str:
+    """'model' or 'paper': ActiveSpace, else whether the active layout is the Model tab."""
+    try:
+        return "model" if int(doc.ActiveSpace) == 1 else "paper"
+    except BaseException as exc:  # noqa: BLE001 - the layout's name says it too
+        raise_if_busy(exc)
+    try:
+        return "model" if str(doc.ActiveLayout.Name) == "Model" else "paper"
+    except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
+        report, _ = plugin_read("active_sheet")
+        if report and "model" in report:
+            return "model" if report["model"] else "paper"
+        return "unknown"
+
+
+def _status_field(unread: list[str], name: str, read: Any, default: Any = None) -> Any:
+    """One status fact. A fact AutoCAD will not give is named in "unreadable", never the whole answer (#39)."""
+    try:
+        return read()
+    except BaseException as exc:  # noqa: BLE001 - one bad property must not sink the report
+        raise_if_busy(exc)  # a busy AutoCAD is asked again, not reported as unreadable
+        unread.append(name)
+        return default
 
 
 @mcp.tool(
@@ -550,7 +581,8 @@ async def autocad_status(
             "path": str,               # full path, "" when never saved
             "saved": bool,             # false when unsaved changes exist
             "read_only": bool,
-            "active_space": str,       # "model" or "paper"
+            "active_space": str,       # "model" or "paper" ("unknown" if AutoCAD will not say)
+            "active_layout": str,      # the tab on screen, e.g. "Model" or "E-101"
             "units": str,              # e.g. "millimeters"
             "ucs": {                   # the coordinate system the modeller is working in
               "name": str, "is_world": bool, "origin": [float],
@@ -562,7 +594,8 @@ async def autocad_status(
             "model_space_entities": int,
             "paper_space_entities": int | null,  # null when AutoCAD will not say
             "layer_count": int,
-            "block_definition_count": int
+            "block_definition_count": int,
+            "unreadable": [str]        # only when AutoCAD would not give some of the above (null then)
           } | null
         }
 
@@ -594,20 +627,26 @@ async def autocad_status(
 
         doc = app.ActiveDocument
         ucs = current_ucs(doc)
+        name = str(doc.Name)
+        unread: list[str] = []
+        full = _status_field(unread, "path", lambda: str(doc.FullName), "")
         result["active_drawing"] = {
-            "name": str(doc.Name),
-            "path": str(doc.FullName) if str(doc.FullName) != str(doc.Name) else "",
-            "saved": bool(doc.Saved),
-            "read_only": bool(doc.ReadOnly),
-            "active_space": "model" if int(doc.ActiveSpace) == 1 else "paper",
+            "name": name,
+            "path": full if full != name else "",
+            "saved": _status_field(unread, "saved", lambda: bool(doc.Saved)),
+            "read_only": _status_field(unread, "read_only", lambda: bool(doc.ReadOnly)),
+            "active_space": _active_space(doc),
+            "active_layout": _status_field(unread, "active_layout", lambda: str(doc.ActiveLayout.Name)),
             "units": _units_of(doc),
             "ucs": ucs.describe(_ucs_name_of(doc) or None),
-            "current_layer": str(doc.ActiveLayer.Name),
-            "model_space_entities": int(doc.ModelSpace.Count),
+            "current_layer": _status_field(unread, "current_layer", lambda: str(doc.ActiveLayer.Name)),
+            "model_space_entities": _status_field(unread, "model_space_entities", lambda: int(doc.ModelSpace.Count)),
             "paper_space_entities": _paper_space_count(doc),
-            "layer_count": int(doc.Layers.Count),
-            "block_definition_count": int(doc.Blocks.Count),
+            "layer_count": _status_field(unread, "layer_count", lambda: int(doc.Layers.Count)),
+            "block_definition_count": _status_field(unread, "block_definition_count", lambda: int(doc.Blocks.Count)),
         }
+        if unread:
+            result["active_drawing"]["unreadable"] = unread
         # Coordinates here are always world ones. When the modeller has set a
         # UCS, say so on the first call of every session rather than letting a
         # line land somewhere nobody meant (autocad_get_ucs has the detail).

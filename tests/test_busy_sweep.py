@@ -73,6 +73,12 @@ ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
         1, "starting AutoCAD: asking the whole call again could start a second AutoCAD"),
     ("core/connection.py", "_app_of_process"): (
         2, "walks every program's entries in Windows' list; one busy program, or a drawing closing, must not stop the search for the right AutoCAD"),
+    ("tools/sheets.py", "_made_but_busy"): (
+        2, "it is the answer to a busy AutoCAD after a sheet is added (#40): it looks for the sheet again while AutoCAD is busy, then says what it found"),
+    ("tools/sheet_set.py", "autocad_sheet_set.work"): (
+        1, "a sheet refused or busy part-way stops the set and is reported with the sheets made (one undo step); raising it would lose that list"),
+    ("tools/sheet_set.py", "autocad_sheet_set._make_one"): (
+        1, "the sheet's layout is made: it is listed as unfinished and the run stops, so a retry is never told its name is taken"),
     ("core/gate.py", "_command_of"): (
         1, "asks the plug-in's pipe, not COM; the busy answer stands without it"),
     ("core/registry.py", "undo_mark.__enter__"): (

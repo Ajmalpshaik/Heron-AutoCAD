@@ -51,7 +51,7 @@ The group headings below give the level.
 | `autocad_export` | PDF, DWF, DXF, WMF, SAT, BMP, EPS, STL. DWF plots like PDF, through `DWF6 ePlot.pc3` ([D-111](DECISIONS.md)). PDF and DWF take `paper_size` (`A3`, `A1 portrait`), `area` (`extents` default, `layout`, `limits`, `display`, `window`, `view`), `corner1`/`corner2`, `view_name` and `scale` |
 | `autocad_zoom` | Extents, all, or a window |
 | `autocad_show` | **View, done by the plug-in.** Selects the objects given by handle and zooms to them, so "which ones?" is answered in the drawing; `isolate` hides the rest for now (ISOLATEOBJECTS, not saved), `end_isolation` brings it back. At most 500 at once |
-| `autocad_publish_pdf` | **Publish, done by the plug-in.** The drawing's sheets in ONE multi-page PDF through AutoCAD's publisher, in tab order, each with its own page setup; `layouts` to choose, `include_model`, `overwrite`. Made from the drawing as last saved: unsaved changes are refused ([D-41](DECISIONS.md)) |
+| `autocad_publish_pdf` | **Publish, done by the plug-in.** The drawing's sheets in ONE multi-page PDF through AutoCAD's publisher, in tab order, each with its own page setup; `layouts` to choose, `include_model`, `overwrite`. Made from the drawing as last saved: unsaved changes are refused ([D-41](DECISIONS.md)). `folder` (with `recursive`) or `drawings` publishes several drawings into one PDF, drawing by drawing; each must be saved and have its xrefs, or nothing is published ([D-91](DECISIONS.md)) |
 | `autocad_get_variable` | Read a system variable |
 | `autocad_set_variable` | Write a system variable |
 
@@ -281,10 +281,11 @@ A sheet from nothing in four calls, or one `autocad_sequence`. Detail:
 
 | Tool | Purpose |
 |---|---|
-| `autocad_create_layout` | New sheet: paper size, orientation, plotter, plot style table, optionally copied from another layout. Returns the frame, the drawing space and where the title block goes |
+| `autocad_create_layout` | New sheet: paper size, orientation, plotter, plot style table, optionally copied from another layout (with everything on it, by the plug-in). Returns the frame, the drawing space and where the title block goes. Made by the plug-in in .NET, over COM with an older one; `made_by` says which ([D-90](DECISIONS.md)) |
 | `autocad_page_setup` | Page Setup on one sheet or `all_layouts`: plotter, paper, `plot_area`, scale, `monochrome.ctb`, lineweights. Only what you pass is written |
 | `autocad_place_title_block` | The title block in the sheet's corner (ISO 5457 bottom-right by default) with its attributes filled; `all_layouts` and `per_layout_attributes` do a whole set |
-| `autocad_add_viewport` | A viewport at a real scale (`"1:50"`, or omitted to fit) looking at a point, a window, a saved view or a set of objects; `twist` / `align_to_ucs` for a rotated plan; locked by default |
+| `autocad_add_viewport` | A viewport at a real scale (`"1:50"`, or omitted to fit) looking at a point, a window, a saved view or a set of objects; `twist` / `align_to_ucs` for a rotated plan; locked by default. `clip_outline` / `clip_handle` clip it to a shape (plug-in only); `annotation_scale` (default `match`) sets its annotation scale. In the layout's own block by the plug-in ([D-90](DECISIONS.md)) |
+| `autocad_sheet_set` | **A drawing list into sheets in one call:** per row (number, title, scale, view) a layout, a viewport at that scale on that view, and the title block filled with number, title and scale. The whole list is checked first; one undo step; `dry_run` shows the plan; `template_layout` copies a sheet for each ([D-90](DECISIONS.md)) |
 
 ## Saved locations (Read; saving is Change)
 
@@ -398,6 +399,11 @@ until the solid changes.
 | `autocad_shell_solid` | Change | SOLIDEDIT Shell: hollow to a wall thickness, leaving faces open (`remove_faces="top"` for a tank); inside unless `outward` |
 | `autocad_press_pull_faces` | Change | Push or pull flat faces by a distance, with an optional taper |
 | `autocad_thicken_surface` | Change | THICKEN: a solid from a surface; the surface is kept |
+| `autocad_add_pyramid` | Change | PYRAMID: 3 to 32 sides, a point or a flat top, or a hopper; stands on the centre of its base, one side to the front. By the plug-in ([D-112](DECISIONS.md)) |
+| `autocad_add_polysolid` | Change | POLYSOLID: a wall of a width and height along a flat path (a curve or points), centred, left, right, inside or outside; the path is kept ([D-112](DECISIONS.md)) |
+| `autocad_edit_solid_faces` | Change | SOLIDEDIT faces: offset, taper, move or delete, picked by a word or by number; volume before and after ([D-113](DECISIONS.md)) |
+| `autocad_imprint_solid` | Change | SOLIDEDIT Imprint: split a solid's faces along lines or shapes that touch them; the objects are kept, the faces counted after |
+| `autocad_separate_solid` | Change | SOLIDEDIT Separate: a solid of pieces that do not touch becomes one solid per piece |
 | `autocad_super_hatch` | Change | Express Tools' SUPERHATCH: a block, an **image** (with `image_size`), an **xref** (attached from its .dwg if need be) or a **wipeout** as the tile, in a grid (spacing, origin, angle, scale) inside a closed outline drawn flat in plan, clipped as XCLIP clips. One object; at most 10,000 tiles, 2,000 for images ([D-95](DECISIONS.md)) |
 | `autocad_flatten_views` | Change | FLATSHOT / SOLPROF: plan, front and side views (any of front, top, right, left, back, bottom) of solids as 2D linework, hidden lines removed, one block per view, set out third or first angle so they line up. `join` lets a part hide what is behind it. The model is not touched |
 | `autocad_section_plane` | Change | SECTIONPLANE and Generate Section: a section plane through two points (a vertical cut) or three (any plane; a level cut looks down), kept in the model, and its 2D section (cut outlines, hatch, what is seen beyond) as one block at `insert_at`. `look_towards` picks the side |
