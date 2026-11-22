@@ -36,6 +36,7 @@ from ._shared import (
     COORDS_OPT,
     LAYER_OPT,
     discard_new,
+    not_flipped,
     point,
     ucs_for,
     world_coords,
@@ -249,7 +250,7 @@ async def autocad_add_multileader(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        ucs = ucs_for(doc, coords)
+        ucs = not_flipped(ucs_for(doc, coords), "a multileader")
         target = get_space(doc, "model")
 
         if block:
@@ -458,7 +459,7 @@ async def autocad_add_table(
     def work() -> dict[str, Any]:
         doc = get_doc()
         require_idle(doc)
-        ucs = ucs_for(doc, coords)
+        ucs = not_flipped(ucs_for(doc, coords), "a table")
         target = get_space(doc, space)
 
         height = float(text_height) if text_height else None
