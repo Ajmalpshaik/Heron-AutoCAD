@@ -8,7 +8,27 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
+## Latest - 2026-11-22 (the office layer standard, #70, D-120)
+
+`autocad_layer_standard` (new, **199** tools, with the other sessions' work): `template` / `import` / `show` / `remove` for the
+office's own layer list as a CSV, kept in `%LOCALAPPDATA%\Heron\autocad\standards\`; `layer_standard`
+on `autocad_check_standards` and `autocad_remap_layers` (`office`, `example` or a file path). The
+format and the check are `acad/layer_standard.py`; the generic MEP example is
+`src/autocad_mcp/data/layer-standard-example-mep.csv`. Tests: `tests/test_layer_standard.py`.
+**Next (Ajmal, on this PC):** `autocad_layer_standard(action="template")`, fill the CSV from the
+office list, `action="import"`, then live rows **AT1-AT8**. #70 closes when he confirms it matches
+his standard.
+
+## Earlier - 2026-11-22 (Heron AI's AutoCAD side: the capability manifest, #75, D-122)
+
+`tools/export_capabilities.py` writes `dist/capabilities.json` from the code: each tool's padlock,
+`Use when` lines, inputs, what it needs of the plug-in and its NEEDS-CHECKING proof state. Every
+release zip carries it. What Heron AI would need and the steps when its registry is ready:
+[14](14-heron-ai-adapter.md). Heron AI itself was not touched. Tests:
+`tests/test_export_capabilities.py`. **Next:** nothing on this PC; #75 stays open until Heron AI's
+registry is built. When a live row is next run, name its tool in backticks so the manifest counts it.
+
+## Earlier - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
 
 Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**198** in all):
 `autocad_add_pyramid`, `autocad_add_polysolid`, `autocad_edit_solid_faces` (offset, taper, move,

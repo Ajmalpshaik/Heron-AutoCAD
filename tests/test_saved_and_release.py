@@ -121,6 +121,17 @@ def test_checksums_name_the_zip_and_its_sha256(tmp_path):
     assert sums == f"{hashlib.sha256(b'PK test').hexdigest()}  {archive.name}\n"
 
 
+def test_the_release_carries_the_capability_manifest(tmp_path, monkeypatch):
+    release = _load("make_release")
+    monkeypatch.setattr(release.export_capabilities, "build", lambda: {"count": 1, "tools": []})
+    written = release.add_capabilities(tmp_path)
+    assert written == tmp_path / "capabilities.json"
+    assert json.loads(written.read_text(encoding="utf-8")) == {"count": 1, "tools": []}
+    import inspect
+
+    assert "add_capabilities(folder)" in inspect.getsource(release.main), "every release zip carries it (D-122)"
+
+
 def test_an_update_keeps_the_version_it_replaces_and_rollback_asks_first():
     script = (RELEASE / "Install.ps1").read_text(encoding="ascii")
     install = script[script.index("$was = Get-BundleVersion"):]

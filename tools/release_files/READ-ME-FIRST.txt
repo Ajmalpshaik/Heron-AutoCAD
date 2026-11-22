@@ -31,6 +31,10 @@ Update, go back, look for a newer one
     earlier version back, after asking.
   - CheckForUpdate.bat says whether a newer version is out. It never installs anything.
 
+capabilities.json
+  The list of Heron's tools, with the padlock each needs and whether it has passed its
+  live check, for other programs such as Heron AI for Revit. Nothing reads it today.
+
 Remove it
   Close AutoCAD, then double-click Uninstall.bat. It shows what it removes and asks
   before removing anything. Keep this folder so Uninstall.bat is at hand.

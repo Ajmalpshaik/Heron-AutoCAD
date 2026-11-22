@@ -3,7 +3,7 @@
     python tools/make_release.py
 
 It also writes dist/checksums.txt (the zip's SHA-256). The zip holds the plug-in bundle, the server as one autocad-mcp.exe (no Python needed on the
-target PC), Install.bat and a short READ-ME-FIRST.txt. Run it from a venv that has the project
+target PC), Install.bat, a short READ-ME-FIRST.txt and capabilities.json (the tool list a registry reads, D-122). Run it from a venv that has the project
 and PyInstaller installed:
 
     pip install . pyinstaller
@@ -24,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_plugin  # noqa: E402
+import export_capabilities  # noqa: E402
 import signing  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,12 +70,18 @@ def main() -> int:
         shutil.copy2(exe, folder / "autocad-mcp.exe")
         for f in FILES.iterdir():
             shutil.copy2(f, folder / f.name)
+        add_capabilities(folder)
         signing.sign([folder / "Install.ps1"])
     archive = shutil.make_archive(str(build_plugin.DIST / name), "zip", build_plugin.DIST, name)
     sums = write_checksums(Path(archive))
     print(f"Release: {archive}")
     print(f"Checksums: {sums}")
     return 0
+
+
+def add_capabilities(folder: Path) -> Path:
+    """capabilities.json in the release: every tool, its padlock and its proof, for a registry such as Heron AI's (D-122)."""
+    return export_capabilities.write(folder / "capabilities.json")
 
 
 def write_checksums(archive: Path, *more: Path) -> Path:

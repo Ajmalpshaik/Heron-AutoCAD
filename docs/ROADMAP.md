@@ -179,8 +179,11 @@ done looks like here.
   ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
 - [x] Draw an attribute schedule as an AutoCAD table: `autocad_add_table` ([10](10-geometry-annotation-3d.md)).
 - [x] Standards check against a reference DWG / DWS, not only a rules file: `autocad_check_standards(reference=...)`. ([#69](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/69), D-92; live rows AG5-AG8 NOT RUN)
-- [ ] A layer-standard rule file shipped for Ajmal's own office standard, beside the `ifc` preset
-  in `tools/convert.py` (which is a starting point, not a standard). ([#70](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/70))
+- [ ] A layer-standard rule file for Ajmal's own office standard, beside the `ifc` preset in
+  `tools/convert.py`. The format, a generic MEP example and the CSV import are built
+  (`autocad_layer_standard`, `layer_standard` on the check and the remap; D-120, live group AT NOT
+  RUN). **Waiting for Ajmal:** fill the CSV from the office's layer list on his own PC (it never
+  goes in this public repository) and import it. ([#70](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/70))
 - [x] Read DXF / DWG files without AutoCAD (ezdxf, plus the ODA converter for DWG), read only: `autocad_read_file`. ([#71](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/71), D-92; live rows AG1-AG4 NOT RUN)
 - [x] Paper-space layouts and viewports: `autocad_create_layout`, `autocad_page_setup`,
   `autocad_place_title_block`, `autocad_add_viewport` (D-27, [09](09-sheets-and-coordinates.md)).
@@ -224,7 +227,7 @@ done looks like here.
 ## Repository
 
 - [ ] Tag `v1.6.0` after NEEDS-CHECKING groups A, D, E and F pass - `tools/live_check.py --group all --write` does D, E and F.
-- [ ] Later: offer this repository to Heron AI as its AutoCAD adapter when Heron's capability registry is ready ([D-12](DECISIONS.md)). ([#75](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/75))
+- [ ] Later: offer this repository to Heron AI as its AutoCAD adapter when Heron's capability registry is ready ([D-12](DECISIONS.md)). This side's part is ready: the capability manifest and [14](14-heron-ai-adapter.md) ([D-122](DECISIONS.md)); the rest waits for Heron. ([#75](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/75))
 - [ ] With a sheet tab active, `autocad_status` and `autocad_add_table(space="paper")` raised a bare
   `Exception occurred` (2026-10-28, row D33). Status is what the gate waits for, so every tool was
   blocked until the Model tab was clicked. Reproduce live, find the call (suspect `doc.PaperSpace`),

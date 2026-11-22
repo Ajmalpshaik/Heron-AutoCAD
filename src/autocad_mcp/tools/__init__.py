@@ -42,6 +42,7 @@ def register_all() -> None:
         geometry_tools,
         hyperlinks,
         labels,
+        layer_standard,
         layer_states,
         layers,
         lighting,

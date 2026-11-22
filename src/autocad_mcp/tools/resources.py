@@ -223,12 +223,19 @@ def _only_reads(tool: str) -> bool:
 
 
 @mcp.prompt(name="check_standards", description="Check the open drawing against a layer standard and show the result.")
-def check_standards(rules_path: str = "") -> str:
-    where = f"the rules in {rules_path}" if rules_path else "the layer standard I describe"
+def check_standards(rules_path: str = "", layer_standard: str = "") -> str:
+    if layer_standard:
+        where, how = f"the layer standard '{layer_standard}'", f"layer_standard='{layer_standard}'"
+    elif rules_path:
+        where, how = f"the rules in {rules_path}", "those rules"
+    else:
+        where, how = "the layer standard I describe", "those rules"
     return (
         "Check the drawing that is open in AutoCAD against " + where + ".\n"
         "1. Call autocad_status and tell me the drawing name and units.\n"
-        "2. Call autocad_check_standards with those rules.\n"
+        f"2. Call autocad_check_standards with {how}. 'office' is the office's own layer list loaded "
+        "on this PC (autocad_layer_standard says which); if the answer says none is loaded, tell me "
+        "it was checked against the generic MEP example and is not decided.\n"
         "3. Summarise the findings by rule, worst first, with handles I can zoom to.\n"
         "4. Do not change anything: only report.\n"
         "5. Say which rules were met for what was read, against which rules. Never say the "
@@ -318,6 +325,8 @@ def import_to_shop_drawing(discipline: str = "", scale: str = "1:50") -> str:
         "what you found: how many layers, how many objects, which look like an IFC export, and "
         "how much is sitting on layer 0.\n"
         "2. autocad_remap_layers with dry_run=true first. preset='ifc' knows the usual IFC names; "
+        "layer_standard='office' moves the old names the office layer standard replaces onto its "
+        "layers (autocad_layer_standard says whether one is loaded); "
         "add your own rules for what it misses. Read 'counts' and 'unmatched_sample', show me the "
         "plan, and only then run it again with dry_run=false and set_bylayer=true.\n"
         "3. autocad_tidy_entities, again dry_run first: color_bylayer, linetype_bylayer, "

@@ -130,6 +130,79 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-120 - A layer standard is a CSV the office fills on its own PC; Heron ships only a generic example
+
+**Decided:** 2026-11-22, for issue #70. **Status:** in force; live rows Group AT, all NOT RUN. Builds
+on D-92 (the reference drawing) and D-64 (a pass says against what).
+The owner's office layer standard cannot go into this public repository, and his list is not
+available here anyway. So the standard is a **rule file the office fills**, and Heron ships only an
+example:
+- **The format** (`acad/layer_standard.py`): one row per layer, columns `layer, color, linetype,
+  lineweight, plot, description, replaces, required`. A layer is a full name or a pattern with `*`
+  and `?` (`M-*-IDEN`: checked, never a target). `replaces` is the old layer names the row takes
+  over, separated by `;`. A blank cell is not checked. `# name:`, `# name_pattern:` (a regular
+  expression for layers the list does not name) and `# example: yes` are read from `#` lines. The
+  same rows as JSON are what Heron keeps once a CSV is imported. Colours are the AutoCAD Color
+  Index (1-255) or a name; a true colour is refused in plain words, not guessed.
+- **A CSV, because that is what the owner has.** His list is in Excel; Excel saves CSV with a BOM,
+  in the Windows code page, or with `;` in some regions: all three read. A CSV with any problem
+  imports nothing, and every problem is named with its row number at once.
+- **Where it lives, and which wins:** a file the modeller names in the call (`layer_standard=
+  "S:\CAD\layers.csv"`), else the office standard imported on this PC
+  (`%LOCALAPPDATA%\Heron\autocad\standards\office-layers.json`, the previous one kept beside it),
+  else the generic MEP example in `src/autocad_mcp/data/layer-standard-example-mep.csv`.
+  `autocad_layer_standard` writes only that folder and reads only the CSV it is given, never
+  AutoCAD: it is a Read tool that answers with AutoCAD closed (`NO_AUTOCAD_TOOLS`), as
+  `autocad_checklist`'s own lists need no padlock (D-52).
+- **`office` with none loaded never passes.** A check falls back to the example so the findings
+  are still useful, but `passed` is null unless another rule failed: the modeller asked about his
+  office's standard, which is not there (D-64). A **remap** with none loaded is refused: it would
+  move objects onto layers nobody chose. `example` must be said by name to remap with it.
+- **The example is generic and says so**: mechanical, plumbing, fire and electrical layers in the
+  discipline-major-minor style of the US National CAD Standard's layer guidelines, picked for the
+  example and not copied from that list; marked `# example: yes`, which `import` refuses, so it can
+  never become an office's standard by accident.
+- **The remap from a standard**: first every standard layer as itself (what is on it stays, the
+  layer gets the standard's colour, linetype, lineweight, plot and description), then every pattern
+  row as a **keep** rule (a new remap key, `keep: true` in place of a target `layer`: what it
+  matches stays on its own layer, which gets the row's properties), so a layer the check accepts
+  through a pattern is never taken by an old name such as `*CHWS*`; then each old name a row
+  replaces, in file order, matched on the **layer** only, never a block's name. A plain old name a
+  pattern row covers is refused at import, as one that is a standard layer is.
+- **Left for later, on a need:** true colours, transparency and plot style names in the standard;
+  keeping the standard on a shared office folder as the check lists do (D-93) - for now each PC
+  imports the CSV.
+
+## D-122 - Heron AI gets a capability manifest made from the code; its registry is not built yet
+
+**Decided:** 2026-11-22, for issue #75 (D-12). **Status:** in force; no runtime change, no live rows.
+D-12 offers this repository to Heron AI for Revit as its AutoCAD side once Heron's capability
+registry is ready. That registry does not exist yet, and Heron AI is never edited from here, so
+this side does only what it can on its own:
+- **A manifest, not a second list.** `tools/export_capabilities.py` writes `dist/capabilities.json`
+  from the live registry, `core/risk.py`, the tools' own code and `docs/NEEDS-CHECKING.md`: each
+  tool's padlock, kind, `Use when` lines, inputs, what it needs of the plug-in and its proof state.
+  Nothing in it is typed by hand, so it cannot drift. It is not kept in git (other sessions add
+  tools all day; a committed copy would be stale or a merge conflict on every PR); every release
+  zip carries it instead.
+- **Proven means a PASS row that names the tool.** A row that says "draw a line" in words does not
+  count: the safe way round. PASS / PARTLY / NOT RUN / FAIL / NO ROW, with the rows, so a registry
+  can tell proven tools from unproven ones.
+- **The plug-in a tool needs is read from its code** (`ast`): reaching `in_plugin` or
+  `plugin_runner` means the plug-in does part of the work; reaching only the faster reads, quiet
+  input or a named button means it is used when there; anything else is only gated. The operation
+  names are checked against `PluginOperations.cs`. Which plug-in release first had each operation
+  is not recorded, so `version_needed` is the plug-in built from the same code.
+- **The gate and padlocks stay in the AutoCAD plug-in** (D-14, D-59). Heron AI would be one more
+  MCP caller of the same server.
+- **Fixed on the way:** `autocad_list_materials` only reads but was not marked read-only for MCP
+  clients; it is now, and a test keeps every Read tool marked so (except `autocad_project_notes`
+  and `autocad_use_autocad`, which keep notes and the chosen AutoCAD).
+- **Rejected for now:** an `autocad://capabilities` resource. It would be runtime behaviour, and
+  the register it reads is not in an installed server; it comes when Heron's registry asks for a
+  live answer. Issue #75 stays open until Heron's registry lists these tools.
+  Design and the steps: [14](14-heron-ai-adapter.md).
+
 ## D-113 - Offset, taper, move and delete faces, imprint and separate are plug-in operations; one face tool with an action
 
 **Decided:** 2026-11-21, for issue #184 (part 3 of #119). **Status:** in force (built and tested
