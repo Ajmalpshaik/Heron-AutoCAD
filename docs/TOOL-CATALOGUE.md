@@ -738,7 +738,7 @@ One object for a run of wall, a double-line duct or a road in plan, with its sty
 - A style the drawing does not have is refused before anything is drawn, naming MLSTYLE and autocad_import_from_drawing.
 - Automation has no "close" for a multiline, so a closed one is drawn open and Heron's plug-in closes it the way MLINE's Close does, mitring the last corner ("mitred": true).
 - The drawing's current multiline style is put back afterwards.
-- The plug-in does part of the work (`close_multiline`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`close_multiline`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G3, AI8).
 
@@ -869,7 +869,7 @@ By fit points (the SPLINE command's default): the curve goes through every point
 - Fewer than two points, points all at one place, or a zero tangent are refused before anything is drawn.
 - By control points: too few points for the degree, two in a row at one place, or tangents given are refused before anything is drawn; so is running without the plug-in.
 - A closed spline AutoCAD will not close is drawn open and says so in "not_set".
-- The plug-in does part of the work (`add_cv_spline`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_cv_spline`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows G1, AI10).
 
@@ -1081,7 +1081,7 @@ Paving, cladding panels, a tiled ceiling, a grating: any block, laid in a grid f
 - An open, tilted or non-curve outline is refused before anything is made.
 - A block that is not in the drawing points at autocad_list_blocks.
 - More than 10,000 tiles (2,000 image tiles) is refused: make the spacing or scale bigger.
-- The plug-in does part of the work (`super_hatch`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`super_hatch`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H10, I6, AH12, AH13, AH14).
 
@@ -1118,7 +1118,7 @@ For a room or zone outline to measure its area, hatch it or label it. Done by th
 - A point outside its window, or a window with no size, is refused before AutoCAD is asked.
 - More objects in view than most_objects: nothing is traced; give a smaller window or freeze layers.
 - No closed outline round the point: nothing is made, and it says so.
-- The plug-in does part of the work (`trace_boundary`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`trace_boundary`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD7).
 
@@ -1194,7 +1194,7 @@ The array stays associative: in AutoCAD the modeller clicks it and edits the cou
 - A pattern given without its numbers (a path with neither count nor spacing, a ring with no centre, a 1 x 1 grid) is refused before AutoCAD is asked.
 - More items than fit on the path names how many do fit.
 - An array AutoCAD builds somewhere other than asked is refused, and nothing is changed.
-- The plug-in does part of the work (`associative_array`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`associative_array`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ1).
 
@@ -1362,7 +1362,7 @@ SPLINEDIT's Fit data: the spline keeps its handle, layer and end tangents and is
 - A point number off the end, two points in a row at one place, or too few points left are refused before anything is changed, naming the edit.
 - A spline with no fit points (drawn by control points) is refused.
 - Without the plug-in it is refused before anything is read.
-- The plug-in does part of the work (`edit_spline_fit_points`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`edit_spline_fit_points`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI12, AI13).
 
@@ -2293,7 +2293,7 @@ Use this for general notes, specification blocks and any text longer than a few 
 - Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "mtext", "layer": str, "height": float, "width": float} With annotative: also "annotative", "annotation_scales" and "paper_height".`
 
 **Limits and versions.**
-- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
 
@@ -2329,7 +2329,7 @@ Use it when a single note serves several things — "4 No. M16 BOLTS" with an ar
 - Needs text or block, and says so if neither is given.
 - A style or block the drawing does not have is named; the leader is not left half-made.
 - Properties a locked style refuses come back in "not_set" rather than failing the call.
-- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E16, E17, AB10, AN2, AN13).
 
@@ -2397,7 +2397,7 @@ Use this for short labels, tags and callouts. For paragraphs, or text that must 
 - Technical shape of the answer: `JSON: {"created": true, "handle": str, "type": "text", "layer": str, "text": str, "height": float} With annotative: also "annotative", "annotation_scales" and "paper_height" (the height on paper at the current scale).`
 
 **Limits and versions.**
-- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB9, AI1, AI3).
 
@@ -2464,7 +2464,7 @@ An annotative note carries one size per scale: give it 1:50 and 1:100 and it rea
 **Limits and versions.**
 - A removal that would leave an annotative object with no scale is refused, and nothing is changed.
 - A scale the drawing has not got is refused, unless add_missing_to_drawing is true and it is written like 1:25.
-- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB9, AB11).
 
@@ -2560,7 +2560,7 @@ A dimension style is built the way AutoCAD's own API requires: the DIM variables
 - A style name already in the drawing is refused unless replace=true.
 - A font AutoCAD cannot find is reported against that style; the other styles are still made.
 - The drawing's own DIM variables are put back even if a style fails.
-- The plug-in does part of the work (`multileader_style`, `table_style`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`multileader_style`, `table_style`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, AN1, AN3, AN5, AN7, AN13).
 
@@ -2683,7 +2683,7 @@ An annotative object shows only in a viewport whose scale it carries (with ANNOA
 - Technical shape of the answer: `JSON: {"current": {"name", "paper", "drawing"}, "cannoscale": str, "scales": [{"name", "paper", "drawing"}], "anno_all_visible": bool, "objects": [{"handle", "type", "annotative": "yes"|"no"|"cannot", "scales": [str], "height" ...`
 
 **Limits and versions.**
-- The plug-in does part of the work (`annotation_scales`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`annotation_scales`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB9).
 
@@ -2811,7 +2811,7 @@ The Insert > Data Link job: a schedule kept in Excel (pumps, fans, a door schedu
 
 **Limits and versions.**
 - A file, sheet or range that is not there, or a range bigger than 500 rows, 40 columns or 5,000 cells, is refused before anything is made.
-- The plug-in does part of the work (`excel_table`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`excel_table`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC5b, AC7, AC9).
 
@@ -2871,7 +2871,7 @@ After the workbook behind a linked table was edited and saved, this reads it aga
 - Technical shape of the answer: `JSON: {"updated": [{handle, source}], "not_linked": [handle], "note": str (only when no table is linked)}. A workbook that cannot be read refuses the whole job and nothing is changed (D-83), so there is no per-table failure list.`
 
 **Limits and versions.**
-- The plug-in does part of the work (`update_table_links`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`update_table_links`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC8).
 
@@ -2939,7 +2939,7 @@ The dimension takes the drawing's current dimension style, so it follows the she
 
 **Limits and versions.**
 - Names the specific missing argument when a dimension type needs a point that was not supplied.
-- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB10, AI2).
 
@@ -3010,7 +3010,7 @@ This is the dimensioning a drawing actually needs. Give the feature points along
 - A dim_style the drawing does not have is refused before anything is drawn, naming the styles it has.
 - Points that land on top of each other along the axis are skipped rather than making a zero dimension; if none are left, that is said.
 - A dimension AutoCAD rejects is reported in "failed" with its index; the rest of the run still lands.
-- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`set_annotation_scales`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E11, AB1, AB10, Z5, S7).
 
@@ -3046,7 +3046,7 @@ The base dimension stays put. Every other one keeps the side of it that it is on
 **Limits and versions.**
 - A dimension that is not parallel to the base is left where it is and listed in "skipped"; one that is not linear or aligned is skipped too.
 - Fewer than two dimensions, a base that is not in the list, or a negative spacing is refused before anything moves.
-- The plug-in does part of the work (`dimension_lines`, `move_dimension_lines`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`dimension_lines`, `move_dimension_lines`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB2).
 
@@ -3123,7 +3123,7 @@ The consultant's background as a PDF, a scanned survey, a site photo: it shows i
 **Limits and versions.**
 - A file that is not there, or not an image or underlay type, is refused before AutoCAD is asked.
 - A PDF page or DWF sheet that is not in the file is refused by the plug-in, and nothing is changed.
-- The plug-in does part of the work (`attach_underlay`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`attach_underlay`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD3).
 
@@ -3226,7 +3226,7 @@ Show only the part of the architect's plan, the survey or the PDF that the sheet
 - An object that is not an xref, block, image or underlay is refused.
 - An outline that is open, crosses itself or encloses no area is refused before anything changes.
 - Both or neither of corners and boundary (without remove) is refused.
-- The plug-in does part of the work (`clip_reference`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`clip_reference`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD4).
 
@@ -3705,7 +3705,7 @@ After a block's definition changed (an attribute added, removed, moved or resize
 **Limits and versions.**
 - A block that is not in the drawing points at autocad_list_blocks.
 - A new tag that the block already has is refused before anything changes.
-- The plug-in does part of the work (`sync_attributes`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`sync_attributes`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC3, AC6, AC17).
 
@@ -3873,7 +3873,7 @@ AutoCAD's LAYISO and LAYUNISO. Before the first isolate, Heron saves the layers 
 **Limits and versions.**
 - 'unisolate' with nothing isolated by Heron says so and changes nothing.
 - A layer name the drawing has not got is refused before anything changes.
-- The plug-in does part of the work (`layer_state`, `layer_state_names`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`layer_state`, `layer_state_names`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB6).
 
@@ -3941,7 +3941,7 @@ A layer state remembers which layers are on, frozen and locked (and, unless you 
 **Limits and versions.**
 - Saving over a state that is there already needs overwrite=true.
 - Restoring or deleting a state the drawing has not got is refused, naming autocad_list_layers.
-- The plug-in does part of the work (`layer_state`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`layer_state`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB5).
 
@@ -3970,7 +3970,7 @@ Reading the layer list first is the reliable way to use the drawing's own naming
 - Technical shape of the answer: `JSON: {"count": int, "current_layer": str, "layers": [ {"name": str, "color": int, "linetype": str, "lineweight": int, "on": bool, "frozen": bool, "locked": bool, "plottable": bool, "entity_count": int}], "layer_states": [{"name": str ...`
 
 **Limits and versions.**
-- The plug-in does part of the work (`layer_state_names`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`layer_state_names`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q3, V2, AB5, AL1).
 
@@ -4142,7 +4142,7 @@ Say where to look — a point, a window, a saved view, or a set of objects — a
 **Limits and versions.**
 - An area that will not fit the viewport at any standard scale says so and names the smallest one tried.
 - A saved view the drawing does not have is reported with the ones it has.
-- The plug-in does part of the work (`add_viewport`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_viewport`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **PARTLY**: rows D16 passed in AutoCAD 2027; the rest are NOT RUN (rows D13, D14, D15, D16, D19, AF5, AF6, AF7, AF8, AF11, AF19, AQ7, AL7, S9).
 
@@ -4176,7 +4176,7 @@ Returns the sheet's arithmetic worked out — paper size, frame, the corner a ti
 **Limits and versions.**
 - A name already in the drawing is refused before anything is made.
 - copy_from naming a layout that is not there lists the ones that are.
-- The plug-in does part of the work (`create_layout`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`create_layout`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **FAIL**: a live row failed and has not passed since (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22). Do not rely on it.
 
@@ -4367,7 +4367,7 @@ Each layout is plotted with its own page setup - paper, scale, plot style - as P
 - A drawing never saved, or with unsaved changes, is refused: save it with autocad_save_drawing first.
 - With folder / drawings: a file that is not there, not a .dwg, open with unsaved changes, or with an xref that cannot be found, is named, and nothing is published.
 - A layout name that is not in the drawing(s) is named.
-- The plug-in does part of the work (`active_sheet`, `publish_pdf`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`active_sheet`, `publish_pdf`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows I3, I4, I5, I8, M7, AF12).
 
@@ -4438,7 +4438,7 @@ Each row of the list - sheet number, title, scale, view - becomes a layout named
 **Limits and versions.**
 - A number used twice or already a layout, a scale it cannot read, a view the drawing does not have, a title block it cannot find: all said at once, and nothing is made.
 - A sheet AutoCAD refuses part-way stops the run: the answer lists the sheets made and why it stopped; one Ctrl+Z takes them all back.
-- The plug-in does part of the work (`add_viewport`, `create_layout`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_viewport`, `create_layout`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AF9).
 
@@ -4483,7 +4483,7 @@ The view for a render, as AutoCAD's CAMERA command makes one: perspective on, th
 - The same eye and target, or a lens outside 10-600 mm, is refused.
 - A name already saved is refused unless replace=true; a layout's (paper space) view of that name is refused even then.
 - It works on the Model tab only: a layout is refused.
-- The plug-in does part of the work (`add_camera_view`, `current_view`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_camera_view`, `current_view`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE2, AE4).
 
@@ -4522,7 +4522,7 @@ The lamp is set as a lighting designer would: brightness in lumens or candela, c
 - A web light without a .ies file that exists is refused.
 - A falloff smaller than the hotspot is refused.
 - lux for a point, spot or web light, or cd / lm for a distant one, is refused: say which unit the number is in.
-- The plug-in does part of the work (`add_light`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_light`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows K1, K2, K3, K5, K6).
 
@@ -4557,7 +4557,7 @@ A mesh is faces and vertices that can be smoothed, which a render, an export to 
 - A shape missing a size names exactly what it needs.
 - A primitive and from_handle together are refused.
 - from_handle that is not a solid, surface or region is named.
-- The plug-in does part of the work (`add_mesh`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_mesh`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH11).
 
@@ -4595,7 +4595,7 @@ Follows a line, arc, circle, polyline or spline drawn flat in plan, or a list of
 - Both path and points, or neither, are refused.
 - A path not flat in plan is refused: the wall goes straight up.
 - A path that turns tighter than the wall is wide, or crosses itself, is refused with nothing changed.
-- The plug-in does part of the work (`add_polysolid`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_polysolid`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR4, AR6).
 
@@ -4633,7 +4633,7 @@ Follows a line, arc, circle, polyline or spline drawn flat in plan, or a list of
 **Limits and versions.**
 - Sides outside 3 to 32, or sizes not above zero, are refused before AutoCAD is asked.
 - Needs the Heron plug-in with this operation; an older one says to update.
-- The plug-in does part of the work (`add_pyramid`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`add_pyramid`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR1, AR2, AR3).
 
@@ -4706,7 +4706,7 @@ Planar: a flat surface filling each closed outline or region, or a rectangle fro
 - An open outline is refused: a planar surface fills a closed one.
 - Fewer than two curves either way is refused for a network.
 - Curves AutoCAD cannot make a surface of are refused with nothing changed.
-- The plug-in does part of the work (`network_surface`, `planar_surface`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`network_surface`, `planar_surface`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH10).
 
@@ -4774,7 +4774,7 @@ AutoCAD chamfers the edges of one face: name the face, and by default every edge
 **Limits and versions.**
 - A face word that picks more than one face is refused: give its number.
 - An edge that is not on that face is refused, with the face's edges.
-- The plug-in does part of the work (`chamfer_edges`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`chamfer_edges`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H5).
 
@@ -4845,7 +4845,7 @@ For renders and realistic views: laterite walls, teak doors, granite floors, gla
 - A name already in the drawing is refused unless replace=true.
 - An image path that is not there, or not an image, is refused.
 - texture_size without a texture or bump image, or texture_height without texture_size, is refused.
-- The plug-in does part of the work (`create_material`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`create_material`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows K8, K9, K10, K11, K12, K16, K15).
 
@@ -4918,7 +4918,7 @@ Faces are picked by a word ('top', 'front'...) or by the numbers autocad_list_so
 - An option the action does not take, or a missing one, is refused before AutoCAD is asked.
 - Deleting every face is refused; so is a face AutoCAD cannot close over (a box's side).
 - A face word that picks nothing, or a number not there, is refused with the range.
-- The plug-in does part of the work (`delete_faces`, `move_faces`, `offset_faces`, `taper_faces`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`delete_faces`, `move_faces`, `offset_faces`, `taper_faces`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR8, AR9).
 
@@ -4991,7 +4991,7 @@ One undo step.
 **Limits and versions.**
 - A word that picks no edge, or a number that is not there, is refused with the range.
 - A radius too big for the faces beside an edge is refused with nothing changed.
-- The plug-in does part of the work (`fillet_edges`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`fillet_edges`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **PARTLY**: rows J3 passed in AutoCAD 2027; the rest are NOT RUN (rows H1, H3, J3, AR10).
 
@@ -5029,7 +5029,7 @@ Each view is the solids seen square on, hidden lines removed, made as a block of
 - A handle that is not a 3D solid is named, with what it is.
 - A view name that is not one of the six is refused, with the list.
 - No lines for any view is refused with nothing changed.
-- The plug-in does part of the work (`flat_views`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`flat_views`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH4, AH5).
 
@@ -5064,7 +5064,7 @@ AutoCAD's online map (GEOMAP) then shows under the drawing, and the sun follows 
 **Limits and versions.**
 - Without a latitude and longitude, and with the sun's place still AutoCAD's default (San Francisco), it asks for the place instead of locating the drawing in California.
 - A drawing with no units, an unknown coordinate system, or a place AutoCAD reads back wrong is refused, and nothing is changed.
-- The plug-in does part of the work (`set_geo_location`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`set_geo_location`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ11, AQ12, AQ13).
 
@@ -5129,7 +5129,7 @@ A face split this way can then be pulled, offset or coloured on its own: a plint
 **Limits and versions.**
 - Anything that cannot be imprinted (text, a block) is named, with what it is.
 - An object that does not touch the solid changes nothing: the face count says so.
-- The plug-in does part of the work (`imprint_solid`, `solid_topology`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`imprint_solid`, `solid_topology`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR11).
 
@@ -5162,7 +5162,7 @@ Like AutoCAD's Lights in Model palette, from the chat: each light's handle, name
 **Limits and versions.**
 - Needs the Heron plug-in with the list_lights operation; an older one says it does not have it.
 - A variable this AutoCAD does not have reads as null.
-- The plug-in does part of the work (`list_lights`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`list_lights`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE9, AE14).
 
@@ -5224,7 +5224,7 @@ Each face: its kind (plane, cylinder...), area, centre, which way a flat one fac
 **Limits and versions.**
 - A handle that is not a 3D solid is named, with what it is.
 - Needs the Heron plug-in 1.2.0 or newer; an older one says to update.
-- The plug-in does part of the work (`solid_topology`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`solid_topology`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **PARTLY**: rows J3 passed in AutoCAD 2027; the rest are NOT RUN (rows H2, J3).
 
@@ -5261,7 +5261,7 @@ A rectangular-to-round duct transition, a tapered column, a hopper: draw each ou
 - An open outline is refused for a solid: a loft of open shapes is a surface; give surface=true.
 - Guides and a path together are refused: a loft follows one or the other.
 - Outlines AutoCAD cannot loft (crossing, out of order) are refused with nothing changed.
-- The plug-in does part of the work (`loft`, `loft_surface`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`loft`, `loft_surface`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H8, T5, AH9).
 
@@ -5297,7 +5297,7 @@ Raise a plinth, deepen a recess, stretch a box to a new length. One undo step.
 **Limits and versions.**
 - A curved face is refused: this moves flat faces.
 - A distance of 0 is refused before AutoCAD is asked.
-- The plug-in does part of the work (`press_pull`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`press_pull`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H7, AR11).
 
@@ -5335,7 +5335,7 @@ A section plane is put through the points and kept in the model; the 2D section 
 - Points that make no line or no plane are refused, with why.
 - A plane that cuts and sees none of the solids is refused with nothing changed.
 - A handle that is not a 3D solid is named, with what it is.
-- The plug-in does part of the work (`section_plane`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`section_plane`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH6, AH7, AH8).
 
@@ -5367,7 +5367,7 @@ The solid keeps one piece; each other piece becomes a new solid on the same laye
 
 **Limits and versions.**
 - A solid that is one piece already is refused: there is nothing to separate.
-- The plug-in does part of the work (`separate_solid`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`separate_solid`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AR12).
 
@@ -5468,7 +5468,7 @@ The place is the drawing's LATITUDE, LONGITUDE and TIMEZONE; the date and time l
 - A date or time that does not exist, or a UTC offset that is not a time zone, is refused before anything changes.
 - It works on the Model tab only: a layout is refused.
 - If the sun's date cannot be set after the place was, the error says the place was set and Ctrl+Z takes it back.
-- The plug-in does part of the work (`list_lights`, `set_sun`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`list_lights`, `set_sun`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE5, AE6, AE7, AE8, AQ12).
 
@@ -5502,7 +5502,7 @@ A tank, a tray, a sump, a box section: model the outside, then shell it. One und
 
 **Limits and versions.**
 - A wall thicker than the solid allows is refused with nothing changed.
-- The plug-in does part of the work (`shell`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`shell`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H6).
 
@@ -5636,7 +5636,7 @@ Name the lights or give their handles (autocad_list_lights lists them), or switc
 - A light name that is not in the drawing refuses the whole switch and lists the names there are; nothing is changed.
 - A light on a locked layer refuses the switch: unlock the layer.
 - A variable AutoCAD refuses is in "not_set"; the rest are set.
-- The plug-in does part of the work (`switch_lights`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`switch_lights`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE10, AE11, AE12).
 
@@ -5671,7 +5671,7 @@ One undo step.
 **Limits and versions.**
 - Anything that is not a surface is named, with what it is.
 - A thickness bigger than the surface's tightest curve is refused with nothing changed.
-- The plug-in does part of the work (`thicken`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`thicken`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows H9, AH9).
 
@@ -6044,7 +6044,7 @@ For issuing a drawing to a consultant: the saved drawing, its xrefs (nested ones
 - An unsaved drawing, or one with unsaved changes, is refused: save it first.
 - A folder that does not exist is refused before anything is written.
 - Files not found are listed under 'missing', never guessed.
-- The plug-in does part of the work (`list_dependencies`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`list_dependencies`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD10, AD11).
 
@@ -6679,7 +6679,7 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**: Select and Z
 **Limits and versions.**
 - Handles that are not in the drawing come back in not_found; the rest are still shown.
 - Needs Heron's plug-in in AutoCAD (it does the selecting).
-- The plug-in does part of the work (`show`); it needs plug-in **1.8.0** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`show`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows M1, O3, AD1).
 

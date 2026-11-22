@@ -9,8 +9,10 @@
 #      one in the install folder must. Then the setup and its uninstaller while a stand-in
 #      "acad.exe" runs: both must refuse
 #   5. the uninstaller: Heron's files and Claude entries go, the modeller's own files stay
-# Claude Code is a stand-in claude.cmd that writes down how it was called; Claude Desktop is a
-# config file with one other entry, which must survive.
+# Claude Code is a stand-in claude.cmd that writes down how it was called and writes the entry
+# into .claude.json the way "claude mcp add/remove" does; Claude Desktop is a config file with
+# one other entry, which must survive, and from step 2 also the Microsoft Store app's data
+# folder (#233).
 param([Parameter(Mandatory = $true)] [string]$Dist)
 $ErrorActionPreference = 'Stop'
 if (-not $env:GITHUB_ACTIONS -and -not $env:HERON_CHECK_SETUP_HERE) {
@@ -25,6 +27,8 @@ $bundle = Join-Path $env:APPDATA 'Autodesk\ApplicationPlugins\HeronAutoCAD.bundl
 $app = Join-Path $env:LOCALAPPDATA 'Heron\autocad'
 $server = Join-Path $app 'autocad-mcp.exe'
 $desktopCfg = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
+$storeCfg = Join-Path $env:LOCALAPPDATA 'Claude-Data\anthropicpbc.claude_heroncheck\claude_desktop_config.json'
+$claudeJson = Join-Path $env:USERPROFILE '.claude.json'
 $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Heron AI for AutoCAD'
 $appKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{9B2C4D6E-8F10-4A3B-8C5D-7E9F1A2B3C40}_is1'
 $winps = Join-Path $env:windir 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -37,12 +41,33 @@ function Check([bool]$ok, [string]$what) {
     if ($ok) { Write-Output "PASS  $what" } else { Write-Output "FAIL  $what"; $script:failures++ }
 }
 
-# Claude Code: a stand-in that writes down its arguments. Claude Desktop: a config with another entry.
+# Claude Code: a stand-in that writes down its arguments and keeps .claude.json as claude does.
+# Claude Desktop: a config with another entry.
 $bin = Join-Path $work 'bin'
 New-Item -ItemType Directory -Force $bin | Out-Null
 $calls = Join-Path $work 'claude-calls.txt'
-Set-Content (Join-Path $bin 'claude.cmd') "@echo %*>>`"$calls`"" -Encoding ascii
+$escaped = $server -replace '\\', '\\'
+Set-Content (Join-Path $bin 'claude.cmd') @(
+    '@echo off',
+    "echo %*>>`"$calls`"",
+    "if `"%2`"==`"add`" echo {`"mcpServers`":{`"autocad`":{`"type`":`"stdio`",`"command`":`"$escaped`",`"args`":[]}}}>`"$claudeJson`"",
+    "if `"%2`"==`"remove`" echo {`"mcpServers`":{}}>`"$claudeJson`""
+) -Encoding ascii
 $env:PATH = "$bin;$env:PATH"
+Remove-Item $claudeJson -Force -ErrorAction SilentlyContinue
+
+function Code-Entry {
+    if (-not (Test-Path $claudeJson)) { return $null }
+    $cfg = Get-Content $claudeJson -Raw | ConvertFrom-Json
+    if ($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad']) { return [string]$cfg.mcpServers.autocad.command }
+    return $null
+}
+
+function Store-Entry([string]$name) {
+    $cfg = Get-Content $storeCfg -Raw | ConvertFrom-Json
+    if ($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties[$name]) { return [string]$cfg.mcpServers.$name.command }
+    return $null
+}
 New-Item -ItemType Directory -Force (Split-Path $desktopCfg) | Out-Null
 Set-Content $desktopCfg '{"mcpServers":{"other":{"command":"x"}}}' -Encoding ascii
 # The modeller's own files, which no uninstall may touch.
@@ -95,14 +120,20 @@ Check ($LASTEXITCODE -eq 0) "zip Install.ps1 finished (exit $LASTEXITCODE)"
 Check (Test-Path (Join-Path $bundle 'PackageContents.xml')) 'zip: the plug-in is in ApplicationPlugins'
 Check (Test-Path $server) 'zip: the server is in %LOCALAPPDATA%\Heron\autocad'
 Check ((Desktop-Entry 'autocad') -eq $server) 'zip: Claude Desktop points at the server'
+Check ((Code-Entry) -eq $server) 'zip: Claude Code points at the server'
+Check ($out -match 'Claude Code:\s+connected \(all projects\)') 'zip: it says Claude Code is connected'
 
 # 2. the setup over the zip install, with a file the new version does not have. The Claude
 #    settings the zip wrote are wiped first, so what is found after comes from the setup.
+#    The Microsoft Store Claude app's data folder is there too now (#233).
 $stale = Join-Path $bundle 'Contents\R24\stale-from-old-version.dll'
 Set-Content $stale 'old' -Encoding ascii
 Set-Content $desktopCfg '{"mcpServers":{"other":{"command":"x"}}}' -Encoding ascii
 Remove-Item "$desktopCfg.heron-backup" -Force
 Remove-Item $calls -Force
+Remove-Item $claudeJson, "$claudeJson.heron-backup" -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force (Split-Path $storeCfg) | Out-Null
+Set-Content $storeCfg '{"preferences":{"a":{"b":1}},"mcpServers":{"other":{"command":"y"}}}' -Encoding ascii
 $code = Run-Setup 'setup-over-zip'
 Check ($code -eq 0) "setup over the zip install finished (exit $code)"
 Check (-not (Test-Path $stale)) 'setup: the old bundle was replaced whole (stale file gone)'
@@ -121,7 +152,19 @@ Check ((Desktop-Entry 'autocad') -eq $server) 'setup: Claude Desktop points at t
 Check ((Desktop-Entry 'other') -eq 'x') 'setup: the other Claude Desktop entry is kept'
 Check (Test-Path "$desktopCfg.heron-backup") 'setup: the old Claude Desktop file is kept as .heron-backup'
 Check ((Get-Content $calls -Raw) -match [regex]::Escape("mcp add --scope user autocad -- $server")) 'setup: Claude Code was given the server for all projects'
-Check ((Select-String -Path (Join-Path $logs 'setup-over-zip.log') -Pattern 'Install.ps1 -Connect: Claude Code:' -Quiet)) 'setup: its log has what Install.ps1 -Connect said'
+Check ((Code-Entry) -eq $server) 'setup: Claude Code points at the server'
+Check ((Store-Entry 'autocad') -eq $server) 'setup: the Store Claude app points at the server'
+Check ((Store-Entry 'other') -eq 'y') 'setup: the Store Claude app''s other entry is kept'
+Check (Test-Path "$storeCfg.heron-backup") 'setup: the Store Claude app''s old file is kept as .heron-backup'
+Check ((Select-String -Path (Join-Path $logs 'setup-over-zip.log') -Pattern 'Install.ps1 -Connect: Claude Code:\s+connected \(all projects' -Quiet)) 'setup: its log says Claude Code is connected'
+
+# ...and a setup run again leaves the entries as they are, and says so
+Remove-Item $calls -Force
+$code = Run-Setup 'setup-again'
+Check ($code -eq 0) "setup run again finished (exit $code)"
+Check (-not (Test-Path $calls)) 'setup again: Claude Code was not called (its entry is already there)'
+Check ((Select-String -Path (Join-Path $logs 'setup-again.log') -Pattern 'Claude Code:\s+already connected' -Quiet)) 'setup again: its log says Claude Code is already connected'
+Check ((Desktop-Entry 'autocad') -eq $server -and (Store-Entry 'autocad') -eq $server) 'setup again: both Claude Desktop files still point at the server'
 
 # 3. the zip's Uninstall route on a setup install removes nothing
 $out = & $winps -NoProfile -ExecutionPolicy Bypass -File (Join-Path $zip.FullName 'Install.ps1') -Uninstall 2>&1 | Out-String
@@ -161,7 +204,7 @@ Remove-Item $marker -Force
 $previous = Join-Path $app 'previous'
 New-Item -ItemType Directory -Force $previous | Out-Null
 Set-Content (Join-Path $previous 'kept-by-install-bat.txt') 'old' -Encoding ascii
-$removes = @(Get-Content $calls | Where-Object { $_ -match 'mcp remove autocad' }).Count
+$removes = @(Get-Content $calls -ErrorAction SilentlyContinue | Where-Object { $_ -match 'mcp remove --scope user autocad' }).Count
 $code = Run-Uninstall 'uninstall'
 Check ($code -eq 0) "uninstall finished (exit $code)"
 Check (-not (Test-Path $bundle)) 'uninstall: the plug-in is gone'
@@ -172,7 +215,9 @@ Check (-not (Test-Path $appKey)) 'uninstall: Windows Apps no longer lists Heron'
 Check (-not (Test-Path $menu)) 'uninstall: the Start menu entries are gone'
 Check ($null -eq (Desktop-Entry 'autocad')) 'uninstall: the Claude Desktop entry is gone'
 Check ((Desktop-Entry 'other') -eq 'x') 'uninstall: the other Claude Desktop entry is kept'
-Check (@(Get-Content $calls | Where-Object { $_ -match 'mcp remove autocad' }).Count -gt $removes) 'uninstall: Claude Code''s entry was removed'
+Check (@(Get-Content $calls -ErrorAction SilentlyContinue | Where-Object { $_ -match 'mcp remove --scope user autocad' }).Count -gt $removes) 'uninstall: Claude Code was told to remove its entry, for all projects only'
+Check ($null -eq (Code-Entry)) 'uninstall: the Claude Code entry is gone'
+Check ($null -eq (Store-Entry 'autocad') -and (Store-Entry 'other') -eq 'y') 'uninstall: the Store Claude app''s entry is gone, its other entry kept'
 Check (Test-Path (Join-Path $app 'commands\keep.json')) 'uninstall: the modeller''s own files are kept'
 
 Write-Output ''

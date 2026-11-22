@@ -4,6 +4,40 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.8.1 - 2026-11-22 - The setup connects the Claude app (#233)
+
+**Heron AI for AutoCAD plug-in 1.8.1, with server 1.10.2 inside.** Tag `v1.8.1`, a full release
+(GitHub's *Latest*, as the owner chose for 1.8.0), with `HeronAutoCAD-1.8.1-setup.exe`,
+`HeronAutoCAD-1.8.1-win64.zip` and `checksums.txt`, built by `release.yml` from the tagged code.
+It is made for [#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233), and it also
+carries the three changes merged after 1.8.0 (D-123, D-124 with the code fix for
+[#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), D-125), so the release, `main`
+and the package are one version. Those three are **tested offline only: their live rows are NOT
+RUN.** Not code-signed (#164). Server 1.10.2 because `src/` changed (D-125).
+
+- **The setup connects Claude when Claude is only the Claude desktop app (2026-11-22,
+  [#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233), [D-126](docs/DECISIONS.md)).**
+  1.8.0's setup said `Claude Code: not found, skipped` and `Claude Desktop: not found, skipped` on
+  such a PC. `Install.ps1 -Connect`, which the setup and `Install.bat` both run, now:
+  - finds Claude Code also as `%USERPROFILE%\.local\bin\claude.exe` and as the copy the Claude app
+    runs in its Code tab (`%LOCALAPPDATA%\Claude-Data\...\claude-code\...\claude.exe`), and adds
+    the entry with that program's own `claude mcp add --scope user`; it says "connected" only
+    after reading the entry back;
+  - finds Claude Desktop's `claude_desktop_config.json` also in the Microsoft Store app's
+    `%LOCALAPPDATA%\Claude-Data\<package>`, and skips the old `%APPDATA%\Claude` the app left;
+  - **never replaces an `autocad` entry already there** (it names it), and its uninstall removes
+    only an entry that starts Heron's installed server;
+  - leaves Claude Desktop's file alone while the Claude app is open (the app rewrites it), and
+    says to quit Claude and run it again;
+  - saves each file as `<name>.heron-backup` just before it changes;
+  - when nothing is found, prints the exact entry and where it goes;
+  - takes `-DryRun` with `-Connect` or `-Disconnect`, to say what it would change.
+  Offline: `tests/test_install_connect.py` runs the real script in Windows PowerShell 5.1 on
+  made-up profiles (Store app only, `claude` on the PATH, nothing found, an entry already there,
+  Claude open, dry run, uninstall), and `Check-Setup.ps1` runs the setup with a Store app folder
+  in `release.yml`. Live rows AK13, AK15 and AK16 in NEEDS-CHECKING.
 - **Sheets, preview and counts fixed after the SAC2 split AC set (2026-11-22, [D-125](docs/DECISIONS.md)).**
   Built and tested offline only; live rows AF19-AF24 are NOT RUN. The server part works after a
   server restart; the plug-in part needs a plug-in built from this change.

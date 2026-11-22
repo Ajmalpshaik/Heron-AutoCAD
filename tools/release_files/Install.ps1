@@ -8,14 +8,19 @@
 # -Connect and -Disconnect only add or remove the "autocad" entry in Claude Code and Claude
 #  Desktop, without asking. The setup program (HeronAutoCAD-<version>-setup.exe) copies the
 #  files itself and runs these two, so both ways of installing set Claude up the same (D-99).
-param([switch]$Uninstall, [switch]$Rollback, [switch]$CheckUpdate, [switch]$Connect, [switch]$Disconnect)
+# -DryRun, with -Connect or -Disconnect, only says what they would change. It changes nothing.
+param([switch]$Uninstall, [switch]$Rollback, [switch]$CheckUpdate, [switch]$Connect, [switch]$Disconnect, [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $plugins = Join-Path $env:APPDATA 'Autodesk\ApplicationPlugins'
 $target = Join-Path $plugins 'HeronAutoCAD.bundle'
 $serverDir = Join-Path $env:LOCALAPPDATA 'Heron\autocad'
 $server = Join-Path $serverDir 'autocad-mcp.exe'
-$desktopCfg = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
+# Claude Code keeps its "all projects" servers in .claude.json (CLAUDE_CONFIG_DIR moves it).
+$claudeJson = Join-Path $(if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { $env:USERPROFILE }) '.claude.json'
+# The entry as it is typed into a settings file by hand, and the indent of a report's second line.
+$handEntry = '"autocad": {"command": "' + ($server -replace '\\', '\\') + '"}'
+$pad = ' ' * 20
 # The version an update replaced, kept so Rollback.bat can put it back.
 $previous = Join-Path $serverDir 'previous'
 $releases = 'https://api.github.com/repos/Ajmalpshaik/Heron-AutoCAD/releases?per_page=10'
@@ -77,68 +82,311 @@ if ($CheckUpdate) {
     exit 0
 }
 
-# Windows PowerShell's "utf8" adds a byte-order mark, which Claude Desktop cannot read. Its
-# Get-Content reads a file without one as ANSI, so the file is read with ReadAllText (UTF-8).
-function Save-Config($cfg) {
-    [IO.File]::WriteAllText($desktopCfg, ($cfg | ConvertTo-Json -Depth 10), (New-Object Text.UTF8Encoding $false))
+# --- Claude (#233, D-126) ------------------------------------------------------------------
+# Where an ordinary program (this script, the setup) finds Claude on the real disk:
+#  - Claude Code: the "claude" command; %USERPROFILE%\.local\bin\claude.exe, where its own
+#    installer puts it; or the copy the Claude desktop app runs in its Code tab, in the app's
+#    data folder. Its "all projects" servers are in $claudeJson, which running Claude sessions
+#    write all the time, so Heron changes them only through "claude mcp add/remove".
+#  - Claude Desktop: claude_desktop_config.json in the app's data folder. The Microsoft Store app
+#    keeps it in %LOCALAPPDATA%\Claude-Data\<package>; the older installer in %APPDATA%\Claude;
+#    an older Store app in its private copy of %APPDATA%,
+#    %LOCALAPPDATA%\Packages\AnthropicPBC.Claude_*\LocalCache\Roaming\Claude.
+# An "autocad" entry already there is never replaced, only an entry that starts this server is
+# ever removed, every file is saved as .heron-backup before it changes, and Claude Desktop's
+# file is left alone while Claude is open (it may save its own copy over the change).
+
+# Windows PowerShell's Get-Content reads a file with no byte-order mark as ANSI, so a settings
+# file is read with ReadAllText (UTF-8). $null when it is missing or empty; an error when it is
+# not JSON.
+function Read-Settings([string]$file) {
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    $raw = [IO.File]::ReadAllText($file)
+    if (-not ($raw -and $raw.Trim())) { return $null }
+    return ($raw | ConvertFrom-Json)
 }
 
-# "claude mcp remove" prints an error when there is nothing to remove. Under 'Stop',
-# Windows PowerShell 5.1 turns any such line into a failure, so run claude without it.
-function Invoke-Claude([string[]]$arguments) {
+# Windows PowerShell's "utf8" adds a byte-order mark, which Claude Desktop cannot read. Depth 100,
+# the most it takes, so the app's own deeper settings are written back whole.
+function Save-Settings([string]$file, $cfg) {
+    [IO.File]::WriteAllText($file, ($cfg | ConvertTo-Json -Depth 100), (New-Object Text.UTF8Encoding $false))
+}
+
+# The "autocad" entry of a Claude Desktop settings object, or $null.
+function Get-AutocadEntry($cfg) {
+    if ($cfg -and $cfg.PSObject.Properties['mcpServers'] -and $cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad']) {
+        return $cfg.mcpServers.autocad
+    }
+    return $null
+}
+
+# Claude Code's "autocad" entry for all projects, as { command, url }, or $null. Read with .NET's
+# own JSON reader: ConvertFrom-Json refuses a file whose keys differ only in case, and
+# .claude.json lists project folders, which on Windows can. Nothing here writes the file.
+function Get-ClaudeCodeEntry {
+    if (-not (Test-Path -LiteralPath $claudeJson)) { return $null }
+    $raw = [IO.File]::ReadAllText($claudeJson)
+    if (-not ($raw -and $raw.Trim())) { return $null }
+    Add-Type -AssemblyName System.Web.Extensions
+    $reader = New-Object Web.Script.Serialization.JavaScriptSerializer
+    $reader.MaxJsonLength = [int]::MaxValue
+    $all = $reader.DeserializeObject($raw)
+    if (-not ($all -is [Collections.IDictionary]) -or -not ($all['mcpServers'] -is [Collections.IDictionary])) { return $null }
+    $entry = $all['mcpServers']['autocad']
+    if ($null -eq $entry) { return $null }
+    if (-not ($entry -is [Collections.IDictionary])) { return [pscustomobject]@{ command = $null; url = $null } }
+    return [pscustomobject]@{ command = $entry['command']; url = $entry['url'] }
+}
+
+# What an entry starts, in a few words.
+function Get-EntryText($entry) {
+    if ($entry.PSObject.Properties['command'] -and $entry.command) { return [string]$entry.command }
+    if ($entry.PSObject.Properties['url'] -and $entry.url) { return [string]$entry.url }
+    return 'something other than a program'
+}
+
+function Test-StartsHeron($entry) {
+    return [bool]($entry -and ((Get-EntryText $entry) -eq $server))
+}
+
+# A folder that holds a note ".user-data-left.<package>" is where Claude's data was before the
+# app moved it: nothing reads it any more.
+function Test-DataLeft([string]$folder) {
+    return [bool](Get-ChildItem -LiteralPath $folder -Force -Filter '.user-data-left.*' -ErrorAction SilentlyContinue)
+}
+
+# The Claude desktop app's data folders on this PC (above).
+function Get-ClaudeAppFolders {
+    $roaming = Join-Path $env:APPDATA 'Claude'
+    if ((Test-Path -LiteralPath $roaming) -and -not (Test-DataLeft $roaming)) { $roaming }
+    Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Claude-Data') -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+    Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter 'AnthropicPBC.Claude_*' -ErrorAction SilentlyContinue | ForEach-Object {
+        $copy = Join-Path $_.FullName 'LocalCache\Roaming\Claude'
+        if ((Test-Path -LiteralPath $copy) -and -not (Test-DataLeft $copy)) { $copy }
+    }
+}
+
+# Claude Desktop's settings files: the one in each app folder that has one, and the older
+# installer's %APPDATA%\Claude, where the file may not be made yet.
+function Get-DesktopConfigs {
+    foreach ($folder in @(Get-ClaudeAppFolders)) {
+        $file = Join-Path $folder 'claude_desktop_config.json'
+        if ((Test-Path -LiteralPath $file) -or $folder -eq (Join-Path $env:APPDATA 'Claude')) { $file }
+    }
+}
+
+# Claude Code: the "claude" command (never a Windows app alias, which would start an app), then
+# the copy its own installer makes, then the newest copy a Claude app runs in its Code tab.
+function Find-ClaudeCode {
+    $command = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue |
+        Where-Object { $_.Source -notmatch '\\Microsoft\\WindowsApps\\' } | Select-Object -First 1
+    if ($command) { return $command.Source }
+    $own = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
+    if (Test-Path -LiteralPath $own) { return $own }
+    $inApp = @(Get-ClaudeAppFolders | ForEach-Object {
+            Get-ChildItem -LiteralPath (Join-Path $_ 'claude-code') -Recurse -Filter 'claude.exe' -ErrorAction SilentlyContinue
+        }) | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($inApp) { return $inApp.FullName }
+    return $null
+}
+
+# Claude Desktop holds the "lockfile" in its data folder while it runs.
+function Test-ClaudeOpen([string]$folder) {
+    $lock = Join-Path $folder 'lockfile'
+    if (-not (Test-Path -LiteralPath $lock)) { return $false }
+    try { [IO.File]::Open($lock, 'Open', 'Read', 'None').Dispose(); return $false } catch { return $true }
+}
+
+# Runs Claude Code from Heron's own folder, never the caller's project (whose .mcp.json is not
+# Heron's), and returns its exit code; its first line is kept in $script:claudeSaid. Under 'Stop',
+# Windows PowerShell 5.1 turns a line on stderr into a failure, so it runs without it.
+function Invoke-Claude([string]$cli, [string[]]$arguments) {
+    $script:claudeSaid = ''
     $old = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try { & claude @arguments 2>$null | Out-Null } finally { $ErrorActionPreference = $old }
+    $where = if (Test-Path -LiteralPath $serverDir) { $serverDir } else { [IO.Path]::GetTempPath() }
+    Push-Location -LiteralPath $where
+    try {
+        $said = @(& $cli @arguments 2>&1 | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+        $code = $LASTEXITCODE
+        if ($said) { $script:claudeSaid = $said[0] }
+    } catch {
+        $code = -1
+        $script:claudeSaid = $_.Exception.Message
+    } finally {
+        Pop-Location
+        $ErrorActionPreference = $old
+    }
+    return $code
 }
 
-# Tells Claude Code (all projects) and Claude Desktop where the server is. Other settings are
-# kept; Claude Desktop's file is saved as .heron-backup first. Returns one line per Claude.
-function Connect-Claude {
-    if (Get-Command claude -ErrorAction SilentlyContinue) {
-        Invoke-Claude @('mcp', 'remove', 'autocad')
-        Invoke-Claude @('mcp', 'add', '--scope', 'user', 'autocad', '--', $server)
-        'Claude Code:        connected (all projects)'
-    } else {
-        'Claude Code:        not found, skipped'
-    }
-    $desktopDir = Split-Path $desktopCfg
-    if (-not (Test-Path $desktopDir)) {
-        'Claude Desktop:     not found, skipped'
+function Connect-ClaudeCode {
+    $say = 'Claude Code:        '
+    try { $entry = Get-ClaudeCodeEntry } catch {
+        "${say}could not read $claudeJson, so nothing was changed."
         return
     }
-    $cfg = [pscustomobject]@{}
-    if (Test-Path $desktopCfg) {
-        Copy-Item $desktopCfg "$desktopCfg.heron-backup" -Force
-        $raw = [IO.File]::ReadAllText($desktopCfg)
-        if ($raw -and $raw.Trim()) { $cfg = $raw | ConvertFrom-Json }
+    if ($entry) {
+        if (Test-StartsHeron $entry) { "${say}already connected (all projects)" }
+        else { "${say}already has an ""autocad"" entry, left as it is: it starts $(Get-EntryText $entry)" }
+        return
     }
-    if (-not $cfg.PSObject.Properties['mcpServers']) {
-        $cfg | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{})
+    $cli = Find-ClaudeCode
+    if (-not $cli) {
+        "${say}not found, so nothing was added. Once Claude Code or the Claude app is installed, run this again."
+        "${pad}Or add by hand, in ""mcpServers"" of a folder's .mcp.json: $handEntry"
+        return
     }
-    $entry = [pscustomobject]@{ command = $server }
-    if ($cfg.mcpServers.PSObject.Properties['autocad']) { $cfg.mcpServers.autocad = $entry }
-    else { $cfg.mcpServers | Add-Member -NotePropertyName autocad -NotePropertyValue $entry }
-    Save-Config $cfg
-    'Claude Desktop:     connected (restart it; old settings saved as .heron-backup)'
+    $hadFile = Test-Path -LiteralPath $claudeJson
+    if ($DryRun) {
+        "${say}would add ""autocad"" for all projects: ""$cli"" mcp add --scope user autocad -- ""$server"""
+        if ($hadFile) { "${pad}after saving $claudeJson as .heron-backup" }
+        return
+    }
+    if ($hadFile) { Copy-Item -LiteralPath $claudeJson "$claudeJson.heron-backup" -Force }
+    $code = Invoke-Claude $cli @('mcp', 'add', '--scope', 'user', 'autocad', '--', $server)
+    $entry = $null
+    try { $entry = Get-ClaudeCodeEntry } catch { }
+    if (Test-StartsHeron $entry) {
+        "${say}connected (all projects$(if ($hadFile) { '; old settings saved as .heron-backup' }))"
+    } else {
+        "${say}not connected: Claude Code said ""$($script:claudeSaid)"" (code $code)."
+        "${pad}Add it by hand: docs\INSTALL.md section 5."
+    }
 }
 
-# Takes the "autocad" entry out of Claude Code and Claude Desktop. Nothing else is touched.
-function Disconnect-Claude {
-    if (Get-Command claude -ErrorAction SilentlyContinue) {
-        Invoke-Claude @('mcp', 'remove', 'autocad')
-        'Claude Code:        "autocad" entry removed'
+function Connect-ClaudeDesktop {
+    $say = 'Claude Desktop:     '
+    $files = @(Get-DesktopConfigs)
+    if (-not $files) {
+        "${say}not found, so nothing was added. Once the Claude app is installed, run this again."
+        "${pad}Or add by hand, in ""mcpServers"" of its claude_desktop_config.json: $handEntry"
+        return
     }
-    if (Test-Path $desktopCfg) {
-        $raw = [IO.File]::ReadAllText($desktopCfg)
-        if ($raw -and $raw.Trim()) {
-            $cfg = $raw | ConvertFrom-Json
-            if ($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad']) {
-                $cfg.mcpServers.PSObject.Properties.Remove('autocad')
-                Save-Config $cfg
-                'Claude Desktop:     "autocad" entry removed (restart it)'
-            }
+    foreach ($file in $files) {
+        $which = if ($files.Count -gt 1) { " $file" } else { '' }
+        if (Test-ClaudeOpen (Split-Path $file)) {
+            "${say}Claude is open, so its settings file was not changed: $file"
+            "${pad}Quit Claude (right-click its icon by the clock, Quit), then run this again."
+            continue
         }
+        try { $cfg = Read-Settings $file } catch {
+            "${say}could not read $file, so it was not changed."
+            continue
+        }
+        $entry = Get-AutocadEntry $cfg
+        if ($entry) {
+            if (Test-StartsHeron $entry) { "${say}already connected$which" }
+            else { "${say}already has an ""autocad"" entry$which, left as it is: it starts $(Get-EntryText $entry)" }
+            continue
+        }
+        $hadFile = Test-Path -LiteralPath $file
+        if ($DryRun) {
+            "${say}would add ""autocad"" to $file$(if ($hadFile) { ', after saving it as .heron-backup' })"
+            continue
+        }
+        if ($hadFile) { Copy-Item -LiteralPath $file "$file.heron-backup" -Force }
+        if (-not $cfg) { $cfg = [pscustomobject]@{} }
+        if (-not ($cfg.PSObject.Properties['mcpServers'] -and $cfg.mcpServers)) {
+            $cfg | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{}) -Force
+        }
+        $cfg.mcpServers | Add-Member -NotePropertyName autocad -NotePropertyValue ([pscustomobject]@{ command = $server })
+        Save-Settings $file $cfg
+        "${say}connected$which (restart Claude$(if ($hadFile) { '; old settings saved as .heron-backup' }))"
     }
+}
+
+# Tells Claude Code (all projects) and Claude Desktop where the server is. Returns the lines to
+# show, one or two per Claude.
+function Connect-Claude {
+    Connect-ClaudeCode
+    Connect-ClaudeDesktop
+}
+
+function Disconnect-ClaudeCode {
+    $say = 'Claude Code:        '
+    try { $entry = Get-ClaudeCodeEntry } catch {
+        "${say}could not read $claudeJson, so nothing was removed."
+        return
+    }
+    if (-not $entry) {
+        "${say}no ""autocad"" entry, nothing to remove"
+        return
+    }
+    if (-not (Test-StartsHeron $entry)) {
+        "${say}its ""autocad"" entry starts $(Get-EntryText $entry), not this Heron, so it was kept."
+        return
+    }
+    $cli = Find-ClaudeCode
+    if (-not $cli) {
+        "${say}no Claude Code found to take out its ""autocad"" entry: run ""claude mcp remove --scope user autocad"" once it is back."
+        return
+    }
+    if ($DryRun) {
+        "${say}would remove ""autocad"": ""$cli"" mcp remove --scope user autocad, after saving $claudeJson as .heron-backup"
+        return
+    }
+    Copy-Item -LiteralPath $claudeJson "$claudeJson.heron-backup" -Force
+    $code = Invoke-Claude $cli @('mcp', 'remove', '--scope', 'user', 'autocad')
+    $entry = $null
+    try { $entry = Get-ClaudeCodeEntry } catch { }
+    if (-not $entry) { "${say}""autocad"" entry removed (old settings saved as .heron-backup)" }
+    else { "${say}""autocad"" entry not removed: Claude Code said ""$($script:claudeSaid)"" (code $code)." }
+}
+
+function Disconnect-ClaudeDesktop {
+    $say = 'Claude Desktop:     '
+    foreach ($file in @(Get-DesktopConfigs)) {
+        try { $cfg = Read-Settings $file } catch {
+            "${say}could not read $file, so nothing was removed."
+            continue
+        }
+        $entry = Get-AutocadEntry $cfg
+        if (-not $entry) { continue }
+        if (-not (Test-StartsHeron $entry)) {
+            "${say}the ""autocad"" entry in $file starts $(Get-EntryText $entry), not this Heron, so it was kept."
+            continue
+        }
+        if (Test-ClaudeOpen (Split-Path $file)) {
+            "${say}Claude is open, so its ""autocad"" entry was left in $file."
+            "${pad}Quit Claude, then take the entry out of that file by hand."
+            continue
+        }
+        if ($DryRun) {
+            "${say}would remove ""autocad"" from $file, after saving it as .heron-backup"
+            continue
+        }
+        Copy-Item -LiteralPath $file "$file.heron-backup" -Force
+        $cfg.mcpServers.PSObject.Properties.Remove('autocad')
+        Save-Settings $file $cfg
+        "${say}""autocad"" entry removed from $file (restart Claude; old settings saved as .heron-backup)"
+    }
+}
+
+# Takes out an "autocad" entry that starts this server, in Claude Code and Claude Desktop.
+# Nothing else is touched.
+function Disconnect-Claude {
+    Disconnect-ClaudeCode
+    Disconnect-ClaudeDesktop
+}
+
+# True when Claude Code or Claude Desktop has an "autocad" entry that starts this server.
+function Test-HeronInClaude {
+    try { if (Test-StartsHeron (Get-ClaudeCodeEntry)) { return $true } } catch { }
+    foreach ($file in @(Get-DesktopConfigs)) {
+        try { if (Test-StartsHeron (Get-AutocadEntry (Read-Settings $file))) { return $true } } catch { }
+    }
+    return $false
+}
+
+# A dry run only says what -Connect or -Disconnect would change, so AutoCAD may stay open for it.
+if ($DryRun) {
+    [Console]::Out.WriteLine('Dry run: nothing is changed.')
+    if ($Disconnect) { $lines = Disconnect-Claude }
+    elseif ($Connect) { $lines = Connect-Claude }
+    else { $lines = @('Use -DryRun with -Connect or -Disconnect.') }
+    $lines | ForEach-Object { [Console]::Out.WriteLine($_) }
+    exit 0
 }
 
 if (Get-Process acad -ErrorAction SilentlyContinue) {
@@ -159,16 +407,7 @@ if ($Uninstall) {
         Write-Host '  (or Start menu > Heron AI for AutoCAD > Remove Heron AI for AutoCAD). Nothing was removed.' -ForegroundColor Yellow
         exit 0
     }
-    $hasClaude = [bool](Get-Command claude -ErrorAction SilentlyContinue)
-    $inDesktop = $false
-    if (Test-Path $desktopCfg) {
-        $raw = [IO.File]::ReadAllText($desktopCfg)
-        if ($raw -and $raw.Trim()) {
-            $cfg = $raw | ConvertFrom-Json
-            $inDesktop = [bool]($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad'])
-        }
-    }
-    if (-not ((Test-Path $target) -or (Test-Path $server) -or $inDesktop)) {
+    if (-not ((Test-Path $target) -or (Test-Path $server) -or (Test-HeronInClaude))) {
         Write-Host 'Heron AI for AutoCAD is not installed for this Windows user. Nothing to remove.' -ForegroundColor Yellow
         exit 0
     }
@@ -177,7 +416,7 @@ if ($Uninstall) {
     Write-Host "  - the plug-in   $target"
     Write-Host "  - the server    $server"
     if (Test-Path $previous) { Write-Host "  - the earlier version kept for Rollback.bat   $previous" }
-    Write-Host '  - the "autocad" entry in Claude Code and Claude Desktop'
+    Write-Host '  - the "autocad" entry in Claude Code and Claude Desktop, where it starts this server'
     Write-Host 'Your drawings and your other Claude settings are not touched.'
     Write-Host ''
     $answer = Read-Host 'Remove Heron? Type Y and press Enter to remove it, or just press Enter to keep it'
@@ -189,7 +428,7 @@ if ($Uninstall) {
     if (Test-Path $target) { Remove-Item $target -Recurse -Force }
     if (Test-Path $server) { Remove-Item $server -Force }
     if (Test-Path $previous) { Remove-Item $previous -Recurse -Force }
-    Disconnect-Claude | Out-Null
+    Disconnect-Claude | ForEach-Object { Write-Host $_ }
     Write-Host 'Heron AI for AutoCAD removed. Restart Claude Desktop if it is open.' -ForegroundColor Green
     exit 0
 }

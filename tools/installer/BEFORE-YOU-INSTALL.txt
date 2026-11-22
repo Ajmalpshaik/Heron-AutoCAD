@@ -16,8 +16,10 @@ Before you press Next
 What it changes (your Windows user only)
   - %APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle   (the plug-in)
   - %LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe                 (the server)
-  - the Claude Code and Claude Desktop settings get one "autocad" entry
-    (the old Claude Desktop settings are saved as claude_desktop_config.json.heron-backup)
+  - the Claude Code and Claude Desktop settings get one "autocad" entry, also when Claude is
+    only the Claude app. An "autocad" entry already there is kept as it is, and each
+    settings file is saved first as <name>.heron-backup. While the Claude app is open its
+    own settings file is not changed: quit it and run this again.
   No registry beyond Windows' own list of installed apps, no services, no firewall
   rules, no network ports.
 

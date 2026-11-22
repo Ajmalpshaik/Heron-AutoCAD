@@ -8,7 +8,22 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (six problems from the SAC2 split AC set, D-125)
+## Latest - 2026-11-22 (the setup connects the Claude app, #233, D-126; v1.8.1)
+
+`Install.ps1 -Connect` (the setup and `Install.bat`) now finds the Claude desktop app's own
+`claude.exe` and its `%LOCALAPPDATA%\Claude-Data\<package>\claude_desktop_config.json`, adds the
+entry through `claude mcp add --scope user`, never replaces an `autocad` entry already there,
+leaves the app's file alone while the app is open, and backs up every file first. `-DryRun` says
+what it would change. Offline: `tests/test_install_connect.py` (real script, made-up profiles) and
+`Check-Setup.ps1` in `release.yml`. **v1.8.1 = plug-in 1.8.1, server 1.10.2**, built from main, so it
+also carries D-123, D-124 (the code fix for #234) and D-125, all offline-tested only (the parent
+session chose this: release, main and package one version). Live: AK15 and AK16 PASS on the owner's PC (his
+yes): `.claude.json` now has the all-projects `autocad` entry (backup `.claude.json.heron-backup`);
+his source folder still starts its `.venv` server, another folder the installed one; the Claude
+app's own file was left alone (the app was open). AK13 (a whole 1.8.1 setup) NOT RUN. A plain
+`claude mcp list` in the source folder now warns "Conflicting scopes": harmless inside the app.
+
+## Earlier - 2026-11-22 (six problems from the SAC2 split AC set, D-125)
 
 Found drawing the SAC2 set live; fixed and tested offline in one PR, nothing run in AutoCAD.
 The add-in log (`%LOCALAPPDATA%\Heron\autocad\logs\addin-20261122.log`) named the viewport's bad

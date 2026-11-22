@@ -130,6 +130,47 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-126 - The setup finds the Claude app's own Claude Code and settings, and never replaces an entry
+
+**Decided:** 2026-11-22, after AK13 failed with setup 1.8.0 on a PC where Claude is only the
+Claude desktop app ([#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233)); Ajmal said
+"Yes, fix #233" and ship it as 1.8.1. **Status:** in force; offline tests
+(`tests/test_install_connect.py`) and `Check-Setup.ps1` in `release.yml`; on the owner's PC AK15
+(dry run) and AK16 (the Code tab connected, his source folder still on its `.venv` server) PASS;
+AK13 (a whole setup on a Claude-app-only PC) NOT RUN.
+
+`Install.ps1 -Connect` looked only for a `claude` command and for `%APPDATA%\Claude`. The Microsoft
+Store Claude app has neither: its Code tab runs its own `claude.exe` from
+`%LOCALAPPDATA%\Claude-Data\<package>\claude-code\<version>\...`, it keeps
+`claude_desktop_config.json` in `%LOCALAPPDATA%\Claude-Data\<package>`, and the `%APPDATA%\Claude`
+a program inside the app sees is its private copy, holding only a `.user-data-left.<package>` note.
+Seen on the owner's PC, from a terminal outside the app, which sees the real disk.
+
+- **Claude Code** is found as the `claude` command (never a Windows app alias), then
+  `%USERPROFILE%\.local\bin\claude.exe`, then the newest `claude.exe` under a Claude app data
+  folder's `claude-code`. The entry is added with that program's own
+  `claude mcp add --scope user autocad -- <server>`, run from Heron's folder, never by editing
+  `.claude.json`: running Claude sessions write that file all the time. It is read back after, and
+  "connected" is said only when it starts this server.
+- **Claude Desktop**: `claude_desktop_config.json` in each app data folder that has one
+  (`%LOCALAPPDATA%\Claude-Data\*`, and an older Store app's
+  `Packages\AnthropicPBC.Claude_*\LocalCache\Roaming\Claude`), and `%APPDATA%\Claude` as before. A folder with a `.user-data-left.*` note is
+  skipped. **While the app holds its `lockfile` (it is open) its file is not written**: the app
+  rewrites that file itself. The Code tab is connected anyway, through `claude mcp add`. Written
+  with `ConvertTo-Json -Depth 100`, not 10, so the app's deeper settings come back whole.
+- **An `autocad` entry already there is never replaced** (1.8.0 replaced it): it is left and named.
+  **Only an entry that starts this server is removed** (1.8.0 removed any `autocad`, in every
+  scope), so a developer's `.venv` entry survives an uninstall.
+- Every file is saved as `<name>.heron-backup` just before it changes, and only then.
+- Nothing found: the report gives the exact entry and where it goes, instead of "not found, skipped".
+- `-DryRun` with `-Connect` or `-Disconnect` says what would change and changes nothing; it runs
+  even with AutoCAD open, since it changes nothing.
+- `.claude.json` is read with .NET's `JavaScriptSerializer`: Windows PowerShell's `ConvertFrom-Json`
+  refuses keys that differ only in case, which project folders on Windows can be.
+
+Not done: no Start menu entry to connect again (running the setup again does it), and nothing reads
+`CLAUDE_CONFIG_DIR` beyond where `.claude.json` is.
+
 ## D-125 - Sheets follow the tab on screen and are never left turned; a tab switch is not an erase
 
 **Decided:** 2026-11-22, after the SAC2 split AC set was drawn live (AutoCAD 2027, server 1.10.1,

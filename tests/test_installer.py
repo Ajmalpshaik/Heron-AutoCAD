@@ -218,22 +218,64 @@ def test_install_ps1_has_one_way_to_set_claude_up():
     assert ps1.count("'mcp', 'add'") == 1, "the setup and Install.bat must share one Connect-Claude"
     assert ps1.count("Connect-Claude |") == 2 and ps1.count("Disconnect-Claude |") == 2
     acad = ps1.index("Get-Process acad")
-    for mode in ("if ($Connect)", "if ($Disconnect)"):
+    for mode in ("if ($Connect) { Connect-Claude |", "if ($Disconnect) { Disconnect-Claude |"):
         assert acad < ps1.index(mode) < ps1.index("if ($Uninstall)"), f"{mode} must come after the AutoCAD check"
-    connect = ps1[ps1.index("if ($Connect)"):ps1.index("if ($Uninstall)")]
+    # Only a dry run comes before the AutoCAD check, and it stops there.
+    dry = ps1[ps1.index("\nif ($DryRun) {"):acad]  # the script's own, not a function's
+    assert "exit 0" in dry and "Copy-Item" not in dry and "Invoke-Claude" not in dry
+    claude = ps1[ps1.index("# --- Claude (#233"):ps1.index("# A dry run only")]
+    assert "Read-Host" not in claude and "Remove-Item" not in claude, "setting Claude up never asks or deletes files"
+    connect = ps1[ps1.index("if ($Connect) { Connect-Claude |"):ps1.index("if ($Uninstall)")]
     assert "Read-Host" not in connect and "Remove-Item" not in connect
-    for name in ("Connect-Claude", "Disconnect-Claude"):
-        body = ps1[ps1.index(f"function {name} {{"):]
-        body = body[:body.index("\n}\n")]  # read_text gives \n for the file's CRLF
-        assert "Read-Host" not in body and "Remove-Item" not in body, f"{name} must never ask or delete files"
 
 
-def test_claude_desktops_file_is_read_as_utf8():
-    # Windows PowerShell 5.1's Get-Content reads a file with no byte-order mark as ANSI, and
-    # Save-Config writes UTF-8: a name with an accent would be spoiled on every save.
+def _functions(ps1: str) -> dict[str, str]:
+    """Each top-level function of Install.ps1 by name, with its body."""
+    found = {}
+    for part in ps1.split("\nfunction ")[1:]:
+        name = part.split("(")[0].split(" ")[0].strip()
+        found[name] = part[:part.index("\n}\n")]  # read_text gives \n for the file's CRLF
+    return found
+
+
+def test_setting_claude_up_writes_nothing_on_a_dry_run_and_backs_up_first():
+    for name, body in _functions(_install_ps1()).items():
+        writes = [body.index(w) for w in ("Copy-Item", "Save-Settings $", "Invoke-Claude $") if w in body]
+        if not writes or name in ("Invoke-Claude", "Save-Settings"):
+            continue
+        assert "if ($DryRun)" in body and body.index("if ($DryRun)") < min(writes), f"{name} must stop on a dry run"
+        if "Save-Settings $" in body:
+            assert body.index("Copy-Item") < body.index("Save-Settings $"), f"{name}: .heron-backup first"
+        if "Invoke-Claude $" in body:
+            assert body.index("Copy-Item") < body.index("Invoke-Claude $"), f"{name}: .heron-backup first"
+
+
+def test_an_autocad_entry_is_never_replaced_and_only_this_servers_is_removed():
+    functions = _functions(_install_ps1())
+    for name in ("Connect-ClaudeCode", "Connect-ClaudeDesktop"):
+        body = functions[name]
+        assert "'mcp', 'remove'" not in body and ".autocad =" not in body, f"{name} must never replace an entry"
+        assert body.index("if ($entry)") < body.index("if ($DryRun)"), f"{name}: an entry already there stops it"
+    for name in ("Disconnect-ClaudeCode", "Disconnect-ClaudeDesktop"):
+        body = functions[name]
+        assert body.index("Test-StartsHeron $entry") < body.index("if ($DryRun)"), f"{name}: only this server's entry"
+    assert "'mcp', 'remove', '--scope', 'user', 'autocad'" in functions["Disconnect-ClaudeCode"]
+    desktop = functions["Connect-ClaudeDesktop"]
+    assert desktop.index("Test-ClaudeOpen") < desktop.index("Save-Settings $"), "never while Claude is open"
+
+
+def test_claude_settings_are_read_and_written_as_utf8():
+    # Windows PowerShell 5.1's Get-Content reads a file with no byte-order mark as ANSI, and its
+    # "utf8" writes one, which Claude Desktop cannot read: a name with an accent would be spoiled.
     ps1 = _install_ps1()
-    assert "Get-Content $desktopCfg" not in ps1
-    assert ps1.count("[IO.File]::ReadAllText($desktopCfg)") == 3
+    functions = _functions(ps1)
+    code = [line for line in ps1.splitlines() if not line.lstrip().startswith("#")]
+    assert not [line for line in code if "Get-Content" in line]
+    assert ps1.count("[IO.File]::ReadAllText(") == 2
+    assert "[IO.File]::ReadAllText($file)" in functions["Read-Settings"]
+    assert "[IO.File]::ReadAllText($claudeJson)" in functions["Get-ClaudeCodeEntry"]
+    assert "New-Object Text.UTF8Encoding $false" in functions["Save-Settings"]
+    assert "-Depth 100" in functions["Save-Settings"], "the app's own deeper settings must come back whole"
 
 
 def test_install_bat_uninstall_sends_a_setup_install_to_windows_apps():
