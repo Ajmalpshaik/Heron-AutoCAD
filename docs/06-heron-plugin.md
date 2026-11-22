@@ -207,7 +207,10 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `sync_attributes` | `autocad_sync_attributes` | `AttributeReference.SetAttributeFromBlock`, `AttributeCollection.AppendAttribute` (ATTSYNC, [D-82](DECISIONS.md)) |
 | `excel_table` | `autocad_table_from_excel` | `DataLinkManager.AddDataLink`, `Cell.SetDataLink` ([D-83](DECISIONS.md)) |
 | `update_table_links` | `autocad_update_table_links` | `Table.UpdateDataLink(SourceToData, SkipFormat)` |
-| `count_entities` (Read) | `autocad_list_entities(summary_only=true)` | `Editor.SelectAll` with the same DXF filter COM uses; each object's class and layer ([D-114](DECISIONS.md)) |
+| `close_multiline` | `autocad_draw_multiline(closed=true)` | `Mline.IsClosed` (MLINE's Close: the last corner mitred, [D-97](DECISIONS.md)) |
+| `add_cv_spline` | `autocad_draw_spline(method="control_points")` | `new Spline(degree, control points, knots)`; the knots are worked out by the server ([D-97](DECISIONS.md)) |
+| `edit_spline_fit_points` | `autocad_edit_spline` | `Spline.SetFitPointAt`, `InsertFitPointAt`, `RemoveFitPointAt`, then the fit points read back against the plan ([D-97](DECISIONS.md)) |
+| `count_entities` (Read) | `autocad_list_entities(summary_only=true)`; with `space: model`, `autocad_drawing_report`'s count (#193) | `Editor.SelectAll` with the same DXF filter COM uses; each object's class and layer ([D-114](DECISIONS.md)) |
 | `entity_extents` (Read) | `autocad_get_extents(layer=...)` | `Editor.SelectAll`, `Entity.GeometricExtents` ([D-114](DECISIONS.md)) |
 | `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
 | `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |

@@ -28,6 +28,7 @@ from ._shared import (
     SPACE_OPT,
     created_payload,
     in_plugin,
+    not_flipped,
     plugin_created,
     point,
     ucs_for,
@@ -116,7 +117,7 @@ async def autocad_attach_xref(
                 "to date use autocad_manage_xref(action='reload'); to attach another copy, give "
                 "it a different name."
             )
-        ucs = ucs_for(doc, coords)
+        ucs = not_flipped(ucs_for(doc, coords), "an xref")
         with undo_mark(doc):
             try:
                 ref = get_space(doc, space).AttachExternalReference(

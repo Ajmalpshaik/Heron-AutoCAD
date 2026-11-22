@@ -4,6 +4,34 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
+  drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,
+  `autocad_add_multileader`, `autocad_table_from_excel` when it fills); the refusal says nothing was
+  left. `autocad_update_table_links` lists what it really returns. `autocad_make_block` is found
+  again for "make a tag block with a TAG attribute" (every finder phrase now in the top three).
+  Live row AN13 NOT RUN.
+
+- **The drawing report's model space count is the plug-in's too (2026-11-22, #193).** `autocad_drawing_report` counted model space two COM round trips per object (up to 50,000). `count_entities` now takes `space: model` and the same cut-off, walks model space in COM's own order, and says so in its answer; without that, or with an older plug-in, the report counts over COM as before. Same answer either way ([D-114](docs/DECISIONS.md)). Live rows AS10-AS11 NOT RUN.
+
+- **Check lists never PASS on a read that failed (2026-11-22, #211).** A dimension or text whose
+  size could not be read makes `no_overlapping_dimensions` / `text_heights` NO DATA, and a block
+  table that cannot be read makes `xrefs_found` NO DATA instead of "every xref found"
+  ([D-64](docs/DECISIONS.md)). `gather` is now tested on its own.
+
+- **The drawing tools (2026-11-21, #50, #51, #52, #55, #56).** One new tool, **192** in all (with the other sessions' tools).
+  `coords="ucs"` on every `autocad_draw_*` tool, text, mtext, dimensions and blocks, and move, copy,
+  rotate, scale, mirror and array: points, vertex lists and angles are read in the modeller's own
+  UCS, a rectangle comes out square to it, a horizontal dimension measures along its X. A flipped
+  UCS now turns angles the right way (in the batch too) and refuses text, blocks and dimensions,
+  which would read mirrored ([D-96](docs/DECISIONS.md)). `autocad_batch_draw` gains **mtext**,
+  **hatch** (a solid fill of its own outline, arcs and holes included) and linear **dimension**
+  operations; `section_mark`, `north_arrow`, `scale_bar` and `level_mark` take `filled=true`.
+  `autocad_break_at_blocks` cuts polylines with arcs and keeps each arc. `autocad_draw_multiline`
+  closes with a mitred last corner, by the plug-in. `autocad_draw_spline` draws by control points
+  (`method="control_points"`, `degree`), and the new `autocad_edit_spline` moves, inserts and
+  removes a spline's fit points. Three new plug-in operations ([D-97](docs/DECISIONS.md)). Live rows
+  AI1-AI14 NOT RUN.
+
 - **One-file setup for modellers (2026-11-21, #73, #35, #72 prepared).** The release now also
   builds `HeronAutoCAD-<version>-setup.exe`: double-click, no administrator password, for your
   Windows user only. It puts the plug-in and the server where `Install.bat` does, sets Claude Code
