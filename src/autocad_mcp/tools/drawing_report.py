@@ -15,6 +15,7 @@ from pydantic import Field
 
 from ..acad.units import unit_name
 from ..core.connection import get_doc, run
+from ..core.errors import raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 
 # Model space is counted up to this many objects; a 200,000-object survey
@@ -50,7 +51,8 @@ KINDS = {
 def _try(getter, default=None):
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 

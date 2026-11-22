@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from ..core.errors import raise_if_busy
 from ..core.variants import int_array, variant_array
 
 # DXF group codes used in selection filters.
@@ -70,6 +71,33 @@ def dxf_type_for(entity_type: str) -> str:
     )
 
 
+def filter_pairs(
+    entity_type: str | None = None,
+    layer: str | None = None,
+    block_name: str | None = None,
+    color: int | None = None,
+) -> list[tuple[int, Any]]:
+    """The (DXF code, value) pairs a selection filters on; empty selects everything.
+
+    The one place the filter is worked out: COM gets it as a VARIANT pair
+    (build_filter), the plug-in as the same pairs in JSON (D-114), so both
+    select exactly the same objects.
+
+    Layer and block-name values pass through unchanged, so AutoCAD's own
+    wildcards work: "A-*" matches every layer starting with A-.
+    """
+    pairs: list[tuple[int, Any]] = []
+    if entity_type:
+        pairs.append((DXF_ENTITY_TYPE, dxf_type_for(entity_type)))
+    if layer:
+        pairs.append((DXF_LAYER, layer.strip()))
+    if block_name:
+        pairs.append((DXF_BLOCK_NAME, block_name.strip()))
+    if color is not None:
+        pairs.append((DXF_COLOR, int(color)))
+    return pairs
+
+
 def build_filter(
     entity_type: str | None = None,
     layer: str | None = None,
@@ -80,29 +108,11 @@ def build_filter(
 
     Returns (None, None) when nothing was requested, which tells AutoCAD to
     select everything.
-
-    Layer and block-name values pass through unchanged, so AutoCAD's own
-    wildcards work: "A-*" matches every layer starting with A-.
     """
-    codes: list[int] = []
-    values: list[Any] = []
-
-    if entity_type:
-        codes.append(DXF_ENTITY_TYPE)
-        values.append(dxf_type_for(entity_type))
-    if layer:
-        codes.append(DXF_LAYER)
-        values.append(layer.strip())
-    if block_name:
-        codes.append(DXF_BLOCK_NAME)
-        values.append(block_name.strip())
-    if color is not None:
-        codes.append(DXF_COLOR)
-        values.append(int(color))
-
-    if not codes:
+    pairs = filter_pairs(entity_type, layer, block_name, color)
+    if not pairs:
         return None, None
-    return int_array(codes), variant_array(values)
+    return int_array([code for code, _ in pairs]), variant_array([value for _, value in pairs])
 
 
 def make_selection_set(doc: Any, name: str = TEMP_SELSET_NAME) -> Any:
@@ -121,8 +131,8 @@ def make_selection_set(doc: Any, name: str = TEMP_SELSET_NAME) -> Any:
         existing = doc.SelectionSets.Item(name)
         existing.Clear()
         return existing
-    except BaseException:  # noqa: BLE001 - not created yet, fall through
-        pass
+    except BaseException as exc:  # noqa: BLE001 - not created yet, fall through
+        raise_if_busy(exc)
     return doc.SelectionSets.Add(name)
 
 

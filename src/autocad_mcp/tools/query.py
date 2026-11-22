@@ -8,26 +8,105 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Iterable
 from typing import Annotated, Any
 
 from pydantic import Field, StrictInt
 
-from ..acad.entities import bounding_box, describe, resolve_handle, short_type
+from ..acad.entities import (
+    bounding_box,
+    describe,
+    resolve_handle,
+    short_type,
+    short_type_name,
+)
 from ..acad.selection import (
     ENTITY_TYPE_ALIASES,
     discard_selection_set,
+    filter_pairs,
     iter_selection,
     select_filtered,
 )
 from ..acad.units import unit_name
 from ..core.connection import get_doc, run
-from ..core.errors import AutocadError
+from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta
 from ..core.variants import point_to_list
+from ._shared import faster_read
 
 # Listing every entity in a large drawing would swamp the agent's context, so
 # results are paginated and this is the ceiling on one page.
 MAX_PAGE = 500
+
+
+def entity_summary(
+    total: int, classes: Iterable[tuple[str, int]], layers: Iterable[tuple[str, int]]
+) -> dict[str, Any]:
+    """The summary_only answer, from class and layer counts in the order first met.
+
+    Pure, and the only place that answer is made: COM counts the objects one
+    by one, the plug-in counts them in one go (D-114), and both hand their
+    counts here, so the two give the same answer, key order and all.
+    """
+    by_type: Counter[str] = Counter()
+    for name, count in classes:
+        by_type[short_type_name(str(name))] += int(count)
+    by_layer: Counter[str] = Counter()
+    for name, count in layers:
+        by_layer[str(name)] += int(count)
+    return {
+        "total_matching": int(total),
+        "by_type": dict(by_type.most_common()),
+        "by_layer": dict(by_layer.most_common()),
+    }
+
+
+def box_around(boxes: Iterable[dict[str, list[float]] | None]) -> tuple[list[float], list[float]] | None:
+    """The box round every box given (None ones skipped), or None when none was given. Pure."""
+    lo = [math.inf, math.inf, math.inf]
+    hi = [-math.inf, -math.inf, -math.inf]
+    measured = False
+    for box in boxes:
+        if not box:
+            continue
+        measured = True
+        for axis in range(3):
+            lo[axis] = min(lo[axis], float(box["min"][axis]))
+            hi[axis] = max(hi[axis], float(box["max"][axis]))
+    return (lo, hi) if measured else None
+
+
+def extents_answer(lo: list[float], hi: list[float], units: str, count: int, layer: str | None) -> dict[str, Any]:
+    """The autocad_get_extents answer. Pure: the same whoever measured the box."""
+    return {
+        "min": [round(v, 6) for v in lo],
+        "max": [round(v, 6) for v in hi],
+        "width": round(hi[0] - lo[0], 6),
+        "height": round(hi[1] - lo[1], 6),
+        "center": [round((lo[0] + hi[0]) / 2, 6), round((lo[1] + hi[1]) / 2, 6)],
+        "units": units,
+        "entity_count": count,
+        "scope": f"layer '{layer}'" if layer else "whole drawing",
+    }
+
+
+def _filter_args(*args: Any) -> dict[str, Any]:
+    """The selection filter as the plug-in takes it: [[code, value], ...] (D-114)."""
+    return {"filter": [[code, value] for code, value in filter_pairs(*args)]}
+
+
+def _layer_empty(layer: str) -> AutocadError:
+    return AutocadError(
+        f"Layer '{layer}' has no geometry, so it has no extents. "
+        "Check the layer name with autocad_list_layers."
+    )
+
+
+def _layer_unmeasured(layer: str, count: int) -> AutocadError:
+    return AutocadError(
+        f"Layer '{layer}' has {count} object(s), but none with extents (rays and construction "
+        "lines run for ever), so it has no extents."
+    )
 
 
 @mcp.tool(
@@ -111,6 +190,8 @@ async def autocad_list_entities(
 
     On an unfamiliar drawing, call it once with summary_only=true to learn what
     is there, then again with filters to get the entities you actually need.
+    The summary is counted by Heron's plug-in inside AutoCAD in one go; with an
+    older plug-in it is counted over COM, slower, with the same answer.
 
     Args:
         entity_type (Optional[str]): Type filter, e.g. "circle".
@@ -160,25 +241,33 @@ async def autocad_list_entities(
     resolved_type = entity_type or ("block" if block_name else None)
 
     def work() -> dict[str, Any]:
+        if summary_only:
+            # Every object in the drawing is looked at: the plug-in counts them
+            # in one go; COM, three round trips each, only for an older one.
+            counted = faster_read("count_entities", _filter_args(resolved_type, layer, block_name, aci))
+            if counted is not None:
+                return entity_summary(counted.get("total", 0), counted.get("by_class", []), counted.get("by_layer", []))
+
         doc = get_doc()
         sel = select_filtered(doc, resolved_type, layer, block_name, aci)
         try:
             total = int(sel.Count)
 
             if summary_only:
-                by_type: Counter[str] = Counter()
-                by_layer: Counter[str] = Counter()
+                classes: Counter[str] = Counter()
+                layers: Counter[str] = Counter()
                 for entity in iter_selection(sel):
-                    by_type[short_type(entity)] += 1
                     try:
-                        by_layer[str(entity.Layer)] += 1
-                    except BaseException:  # noqa: BLE001
-                        by_layer["<unknown>"] += 1
-                return {
-                    "total_matching": total,
-                    "by_type": dict(by_type.most_common()),
-                    "by_layer": dict(by_layer.most_common()),
-                }
+                        classes[str(entity.ObjectName)] += 1
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
+                        classes[""] += 1
+                    try:
+                        layers[str(entity.Layer)] += 1
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
+                        layers["<unknown>"] += 1
+                return entity_summary(total, classes.items(), layers.items())
 
             entities = []
             for i in range(offset, min(offset + limit, total)):
@@ -403,7 +492,8 @@ async def autocad_find_text(
                             if not bool(entity.HasAttributes):
                                 continue
                             attributes = entity.GetAttributes()
-                        except BaseException:  # noqa: BLE001
+                        except BaseException as exc:  # noqa: BLE001
+                            raise_if_busy(exc)
                             continue
                         for att in attributes:
                             value = str(att.TextString)
@@ -474,7 +564,9 @@ async def autocad_get_extents(
     """Find the bounding box of the drawing's geometry.
 
     Use this to size a sheet, place a title block clear of the drawing, or work
-    out where to put new geometry relative to what already exists.
+    out where to put new geometry relative to what already exists. One layer's
+    objects are measured by Heron's plug-in inside AutoCAD in one go; with an
+    older plug-in they are measured over COM, slower, with the same answer.
 
     Args:
         layer (Optional[str]): Restrict to one layer's geometry.
@@ -487,6 +579,8 @@ async def autocad_get_extents(
     Error Handling:
         - Returns an empty-drawing error when there is no geometry to measure,
           rather than the meaningless extents AutoCAD reports for a blank file.
+        - A layer holding only rays or construction lines has no extents
+          either, and says so.
 
     Examples:
         - Use when: "how big is this drawing" before choosing a sheet size or
@@ -499,29 +593,31 @@ async def autocad_get_extents(
         doc = get_doc()
         try:
             units = unit_name(int(doc.GetVariable("INSUNITS")))
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             units = "unknown"
 
         if layer:
-            sel = select_filtered(doc, None, layer, None, None)
-            try:
-                count = int(sel.Count)
-                if count == 0:
-                    raise AutocadError(
-                        f"Layer '{layer}' has no geometry, so it has no extents. "
-                        "Check the layer name with autocad_list_layers."
-                    )
-                lo = [math.inf, math.inf, math.inf]
-                hi = [-math.inf, -math.inf, -math.inf]
-                for entity in iter_selection(sel):
-                    box = bounding_box(entity)
-                    if not box:
-                        continue
-                    for axis in range(3):
-                        lo[axis] = min(lo[axis], box["min"][axis])
-                        hi[axis] = max(hi[axis], box["max"][axis])
-            finally:
-                discard_selection_set(doc)
+            # Every object on the layer is measured: the plug-in in one go,
+            # COM one round trip each, only for an older plug-in (D-114).
+            measured = faster_read("entity_extents", _filter_args(None, layer, None, None))
+            if measured is not None:
+                count = int(measured.get("total", 0))
+                # Rounded as bounding_box rounds COM's corners, so width and centre match to the last digit.
+                box = {"min": point_to_list(measured.get("min") or []), "max": point_to_list(measured.get("max") or [])}
+                found = box_around([box]) if len(box["min"]) == 3 and len(box["max"]) == 3 else None
+            else:
+                sel = select_filtered(doc, None, layer, None, None)
+                try:
+                    count = int(sel.Count)
+                    found = box_around(bounding_box(entity) for entity in iter_selection(sel)) if count else None
+                finally:
+                    discard_selection_set(doc)
+            if count == 0:
+                raise _layer_empty(layer)
+            if found is None:
+                raise _layer_unmeasured(layer, count)
+            lo, hi = found
         else:
             count = int(doc.ModelSpace.Count)
             if count == 0:
@@ -534,16 +630,7 @@ async def autocad_get_extents(
             lo = point_to_list(doc.GetVariable("EXTMIN"))
             hi = point_to_list(doc.GetVariable("EXTMAX"))
 
-        return {
-            "min": [round(v, 6) for v in lo],
-            "max": [round(v, 6) for v in hi],
-            "width": round(hi[0] - lo[0], 6),
-            "height": round(hi[1] - lo[1], 6),
-            "center": [round((lo[0] + hi[0]) / 2, 6), round((lo[1] + hi[1]) / 2, 6)],
-            "units": units,
-            "entity_count": count,
-            "scope": f"layer '{layer}'" if layer else "whole drawing",
-        }
+        return extents_answer(lo, hi, units, count, layer)
 
     return dumps(await run(work))
 
@@ -636,7 +723,8 @@ async def autocad_measure(
         doc = get_doc()
         try:
             units = unit_name(int(doc.GetVariable("INSUNITS")))
-        except BaseException:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             units = "unknown"
 
         if mode == "distance":
@@ -685,13 +773,14 @@ async def autocad_measure(
                     total_length += float(getattr(entity, prop))
                     counted_length += 1
                     break
-                except BaseException:  # noqa: BLE001 - type has no length
+                except BaseException as exc:  # noqa: BLE001 - type has no length
+                    raise_if_busy(exc)
                     continue
             try:
                 total_area += float(entity.Area)
                 counted_area += 1
-            except BaseException:  # noqa: BLE001 - type has no area
-                pass
+            except BaseException as exc:  # noqa: BLE001 - type has no area
+                raise_if_busy(exc)
 
         return {
             "mode": "totals",

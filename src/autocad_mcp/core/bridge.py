@@ -100,6 +100,9 @@ OLD_EXPECT = (
     "running is older. Rebuild and reinstall it, or call without expect_box: the box would then be "
     "cancelled. " + NOTHING_SENT
 )
+# The first plug-in that reads a whole drawing itself, in one go (D-114):
+# count_entities and entity_extents. An older one is read over COM instead.
+READS_SINCE = "1.8.0"
 RUN_UNKNOWN = (
     "Outcome unknown: Heron in AutoCAD did not answer within {seconds:.0f} s, so the operation may "
     "still have run (one Ctrl+Z reverses it). Look at the drawing before trying again. (details: {details})"
@@ -138,6 +141,26 @@ def bridge_enabled() -> bool:
     }
 
 
+def older(version: str | None, since: str) -> bool:
+    """True only when version is known and comes before since ('1.7.0' < '1.8.0').
+
+    An empty or unreadable version is not "older": the plug-in is asked, and
+    one without the operation says so itself.
+    """
+
+    def parts(text: str) -> tuple[int, ...]:
+        found: list[int] = []
+        for piece in text.strip().split(".")[:3]:
+            digits = "".join(ch for ch in piece if ch.isdigit())
+            if not digits:
+                break
+            found.append(int(digits))
+        return tuple(found)
+
+    have = parts(version or "")
+    return bool(have) and have < parts(since)
+
+
 def bridges_dir() -> Path:
     return heron_local() / "bridges"
 
@@ -169,6 +192,7 @@ class Bridge:
 
     def __init__(self, pid: int) -> None:
         self.pid = pid
+        self.drawing_seq_at_begin: int | None = None
 
     def find(self) -> dict | None:
         """The address file, or None when this AutoCAD is not connected.
@@ -236,6 +260,9 @@ class Bridge:
         )
         if not reply.get("ok"):
             raise BridgeRefused(_ensure_sentence(str(reply.get("message", ""))))
+        seq = reply.get("drawingSeq")
+        # Where the plug-in's drawing log stood at begin (#165); None from an older plug-in.
+        self.drawing_seq_at_begin = seq if isinstance(seq, int) and not isinstance(seq, bool) else None
         return job, reply.get("askToKeep") is True
 
     def end(self, job: str, ok: bool, outcome: str, summary: str, ms: int) -> None:

@@ -30,7 +30,7 @@ from ..acad.coords import corners_box
 from ..acad.entities import bounding_box, resolve_handles
 from ..acad.tables import validate_name
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
 from ._shared import COORDS_OPT, in_plugin, plugin_read, ucs_for, world_coords
@@ -44,7 +44,8 @@ VIEW_COMMAND_POLL_S = 0.1
 def _read(target: Any, name: str, default: Any = None) -> Any:
     try:
         return getattr(target, name)
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 
@@ -260,6 +261,7 @@ async def autocad_save_view(
                 try:
                     existing.Delete()
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(
                         f"The view '{clean}' could not be replaced ({com_message(exc)}). "
                         "Save under another name."
@@ -267,6 +269,7 @@ async def autocad_save_view(
             try:
                 view = doc.Views.Add(clean)
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(f"AutoCAD would not save the view '{clean}': {com_message(exc)}") from exc
             # Views.Add copies whatever is on screen, so the area asked for is
             # written over it: a plan view of exactly this rectangle.
@@ -279,15 +282,15 @@ async def autocad_save_view(
             ):
                 try:
                     setattr(view, prop, value)
-                except BaseException:  # noqa: BLE001 - reported by reading it back below
-                    pass
+                except BaseException as exc:  # noqa: BLE001 - reported by reading it back below
+                    raise_if_busy(exc)
             if zoom_to:
                 try:
                     doc.Application.ZoomWindow(
                         apoint(box[0], box[1], 0.0), apoint(box[2], box[3], 0.0)
                     )
-                except BaseException:  # noqa: BLE001 - the view is saved either way
-                    pass
+                except BaseException as exc:  # noqa: BLE001 - the view is saved either way
+                    raise_if_busy(exc)
 
         written = _describe(view)
         result: dict[str, Any] = {
@@ -312,7 +315,8 @@ def _command_done(doc: Any) -> bool:
     def busy() -> bool:
         try:
             return bool(int(doc.GetVariable("CMDACTIVE")))
-        except BaseException:  # noqa: BLE001 - unreadable: assume it finished
+        except BaseException as exc:  # noqa: BLE001 - unreadable: assume it finished
+            raise_if_busy(exc)
             return False
 
     deadline = time.monotonic() + VIEW_COMMAND_WAIT_S
@@ -342,6 +346,7 @@ def _save_screen(doc: Any, clean: str, replace: bool) -> dict[str, Any]:
             try:
                 existing.Delete()
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"The view '{clean}' could not be replaced ({com_message(exc)}). "
                     "Save under another name."
@@ -349,6 +354,7 @@ def _save_screen(doc: Any, clean: str, replace: bool) -> dict[str, Any]:
         try:
             doc.SendCommand(f"_.-VIEW _Save {clean}\n")
         except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
             raise AutocadError(f"AutoCAD would not take the VIEW command: {com_message(exc)}") from exc
         if not _command_done(doc):
             try:
