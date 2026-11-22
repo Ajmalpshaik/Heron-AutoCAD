@@ -4,6 +4,45 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.8.0 - 2026-11-22 - The first GitHub release (a pre-release)
+
+**Heron AI for AutoCAD plug-in 1.8.0, with server 1.10.1 inside.** The first release on GitHub: a
+**pre-release**, tag `v1.8.0`, with `HeronAutoCAD-1.8.0-setup.exe`, `HeronAutoCAD-1.8.0-win64.zip`
+and `checksums.txt` (their SHA-256), built by `release.yml` on GitHub's Windows machine from the
+tagged code. **Not yet checked in AutoCAD**: every live row not marked PASS in
+[NEEDS-CHECKING](docs/NEEDS-CHECKING.md) is NOT RUN, and nothing at all was run in AutoCAD 2021 to
+2026. **Not code-signed**, by the owner's decision (#164). Install it with
+[docs/INSTALL.md](docs/INSTALL.md).
+
+**Why 1.8.0.** The release workflow insists that the tag equals the plug-in's version
+(`autocad/Directory.Build.props`), and names the zip and the setup after it. The plug-in was still
+numbered 1.7.0 while its code had grown many new operations since: the faster reads
+(`count_entities`, `entity_extents`, [13](docs/13-moving-tools-into-the-plug-in.md)) are
+used by the server only from plug-in 1.8.0 (`READS_SINCE`, and a test insists the number is not
+left between 1.7.0 and that), and an older plug-in refuses the newer tools. So the plug-in goes to
+**1.8.0**. The server stays **1.10.1**: nothing in `src/` changed for this release.
+
+- **Documentation made to match the code (2026-11-22).** New [docs/INSTALL.md](docs/INSTALL.md) for a
+  modeller: requirements, the supported AutoCAD versions, where to download and how to check the
+  SHA-256, install with the setup or the zip, connect Claude, first use (the `HERON` command, the
+  Heron tab, padlocks off at start), the unsigned warnings and what to press, update, go back,
+  uninstall. New [docs/TOOL-CATALOGUE.md](docs/TOOL-CATALOGUE.md): all **199** tools in plain words,
+  grouped by job, each with the problem it solves, what to ask, the padlock it needs, the inputs, the
+  result, the limits and its live-proof state. It is **made** by `tools/make_tool_catalogue.py` from
+  the live tool list, `core/risk.py` and `tools/export_capabilities.py`; `tests/test_tool_catalogue.py`
+  fails when a tool is missing from it or it is stale. README and SETUP now say what is real: the
+  Heron button's drop-down (Bridge Status, Heron palette, Free this AutoCAD, Stop Heron now), the
+  commands `HERONPALETTE` and `HERONSTOP`, AutoCAD 2021 to 2027 (SETUP said 2015+), and no personal
+  folder path in an example.
+- **Fixed: the update check could never see a release (found while preparing this one).**
+  `CheckForUpdate.bat` and the Start menu's *Check for a newer Heron* asked GitHub for the "latest"
+  release, which skips pre-releases, so for as long as every release is one it would say "no release
+  has been published". It now reads the release list and takes the newest that is not a draft
+  (`tools/release_files/Install.ps1`; `tests/test_installer.py`). Group AK row AK8 stays NOT RUN.
+
+
 - **The office layer standard (2026-11-22, #70).** One new tool, **199** in all (with the other sessions' tools).
   `autocad_layer_standard` makes an empty CSV to fill from the office's layer list (layer, colour,
   linetype, lineweight, plot, description, the old names it replaces, required), imports it into

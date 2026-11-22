@@ -2,9 +2,10 @@
 
 Step by step, from nothing to Claude drawing in your AutoCAD.
 
-> **Only want to use Heron, not change it?** Download **`HeronAutoCAD-<version>-setup.exe`** from the
-> [releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases), close AutoCAD and Claude,
-> and double-click it. No Python, no .NET SDK, no administrator password: it installs for your
+> **Only want to use Heron, not change it?** Follow **[INSTALL.md](INSTALL.md)**: download
+> **`HeronAutoCAD-<version>-setup.exe`** from the
+> [releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases), check its SHA-256, close
+> AutoCAD and Claude, and double-click it. No Python, no .NET SDK, no administrator password: it installs for your
 > Windows user only, sets Claude Code and Claude Desktop up, and is removed from **Windows Settings >
 > Apps**. The zip with `Install.bat` on the same page does the same by hand. Neither has passed its
 > live checks yet ([NEEDS-CHECKING](NEEDS-CHECKING.md) Group AK and Group P).
@@ -18,8 +19,8 @@ Step by step, from nothing to Claude drawing in your AutoCAD.
 | Requirement | Why | How to check |
 |---|---|---|
 | Windows | COM Automation is Windows-only | — |
-| Full AutoCAD, 2015+ | LT has no ActiveX/COM Automation interface — see below | Help → About |
-| Python 3.10+ | | `python --version` |
+| Full AutoCAD, 2021 to 2027 | The plug-in is built for those; LT has no ActiveX/COM Automation interface — see below | Help → About |
+| Python 3.10+ | Only to build or run from source | `python --version` |
 
 **About AutoCAD LT.** LT 2024+ for Windows does run AutoLISP internally — the
 old "LT can't run LISP" line is out of date. But that is LISP running *inside*
@@ -79,7 +80,7 @@ Open AutoCAD with any drawing, then:
 ```
 
 This creates its own scratch drawing and exercises every tool in it — it never
-touches the drawing you already had open. Expect `55/55 checks passed`, then
+touches the drawing you already had open. Expect it to end with every check passed (`N/N checks passed`), then
 close the scratch drawing without saving.
 
 If this fails but step 3 passed, the problem is the AutoCAD connection. See
@@ -108,7 +109,7 @@ Heron to draw. What every button does: [06](06-heron-plugin.md).
 ### Claude Code
 
 ```bash
-claude mcp add autocad -- "D:\Ajmal\AutoCAD APP\Autocad MCP\.venv\Scripts\autocad-mcp.exe"
+claude mcp add autocad -- "<this folder>\.venv\Scripts\autocad-mcp.exe"
 ```
 
 Confirm it connected:

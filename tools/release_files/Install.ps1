@@ -18,7 +18,7 @@ $server = Join-Path $serverDir 'autocad-mcp.exe'
 $desktopCfg = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
 # The version an update replaced, kept so Rollback.bat can put it back.
 $previous = Join-Path $serverDir 'previous'
-$releases = 'https://api.github.com/repos/Ajmalpshaik/Heron-AutoCAD/releases/latest'
+$releases = 'https://api.github.com/repos/Ajmalpshaik/Heron-AutoCAD/releases?per_page=10'
 
 # Anything unexpected: say it in plain words, not a PowerShell error.
 trap {
@@ -50,7 +50,8 @@ if ($CheckUpdate) {
     Write-Host ('Installed: ' + $(if ($installed) { $installed } else { 'not installed' }))
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $latest = Invoke-RestMethod -Uri $releases -TimeoutSec 15
+        # The 'latest release' address skips pre-releases, and every Heron release is one for now, so the list is read.
+        $latest = @(Invoke-RestMethod -Uri $releases -TimeoutSec 15 | Where-Object { -not $_.draft }) | Select-Object -First 1
     } catch {
         $code = 0
         try { $code = [int]$_.Exception.Response.StatusCode } catch { }
@@ -59,6 +60,10 @@ if ($CheckUpdate) {
         } else {
             Write-Host 'Could not reach GitHub to look for a newer version. Try again later. Nothing was changed.' -ForegroundColor Yellow
         }
+        exit 0
+    }
+    if (-not $latest) {
+        Write-Host 'No Heron release has been published on GitHub yet, so there is nothing newer. Nothing was changed.' -ForegroundColor Green
         exit 0
     }
     $newest = ([string]$latest.tag_name).TrimStart('v')

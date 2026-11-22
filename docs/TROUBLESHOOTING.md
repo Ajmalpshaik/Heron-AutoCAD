@@ -8,7 +8,8 @@ page covers the ones with a cause that is not obvious from the message.
 ## "AutoCAD is not connected to Heron"
 
 Press **Heron** on the Heron tab (or type `HERON`). No Heron tab at all: the plug-in is not installed
-or did not load; run `tools/install_plugin.py` with AutoCAD closed, then check
+or did not load; close AutoCAD and run the setup again (or `Install.bat`; from a source checkout,
+`tools/install_plugin.py`), then check
 `%LOCALAPPDATA%\Heron\autocad\logs\` for the add-in log.
 
 ## "Changes is off" / "Publish is off" / "Admin is off"
