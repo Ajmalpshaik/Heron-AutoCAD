@@ -10,7 +10,10 @@
 
 ## Latest - 2026-11-22 (v1.8.0 checked and installed on the owner's PC; session 3 of 3)
 
-**State today:** tag **v1.8.0** = bc196d6; plug-in **1.8.0**, server **1.10.1**, **199** tools. The
+**State today:** tag **v1.8.0** = bc196d6; plug-in **1.8.0**, server **1.10.1**, **199** tools.
+On the owner's decision, v1.8.0 is now a **full release**, GitHub's *Latest*, with the same tag and
+files. `release.yml` still publishes every new tag as a **pre-release** until the owner decides
+otherwise. The
 three published assets match their SHA-256. The zip's bundle points every AutoCAD range at a DLL
 that is there, and the packed server starts offline and lists 199 tools. Every tool index names the
 same 199 tools, with `autocad_render` only as history.

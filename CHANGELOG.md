@@ -16,6 +16,8 @@ tagged code. **Not yet checked in AutoCAD**: every live row not marked PASS in
 2026. **Not code-signed**, by the owner's decision (#164). Install it with
 [docs/INSTALL.md](docs/INSTALL.md).
 
+**2026-11-22:** made a full release (not a pre-release) on the owner's decision; same tag and files.
+
 **Why 1.8.0.** The release workflow insists that the tag equals the plug-in's version
 (`autocad/Directory.Build.props`), and names the zip and the setup after it. The plug-in was still
 numbered 1.7.0 while its code had grown many new operations since: the faster reads

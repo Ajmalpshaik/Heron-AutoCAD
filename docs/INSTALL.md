@@ -3,7 +3,7 @@
 For a modeller who wants to **use** Heron. No Python, no .NET, no administrator password. If you
 want to build Heron from its source instead, read [SETUP.md](SETUP.md).
 
-> **This is a pre-release.** Heron has never been run in a real AutoCAD as a whole: only some
+> **This is the first release (v1.8.0), not a finished product.** Heron has never been run in a real AutoCAD as a whole: only some
 > pieces passed their live check, in AutoCAD 2027, and nothing at all in AutoCAD 2021 to 2026. The
 > files are **not code-signed**. Use it for testing, on drawings you can afford to undo. What was
 > really checked, row by row: [NEEDS-CHECKING](NEEDS-CHECKING.md). Every tool and its proof state:
@@ -33,7 +33,8 @@ Which plug-in build each AutoCAD uses (the bundle holds all three and AutoCAD pi
 ## 2. Download
 
 1. Open the **[releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases)** and pick the
-   newest release. Releases are marked **Pre-release**.
+   newest release. v1.8.0 is marked **Latest**; a later version may first come out marked
+   **Pre-release**, for testing.
 2. Under **Assets**, download the setup (easiest) or the zip, and `checksums.txt`:
 
    | File | What it is |
