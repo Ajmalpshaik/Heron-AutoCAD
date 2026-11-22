@@ -8,7 +8,18 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (tidy-up before the first release; session 1 of 3)
+## Latest - 2026-11-22 (the first release prepared; session 2 of 3)
+
+**State today:** plug-in **1.8.0** (bumped from 1.7.0: the tag must equal it, and the server asks for
+1.8.0 for the faster reads), server **1.10.1**, **199** tools. New: [INSTALL](INSTALL.md) (for a
+modeller), [TOOL-CATALOGUE](TOOL-CATALOGUE.md) (made by `tools/make_tool_catalogue.py`; a test fails
+when it is stale: run the script after adding a tool, changing a docstring or a NEEDS-CHECKING row),
+the CHANGELOG release section, README / SETUP corrected. One bug fixed: the update check could not
+see a pre-release. The first pre-release **v1.8.0** is built by `release.yml` from the merged
+commit; the release page, its assets and their SHA-256 are the truth for what was published.
+Nothing was run in AutoCAD: every live row stays NOT RUN, signing stays off (#164).
+
+## Earlier - 2026-11-22 (tidy-up before the first release; session 1 of 3)
 
 **State today:** `main` has **no open pull requests**. Server **1.10.1**, plug-in **1.7.0**, **199**
 tools. Nothing has been proved live: every live row stays NOT RUN until the owner runs AutoCAD, and

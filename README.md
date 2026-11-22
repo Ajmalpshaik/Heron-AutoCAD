@@ -1,10 +1,12 @@
 # Heron AI for AutoCAD
 
-> **Dear Modelers - please do not install this yet.**
+> **Dear Modelers - this is a pre-release for testing, not a finished product.**
 >
-> This repository is public so the work is open, but it is not finished. The plug-in inside AutoCAD
-> still has to pass its live checks ([NEEDS-CHECKING](docs/NEEDS-CHECKING.md)). I will announce it
-> when it is ready to install.
+> This repository is public so the work is open. A first **pre-release** is on the
+> [releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases), but the plug-in inside
+> AutoCAD has not passed its live checks ([NEEDS-CHECKING](docs/NEEDS-CHECKING.md)) and the files
+> are not code-signed. Install it only to help test, on drawings you can afford to undo
+> ([INSTALL](docs/INSTALL.md)). I will announce it when it is ready for everyday work.
 >
 > **Programmers and AI engineers: your thoughts are welcome.** Read the code and share suggestions
 > or corrections through an Issue.
@@ -47,7 +49,7 @@ Ribbon tab **Heron**, panel **AI Bridge**, laid out as in Heron for Revit:
 
 | Button | What it does |
 |---|---|
-| **Heron** | black heron: no chat can see this AutoCAD; orange heron: a chat can reach it. The arrow holds **Bridge Status** and **Free this AutoCAD** |
+| **Heron** | black heron: no chat can see this AutoCAD; orange heron: a chat can reach it. The arrow holds **Bridge Status**, **Heron palette** (recent changes with Select, Zoom and Undo, and your saved commands), **Free this AutoCAD** and **Stop Heron now** |
 | **Settings** | one window with the four switches below, each with its padlock picture and an ON / OFF button |
 
 | Switch in Settings | Off (safe) | On |
@@ -63,8 +65,8 @@ time), then **Done** (green) or **Needs attention** (red). Every Heron window us
 style. The command line keeps a line such as `Heron: Draw Line. Done in 0.4 s`.
 
 Everything starts **off**. Turning a padlock on asks first; turning it off never asks. The same
-switches are commands: `HERON`, `HERONSTATUS`, `HERONFREE`, `HERONSETTINGS`, `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
-`HERONASKTOKEEP`. Full detail: [docs/06-heron-plugin.md](docs/06-heron-plugin.md).
+switches are commands: `HERON`, `HERONSTATUS`, `HERONPALETTE`, `HERONFREE`, `HERONSTOP`, `HERONSETTINGS`, `HERONCHANGES`,
+`HERONPUBLISH`, `HERONADMIN`, `HERONASKTOKEEP`. Full detail: [docs/06-heron-plugin.md](docs/06-heron-plugin.md).
 
 ## Parts
 
@@ -81,8 +83,11 @@ Drawings stay on the PC that made them; none are in this repository.
 
 ## What it can do
 
-The live list is always `.venv\Scripts\autocad-mcp.exe --list-tools`. Every tool has a level, and
-the level decides which padlock it needs:
+Heron has **199 tools**. The plain-words catalogue of every one, with what to ask in the chat, the
+padlock it needs and whether it was ever checked in AutoCAD, is
+[docs/TOOL-CATALOGUE.md](docs/TOOL-CATALOGUE.md); the live list is always
+`.venv\Scripts\autocad-mcp.exe --list-tools`. Every tool has a level, and the level decides which
+padlock it needs:
 
 | Level | Needs | What |
 |---|---|---|
@@ -92,7 +97,8 @@ the level decides which padlock it needs:
 | Publish | Changes + Publish | save, export / plot to PDF (whole sheet, a window, or a saved location), **a check list report as Excel and HTML**, attributes to an Excel sheet |
 | Admin | Changes + Admin | any command, AutoLISP, system variables, purge, audit |
 
-Every tool with its options: [docs/03-tools-reference.md](docs/03-tools-reference.md).
+Every tool with its options: [docs/03-tools-reference.md](docs/03-tools-reference.md) (for the
+developer) and the [catalogue](docs/TOOL-CATALOGUE.md) (for the modeller).
 Sheets, the UCS and turning an import into a shop drawing:
 [docs/09-sheets-and-coordinates.md](docs/09-sheets-and-coordinates.md).
 Named shapes, dimension runs, annotation and 3D:
@@ -117,7 +123,12 @@ More: [SECURITY.md](SECURITY.md).
 
 ## Install (for testing only, see the banner above)
 
-Read the [disclaimer](https://github.com/Ajmalpshaik/Heron-AutoCAD/blob/main/DISCLAIMER.md) before you install.
+Read the [disclaimer](DISCLAIMER.md) before you install. **Step by step, with the checks and the
+warnings to expect: [docs/INSTALL.md](docs/INSTALL.md).** In short: download
+`HeronAutoCAD-<version>-setup.exe` (or the zip) and `checksums.txt` from the
+[releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases), check the SHA-256, close
+AutoCAD and Claude, double-click the setup, then in AutoCAD press **Heron**. No Python, no .NET
+SDK, no administrator password.
 
 ### What has really been checked
 
@@ -136,9 +147,9 @@ a piece is "checked live" only where a row ran in that AutoCAD and passed.
 | Claude Code connection through this folder's `.mcp.json` | **Checked live, AutoCAD 2027** | A2: Claude asked AutoCAD and got the answer |
 | Claude Code and Claude Desktop entries written by the installer | **Never run live** | Group P: P2 NOT RUN |
 | Plug-in DLLs, `autocad-mcp.exe` and the setup | **Unsigned, by decision** ([#164](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164)): no certificate is bought | Windows SmartScreen may warn once (More info, Run anyway); AutoCAD may ask once at the first load (load it always). Rows AK10-AK11 NOT RUN |
-| Install size on disk | **Not measured** | The release zip is built on Windows only; none is published yet |
+| Install size on disk | **Not measured** | The zip and the setup are built on Windows only |
 
-### Steps
+### Build it from the source instead (for developers)
 
 Needs Windows, **full AutoCAD 2021 to 2027** (not LT), Python 3.10+, and the .NET SDK to build.
 
@@ -168,7 +179,7 @@ when Claude Code opens here). Full steps: [docs/SETUP.md](docs/SETUP.md).
 | You are | Read |
 |---|---|
 | **The owner** | [docs/HANDOVER.md](docs/HANDOVER.md) and the live checks in [docs/NEEDS-CHECKING.md](docs/NEEDS-CHECKING.md) |
-| **A modeller** | [docs/06-heron-plugin.md](docs/06-heron-plugin.md), then [docs/09](docs/09-sheets-and-coordinates.md) and [docs/10](docs/10-geometry-annotation-3d.md) |
+| **A modeller** | [docs/INSTALL.md](docs/INSTALL.md), [docs/06-heron-plugin.md](docs/06-heron-plugin.md), the [tool catalogue](docs/TOOL-CATALOGUE.md), then [docs/09](docs/09-sheets-and-coordinates.md) and [docs/10](docs/10-geometry-annotation-3d.md) |
 | **Changing the code** | [docs/PROJECT-MAP.md](docs/PROJECT-MAP.md), [CONTRIBUTING.md](CONTRIBUTING.md) |
 | **An AI agent** | [AGENTS.md](AGENTS.md) |
 

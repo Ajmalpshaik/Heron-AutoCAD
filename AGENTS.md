@@ -85,5 +85,9 @@ installs only on Windows, so stand-ins in `tests/winstubs` are picked up by them
 tests that need Windows itself (named pipes, the COM message filter, Windows paths) are reported
 skipped with the reason ([D-72](docs/DECISIONS.md)). Windows CI still runs every test.
 
+After adding a tool, changing a tool's docstring or a row of [NEEDS-CHECKING](docs/NEEDS-CHECKING.md),
+run `python tools/make_tool_catalogue.py`: [docs/TOOL-CATALOGUE.md](docs/TOOL-CATALOGUE.md) is made
+from them and a test fails when it is stale.
+
 Record a real choice in [docs/DECISIONS.md](docs/DECISIONS.md). Update
 [docs/HANDOVER.md](docs/HANDOVER.md) before you stop.

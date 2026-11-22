@@ -58,6 +58,10 @@ GitHub has no AutoCAD, so **live tests run only on your PC**, with AutoCAD open:
 3. Add an offline test in [`tests/test_offline.py`](tests/test_offline.py) and, if it changes the
    drawing, a live one in [`tests/test_live.py`](tests/test_live.py).
 4. Add it to [docs/03-tools-reference.md](docs/03-tools-reference.md) and the count in the README.
+5. Name its group in `_G` in [`tools/make_tool_catalogue.py`](tools/make_tool_catalogue.py), then run
+   `.venv\Scripts\python.exe tools/make_tool_catalogue.py`: [docs/TOOL-CATALOGUE.md](docs/TOOL-CATALOGUE.md)
+   is made from the tools, and `tests/test_tool_catalogue.py` fails when a tool is missing from it or
+   the file is stale (it is also stale after you change a docstring or a NEEDS-CHECKING row).
 5. Add a line to [CHANGELOG.md](CHANGELOG.md).
 
 

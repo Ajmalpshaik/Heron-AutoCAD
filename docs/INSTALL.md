@@ -1,0 +1,248 @@
+# Install Heron AI for AutoCAD
+
+For a modeller who wants to **use** Heron. No Python, no .NET, no administrator password. If you
+want to build Heron from its source instead, read [SETUP.md](SETUP.md).
+
+> **This is a pre-release.** Heron has never been run in a real AutoCAD as a whole: only some
+> pieces passed their live check, in AutoCAD 2027, and nothing at all in AutoCAD 2021 to 2026. The
+> files are **not code-signed**. Use it for testing, on drawings you can afford to undo. What was
+> really checked, row by row: [NEEDS-CHECKING](NEEDS-CHECKING.md). Every tool and its proof state:
+> [TOOL-CATALOGUE](TOOL-CATALOGUE.md).
+
+---
+
+## 1. What you need
+
+| You need | Notes |
+|---|---|
+| **Windows 64-bit** | Heron talks to AutoCAD through Windows COM, so there is no Mac version. |
+| **Full AutoCAD 2021 to 2027** | **Not AutoCAD LT**: LT has no COM, so Heron cannot reach it. Open AutoCAD once before the first install, so it has registered itself. |
+| **Claude Code or the Claude Desktop app, signed in** | Heron adds one entry called `autocad` to each one it finds. |
+| Some disk space | The install size is not measured yet: the setup holds the server as one program plus the plug-in. |
+
+Which plug-in build each AutoCAD uses (the bundle holds all three and AutoCAD picks its own):
+
+| AutoCAD | Build | Ever run for real? |
+|---|---|---|
+| 2021 to 2024 | .NET Framework 4.8 | **No** (no PC with it: NEEDS-CHECKING group C) |
+| 2025 and 2026 | .NET 8 | **No** (group B) |
+| 2027 | .NET 10 | **Partly**: the rows marked PASS in group A and a few later ones |
+
+---
+
+## 2. Download
+
+1. Open the **[releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases)** and pick the
+   newest release. Releases are marked **Pre-release**.
+2. Under **Assets**, download the setup (easiest) or the zip, and `checksums.txt`:
+
+   | File | What it is |
+   |---|---|
+   | `HeronAutoCAD-<version>-setup.exe` | The one-file setup. Double-click it. It is also removed from Windows Settings > Apps. |
+   | `HeronAutoCAD-<version>-win64.zip` | The same files for installing by hand with `Install.bat`. Use the setup **or** the zip, not both. |
+   | `checksums.txt` | The SHA-256 of the two files above, to check that your download is the one that was built. |
+
+   (`Source code (zip / tar.gz)` on the same page is the programmers' copy. You do not need it.)
+
+### Check the download (SHA-256)
+
+A SHA-256 is a long fingerprint of a file. If your file gives the same fingerprint as the one in
+`checksums.txt`, it is the same file, not a damaged or changed copy. In PowerShell, in the folder you
+downloaded to (replace `<version>`):
+
+```powershell
+Get-FileHash .\HeronAutoCAD-<version>-setup.exe -Algorithm SHA256
+```
+
+```powershell
+Get-FileHash .\HeronAutoCAD-<version>-win64.zip -Algorithm SHA256
+```
+
+Open `checksums.txt` in Notepad. Each line is `<64 letters and digits>  <file name>`. The letters
+and digits next to your file's name must be the same as the `Hash` PowerShell printed (capital or
+small letters make no difference). If they differ, delete the download and fetch it again; if they
+still differ, do not install it, and open an [Issue](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues).
+
+> The checksum proves the file is intact. It does **not** prove who made it: the files are unsigned.
+
+---
+
+## 3. Install
+
+**Before you start:** close AutoCAD. Quit the Claude Desktop app too (right-click its icon by the
+clock, **Quit**) and close Claude Code. The setup stops by itself, and changes nothing, while AutoCAD
+is open or while Claude is using Heron's installed server.
+
+### A. With the setup (recommended)
+
+1. Double-click `HeronAutoCAD-<version>-setup.exe`. (Windows may warn first: see
+   [section 4](#4-the-warnings-you-will-see-the-files-are-unsigned).)
+2. The first page says **NOT FINISHED** and what the setup changes. Press **Next**, then **Install**.
+3. The last page lists what it did, for example `Claude Code: connected (all projects)` and
+   `Claude Desktop: connected (restart it ...)`. Press **Finish**.
+4. Start the Claude Desktop app again if you use it.
+
+It writes only for your Windows user:
+
+```
+%APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle    the plug-in AutoCAD loads
+%LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe                 the server Claude starts
+Claude Code (all projects) and Claude Desktop                one "autocad" entry each
+Start menu > Heron AI for AutoCAD                            "Check for a newer Heron", "Remove ..."
+```
+
+Claude Desktop's old settings file is first saved next to it as `claude_desktop_config.json.heron-backup`.
+No registry entry except Windows' own list of installed apps, no service, no firewall rule, no network port.
+
+### B. With the zip
+
+1. Right-click the zip, **Extract All**, and keep the whole folder (for example on your Desktop).
+   Do not run it from inside the zip, and not from a folder under `AppData\Local\Packages` (the
+   installer refuses that, since AutoCAD would never see the files).
+2. Double-click **`Install.bat`** inside the folder. A black window shows the steps:
+   `Installing Heron <version>`, `Plug-in installed`, `Server installed`, `Checked`, the Claude lines,
+   then `Done`.
+3. Start the Claude Desktop app again if you use it.
+4. Keep the folder: `Uninstall.bat`, `Rollback.bat` and `CheckForUpdate.bat` are in it.
+
+The zip holds, besides the plug-in bundle and the server: `READ-ME-FIRST.txt` (the same advice as
+this page, in short) and `capabilities.json` (a list of the tools for other programs; nothing reads
+it today).
+
+---
+
+## 4. The warnings you will see (the files are unsigned)
+
+Heron is **not code-signed**: the owner decided not to buy a certificate
+([#164](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164)). So a warning is normal. It does
+not mean the file is bad; it means Windows and AutoCAD cannot tell who made it. These are the
+warnings to expect and what to press. **Nobody has watched these boxes on a real PC yet** (rows
+AK9 to AK11 are NOT RUN), so the exact words may differ a little from the lines below.
+
+| Where | What it may say | What to press |
+|---|---|---|
+| **Windows SmartScreen**, when you open the setup (or `autocad-mcp.exe`) | *Windows protected your PC* | **More info**, then **Run anyway** |
+| **Your company antivirus or IT policy** | It may block `autocad-mcp.exe` or the setup | Ask your IT team to allow that file. Nothing in Heron needs the internet to run. |
+| **AutoCAD**, the first time it loads the plug-in | A security box asking whether to load an unsigned plug-in | Choose to load it **always**, so it does not ask again. AutoCAD may ask once more after an update: that is not yet known. |
+
+Do **not** change `SECURELOAD` or add folders to AutoCAD's Trusted Locations to make a box go away.
+
+---
+
+## 5. Connect Claude
+
+The installer already did it. It adds an entry named `autocad` that starts
+`%LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe`.
+
+- **Claude Desktop:** quit it completely (right-click its icon by the clock, **Quit**; closing the window is
+  not enough) and open it again. The AutoCAD tools appear under the tools icon in the chat box.
+- **Claude Code:** new chats see it. To check, run `claude mcp list` in a terminal: you should see
+  `autocad`.
+- **Neither app was found when you installed:** install Claude, then run the setup again (or
+  `Install.bat`); it is safe to run over itself.
+
+Nothing reaches AutoCAD yet: Heron is **off until you press its button** (next section).
+
+---
+
+## 6. First use
+
+Start AutoCAD and open a drawing. A new ribbon tab called **Heron** is there, with one panel,
+**AI Bridge**. (This is a text sketch of what the code builds, not a screenshot: no picture was taken,
+as AutoCAD has not been run for this page.)
+
+```
+ Heron tab
+ +---------------------- AI Bridge ----------------------+
+ |  [ Heron  v ]            [ Settings ]                 |
+ |     |                                                 |
+ |     +-- Heron              connect / disconnect       |
+ |         Bridge Status      is Heron connected?        |
+ |         Heron palette      recent changes, saved cmds |
+ |         Free this AutoCAD  let another chat in         |
+ |         Stop Heron now     stop every chat at once     |
+ +-------------------------------------------------------+
+```
+
+1. **Press Heron** (or type `HERON` in AutoCAD). The heron goes from black to **orange**: a chat can
+   now reach this AutoCAD. Press it again to disconnect. Until you press it, every tool answers that
+   AutoCAD is not connected.
+2. **Padlocks are all OFF when AutoCAD starts**, every time, on purpose. Press **Settings**: four switches,
+   each with an ON / OFF button:
+
+   | Switch | Off (safe) | On |
+   |---|---|---|
+   | **Changes** | Heron can only read and look | Heron may draw, modify and delete |
+   | **Publish** | Heron may not save or export | Heron may save, export, plot |
+   | **Admin** | no commands or AutoLISP | Heron may run commands, AutoLISP, system variables |
+   | **Ask to Keep** | changes are kept at once | after each change, a box asks **Keep it / Discard it** |
+
+   Turning one on asks first; turning one off never asks. Switch on only what you need, for as long as
+   you need it. The same switches are the commands `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN` and
+   `HERONASKTOKEEP`; `HERONSTOP` stops every chat at once.
+3. **Ask Claude**, in the chat, for something harmless first:
+
+   > Check the AutoCAD connection and tell me what's open.
+
+   If it names your drawing, its units and its layer count, the connection works. Then ask it to look
+   (`List the layers`), and only when you are ready turn **Changes** on and ask it to draw.
+4. While Heron works, a card slides down at the top of AutoCAD: **Heron AI - Reading** or **Heron AI -
+   Changing**, then **Done** or **Needs attention**. Every change is **one undo step**: one Ctrl+Z takes it back.
+
+What to ask for, tool by tool: [TOOL-CATALOGUE](TOOL-CATALOGUE.md). What each button does:
+[06 - the plug-in](06-heron-plugin.md).
+
+---
+
+## 7. If something goes wrong
+
+Start with [TROUBLESHOOTING](TROUBLESHOOTING.md). The three common ones:
+
+- **"AutoCAD is not connected to Heron"**: press **Heron** on the Heron tab. No Heron tab at all: the
+  plug-in did not load; close AutoCAD, run the setup again, then read the newest file in
+  `%LOCALAPPDATA%\Heron\autocad\logs\`.
+- **"Changes is off"**: that is the padlock doing its job; turn it on in **Settings**.
+- **The AutoCAD tools are not in Claude**: quit Claude Desktop completely and open it again.
+
+You can also ask Claude `why can't you do this?`: it names the real reason and what to do, even with
+AutoCAD closed. A log of each setup run is in `%TEMP%` (`Setup Log <date>.txt`). Send it with any report.
+
+---
+
+## 8. Update
+
+1. Download the newer setup (or zip) and check it ([section 2](#2-download)).
+2. Close AutoCAD and Claude, then run it. It replaces the plug-in folder as a whole, so no file of the
+   old version is left. It works over a zip install too, and the zip works over a setup install.
+
+**Is a newer one out?** Start menu > **Heron AI for AutoCAD** > **Check for a newer Heron** (or
+`CheckForUpdate.bat` from the zip). It shows the installed version and says whether a newer release
+exists. It never installs anything by itself.
+
+**Go back.** With the zip: close AutoCAD, double-click `Rollback.bat`. It shows both versions and asks
+before going back. With the setup: run the older setup from the releases page (the setup keeps no
+copy of the version it replaces).
+
+---
+
+## 9. Uninstall
+
+- **Installed with the setup:** Windows **Settings > Apps > Heron AI for AutoCAD > Uninstall** (or Start
+  menu > Heron AI for AutoCAD > Remove Heron AI for AutoCAD). Close AutoCAD first.
+- **Installed with the zip:** close AutoCAD, double-click `Uninstall.bat` from the folder. It shows what
+  it will remove and asks you to type `Y`.
+
+Either way it takes the `autocad` entry out of Claude Code and Claude Desktop first, then removes only
+what it installed. **Your drawings are never touched.** Your saved commands, check lists, logs and
+the audit in `%LOCALAPPDATA%\Heron\autocad` stay: delete that folder by hand if you want them gone.
+
+---
+
+## Where to read next
+
+| You want | Read |
+|---|---|
+| to know what each tool does, and which padlock it needs | [TOOL-CATALOGUE](TOOL-CATALOGUE.md) |
+| what the buttons and padlocks do | [06 - the plug-in](06-heron-plugin.md) |
+| what is proven and what is not | [NEEDS-CHECKING](NEEDS-CHECKING.md), [DISCLAIMER](../DISCLAIMER.md) |
+| to build from source, or run Heron over a network | [SETUP](SETUP.md) |

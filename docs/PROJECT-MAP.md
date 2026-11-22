@@ -50,6 +50,7 @@ flowchart TD
 | Install / remove it (AutoCAD closed) | `.venv\Scripts\python.exe tools/install_plugin.py [--uninstall]` |
 | Repository rules | `.venv\Scripts\python.exe tools/check_structure.py` |
 | The capability manifest for a registry (Heron AI) | `.venv\Scripts\python.exe tools/export_capabilities.py` |
+| The plain-words tool catalogue (`docs/TOOL-CATALOGUE.md`) | `.venv\Scripts\python.exe tools/make_tool_catalogue.py` |
 | Build the release zip, then the one-file setup | `.venv\Scripts\python.exe tools/make_release.py`, then `tools/make_installer.py` (Windows; [tools/README](../tools/README.md)) |
 | No credential in any tracked file (CI) | `.venv\Scripts\python.exe tools/check_secrets.py` |
 | Live smoke test | `.venv\Scripts\python.exe tools/smoke_test.py` |
