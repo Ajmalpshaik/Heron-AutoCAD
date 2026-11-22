@@ -227,7 +227,7 @@ done looks like here.
 ## Repository
 
 - [ ] Tag `v1.6.0` after NEEDS-CHECKING groups A, D, E and F pass - `tools/live_check.py --group all --write` does D, E and F.
-- [ ] Later: offer this repository to Heron AI as its AutoCAD adapter when Heron's capability registry is ready ([D-12](DECISIONS.md)). ([#75](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/75))
+- [ ] Later: offer this repository to Heron AI as its AutoCAD adapter when Heron's capability registry is ready ([D-12](DECISIONS.md)). This side's part is ready: the capability manifest and [14](14-heron-ai-adapter.md) ([D-122](DECISIONS.md)); the rest waits for Heron. ([#75](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/75))
 - [ ] With a sheet tab active, `autocad_status` and `autocad_add_table(space="paper")` raised a bare
   `Exception occurred` (2026-10-28, row D33). Status is what the gate waits for, so every tool was
   blocked until the Model tab was clicked. Reproduce live, find the call (suspect `doc.PaperSpace`),

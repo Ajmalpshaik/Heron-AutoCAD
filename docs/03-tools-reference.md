@@ -523,3 +523,5 @@ prompt cannot send the AI after a tool that was renamed or never built.
 | `--read-only` | Only Read and View tools are offered; nothing can change a drawing |
 | `--no-bridge` | Developers only: skip the plug-in (no padlocks, banner, Keep or Discard) |
 | `--transport http --host --port` | Serve over HTTP (no authentication: trusted networks only) |
+
+For a program that lists tools rather than calls them (Heron AI's capability registry), `tools/export_capabilities.py` writes every tool, its level, inputs, what it needs of the plug-in and its live-check state into `dist/capabilities.json` ([14](14-heron-ai-adapter.md)).

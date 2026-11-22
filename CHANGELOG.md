@@ -14,6 +14,15 @@ Newest first. Dates are when the change was made.
   checked against it and not decided, and a remap is refused ([D-120](docs/DECISIONS.md)). Live
   group AT NOT RUN. #70 stays open until the office's own list is imported.
 
+- **A capability manifest for Heron AI's registry (2026-11-22, #75).** `tools/export_capabilities.py`
+  writes `dist/capabilities.json`: every tool with its padlock, kind, `Use when` lines, inputs, what
+  it needs of the plug-in (read from its own code, operations checked against the plug-in's list)
+  and its proof state from NEEDS-CHECKING (PASS / PARTLY / NOT RUN / FAIL / NO ROW), so a registry
+  can tell proven tools from unproven ones. Same file every time for the same code; every release
+  zip carries it. `autocad_list_materials` is now marked read-only for MCP clients, as it only reads.
+  No new tool, no runtime change, no live rows. How Heron AI would use this server, and what is
+  still missing on its side: [14](docs/14-heron-ai-adapter.md) ([D-122](docs/DECISIONS.md)).
+
 - **Pyramid, polysolid and the rest of SOLIDEDIT (2026-11-21, #182, #183, #184; part 3 of #119).**
   Five new tools done by the plug-in (**198** in all): `autocad_add_pyramid` (PYRAMID: 3 to 32
   sides, a point or a flat top, or a hopper; on the centre of its base, one side to the front),
