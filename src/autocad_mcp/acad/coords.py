@@ -167,6 +167,60 @@ class Ucs:
             x * az + y * bz + z * cz,
         )
 
+    # ---- angles, turns and arcs on the plane (D-96) -----------------------
+    #
+    # A flipped UCS (its Z pointing down) is a mirror of the world on the XY
+    # plane, so anticlockwise in it is clockwise in the world. A turned one is
+    # a plain rotation. These four are what every tool needs for its angles;
+    # they are only meaningful while ``tilted`` is false, which ucs_for makes
+    # sure of before any of them is used.
+
+    def angle_to_world(self, degrees: float) -> float:
+        """A direction given as an angle in this UCS, as the world angle of the same direction, 0-360.
+
+        On a turned UCS that is the angle plus the UCS rotation; on a flipped
+        one the angle runs the other way, so it is the rotation minus it.
+        """
+        value = float(degrees)
+        if self.tilted:
+            a = math.radians(value)
+            x, y, _ = self.direction_to_world((math.cos(a), math.sin(a), 0.0))
+            return math.degrees(math.atan2(y, x)) % 360.0
+        turned = self.rotation_degrees - value if self.flipped else self.rotation_degrees + value
+        return turned % 360.0
+
+    def angle_from_world(self, degrees: float) -> float:
+        """A world angle, as the angle of the same direction measured in this UCS, 0-360."""
+        value = float(degrees)
+        if self.tilted:
+            a = math.radians(value)
+            x, y, _ = self.to_ucs((self.origin[0] + math.cos(a), self.origin[1] + math.sin(a), self.origin[2]))
+            return math.degrees(math.atan2(y, x)) % 360.0
+        turned = self.rotation_degrees - value if self.flipped else value - self.rotation_degrees
+        return turned % 360.0
+
+    def turn_to_world(self, degrees: float) -> float:
+        """An amount of turning (ROTATE's angle, a polar array's fill), as the world one.
+
+        Turning is the same amount on any plan UCS; a flipped one only
+        reverses which way is anticlockwise.
+        """
+        return -float(degrees) if self.flipped else float(degrees)
+
+    def arc_to_world(self, start: float, end: float) -> tuple[float, float]:
+        """An arc's start and end angles in this UCS, as the world arc's.
+
+        An arc always sweeps anticlockwise from start to end. Seen in a
+        flipped UCS the world arc runs the other way, so its ends swap.
+        """
+        if self.flipped:
+            return self.angle_to_world(end), self.angle_to_world(start)
+        return self.angle_to_world(start), self.angle_to_world(end)
+
+    def bulge_to_world(self, bulge: float) -> float:
+        """A polyline bulge in this UCS, as the world one: its sign turns over in a mirror."""
+        return -float(bulge) if self.flipped else float(bulge)
+
     # ---- what to tell the agent -------------------------------------------
 
     @property

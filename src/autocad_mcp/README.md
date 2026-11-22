@@ -43,7 +43,7 @@ The MCP server. Installed as the `autocad-mcp` command (`pyproject.toml` -> `ser
 | `tools/dimensions.py` | dimension runs (chain, baseline, ordinate, a named style), centre marks |
 | `tools/dimensions_edit.py` | dimensions already drawn: even spacing (DIMSPACE), breaks (DIMBREAK) |
 | `tools/annotation_scales.py` | annotative objects and their annotation scales, done by the plug-in |
-| `tools/drafting.py` | splines, multilines (MLINE), wipeouts |
+| `tools/drafting.py` | splines (through fit points, or by control points through the plug-in), editing a spline's fit points, multilines (MLINE, closed by the plug-in), wipeouts |
 | `tools/draw_extra.py` | construction lines and rays, regions, donuts, divide / measure with points or a block (D-108) |
 | `tools/xrefs.py` | attach an xref; reload, unload, detach, bind; the xref tree with broken paths; attach an image or a PDF / DWF / DGN underlay; clip an xref, image or underlay (D-84) |
 | `tools/pdf_import.py` | `autocad_import_pdf`: one page of a PDF as lines, text and hatches (-PDFIMPORT in one form, D-106); the LISP and checks are `acad/pdf_import.py` |

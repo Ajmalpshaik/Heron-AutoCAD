@@ -697,6 +697,8 @@ is NOT RUN.**
 | AS7 | Install plug-in 1.7.0 (or any older one), run AS1 and AS4 | Both answer over COM (no `operation` line in the log), no error, the same answers as with 1.8.0 | NOT RUN |
 | AS8 | Select two objects yourself, run AS1, then type SELECT and P (previous) | Note what is selected before and after, with the plug-in and over COM; Pass: the read does not leave AutoCAD's own selection or "previous" set different from what COM leaves | NOT RUN |
 | AS9 | Start LINE and leave it waiting for a point; run AS1 | The read answers, or gives the busy answer naming LINE; no error box; LINE is still waiting | NOT RUN |
+| AS10 | The AS1 drawing: `autocad_drawing_report()`, then the same over COM (#193) | The log shows `operation count_entities`; `model_space` (`total`, `by_type`, key order too) is the same both ways, and counts model space only (not the sheets' title blocks) | NOT RUN |
+| AS11 | A drawing with more than 50,000 objects in model space: `autocad_drawing_report()` both ways, timed | The same `total`, `by_type` and "Only the first 50,000" note both ways; write both times in the result | NOT RUN |
 
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 
@@ -894,6 +896,33 @@ drawing is back as it was. The test box for AR8-AR12 is
 | AR13 | Ask to keep on: run AR1, AR4, AR8 and AR12, answering Discard each time | Each is taken back whole: no pyramid or wall left, the box its old size, the union one solid again | NOT RUN |
 | AR14 | AR1-AR13 on AutoCAD 2025/2026 and 2021-2024 | As AR1-AR13 | NOT RUN (no PC with those versions yet) |
 
+## Group AI - The drawing tools: UCS on every draw and modify tool, batch fills, arc breaks, closed multilines, control-point splines (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-96](DECISIONS.md), [D-97](DECISIONS.md); issues #50, #51, #52, #55, #56).
+Built and tested offline only (`tests/test_draw_ucs.py`, `tests/test_batch_fills.py`,
+`tests/test_break_arcs.py`, `tests/test_drafting_plugin.py`, and the C# `SplineCheckTests`); the
+plug-in operations `close_multiline`, `add_cv_spline` and `edit_spline_fit_points` build for all three
+targets but have never run. Needs the plug-in rebuilt and reinstalled, and the server restarted. Set a
+plan UCS first for AI1-AI3: `autocad_set_ucs(mode='origin', origin=[1000,500], angle=30)`.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AI1 | On the turned UCS: `autocad_draw_rectangle(corner1=[0,0], corner2=[2000,1000], coords='ucs')`, `autocad_draw_arc(center=[0,0], radius=500, start_angle=0, end_angle=90, coords='ucs')`, `autocad_add_text(text='A', position=[0,1500], rotation=0, coords='ucs')`, `autocad_insert_block(<any block>, position=[3000,0], rotation=0, coords='ucs')`; then PLAN, current UCS | Seen square to the UCS: the rectangle 2000 along its X and 1000 up, the arc a quarter from its X to its Y, the text and block reading along its X. `converted_from_ucs` names the 30 degree UCS. In the world (PLAN World) all four are turned 30 degrees about 1000,500 | NOT RUN |
+| AI2 | On the turned UCS: `autocad_add_dimension(dimension_type='horizontal', point1=[0,0], point2=[2000,0], text_position=[1000,-300], coords='ucs')`; `autocad_move_entities(<rectangle>, displacement=[0,1200], coords='ucs')`; `autocad_rotate_entities(<rectangle>, base_point=[0,0], angle=15, coords='ucs')`; `autocad_array_entities(<circle>, rows=2, columns=3, row_spacing=400, column_spacing=600, coords='ucs')` | The dimension reads 2000 along the UCS X, 300 below; the rectangle moves straight up the screen and turns 15 degrees about the UCS origin; the six circles sit on a grid square to the UCS | NOT RUN |
+| AI3 | `autocad_set_ucs(mode='origin', origin=[0,0,3000])`, then `autocad_draw_polyline(points=[[0,0],[1000,0],[1000,1000]], coords='ucs')`; LIST it | Elevation 3000. Then a flipped UCS (UCS X, 180): `autocad_add_text(..., coords='ucs')` is refused naming "flipped" and nothing is drawn; `autocad_draw_arc(..., coords='ucs')` draws the arc that looks right in that view | NOT RUN |
+| AI4 | `autocad_batch_draw(operations=[{"type":"hatch","points":[[0,0],[100,0],[50,80]],"color":1},{"type":"hatch","points":[[200,0],[300,0]],"bulges":[0,1]},{"type":"hatch","points":[[400,0],[600,0],[600,200],[400,200]],"holes":[[[450,50],[550,50],[500,150]]]}])` | Three solid fills: a red triangle, a filled half-round, a square with an empty triangle in it. `created: 3`, `failed: 0`; LIST says HATCH, pattern SOLID, not associative; one Ctrl+Z takes all three | NOT RUN |
+| AI5 | `autocad_batch_draw(operations=[{"type":"mtext","position":[0,0],"text":"NOTE 1\\PNOTE 2","width":2000,"height":250,"attach":"middle_center"},{"type":"mtext","position":[0,-1000],"text":<a 600-character note>,"width":3000}])` | Two MTEXTs: the first two lines centred on 0,0; the second holds the whole 600 characters, wrapped at 3000 | NOT RUN |
+| AI6 | With DIMSCALE 50: `autocad_batch_draw(operations=[{"type":"dimension","point1":[0,0],"point2":[5000,0],"text_position":[2500,-800]},{"type":"dimension","dimension_type":"vertical","point1":[0,0],"point2":[300,3000],"text_position":[-800,1500],"text_override":"<> TYP"}])` | An aligned dimension reading 5000, 800 below; a vertical one reading 3000 TYP; both in the current dimension style and sized as DIMSCALE 50 (not tiny); DIMEDIT / grips work on them. Then the same with `coords='ucs'` on the 30 degree UCS and a style with DIMTIH on: the text reads along the UCS's X, not the world's (group 51). Also: was an entmade DIMENSION with no block name (group 2) accepted? | NOT RUN |
+| AI7 | A polyline pipe run with a quarter bend (`autocad_batch_draw` polyline with a 0.4142 bulge) and a valve block inserted on the bend; `autocad_break_at_blocks(block_handles=[valve], gap=20)` | The run is cut either side of the valve's box; both pieces still bend on the same arc (LIST: same centre and radius); the valve sits in a clean gap. Then a closed circle-like polyline with a block on it: one open polyline is left, not two | NOT RUN |
+| AI8 | `autocad_draw_multiline(points=[[0,0],[4000,0],[4000,3000],[0,3000]], scale=200, closed=true)` | `mitred: true`, no warning; the last corner at 0,0 is mitred like the other three (zoom in: no overlap); LIST says closed; one Ctrl+Z takes it | NOT RUN |
+| AI9 | The same with the server on `--no-bridge` | Drawn with the first point repeated; `mitred: false` and the warning says the plug-in is not in the job | NOT RUN |
+| AI10 | `autocad_draw_spline(points=[[0,0],[1000,1500],[3000,1500],[4000,0],[5000,800]], method='control_points', degree=3)`; LIST; SPLINEDIT shows the control vertices | One SPLINE, degree 3, 5 control points at those places, starting at 0,0 and ending at 5000,800; the curve touches only the ends; no fit points | NOT RUN |
+| AI11 | The same with `closed=true`, then degree 1 and degree 2 | Closed: the curve comes round with no corner at 0,0 (zoom in), LIST says closed (note what it says about periodic). Degree 1: straight lines through the points | NOT RUN |
+| AI12 | A fit spline (G1), then `autocad_edit_spline(handle, edits=[{"move":1,"to":[1000,800]},{"insert":4,"point":[4000,0]},{"remove":0}])`; `autocad_get_entity` before and after | Same handle; the fit points are exactly those in `points` (the second moved, one added after the last, the first gone); the curve passes through them; one Ctrl+Z puts it back. **Note whether `insert` at the count added after the last point**, and on a closed fit spline whether `fit_points` lists the first point again at the end | NOT RUN |
+| AI13 | `autocad_edit_spline` on the AI10 control-point spline, and with `{"move": 9, ...}` on the G1 spline | Both refused before anything changes: no fit points; point 9 off the end | NOT RUN |
+| AI14 | `autocad_make_shape(shape='section_mark', settings={"length":3000,"filled":true})` and `north_arrow`, `scale_bar`, `level_mark` with `filled: true` | Solid arrowheads, a half-filled north point, every other scale-bar division filled, a solid level triangle; each fill exactly inside its outline | NOT RUN |
+
 ## Group AN - Multileader and table styles made by the plug-in (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-104](DECISIONS.md), [D-105](DECISIONS.md); issue #68). Built and tested
@@ -916,6 +945,7 @@ scratch metric drawing. **Every row below is NOT RUN.**
 | AN10 | `table_styles=[{"name": "A", "text_height": 2.5, "alignment": "top left"}]`, then `multileader_styles=[{"name": "B", "text_height": 2.5, "scale": 0.02}]`, then `multileader_styles=[{"name": "C", "text_height": 2.5, "arow": "dot"}]` | A's row: "... vertical middle ...", B's: "'0.02' could be a ratio or a scale factor ... '1:50'", C: refused before anything ("arow is not an option"). None of the three is in the drawing | NOT RUN |
 | AN11 | With Changes **off**: AN1 again | Refused by the padlock before anything; MLEADERSTYLE unchanged | NOT RUN |
 | AN12 | AN1 with a plug-in built before this change | Refused: "Heron in AutoCAD does not have the operation 'multileader_style'. Update Heron ..."; nothing changed. With a text style in the same call: the text style is made and the multileader row carries that message | NOT RUN |
+| AN13 | `autocad_add_table(position=[0,0], rows=[["A"]], style="NOPE")`, then `autocad_add_multileader(landing=[500,500], arrows=[[0,0]], text="X", style="NOPE")` | Each refused: "no ... style called 'NOPE' ... Make it with autocad_create_styles ... Nothing was left in the drawing." No empty table or bare leader in model space (`autocad_list_entities`), #191 | NOT RUN |
 
 ## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
 

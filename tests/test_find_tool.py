@@ -32,14 +32,14 @@ from autocad_mcp.tools import register_all, resources
 
 register_all()
 
-# The floors. Current, over 169 tools: 113 of these put the right tool first
-# and 125 of 126 find it in the top three (the miss: "make a tag block with
-# a TAG attribute", #191). Set a little under, so ordinary
+# The floors. Current: 110 of these put the right tool first and all 128 find
+# it in the top three ("make a tag block with a TAG attribute" came back with
+# make_block's summary naming the tag block, #191). Set a little under, so ordinary
 # rewording does not fail the build but a real loss does. The top-three floor
 # is deliberately the full count minus one: a phrase that stops finding its
 # tool at all is the failure that costs someone time at the machine.
 FIRST_PLACE_FLOOR = 108
-TOP_THREE_FLOOR = 125
+TOP_THREE_FLOOR = 127
 
 
 CASES = [

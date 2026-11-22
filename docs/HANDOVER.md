@@ -10,7 +10,7 @@
 
 ## Latest - 2026-11-21 (pyramid, polysolid, solid face edits: #182, #183, #184; D-112, D-113)
 
-Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**196** in all):
+Part 3 of #119, branch `claude/solid-edits`. Five new tools done by the plug-in (**197** in all):
 `autocad_add_pyramid`, `autocad_add_polysolid`, `autocad_edit_solid_faces` (offset, taper, move,
 delete), `autocad_imprint_solid`, `autocad_separate_solid`. Plug-in: `SolidPrimitives.cs` and
 `SolidFaceEdits.cs`, eight new operations; pure maths in `Bridge/SolidShapeMath.cs`. Every .NET
@@ -25,6 +25,29 @@ None of it has run in AutoCAD. Versions not bumped (the parent does).
 ([NEEDS-CHECKING group AR](NEEDS-CHECKING.md)). The answers the reference could not give: whether
 AutoCAD reads the pyramid's radius as its reference says (`remade_to_size`, AR1), and which way a
 positive taper leans (AR9).
+
+## Earlier - 2026-11-22 (the drawing report's count by the plug-in, #193, rank 2 of #74)
+
+`autocad_drawing_report` counts model space through `count_entities` with `space: model` and the
+same 50,000 cut-off; the plug-in walks model space in COM's order and says `"space": "model"`, so a
+plug-in built before this (which would count the whole drawing) is not believed and COM counts
+instead. Tests: `tests/test_plugin_reads.py::TestDrawingReportCount`, `EntityReadsTests.cs`.
+**Next (on this PC):** live rows AS10 and AS11 with AS1-AS9. Next move: rank 1, #192 (count_blocks).
+
+## Earlier - 2026-11-21 (the drawing tools: #50, #51, #52, #55, #56; D-96, D-97)
+
+One new tool (**192** in all, with the other sessions' tools): `autocad_edit_spline`. `coords="ucs"` on the single-entity draw and
+modify tools; `mtext`, `hatch` (solid) and `dimension` (linear) in `autocad_batch_draw`; `filled=true`
+on four symbol shapes; `autocad_break_at_blocks` cuts arcs; `autocad_draw_multiline(closed=true)`
+mitres its last corner; `autocad_draw_spline(method="control_points")`. Three new plug-in
+operations (`close_multiline`, `add_cv_spline`, `edit_spline_fit_points`), checked against
+Autodesk's reference assemblies and compiled for all three builds; the plug-in version is not
+bumped here (the parent does it).
+
+**Next (on this PC, AutoCAD closed):** pull, build and install the plug-in, restart Claude, then
+live rows **AI1-AI14**. AI4 decides whether an entmade solid hatch lands (if it does, `filled` could
+become the default on the symbol shapes); AI11 says how AutoCAD shows a closed control-point
+spline; AI12 says whether `insert` at the count adds after the last fit point.
 
 ## Earlier - 2026-11-21 (tools into the plug-in where it pays off: #74, D-114)
 
@@ -67,8 +90,7 @@ command), `autocad_etransmit` (Publish; plug-in `list_dependencies`, packing in
 `attach_underlay`, `clip_reference`; images over COM). The plug-in builds for net48, net8 and net10
 here, but nothing has run in AutoCAD: rows AD1-AD12, all NOT RUN. Versions not bumped (the parent
 does): the plug-in parts need the release after 1.7.0. D-84, D-85; known limits §35. The ribbon
-coverage page (docs/12) still lists Boundary and Overkill as gaps in its Home rows, left for the
-parent so as not to collide with the 2D-edit session's rows.
+coverage page (docs/12) now lists Boundary and Overkill as built (NOT RUN live).
 
 ## Earlier - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
 

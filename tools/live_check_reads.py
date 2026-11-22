@@ -46,6 +46,8 @@ BY_EYE: dict[str, str] = {
     "AS7": "needs plug-in 1.7.0 or older installed",
     "AS8": "needs objects selected by hand and SELECT P typed",
     "AS9": "needs LINE started by hand and left waiting",
+    "AS10": _OVER_COM,
+    "AS11": "needs a drawing of more than 50,000 objects and both times written down, and " + _OVER_COM,
     "AO1": "needs -PDFIMPORT typed by hand and its prompts written down",
     "AO2": _PDF,
     "AO3": _PDF,
