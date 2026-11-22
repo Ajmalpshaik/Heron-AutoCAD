@@ -919,6 +919,34 @@ Heron and is **not** an administrator. **Every row below is NOT RUN.**
 | AK10 | After AK1, SECURELOAD left at 1 (check with SECURELOAD at the command line): start AutoCAD 2027 | Heron is **unsigned by decision** (#164). Record whether AutoCAD shows a security box for Heron in `%APPDATA%\Autodesk\ApplicationPlugins`, its exact words and buttons; choose to load it always. The Heron tab appears | NOT RUN |
 | AK11 | After AK10: close AutoCAD and start it again; then install the next version over it (AK5) and start AutoCAD | No box on the restart: the modeller trusts Heron **once**. After an update, record whether AutoCAD asks again | NOT RUN |
 
+## Group AR - Pyramid, polysolid, offset / taper / move / delete faces, imprint, separate (AutoCAD 2027, this PC)
+
+Added on 2026-11-21 ([D-112](DECISIONS.md), [D-113](DECISIONS.md); issues #182, #183, #184, part 3
+of #119). Built and tested offline only (`tests/test_solid_shapes_faces.py`,
+`SolidShapeMathTests.cs`); the add-in **compiles** for all three AutoCAD builds. Every row needs the
+plug-in built from this change (eight new operations) installed. Changes padlock on,
+`autocad_status` first, a scratch drawing in mm. After each row press **Ctrl+Z once** and check the
+drawing is back as it was. The test box for AR8-AR12 is
+`autocad_add_solid(shape="box", base=[0,0], length=1000, width=600, height=500)` (volume
+300,000,000), made again before each row. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AR1 | `autocad_add_pyramid(base=[0,0,0], radius=300, height=900)`, then `autocad_preview` in plan and SW iso | A 600 x 600 base sitting on z=0, centred on 0,0, its sides along X and Y (corners at ±300, ±300); the point at 0,0,900; `turned: true`; `volume` = `expected_volume` = 108,000,000. Write down `remade_to_size` (expected false: Autodesk's reference says the radius is to the middle of a side) | NOT RUN |
+| AR2 | `autocad_add_pyramid(base=[2000,0,0], sides=6, radius=200, radius_to="corner", top_radius=100, height=500)` | A hexagon with two corners on the X axis (at x 1800 and 2200) and flat sides facing front and back (y ±173.2), a flat hexagon top at z=500 with corners 100 out; `volume` = `expected_volume` (about 30,310,889) | NOT RUN |
+| AR3 | `autocad_add_pyramid(base=[0,3000,0], radius=150, top_radius=600, height=900)` (a hopper); then again with `rotation=45` and `coords="ucs"` on a UCS turned 30° | A 300 x 300 bottom on z=0 and a 1200 x 1200 top at z=900, sides along X and Y; the second turned 75° in the world (45 + the UCS's 30), its base at the UCS point | NOT RUN |
+| AR4 | `autocad_add_polysolid(points=[[0,0],[5000,0],[5000,3000]], width=200, height=1200)` | An L wall 200 thick centred on the line, 1200 high, with a square outside corner; `volume` 1,920,000,000 (8000 x 200 x 1200) | NOT RUN |
+| AR5 | AR4 again with `side="left"`, then with `side="right"` | Left: the wall on the +Y side of the first leg (y 0 to 200) and the -X side of the second (x 4800 to 5000), volume 1,872,000,000. Right: y -200 to 0 and x 5000 to 5200, volume 1,968,000,000 | NOT RUN |
+| AR6 | A closed 4000 x 3000 polyline drawn anticlockwise and a second drawn clockwise: `autocad_add_polysolid(path=<each>, side="inside", width=200, height=1200)`, then `side="outside"` | Inside: the wall's outer face on the outline for both, volume 3,168,000,000; outside: its inner face on the outline, volume 3,552,000,000. The polylines kept | NOT RUN |
+| AR7 | A polyline with an arc (a bulge) and a circle as paths, `width=200, height=1000`; then a rectangle drawn with PLINE back to its first point without typing C, `side="inside"`; then a polyline with an arc of radius 50 and `width=200` | The walls follow the arc and the circle smoothly (a ring for the circle); the unclosed rectangle makes a ring like a closed one (`closed: true`), the polyline itself left as drawn; the tight arc is refused "turns tighter than the wall is wide ... Nothing was changed" | NOT RUN |
+| AR8 | Test box: `autocad_edit_solid_faces(handle, action="offset", faces="top", distance=100)`; then (new box) `action="move", faces="right", by=[200,0,0]` | Offset: 600 high, `volume_after` 360,000,000. Move: 1200 long, 360,000,000 | NOT RUN |
+| AR9 | Test box: `autocad_edit_solid_faces(handle, action="taper", faces="front", angle=10)` | The front face leans, its bottom edge still on y=0. Write down whether it leaned **in** (`volume_after` about 277,959,000, smaller) or out (larger): the tool's wording says in, and is fixed to match if not | NOT RUN |
+| AR10 | Test box with its vertical edges filleted R50 (`autocad_fillet_solid_edges`); list its faces; `action="delete"` on one fillet face; then `action="delete", faces="top"` on a plain box | That corner is square again, volume up by about 268,000; deleting the top of a box is refused with nothing changed | NOT RUN |
+| AR11 | A 400 x 200 rectangle drawn on the test box's top (z=500): `autocad_imprint_solid(handle, objects=[<rectangle>])`; then `autocad_press_pull_faces` on the new face by number, distance 100; then imprint a line 5 m away | Imprint: `faces_after` = `faces_before` + 1 (7), the rectangle kept; the pull raises only the 400 x 200 pad. The far line: `note` says nothing new was imprinted | NOT RUN |
+| AR12 | Two test boxes 2000 apart, `autocad_solid_boolean` union into one solid; `autocad_separate_solid(<it>)`; then on a single box | `piece_count` 2, the second piece a new solid on the same layer and colour, the two volumes 300,000,000 each. The single box is refused "one piece already" | NOT RUN |
+| AR13 | Ask to keep on: run AR1, AR4, AR8 and AR12, answering Discard each time | Each is taken back whole: no pyramid or wall left, the box its old size, the union one solid again | NOT RUN |
+| AR14 | AR1-AR13 on AutoCAD 2025/2026 and 2021-2024 | As AR1-AR13 | NOT RUN (no PC with those versions yet) |
+
 ## Group AI - The drawing tools: UCS on every draw and modify tool, batch fills, arc breaks, closed multilines, control-point splines (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-96](DECISIONS.md), [D-97](DECISIONS.md); issues #50, #51, #52, #55, #56).

@@ -234,6 +234,34 @@ autocad_flatten_views(handles=["<the spool's pieces>"], insert_at=[4000, 0],
 autocad_section_plane(points=[[2500,-1000],[2500,5000]], insert_at=[8000, 0])
 ```
 
+---
+
+### Pyramids, walls along a path, and editing faces
+
+| Tool | Level | What it does |
+|---|---|---|
+| `autocad_add_pyramid` | Change | PYRAMID: 3 to 32 sides, a point or a flat top, or a hopper (wider at the top); placed by the centre of its base, one side to the front |
+| `autocad_add_polysolid` | Change | POLYSOLID: a wall of a width and height along a flat path, centred on it, to its left or right, or inside / outside a closed outline |
+| `autocad_edit_solid_faces` | Change | SOLIDEDIT faces: offset, taper, move or delete, picked like every other solid edit |
+| `autocad_imprint_solid` | Change | Split a solid's faces along lines or shapes that touch them, so one part of a face can be pulled on its own |
+| `autocad_separate_solid` | Change | A solid of pieces that do not touch becomes one solid per piece |
+
+**A bund wall is a polysolid.** Draw the bund's outline as a closed polyline, then
+`side="inside"` keeps the wall's outside face on the line you drew, whichever way
+round you drew it. A kerb or an upstand is the same tool with a smaller height.
+
+**Imprint, then pull.** A plinth with a raised pad: imprint the pad's rectangle on
+the plinth's top, list the faces, and press-pull the new face by its number. The
+imprint says how many faces there were before and after, so a rectangle that
+missed the top shows at once ([D-113](DECISIONS.md)).
+
+```
+autocad_add_polysolid(path="<the bund outline>", side="inside", width=200, height=1200)
+autocad_imprint_solid(handle="<plinth>", objects=["<pad rectangle>"])
+autocad_list_solid_faces_and_edges(handle="<plinth>")   # find the new face's number
+autocad_press_pull_faces(handle="<plinth>", faces=[6], distance=100)
+```
+
 ## 5. A worked example: a bracket, dimensioned and issued
 
 ```
