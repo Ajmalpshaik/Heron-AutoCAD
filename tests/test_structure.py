@@ -39,6 +39,22 @@ def test_session_worktrees_under_dot_claude_are_not_checked(tmp_path):
     assert cs.broken_links(tmp_path) == []
 
 
+def test_two_docs_with_one_number_and_an_unlisted_script_are_caught(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "docs" / "13-a.md").write_text("a")
+    (tmp_path / "docs" / "13-b.md").write_text("b")
+    (tmp_path / "docs" / "PROJECT-MAP.md").write_text("`tools/gone.py`")
+    (tmp_path / "tools" / "README.md").write_text("`listed.py`")
+    (tmp_path / "tools" / "listed.py").write_text("")
+    (tmp_path / "tools" / "stray.py").write_text("")
+    problems = " | ".join(cs.doc_and_script_map(tmp_path))
+    assert "share the number 13" in problems
+    assert "stray.py is not listed" in problems
+    assert "gone.py, which does not exist" in problems
+    assert "listed.py" not in problems
+
+
 def test_this_repository_passes():
     assert cs.run_all(ROOT) == []
 

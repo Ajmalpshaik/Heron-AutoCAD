@@ -8,7 +8,24 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (the office layer standard, #70, D-120)
+## Latest - 2026-11-22 (tidy-up before the first release; session 1 of 3)
+
+**State today:** `main` has **no open pull requests**. Server **1.10.1**, plug-in **1.7.0**, **199**
+tools. Nothing has been proved live: every live row stays NOT RUN until the owner runs AutoCAD, and
+no GitHub release or tag exists yet (the next session prepares the first). All branches that were
+merged are deleted, here and on GitHub; only `main` and the long-lived feature branch remain.
+Housekeeping done: the second doc numbered 13 is now [15](15-sheets-folders-companion.md);
+`tools/check_structure.py` now also fails on two docs with one number, a script missing from
+`tools/README.md`, or a script `PROJECT-MAP.md` names that does not exist; ROADMAP ticks the
+items whose issues are closed (palettes, dialog watch, "why can't you", ribbon audit, installer;
+signing is NOT PLANNED by the owner's choice, #164).
+
+**Waiting for the owner:** #70 (his layer list, rows AT1-AT8), #213 (decide V1/V4/V7), #75 (waits
+for Heron AI's registry). **Waiting for a live AutoCAD check:** #39, #40, #41, #80 and every
+group of rows in [NEEDS-CHECKING](NEEDS-CHECKING.md). **Next work:** the plug-in moves #192-#200
+(ranks of #74), and the follow-ups #189, #190, #206-#210, #185, #212, #216, #218, #222.
+
+## Earlier - 2026-11-22 (the office layer standard, #70, D-120)
 
 `autocad_layer_standard` (new, **199** tools, with the other sessions' work): `template` / `import` / `show` / `remove` for the
 office's own layer list as a CSV, kept in `%LOCALAPPDATA%\Heron\autocad\standards\`; `layer_standard`
@@ -426,7 +443,7 @@ still runs every test.
 ## Earlier - 2026-11-21 (attribute sheets #96, folder check #97, Companion page #91; server 1.9.0)
 
 Built offline in one PR, from Heron AI for Revit's ideas; design in
-[docs/13](13-sheets-folders-companion.md). Server **1.9.0** (four new tools, **142**), plug-in
+[docs/15](15-sheets-folders-companion.md). Server **1.9.0** (four new tools, **142**), plug-in
 still **1.6.0** (no C# changed): restart Claude after pulling.
 - **D-69 (#96):** `autocad_export_attribute_sheet` (Publish) and `autocad_apply_attribute_sheet`
   (Change). The workbook's "As exported" sheet lets the compare keep the drawing's own later

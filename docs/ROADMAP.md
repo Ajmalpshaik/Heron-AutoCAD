@@ -7,8 +7,8 @@ to [CHANGELOG](../CHANGELOG.md) when it lands. Proving what is built comes first
 ## Plug-in
 
 - [x] A Companion page like Heron's in Revit (drawing, view, selection, activity list). ([#91](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/91)) First page: `autocad_companion`, a file per chat, no server (D-71); live rows Y6 NOT RUN. Editable tables and a dashboard need a local server: a later decision.
-- [ ] A docked **activity palette** in AutoCAD (today: `autocad_activity` in the chat, D-54) with Zoom per job. ([#92](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/92))
-- [ ] A **saved-command palette** in AutoCAD (today: `autocad_saved_command` run from the chat, D-55). ([#93](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/93))
+- [x] A docked **activity palette** in AutoCAD (today: `autocad_activity` in the chat, D-54) with Zoom per job. ([#92](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/92))
+- [x] A **saved-command palette** in AutoCAD (today: `autocad_saved_command` run from the chat, D-55). ([#93](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/93))
 
 ## Ideas from Heron AI for Revit, compared on 2026-11-21
 
@@ -20,11 +20,11 @@ done looks like here.
 - [x] One plain result line: DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN ([#79](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/79)). D-62, PR #124; live rows T2-T3 NOT RUN.
 - [ ] No empty undo step ([#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80)). Part done in PR #124 (no undo step when nothing differs); taking back an empty job waits for live row T7 ([05 §26](05-known-limits.md)).
 - [x] Dry run for any change ([#81](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/81)); before / after values ([#82](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/82)). D-63 and D-62, PR #124; live rows T4-T6 NOT RUN.
-- [ ] Dialog watch during a job ([#83](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/83)).
+- [x] Dialog watch during a job ([#83](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/83)).
 - [x] Check lists: NO DATA + coverage ([#84](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/84)), office list + project changes ([#85](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/85)), Excel / HTML report ([#86](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/86)), never "complies" ([#87](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/87)). D-64 and D-65, PR #122; live rows U1-U10 NOT RUN.
 - [x] Share the office check list and project changes with the team ([#135](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/135)): an office folder per PC with this PC's copy as the fallback, `autocad_share_checklist` (Publish). D-93; live rows AG9-AG14 NOT RUN.
-- [ ] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).
-- [ ] AutoCAD ribbon coverage audit ([#94](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/94)); an honest install table ([#95](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/95)).
+- [x] "Why can't you do this?" ([#88](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/88)), what failed / was slow ([#89](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/89)), question mode in tool finding ([#90](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/90)).
+- [x] AutoCAD ribbon coverage audit ([#94](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/94)); an honest install table ([#95](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/95)).
 - [x] From the audit: attribute definitions and ATTSYNC ([#115](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/115), D-82), an Excel range as a linked table and table cell edits ([#117](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/117), D-83), copy between open drawings ([#106](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/106), D-83). Live rows AC1-AC16 NOT RUN.
 - [x] ATTSYNC also for inserts nested inside other blocks' definitions ([#156](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/156)): `nested=true`. Live row AC17 NOT RUN.
 - [x] Spreadsheet round trip for attributes ([#96](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/96), D-69), check a folder of drawings ([#97](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/97), D-70). Live rows Y1-Y5 NOT RUN.
@@ -32,8 +32,8 @@ done looks like here.
   calculators and usage counter (AutoCAD has no knowledge store), and its proven-only change gate
   (D-117: AutoCAD keeps NEEDS-CHECKING as a record, not a gate).
 - [x] Emergency stop: **Stop Heron now** in the Heron menu, or `HERONSTOP` ([D-51](DECISIONS.md)).
-- [ ] Sign the add-in DLLs, so AutoCAD's SECURELOAD never asks. ([#72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72))
-- [ ] An installer `.exe` / `.msi` for modellers (today: two Python scripts). ([#73](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/73))
+- [x] ~~Sign the add-in DLLs~~ NOT PLANNED: the owner decided against a code-signing certificate ([#164](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164), [#72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72)); `tools/signing.py` stays for if that changes. ([#72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72))
+- [x] An installer `.exe` for modellers: `tools/make_installer.py` (D-99). ([#73](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/73))
 - [ ] Move tools into the plug-in one at a time where it pays off (speed, true transactions), keeping COM as the fallback. ([#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74))
   The entity summary and a layer's extents moved first ([D-114](DECISIONS.md)); the ranked list of
   what comes next, one issue each: [13](13-moving-tools-into-the-plug-in.md).

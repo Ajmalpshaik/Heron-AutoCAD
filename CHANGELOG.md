@@ -345,7 +345,7 @@ Newest first. Dates are when the change was made.
   only and closed unsaved ([D-70](docs/DECISIONS.md), #97). `autocad_companion` opens the Heron
   Companion page: one HTML file per chat with the drawing, view, selection and this chat's activity,
   rewritten after every job; no server, no script ([D-71](docs/DECISIONS.md), #91). Design:
-  [docs/13](docs/13-sheets-folders-companion.md). 142 tools. Live rows Y1-Y6 NOT RUN.
+  [docs/15](docs/15-sheets-folders-companion.md). 142 tools. Live rows Y1-Y6 NOT RUN.
 
 - **The palette's Run can never skip the plug-in's checks (2026-11-21).** If AutoCAD was started
   with `HERON_AUTOCAD_BRIDGE=off` or a chat id in its environment, the palette's run used to inherit

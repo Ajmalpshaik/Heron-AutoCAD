@@ -529,7 +529,7 @@ Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETT
 ## Group Y - Attribute sheets, folder checks, the Companion page (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-69](DECISIONS.md), [D-70](DECISIONS.md), [D-71](DECISIONS.md),
-[13](13-sheets-folders-companion.md)). Built and tested offline only (`tests/test_attribute_sheet.py`,
+[15](15-sheets-folders-companion.md)). Built and tested offline only (`tests/test_attribute_sheet.py`,
 `tests/test_check_folder.py`, `tests/test_companion.py`). Server only: restart the server after
 pulling. **Every row below is NOT RUN.**
 

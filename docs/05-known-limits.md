@@ -374,7 +374,7 @@ Heron for Revit takes back a kept job that changed nothing, so its undo list get
 
 ## 27. Attribute sheets, folder checks and the Companion page have their own limits
 
-From [docs/13](13-sheets-folders-companion.md); all NOT RUN live (NEEDS-CHECKING group Y).
+From [docs/15](15-sheets-folders-companion.md); all NOT RUN live (NEEDS-CHECKING group Y).
 - **A number the modeller types in Excel comes back as Excel shows it.** Typed `1.50` reads `1.5`.
   Cells Heron wrote stay text; only a cell typed over is a number. Type a leading `'` in Excel to
   keep `1.50`.
