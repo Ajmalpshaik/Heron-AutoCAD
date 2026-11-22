@@ -156,7 +156,8 @@ The installer already did it. It adds an entry named `autocad` that starts
   ```
 
   Then start a new chat in that folder. If Claude asks whether to use the project's MCP server,
-  allow it.
+  allow it. Not tried yet with the installed server (only with a server built from source, the
+  same way): if the AutoCAD tools do not appear, say so in #233.
 
 Nothing reaches AutoCAD yet: Heron is **off until you press its button** (next section).
 
