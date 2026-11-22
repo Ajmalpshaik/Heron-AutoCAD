@@ -108,6 +108,8 @@ ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
         1, "reads the handle only to word a failure message; a refusal there must not hide the real reason"),
     ("tools/dimensions.py", "autocad_dimension_run.work"): (
         1, "deletes a wrongly styled dimension while already reporting a failure; a refusal there must not hide the real error"),
+    ("tools/sheets.py", "_plot_not_turned"): (
+        2, "takes a template's plot turn off a sheet the plug-in has already made (D-125); a busy refusal there (#40) must not turn a made sheet into a failure, whose retry is only told the name is taken; it is said in plot_rotation_note"),
     ("tools/document.py", "_restore_plot_state"): (
         1, "puts the page setup, BACKGROUNDPLOT and the plot error mode back; a refusal there must not hide the plot's own answer or skip the other restores"),
     ("tools/document.py", "_plot_png"): (

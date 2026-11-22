@@ -819,3 +819,18 @@ class TestASheetLeftTurnedByTheTemplate:
         out = call(sheets.autocad_create_layout(name="SAC2-101", paper_size="A1", orientation="landscape"))
         assert "would not change that" in out["page_setup"]["plot_rotation_note"]
         assert "asked for landscape but reads portrait" in out["warning"]
+
+
+def test_a_busy_autocad_while_taking_the_turn_off_never_fails_a_made_sheet(drawing, monkeypatch):
+    # #40: AutoCAD goes busy just after a layout is made. The sheet exists, so a retry would only
+    # be told the name is taken: the answer must be the sheet, with a note.
+    doc, plugin = drawing
+    monkeypatch.setattr(_shared, "plugin_runner", lambda: TestASheetLeftTurnedByTheTemplate()._turned(plugin))
+
+    def busy(target, name, value):
+        raise BUSY
+
+    monkeypatch.setattr(sheets, "_write", busy)
+    out = call(sheets.autocad_create_layout(name="SAC2-101", paper_size="A1", orientation="landscape"))
+    assert out["created"] is True and out["layout"] == "SAC2-101"
+    assert "would not change that just now" in out["page_setup"]["plot_rotation_note"]

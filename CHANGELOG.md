@@ -12,12 +12,11 @@ Newest first. Dates are when the change was made.
     the viewport over COM when AutoCAD refuses the plug-in's (`made_by: "com"`, `plugin_note`).
   - `autocad_create_layout` and `autocad_page_setup`: a sheet's plot is no longer left turned 90
     degrees by the template, so an A1 landscape reads 841 x 594 with its frame and title block corner
-    to match; the COM read swaps a turned sheet's sides as the plug-in does; `orientation` alone now
-    turns the same sheet size round instead of being ignored; a sheet that is not the way round asked
-    is warned.
+    to match; `orientation` alone now turns the same sheet size round instead of being ignored; a
+    turned sheet carries a note and one not the way round asked is warned.
   - `autocad_preview`, `autocad_export` and sheet tools with no layout named use the tab on screen
     (CTAB), not a stale COM active layout.
-  - The plug-in no longer counts AutoCAD's own viewport changes while it switches tabs, so a
+  - The plug-in no longer counts viewports AutoCAD changes itself while it switches tabs, so a
     `(setvar "CTAB" ...)` is not "1 erased" and brings no erase question.
   - `autocad_dimension_run`: `total` is the run end to end for every mode (it was 0 for an overall).
 

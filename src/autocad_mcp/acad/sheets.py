@@ -102,23 +102,6 @@ def plot_turned(media: str, orientation: str | None) -> bool:
     return (size[0] < size[1]) != (key == "portrait")
 
 
-def turned_paper(
-    size: Sequence[float], margins: Sequence[float], rotation_degrees: int
-) -> tuple[tuple[float, float], tuple[float, float, float, float]]:
-    """A layout's paper as paper space sees it: the sides swapped when the plot turns 90 or 270.
-
-    AutoCAD keeps the paper size and margins the medium's own way round; the
-    plug-in's paper read swaps them for a turned plot (SheetMath.PaperInUnits,
-    Autodesk's GetMaximumExtents rule), and the COM read does the same so the
-    two never disagree (D-125). Margins are (left, bottom, right, top).
-    """
-    width, height = float(size[0]), float(size[1])
-    left, bottom, right, top = (float(v) for v in margins)
-    if int(rotation_degrees) % 180 == 90:
-        return (height, width), (bottom, left, top, right)
-    return (width, height), (left, bottom, right, top)
-
-
 def parse_scale(value: str | float) -> float:
     """A scale as paper units per drawing unit.
 

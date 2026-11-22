@@ -198,9 +198,10 @@ def _paper_of(layout: Any) -> dict[str, Any]:
         high = tuple(float(v) for v in margins[1])[:2]
     rotation = int(_try(lambda: layout.PlotRotation, 0) or 0)
     degrees = next((deg for deg, code in PLOT_ROTATIONS.items() if code == rotation), 0)
-    # The same turn rule as the plug-in's read, so the two never disagree (D-125).
-    size, edges = plan.turned_paper(size, (low[0], low[1], high[0], high[1]), degrees)
-    return plan.paper_info(size, edges, media, plotter, degrees)
+    # Not swapped for a turned plot, unlike the plug-in's read (SheetMath.PaperInUnits): on
+    # 2026-11-22 a sheet at 90 degrees on the 841 x 594 medium was 841 x 594 on screen, as
+    # this read said. Which rule AutoCAD follows is row AF21 (D-125); new sheets are not turned.
+    return plan.paper_info(size, (low[0], low[1], high[0], high[1]), media, plotter, degrees)
 
 
 def _paper_from_plugin(paper: dict[str, Any]) -> dict[str, Any]:
@@ -250,9 +251,8 @@ def _sheet_of(info: dict[str, Any], margins: Any, title_block_width: float | Non
         sheet["frame_note"] = f"The frame could not be worked out: {exc}"
     if int(info.get("plot_rotation_degrees") or 0) % 180 == 90:
         sheet["plot_turned_note"] = (
-            "This sheet plots turned 90 degrees (Page Setup > Drawing orientation), so its paper "
-            "is read the other way round from the sheet size's name. Check Page Setup before "
-            "making a PDF."
+            "This sheet plots turned 90 degrees (Page Setup > Drawing orientation). Check which way "
+            "round its paper is in Page Setup before making a PDF."
         )
     return sheet
 
@@ -384,12 +384,13 @@ def _set_page(
         media = (_same_label(names, size_words, key) if not paper_size else None) or _match_media(names, wanted)
         layout.CanonicalMediaName = media
         written["paper_size"] = str(_try(lambda: layout.GetLocaleMediaName(media), wanted))
-        if key:
-            written["orientation"] = key
+    if size_words and key:
+        written["orientation"] = key
         # The medium is matched the right way round, so the plot is not turned
         # whatever the layout had before; only a medium offered the other way
         # round only is turned (plan.plot_turned, D-125). The 2026-11-22 sheets
-        # kept a template's 90 degrees on an 841 x 594 sheet.
+        # kept a template's 90 degrees on an 841 x 594 sheet. Written only when
+        # an orientation is asked: only the options passed are written.
         turned = plan.plot_turned(media, key)
         if _write(layout, "PlotRotation", PLOT_ROTATIONS[90 if turned else 0]):
             written["plot_rotation"] = 90 if turned else 0
@@ -776,17 +777,24 @@ def _plot_not_turned(
     now = int(info.get("plot_rotation_degrees") or 0)
     if (now % 180 == 90) == turned:
         return info
-    layout = _try(lambda: _pick_layout(doc, made))
     wanted = 90 if turned else 0
-    if layout is None or not _write(layout, "PlotRotation", PLOT_ROTATIONS[wanted]):
+    try:
+        layout = _pick_layout(doc, made)
+        done = _write(layout, "PlotRotation", PLOT_ROTATIONS[wanted])
+    except BaseException:  # noqa: BLE001 - busy (#40) or gone: the sheet is made, so it is said, never raised
+        done = False
+    if not done:
         page["plot_rotation_note"] = (
-            f"The sheet plots turned {now} degrees and AutoCAD would not change that. Set Page "
-            "Setup's drawing orientation by hand, or call autocad_page_setup(orientation=...)."
+            f"The sheet plots turned {now} degrees and AutoCAD would not change that just now. "
+            "Set it with autocad_page_setup(orientation=...) or Page Setup's drawing orientation."
         )
         return info
     page["plot_rotation"] = wanted
     page["plot_rotation_was"] = now
-    return _try(lambda: _paper_of(layout)) or info
+    try:
+        return _paper_of(layout)
+    except BaseException:  # noqa: BLE001 - the turn is written; a busy read-back keeps the plug-in's answer
+        return info
 
 
 BUSY_READBACK_TRIES = 10

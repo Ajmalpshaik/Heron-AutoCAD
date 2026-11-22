@@ -19,6 +19,8 @@ namespace Heron.AutoCAD.Addin
 
         // AutoCAD's own work while it puts another tab on screen (D-125): the sheets'
         // viewports turned off and on, the paper-space viewport erased and made again.
+        // Only viewports are left out then: any other object is still counted, so a lost
+        // "CTAB changed" can never hide a real erase of the modeller's work.
         private static readonly TabSwitchWindow TabSwitch = new TabSwitchWindow();
 
         public static void Hook()
@@ -114,7 +116,7 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnAppended(object? sender, ObjectEventArgs e)
         {
-            if (TabSwitch.Open) return; // AutoCAD switching tabs, not the job (D-125)
+            if (TabSwitch.Open && e.DBObject is Viewport) return; // AutoCAD's own, switching tabs (D-125)
             if (!AcadJobHost.Counter.Counting)
             {
                 Outside(e.DBObject);
@@ -132,7 +134,7 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnModified(object? sender, ObjectEventArgs e)
         {
-            if (TabSwitch.Open) return; // AutoCAD switching tabs, not the job (D-125)
+            if (TabSwitch.Open && e.DBObject is Viewport) return; // AutoCAD's own, switching tabs (D-125)
             if (!AcadJobHost.Counter.Counting)
             {
                 Outside(e.DBObject);
@@ -149,7 +151,7 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnErased(object? sender, ObjectErasedEventArgs e)
         {
-            if (TabSwitch.Open) return; // AutoCAD switching tabs, not the job (D-125)
+            if (TabSwitch.Open && e.DBObject is Viewport) return; // AutoCAD's own, switching tabs (D-125)
             if (!AcadJobHost.Counter.Counting)
             {
                 Outside(e.DBObject);

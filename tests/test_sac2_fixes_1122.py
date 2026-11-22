@@ -126,21 +126,17 @@ class TestPlotTurned:
         assert plan.plot_turned("Letter", "portrait") is False
 
 
-class TestTurnedPaper:
-    def test_upright_is_as_kept(self):
-        assert plan.turned_paper((420, 297), (5, 7.5, 6, 8), 0) == ((420.0, 297.0), (5.0, 7.5, 6.0, 8.0))
-
-    def test_turned_90_or_270_swaps_like_the_plug_in(self):
-        # The same numbers as SheetMathTests.A_sheet_plotted_at_90_degrees_has_its_sides_swapped.
-        assert plan.turned_paper((297, 420), (5, 7.5, 6, 8), 90) == ((420.0, 297.0), (7.5, 5.0, 8.0, 6.0))
-        assert plan.turned_paper((297, 420), (5, 7.5, 6, 8), 270)[0] == (420.0, 297.0)
-        assert plan.turned_paper((297, 420), (5, 7.5, 6, 8), 180)[0] == (297.0, 420.0)
-
-    def test_the_com_read_uses_the_same_rule(self):
+class TestTheComPaperRead:
+    def test_a_turned_sheet_is_read_as_kept_and_flagged(self):
+        # 2026-11-22: 90 degrees on the 841 x 594 medium was 841 x 594 on screen, as this read says.
         info = sheets._paper_of(Layout("X", media=A1_LANDSCAPE, rotation=1))
-        assert info["paper"] == [594.0, 841.0] and info["plot_rotation_degrees"] == 90
+        assert info["paper"] == [841.0, 594.0] and info["plot_rotation_degrees"] == 90
         sheet = sheets._sheet_of(info, None, None)
-        assert sheet["orientation"] == "portrait" and "turned 90 degrees" in sheet["plot_turned_note"]
+        assert sheet["orientation"] == "landscape" and "turned 90 degrees" in sheet["plot_turned_note"]
+
+    def test_an_upright_sheet_has_no_note(self):
+        sheet = sheets._sheet_of(sheets._paper_of(Layout("X")), None, None)
+        assert "plot_turned_note" not in sheet
 
 
 def _page(layout, paper_size=None, orientation=None):
@@ -150,6 +146,13 @@ def _page(layout, paper_size=None, orientation=None):
 
 
 class TestPageSetupOrientation:
+    def test_a_paper_size_alone_writes_no_turn(self):
+        # Only the options passed are written.
+        layout = Layout("SAC2-101", media=A1_PORTRAIT, rotation=1)
+        written = _page(layout, "A1")
+        assert layout.CanonicalMediaName == A1_LANDSCAPE
+        assert layout.PlotRotation == 1 and "plot_rotation" not in written
+
     def test_a_paper_size_puts_a_template_turn_back_to_none(self):
         layout = Layout("SAC2-101", media="ISO_A1_(594.00_x_841.00_MM)", rotation=1)
         written = _page(layout, "A1", "landscape")
