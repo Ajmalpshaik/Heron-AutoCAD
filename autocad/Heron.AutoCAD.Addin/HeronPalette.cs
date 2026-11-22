@@ -24,7 +24,7 @@ namespace Heron.AutoCAD.Addin
     /// <summary>
     /// The Heron palette (D-68): one docked PaletteSet with two tabs, drawn in
     /// Heron's window style (D-45). Activity lists Heron's recent change jobs
-    /// with Select, Zoom and Undo where they can act (D-123); Saved commands lists the commands saved in
+    /// with Select, Zoom and Undo where they can act (D-124); Saved commands lists the commands saved in
     /// a chat, fills their inputs and runs one through the server's gate. The
     /// rules are the bridge's (ActivityLog, SavedCommandList, PaletteServer);
     /// this file only shows them and makes the AutoCAD calls. Main thread only.
@@ -151,7 +151,7 @@ namespace Heron.AutoCAD.Addin
 
     /// <summary>
     /// Issue #92: Heron's recent change jobs, newest first, each with Select,
-    /// Zoom and Undo where they can act (D-123); with what happened to the drawings between them (#48),
+    /// Zoom and Undo where they can act (D-124); with what happened to the drawings between them (#48),
     /// drawn again the moment a drawing opens, comes to the front, is saved or
     /// closes.
     /// </summary>
@@ -223,7 +223,7 @@ namespace Heron.AutoCAD.Addin
             body.Children.Add(S.Body(entry.At.ToString("HH:mm") + "  ·  " + FileName(entry.Drawing) + where + "  ·  " + entry.State, S.TextMuted, 11));
             body.Children.Add(S.Body(entry.Counts, S.TextSecondary, 11));
 
-            // Only the buttons that can act (D-123): a save or a job that made
+            // Only the buttons that can act (D-124): a save or a job that made
             // nothing gets none, so no empty row of buttons either.
             var offer = PaletteRows.Buttons(entry, newest);
             if (offer.Any)

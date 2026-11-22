@@ -203,11 +203,11 @@ this side does only what it can on its own:
   live answer. Issue #75 stays open until Heron's registry lists these tools.
   Design and the steps: [14](14-heron-ai-adapter.md).
 
-## D-123 - The Activity palette shows Select, Zoom and Undo only where they can act
+## D-124 - The Activity palette shows Select, Zoom and Undo only where they can act
 
 **Decided:** 2026-11-22, from Ajmal's report: a "Save Drawing ... done, made 0, changed 0, erased
 0" card offered Select, Zoom and Undo. **Status:** in force (built and tested offline; live rows
-X25-X27 in [NEEDS-CHECKING group X](NEEDS-CHECKING.md), NOT RUN); refines D-68.
+X26-X28 in [NEEDS-CHECKING group X](NEEDS-CHECKING.md), NOT RUN); refines D-68.
 Every finished card used to carry all three buttons, and a press on a save or an export only said
 "nothing to show" or "a raw command is never undone here". Now each card gets only the buttons that
 can act, decided by `PaletteRows.Buttons` in the bridge (tested offline), and a card with none gets
@@ -215,6 +215,10 @@ no button row at all (hidden, not greyed).
 - **Select and Zoom** when the job has objects to show (what it made or changed, `ShownHandles`),
   is not running, was not undone from the palette and was not discarded. A failed or "outcome
   unknown" job that left objects keeps them, as `CanShow` already allowed.
+- **A dry run gets no buttons.** The server ends it as `dry_run` (D-63) with the counts of what it
+  took back, so its handles point at objects already gone. `CanShow` now refuses it too ("This was
+  a dry run: Heron took it back at once ..."), and its card reads "dry run, taken back" instead of
+  "stopped (dry_run)".
 - **Undo** only on Heron's **newest** job, and only when it is a Change job (never a save, export,
   publish, raw command or AutoLISP) that ended `done`, was counted and changed something, is not
   itself an undo, and, with no UNDO mark, has no Heron zoom or show since: exactly the parts of
@@ -223,8 +227,9 @@ no button row at all (hidden, not greyed).
   waiting, the job's drawing not in front, a change by the modeller since, and UNDOCTL. They can
   change without the list being drawn again, so hiding on them could show a stale button or hide a
   good one. Every input of the new rule (a job beginning or ending, an Undo) already redraws the list.
-- A test pins the two together: over a mix of jobs, a button shows exactly when its press, with
-  nothing else in the way, would be allowed.
+- A test pins the two together: for each kind of job, as Heron's newest, a button shows exactly
+  when its press, with nothing else in the way, would be allowed.
+- **Number:** D-123 went to the erase-question switch, made the same day in a parallel pull request.
 
 ## D-113 - Offset, taper, move and delete faces, imprint and separate are plug-in operations; one face tool with an action
 

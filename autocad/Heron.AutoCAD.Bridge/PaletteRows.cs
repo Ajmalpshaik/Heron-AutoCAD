@@ -50,7 +50,7 @@ namespace Heron.AutoCAD.Bridge
             active == null || DrawingNames.Same(active, job.Drawing);
 
         /// <summary>
-        /// Which buttons a job's card gets (D-123). A button shows only when it
+        /// Which buttons a job's card gets (D-124). A button shows only when it
         /// can act: a save, an export or a job that made and changed nothing has
         /// nothing to select, zoom to or undo, so it gets none. Decided from the
         /// job alone and whether it is Heron's newest, both of which redraw the
@@ -64,7 +64,8 @@ namespace Heron.AutoCAD.Bridge
         /// <param name="newest">True for the first of <see cref="ActivityLog.Entries"/>: only Heron's newest change may be undone.</param>
         public static JobButtons Buttons(ActivityEntry job, bool newest)
         {
-            if (job.Running || job.Undone || job.Outcome == "discarded") return new JobButtons();
+            // Discarded, or a dry run Heron took back at once (D-63): nothing of it is left.
+            if (job.Running || job.Undone || job.Outcome == "discarded" || job.Outcome == ActivityLog.DryRun) return new JobButtons();
             var show = job.ShownHandles.Length > 0;
             var undo = newest
                 && job.Tool != ActivityLog.UndoTool
@@ -77,7 +78,7 @@ namespace Heron.AutoCAD.Bridge
         }
     }
 
-    /// <summary>The buttons a job's card shows in the Activity list (D-123).</summary>
+    /// <summary>The buttons a job's card shows in the Activity list (D-124).</summary>
     public sealed class JobButtons
     {
         public bool Select { get; set; }

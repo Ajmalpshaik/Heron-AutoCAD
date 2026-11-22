@@ -223,7 +223,7 @@ public class ActivityLogTests
         Assert.True(log.CanUndo("j1", Clean()).Allowed);
     }
 
-    // ----- which buttons a card shows (D-123) -----
+    // ----- which buttons a card shows (D-124) -----
 
     private JobButtons ButtonsOf(string job)
     {
@@ -325,27 +325,62 @@ public class ActivityLogTests
     }
 
     [Fact]
-    public void A_hidden_button_is_one_the_click_would_refuse_and_an_allowed_click_has_its_button()
+    public void A_dry_run_was_taken_back_so_it_gets_no_buttons_and_select_says_why()
     {
-        // Pin the card's buttons to the click rules, so the two cannot drift apart.
-        Job("j1");
-        Job("s1", Risk.Publish, added: 0);
-        Job("a1", Risk.Admin, added: 2);
-        Job("d1", outcome: "discarded");
-        Job("f1", outcome: "failed", ok: false);
-        Job("u1", tool: ActivityLog.UndoTool);
-        Job("z1", added: 0);
-        Job("k1", ask: true, added: 3);
-        Job("v1", Risk.View);
-        foreach (var entry in _log.Entries)
+        // D-63: the server ends a dry run as "dry_run", with the counts of what it took back.
+        Job("t1", outcome: ActivityLog.DryRun, added: 3);
+        Assert.Equal("---", Shown(ButtonsOf("t1")));
+        Assert.Equal(PaletteTexts.ShowDryRun, _log.CanShow("t1", Dwg).Reason);
+        Assert.False(_log.CanUndo("t1", Clean()).Allowed);
+        Assert.Equal("dry run, taken back", _log.Entries[0].State);
+    }
+
+    [Theory]
+    [InlineData("change")]
+    [InlineData("save")]
+    [InlineData("admin drew")]
+    [InlineData("discarded")]
+    [InlineData("dry run")]
+    [InlineData("failed")]
+    [InlineData("unknown")]
+    [InlineData("undo tool")]
+    [InlineData("made nothing")]
+    [InlineData("marked, view since")]
+    [InlineData("unmarked, view since")]
+    [InlineData("erase only")]
+    [InlineData("undone here")]
+    [InlineData("not newest")]
+    public void A_hidden_button_is_one_the_click_would_refuse_and_an_allowed_click_has_its_button(string scenario)
+    {
+        // Pin the card's buttons to the click rules, so the two cannot drift apart. Each job is
+        // the newest in its own list, so every per-job condition of Undo is compared, not only "newest".
+        const string id = "x1";
+        switch (scenario)
         {
-            var buttons = ButtonsOf(entry.Job);
-            var show = _log.CanShow(entry.Job, Dwg);
-            var undo = _log.CanUndo(entry.Job, Clean());
-            Assert.True(buttons.Select == show.Allowed, entry.Job + " select: " + show.Reason);
-            Assert.True(buttons.Zoom == show.Allowed, entry.Job + " zoom: " + show.Reason);
-            Assert.True(buttons.Undo == undo.Allowed, entry.Job + " undo: " + undo.Reason);
+            case "change": Job(id); break;
+            case "save": Job(id, Risk.Publish, added: 0); break;
+            case "admin drew": Job(id, Risk.Admin, added: 2); break;
+            case "discarded": Job(id, outcome: "discarded"); break;
+            case "dry run": Job(id, outcome: ActivityLog.DryRun); break;
+            case "failed": Job(id, outcome: "failed", ok: false); break;
+            case "unknown": Job(id, outcome: "unknown", ok: false); break;
+            case "undo tool": Job(id, tool: ActivityLog.UndoTool); break;
+            case "made nothing": Job(id, added: 0); break;
+            case "marked, view since": Job(id, ask: true); Job("v1", Risk.View); break;
+            case "unmarked, view since": Job(id); Job("v1", Risk.View); break;
+            case "erase only":
+                _log.Begin(new JobInfo { Job = id, Tool = "t", Risk = Risk.Change, Drawing = Dwg }, At);
+                _log.End(new JobEnd { Job = id, Ok = true, Outcome = "done" }, new ChangeReport { Erased = 2 });
+                break;
+            case "undone here": Job(id); _log.Undone(id); break;
+            case "not newest": Job(id); Job("j2"); break;
         }
+        var buttons = ButtonsOf(id);
+        var show = _log.CanShow(id, Dwg);
+        var undo = _log.CanUndo(id, Clean());
+        Assert.True(buttons.Select == show.Allowed, scenario + " select: " + show.Reason);
+        Assert.True(buttons.Zoom == show.Allowed, scenario + " zoom: " + show.Reason);
+        Assert.True(buttons.Undo == undo.Allowed, scenario + " undo: " + undo.Reason);
     }
 
     [Fact]

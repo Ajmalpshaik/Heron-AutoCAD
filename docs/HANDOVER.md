@@ -8,7 +8,14 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (the first release prepared; session 2 of 3)
+## Latest - 2026-11-22 (Activity palette buttons, D-124)
+
+The Activity palette now shows Select / Zoom / Undo only where they can act (`PaletteRows.Buttons`,
+D-124): a save, export, dry run or empty job gets none. Built and tested offline; rows X26-X28 NOT
+RUN. Not plug-in-version bumped. Follow-up seen, not changed: an erase-only job whose objects the
+modeller had brought back by the erase question still offers Undo (its counts still say erased).
+
+## Earlier - 2026-11-22 (the first release prepared; session 2 of 3)
 
 **State today:** plug-in **1.8.0** (bumped from 1.7.0: the tag must equal it, and the server asks for
 1.8.0 for the faster reads), server **1.10.1**, **199** tools. New: [INSTALL](INSTALL.md) (for a

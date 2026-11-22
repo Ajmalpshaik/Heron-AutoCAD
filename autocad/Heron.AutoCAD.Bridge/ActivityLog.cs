@@ -20,6 +20,9 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>The tool that is itself an undo: undoing it again would be a redo.</summary>
         public const string UndoTool = "autocad_undo_last";
 
+        /// <summary>The server's outcome for a dry run (D-63): already taken back when it ends.</summary>
+        public const string DryRun = "dry_run";
+
         /// <summary>
         /// A job whose end never came (the pipe broke, the server was killed)
         /// stops counting as running after this; longer than any real job,
@@ -163,6 +166,8 @@ namespace Heron.AutoCAD.Bridge
                 if (RunningLocked) return ShowVerdict.No(PaletteTexts.Busy);
                 if (entry.Undone) return ShowVerdict.No(PaletteTexts.ShowUndone);
                 if (entry.Outcome == "discarded") return ShowVerdict.No(PaletteTexts.ShowDiscarded);
+                // D-63: a dry run is taken back before it ends; its counts are of objects now gone (D-124).
+                if (entry.Outcome == DryRun) return ShowVerdict.No(PaletteTexts.ShowDryRun);
                 if (!DrawingNames.Same(activeDrawing, entry.Drawing)) return ShowVerdict.No(PaletteTexts.OtherDrawing(entry.Drawing, activeDrawing));
                 if (entry.ShownHandles.Length == 0)
                     return ShowVerdict.No(entry.Erased > 0 ? PaletteTexts.ShowOnlyErased : PaletteTexts.ShowNothing);
@@ -229,7 +234,7 @@ namespace Heron.AutoCAD.Bridge
         public DateTime At { get; set; }
         public bool Running { get; set; }
         public bool Ok { get; set; }
-        /// <summary>done | discarded | failed | unknown | cancelled, as the server said at end.</summary>
+        /// <summary>done | discarded | dry_run | failed | unknown | cancelled | refused, as the server said at end.</summary>
         public string Outcome { get; set; } = "";
         public int Ms { get; set; }
         /// <summary>The plug-in counted this job's effect (D-50).</summary>
@@ -260,6 +265,7 @@ namespace Heron.AutoCAD.Bridge
                 {
                     case "done": return "done";
                     case "discarded": return "discarded";
+                    case ActivityLog.DryRun: return "dry run, taken back";
                     case "unknown": return "outcome unknown";
                     case "cancelled": return "cancelled";
                     default: return "stopped (" + Outcome + ")";

@@ -6205,7 +6205,7 @@ Works with AutoCAD closed, and never changes the file. A DXF is read directly. A
 - A never-saved drawing with no path given returns an error asking for one, rather than triggering AutoCAD's blocking Save As dialog.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D30, T5, X25).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D30, T5, X26).
 
 ### `autocad_switch_drawing`
 

@@ -331,7 +331,7 @@ It updates live with the drawings too ([D-98](DECISIONS.md), section 6b): the to
 came to the front*, *Drawing1.dwg saved as plan.dwg*, *b.dwg closed*; the 15 newest), and a job
 whose drawing is not the one in front says **not in front**.
 
-A card shows only the buttons that can act ([D-123](DECISIONS.md)): a save, an export, a refused
+A card shows only the buttons that can act ([D-124](DECISIONS.md)): a save, an export, a refused
 job or a job that made and changed nothing has no buttons at all.
 
 | Button | What it does | Shown when | When the press still says no |
