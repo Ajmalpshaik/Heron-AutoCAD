@@ -16,9 +16,11 @@ The group headings below give the level.
 - Drawing tools share `layer`, `color`, `linetype` and `space` options. A missing layer is created
   and reported.
 - **Coordinates are WORLD coordinates.** `autocad_status` reports the drawing's UCS and warns when
-  it is not the world one. `autocad_batch_draw`, `autocad_make_shape` and the other tools built on
-  that engine take `coords="ucs"`; for the rest convert first with `autocad_convert_points`
-  ([09](09-sheets-and-coordinates.md)).
+  it is not the world one. `autocad_batch_draw`, `autocad_make_shape`, every `autocad_draw_*` tool,
+  text, mtext, dimensions, blocks and the move / copy / rotate / scale / mirror / array tools take
+  `coords="ucs"` ([D-96](DECISIONS.md)); for the rest convert first with `autocad_convert_points`
+  ([09](09-sheets-and-coordinates.md)). A flipped UCS refuses text, blocks, dimensions, multileaders,
+  tables, xrefs and super hatches.
 - `autocad_batch_draw` polylines take **`bulges`** (one per vertex, `tan(sweep/4)`, positive
   anticlockwise) so arcs stay part of the object, and text takes **`align`** and `style`.
 
@@ -58,6 +60,10 @@ The group headings below give the level.
 `autocad_draw_arc`, `autocad_draw_ellipse`, `autocad_draw_point`, `autocad_add_text`,
 `autocad_add_mtext`, `autocad_add_dimension`, `autocad_insert_block`, `autocad_add_hatch`
 
+All but `autocad_add_hatch` take `coords="ucs"`: points, vertex lists and angles are read in the
+current UCS; a rectangle comes out square to it, a horizontal dimension measures along its X
+([D-96](DECISIONS.md)).
+
 `autocad_add_hatch` takes a pattern from acad.pat, or a custom one written by
 `autocad_create_hatch_pattern` (it tries acad.pat first, then a NAME.pat on the support path).
 
@@ -70,8 +76,9 @@ reply gives the paper height. An annotative dimension is not given the drawing's
 
 | Tool | Purpose |
 |---|---|
-| `autocad_draw_spline` | A smooth curve through fit points (flexible duct, a curved edge). The ends follow the first and last segments unless tangents are given; `closed` closes it smoothly; `coords="ucs"` |
-| `autocad_draw_multiline` | MLINE: a wall or double-line duct in one object. `scale` is the thickness with the STANDARD style; `justification` zero / top / bottom; `style` from the drawing (put back afterwards). `closed` repeats the first point, so that corner is not mitred |
+| `autocad_draw_spline` | A smooth curve through fit points (flexible duct, a curved edge). The ends follow the first and last segments unless tangents are given; `closed` closes it smoothly; `coords="ucs"`. `method="control_points"` with `degree` (1-10, 3 default) draws SPLINE's CV method instead, by the plug-in ([D-97](DECISIONS.md)) |
+| `autocad_edit_spline` | Move, insert or remove a drawn spline's fit points (SPLINEDIT Fit data), in order, numbered from 0 as `autocad_get_entity` lists them; the handle is kept. By the plug-in, which reads the points back and changes nothing unless they match ([D-97](DECISIONS.md)) |
+| `autocad_draw_multiline` | MLINE: a wall or double-line duct in one object. `scale` is the thickness with the STANDARD style; `justification` zero / top / bottom; `style` from the drawing (put back afterwards). `closed` is MLINE's own Close, the last corner mitred, by the plug-in; without it the first point is repeated and `mitred` is false ([D-97](DECISIONS.md)) |
 | `autocad_add_wipeout` | Mask an area, from corners or a closed straight-sided polyline (`erase_boundary`); `frames` sets WIPEOUTFRAME. No Automation call exists: it types WIPEOUT with world, unsnapped points (`_non *x,y`), in the current space ([D-38](DECISIONS.md)) |
 | `autocad_add_construction_line` | XLINE (endless both ways) or RAY (endless one way, `kind="ray"`) through `base`, towards `through` or at `angle` degrees. COM `AddXline` / `AddRay` ([D-108](DECISIONS.md)) |
 | `autocad_add_region` | REGION: closed outlines (closed polylines, circles, ellipses, splines, or lines and arcs meeting end to end) to regions, in the outlines' own space; gives each one's area, perimeter and centre. Outlines stay unless `erase_outlines`. COM `AddRegion` ([D-108](DECISIONS.md)) |
@@ -144,7 +151,11 @@ position, height, and the flags `invisible`, `constant` (needs a default) and `p
 `autocad_batch_draw` sends one AutoLISP script that creates many entities inside AutoCAD. Use it for
 anything above about ten entities. Every operation is checked in Python first, so a bad batch fails
 naming the operation index without touching the drawing. Supports line, polyline, rectangle, circle,
-arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autolisp).
+arc, text, point, **mtext** (an attachment point; long text in pieces), **hatch** (a SOLID fill of
+its own outline, arcs and holes included: arrowheads, north points, filled symbols) and linear
+**dimension** (aligned, horizontal, vertical, rotated; the drawing's DIMSCALE) ([D-96](DECISIONS.md)).
+Patterns, and radial, diametric and angular dimensions, stay with `autocad_add_hatch` and
+`autocad_add_dimension`. Speeds are in [02](02-architecture.md#why-python-and-autolisp).
 
 ## Querying (Read)
 
@@ -156,7 +167,7 @@ arc, text and point. Speeds are in [02](02-architecture.md#why-python-and-autoli
 | `autocad_find_text` | Search text, mtext and block attributes |
 | `autocad_get_extents` | Bounding box of the drawing or one layer (a layer measured by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
 | `autocad_measure` | Point-to-point distance, or total length / area of entities or a layer |
-| `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000) |
+| `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000; counted by the plug-in in one go, COM for an older one, #193) |
 
 ## Modifying (Change)
 
@@ -169,6 +180,10 @@ path, use `autocad_associative_array` (below).
 
 `autocad_delete_entities` needs `confirm=true`. Without it the tool returns a preview and changes
 nothing.
+
+Move, copy, rotate, scale, mirror and array take `coords="ucs"`: a displacement is turned with the
+UCS, a base point is moved through it, and a rectangular array's rows follow its axes
+([D-96](DECISIONS.md)).
 
 `autocad_modify_entity` also sets **lineweight** (0.25, 0.35 ... mm as AutoCAD lists them, or
 ByLayer / ByBlock / Default) and **transparency** (0-90, ByLayer, ByBlock) per object ([D-79](DECISIONS.md)).
@@ -243,7 +258,7 @@ alternative, because a dialog blocks COM until a person closes it.
 | `autocad_label_segment_lengths` | Change | Length at each segment's middle; `split_at_layer` splits at crossings |
 | `autocad_place_along` | Change | Blocks along a run by `spacing` (equal ends) or `count`; `align` turns them to the run |
 | `autocad_place_from_csv` | Change | Blocks at x, y (rotation, block) from a CSV; other columns fill attributes |
-| `autocad_break_at_blocks` | Change | Cut lines / straight polylines through block extents + `gap` |
+| `autocad_break_at_blocks` | Change | Cut lines and polylines through block extents + `gap`. Arcs are cut too and keep their centre and radius; a closed polyline cut once becomes one open run ([D-97](DECISIONS.md)) |
 | `autocad_import_from_drawing` | Change | Blocks, layers, linetypes, text / dim styles from a closed DWG; existing names skipped |
 | `autocad_manage_layouts` | Change | Order, renumber, rename layouts; copy paper-space objects to other layouts |
 
@@ -392,7 +407,9 @@ until the solid changes.
 The attribute sync, the Excel table link and update, and the multileader and table styles are
 plug-in operations too (`sync_attributes`, `excel_table`, `update_table_links`,
 `multileader_style`, `table_style`); their tools are listed with the blocks, the tables and the
-settings above.
+settings above. So are a multiline's Close, a spline by control points and a spline's
+fit-point edits (`close_multiline`, `add_cv_spline`, `edit_spline_fit_points`), listed with the
+drafting tools ([D-97](DECISIONS.md)).
 
 ## Materials (Change; listing is Read)
 

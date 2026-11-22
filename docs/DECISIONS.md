@@ -246,6 +246,11 @@ older plug-in, or one whose read fails, would lose a tool that worked). Also fro
 holding only rays or construction lines now says it has no extents, on both paths, instead of
 answering Infinity.
 
+**Added 2026-11-22 (#193):** `autocad_drawing_report`'s model space count goes the same way:
+`count_entities` with `space: model` walks model space in COM's own order with the same cut-off,
+and its answer says `"space": "model"`; an answer without it (a plug-in that ignored the option)
+is not used, and COM counts instead.
+
 ## D-111 - Tiled viewports and hyperlinks are COM; DWF goes the PDF way; the geographic location is the plug-in's and shares the sun's place
 
 **Decided:** 2026-11-21, part 2 of issue #119, split into #176, #178, #179 and #180. **Status:** in
@@ -526,6 +531,85 @@ rows AJ1-AJ10 NOT RUN).
   and stops when another drawing came to the front or the job's drawing closed (a Save As of it is
   the same drawing), like HERONSTOP: the steps before stay, the rest are not run. An older
   plug-in says no number, and the sequence runs on as before.
+
+## D-97 - Arcs are cut in Python; a multiline's Close and control-point splines go through the plug-in
+
+**Decided:** 2026-11-21. **Status:** in force. Issues #52, #55, #56.
+
+**Breaking a polyline with arcs at a block** (`autocad_break_at_blocks`) is plain arithmetic, not
+the plug-in's curve splitting. Where an arc crosses the four sides of the block's box is a circle
+meeting four lines; each piece keeps the arc's centre and radius by taking the bulge of its own
+sweep, tan(sweep / 4), with the arc's sign. Doing it in `acad/geometry.py` means every cut is tested
+without AutoCAD (the pieces are rebuilt from their bulges and measured against the arc they came
+from), where a .NET `GetSplitCurves` could only be proven live. A closed polyline cut once now comes
+out as one open run instead of two pieces meeting at its first vertex - straight ones too.
+
+**MLINE's own Close** has no Automation call: COM's `AddMLine` can only repeat the first point, which
+overlaps the last corner. .NET has `Mline.IsClosed`, so `autocad_draw_multiline(closed=true)` draws
+the multiline open over COM and asks the plug-in (`close_multiline`) to close it, which mitres the
+last corner like the rest. The multiline is drawn by then, so that call never raises (only a busy
+AutoCAD goes up, as "Outcome unknown", D-100): if the
+plug-in is not in the job or cannot close it, the first point is added again (the old way) and the
+answer says `"mitred": false` and why. Drawing it twice to get round an error would be worse.
+
+**A spline by control points** (SPLINE's CV method) has no COM call either (`AddSpline` takes fit
+points only), so the plug-in makes it (`add_cv_spline`) with `new Spline(degree, ..., control
+points, knots, ...)`. The knots are worked out in Python, where they are tested by evaluating the
+curve: clamped for an open spline, so it starts on its first point and ends on its last; for a
+closed one the first `degree` points are repeated at the end with even knots all the way, so it
+meets itself with no corner. The plug-in checks the same rules again (`SplineCheck`, tested in C#).
+That a wrapped, unclamped spline is what AutoCAD shows as closed is the live row AI11's question.
+
+**Editing a spline's fit points** (`autocad_edit_spline`) is done by the plug-in too, because .NET
+documents its three calls (`SetFitPointAt`, `InsertFitPointAt`, `RemoveFitPointAt`, 0-based) and COM's
+`AddFitPoint` does not say which side of the index it adds. The server reads the points, plans the
+edits as steps and works out the points that must be there after; the plug-in runs the steps, reads
+the points back and refuses anything else, so a wrong guess about an index changes nothing (its
+transaction is aborted). The edits are the drafter's own - move point 2, insert a point as number 3,
+remove point 4 - numbered as `autocad_get_entity` now lists them. Fit data cannot be set in one go
+(`FitData` has no setter for its points), which is why it is steps.
+
+## D-96 - Every draw and modify tool takes coords='ucs'; a flipped UCS is a mirror; the batch fills
+
+**Decided:** 2026-11-21. **Status:** in force. Issues #50, #51. Extends D-27 and D-30.
+
+**`coords="ucs"` on the single-entity tools.** D-27 kept world coordinates as the contract and gave
+`coords="ucs"` to the batch only. Every `autocad_draw_*` tool, text, mtext, dimensions and blocks,
+and move, copy, rotate, scale, mirror and array take it now, through the same transform and the
+same `ucs_for` (world unless asked; a tilted UCS refused). What each converts is the part that was
+missing in D-27: a rectangle's four corners (square to the UCS is not square to the world), a
+polyline's vertices and its height (a UCS moved up gives the Elevation), an ellipse's axis, every
+angle, a displacement (turned, not moved), a turn (the same amount on any plan UCS). "Horizontal" in
+a dimension means the UCS's own X. ARRAY's rectangular rows follow the world's axes over COM, so on
+a turned UCS the grid is made copy by copy, each offset worked out in Python. World stays the default,
+and a call without `coords` does exactly what it did.
+
+**A flipped UCS is a mirror.** A UCS with its Z pointing down is not tilted, so it passed `ucs_for`,
+but anticlockwise in it is clockwise in the world: the batch turned its angles the wrong way. Now
+`Ucs.angle_to_world`, `angle_from_world`, `turn_to_world`, `arc_to_world` and `bulge_to_world` say
+it once - angles run the other way, an arc's ends swap, a bulge changes sign - and every tool uses
+them, `autocad_convert_points` included. Text, mtext, dimensions (and dimension runs), multileaders,
+tables, blocks, xrefs and super hatches are **refused** on a flipped UCS: COM puts them on the world
+plane, so they would read mirrored in that view, where AutoCAD's own commands put them on the UCS's
+plane. Refused, not guessed, as D-27 does for a tilted one.
+
+**Fills, mtext and dimensions in the batch.** D-30 put bulges and text justification into the batch;
+hatch, mtext and dimension were left. Now: an **mtext** with its attachment point (long text sent in
+the 250-character pieces DXF holds); a **hatch** that is a SOLID fill of its own outline (arcs and
+holes included, not associative - a batch operation has no boundary object to follow); and a
+**linear dimension** (aligned, horizontal, vertical, rotated) whose line runs through the text point,
+in the current dimension style, given the drawing's current DIMSCALE as its own override (0
+included, as DIMLINEAR would) - the same reason `autocad_add_dimension` gives it one. Drawn with
+`coords="ucs"` on a turned UCS it also carries that UCS as its text direction (DXF group 51,
+minus the UCS's angle, as DIMLINEAR writes it), so text kept horizontal reads along the UCS. A text
+or mtext with no rotation given turns with the UCS too: left out means 0, which is the UCS's X. The fill is solid only because entmake cannot read a pattern's
+lines from acad.pat; patterns, and radial, diametric and angular dimensions, stay with their own
+tools (ROADMAP). The geometry - where a dimension line goes, how a loop is written - is plain
+arithmetic tested without AutoCAD.
+
+**Filled symbols are opt-in.** `section_mark`, `north_arrow`, `scale_bar` and `level_mark` take
+`filled=true`; the default stays the outline until live row AI4 shows an entmade hatch lands, so a
+shape that works today cannot start failing on a fill nobody asked for.
 
 ## D-95 - Sections, flat views, surfaces, meshes and the new super hatch tiles are plug-in operations
 
@@ -1432,6 +1516,10 @@ is text. Still no colours in Excel.
   logic in a project. If the office list changes so a project change no longer fits, the run stops
   and says how to set or clear them. Each run names every check it used (`checks_used`) and where
   it came from (office / project), and a changed line says what changed from what.
+- **A read that failed is NO DATA too** (later, #211): a dimension whose size or a text whose
+  height could not be read makes its check NO DATA unless a failure was found among the rest; the
+  block table is read strictly for `xrefs_found`, so a damaged table is NO DATA, never "no xrefs";
+  a busy AutoCAD is raised for the retry. `checklists.gather` has its own tests.
 - **PASS is not "complies".** PASS means the checked value is met, for what Heron read, against the
   source named on the line (its clause, else the list). `autocad_checklist`,
   `autocad_checklist_report` and `autocad_check_standards` carry the same `pass_means` sentence; no

@@ -75,7 +75,7 @@ async def autocad_make_block(
     ] = False,
     attributes: Annotated[list[dict[str, Any]] | None, ATTRIBUTES_FIELD] = None,
 ) -> str:
-    """Turn drawn objects into a named block, and put the block where they were.
+    """Turn drawn objects into a named block (a tag block with its attributes too), and put it where they were.
 
     Use for every separate part (fitting, elbow, clamp, plate, anchor, support
     piece) so it can be moved, copied, swapped and counted as one. Draw the part,
@@ -98,8 +98,9 @@ async def autocad_make_block(
           250x250x12" -> handles=[...], base_point=the insertion corner.
         - Use when: a part repeats. Drafting rule 2: parts are blocks, not
           loose lines.
-        - Use when: "make a tag block with attributes": a valve tag block
-          with a TAG attribute and an invisible SIZE attribute (ATTDEF) ->
+        - Use when: "make a tag block with a TAG attribute": a new block with
+          attribute definitions (ATTDEF), e.g. a valve tag block with a TAG
+          attribute and an invisible SIZE attribute ->
           attributes=[{"tag": "TAG", ...}, {"tag": "SIZE", "invisible": true}].
         - Don't use when: the block is already in the drawing -
           autocad_insert_block places more of it.

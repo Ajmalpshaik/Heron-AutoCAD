@@ -102,6 +102,9 @@ namespace Heron.AutoCAD.Bridge
             Add(_layers, _byLayer, layer ?? "");
         }
 
+        /// <summary>One object past a cut-off: in the total, not counted by class or layer.</summary>
+        public void Skip() => Total++;
+
         /// <summary>One object that may have no extents (a ray, a construction line): then box is null.</summary>
         public void Measure(double[]? min, double[]? max)
         {

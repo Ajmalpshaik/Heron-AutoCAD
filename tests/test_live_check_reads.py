@@ -43,4 +43,4 @@ def test_a_bad_answer_fails(monkeypatch, row):
 def test_every_as_and_ao_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(reads.BY_EYE)
     assert not set(CHECKS) & set(reads.BY_EYE)
-    assert rows == {f"AS{n}" for n in range(1, 10)} | {f"AO{n}" for n in range(1, 11)}
+    assert rows == {f"AS{n}" for n in range(1, 12)} | {f"AO{n}" for n in range(1, 11)}

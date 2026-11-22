@@ -185,6 +185,9 @@ namespace Heron.AutoCAD.Addin
                 case "active_sheet": return Sheets.ActiveSheet(db, tr);
                 case "create_layout": return Sheets.CreateLayout(doc, db, tr, args);
                 case "add_viewport": return Sheets.AddViewport(doc, db, tr, args);
+                case "close_multiline": return Drafting.CloseMultiline(db, tr, args);
+                case "add_cv_spline": return Drafting.AddControlSpline(db, tr, args);
+                case "edit_spline_fit_points": return Drafting.EditFitPoints(db, tr, args);
                 case "flat_views": return Sections.FlatViews(db, tr, args);
                 case "section_plane": return Sections.SectionPlaneOp(db, tr, args);
                 case "loft_surface": return Surfaces.LoftSurface(db, tr, args);

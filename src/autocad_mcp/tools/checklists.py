@@ -438,6 +438,11 @@ def gather(doc: Any, wanted: set[str], max_entities: int) -> dict[str, Any]:
     if "xrefs" in wanted:
         try:
             folder = str(_try(lambda: doc.Path, "") or "")
+            # The block table itself is read strictly (#211): the shared walker turns a failed read into
+            # "no xrefs", which would be a PASS on a table that was never read.
+            table = doc.Blocks
+            for i in range(int(table.Count)):
+                bool(table.Item(i).IsXRef)
             tree = _xref_nodes(doc.Blocks, folder, 1, {str(_try(lambda: doc.FullName, "")).lower()})
             data["xrefs_broken"] = sorted({n["name"] for n in _walk(tree) if n["status"] == "not found"}, key=str.lower)
         except BaseException as exc:  # noqa: BLE001 - that one check says NOT RUN
@@ -447,6 +452,7 @@ def gather(doc: Any, wanted: set[str], max_entities: int) -> dict[str, Any]:
         entities: list[dict[str, Any]] = []
         blocks: list[dict[str, Any]] = []
         capped = False
+        unread = {"boxes": 0, "heights": 0}  # sizes that could not be read: never a silent PASS (#211)
         sel = select_filtered(doc)
         try:
             for entity in iter_selection(sel):
@@ -467,11 +473,13 @@ def gather(doc: Any, wanted: set[str], max_entities: int) -> dict[str, Any]:
                         row["box"] = (lo[0], lo[1], hi[0], hi[1])
                     except BaseException as exc:  # noqa: BLE001
                         raise_if_busy(exc)
+                        unread["boxes"] += 1
                 if kind in ("AcDbText", "AcDbMText"):
                     try:
                         row["height"] = float(entity.Height)
                     except BaseException as exc:  # noqa: BLE001
                         raise_if_busy(exc)
+                        unread["heights"] += 1
                 if kind == "AcDbBlockReference" and "blocks" in wanted:
                     name = str(_try(lambda e=entity: e.EffectiveName, "") or _try(lambda e=entity: e.Name, ""))
                     blocks.append({"handle": row["handle"], "name": name, "attributes": read_attributes(entity)})
@@ -480,6 +488,10 @@ def gather(doc: Any, wanted: set[str], max_entities: int) -> dict[str, Any]:
             discard_selection_set(doc)
         data["entities"] = entities
         data["blocks"] = blocks
+        if unread["boxes"]:
+            data["unread_boxes"] = unread["boxes"]
+        if unread["heights"]:
+            data["unread_heights"] = unread["heights"]
         if capped:
             data["capped"] = max_entities
     return data
