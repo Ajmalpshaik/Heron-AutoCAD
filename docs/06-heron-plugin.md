@@ -53,8 +53,9 @@ sets DWORD values under `HKLM\SOFTWARE\Policies\Heron\AutoCAD`:
 | `AllowChanges` | Changes stays off |
 | `AllowAdmin` | Admin stays off |
 | `AllowPublish` | Publish stays off |
+| `AskBeforeErasing` | the erase question starts **off** at every AutoCAD start ([D-123](DECISIONS.md)); not a hold: a click in Settings turns it on until AutoCAD restarts |
 
-Any other value, or no value, leaves that padlock to the modeller. A held padlock shows **HELD** in
+Any other value, or no value, leaves that padlock to the modeller (and starts the erase question on). A held padlock shows **HELD** in
 Settings with the line "A Windows policy on this PC holds this off.", and cannot be pressed. A chat
 asking for it is told the policy holds it. A policy pushed while AutoCAD runs applies at the next
 call and turns that padlock off; when the policy is lifted, the padlock stays off until you turn it

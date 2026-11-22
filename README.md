@@ -58,7 +58,7 @@ Ribbon tab **Heron**, panel **AI Bridge**, laid out as in Heron for Revit:
 | **Admin** | no commands or AutoLISP | red ON: Heron may run commands, AutoLISP, system variables |
 | **Publish** | Heron may not save or export | red ON: Heron may save, export, plot |
 | **Ask to Keep** | changes are kept at once | green ON: after each change, **Keep it / Discard it** |
-| **Ask before keeping erased objects** | what a job erases stays erased, no box (until AutoCAD restarts) | green ON (at every start): after a job erases anything, **Bring them back / Keep them erased** |
+| **Ask before keeping erased objects** | what a job erases stays erased, no box (until AutoCAD restarts; the PC's administrator can make it start off, [D-123](docs/DECISIONS.md)) | green ON (at every start): after a job erases anything, **Bring them back / Keep them erased** |
 
 While Heron works, Heron for Revit's status bar slides down at the top of AutoCAD: a glass card
 saying **"Heron AI · Reading"** or **"Heron AI · Changing"** (orange, with the drawing, the job and the

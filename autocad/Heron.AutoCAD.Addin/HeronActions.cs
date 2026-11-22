@@ -230,7 +230,9 @@ namespace Heron.AutoCAD.Addin
                         {
                             "Ctrl+Z still brings back what a job erased.",
                             "The chat's answer still says how many were erased.",
-                            "It asks again the next time AutoCAD starts.",
+                            HeronApplication.Padlocks.Holds().EraseQuestionOff
+                                ? "This PC's administrator setting starts it off anyway."
+                                : "It asks again the next time AutoCAD starts.",
                         },
                         TurnOn = "Stop asking",
                         Decline = "Keep asking",

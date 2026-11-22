@@ -9,10 +9,12 @@ Newest first. Dates are when the change was made.
   the default at every AutoCAD start, asks "Heron erased N objects: bring them back or keep them
   erased?" as before (D-50). OFF, what a Heron job erases stays erased with no box; turning it off
   asks first. It lives in this AutoCAD's memory only, like the padlocks (D-59): no file can turn it
-  off, so it is **not** remembered after a restart. The answer still counts what was erased, and its
-  note says they were kept **without asking** because the question is off in Settings, never that the
-  modeller chose. The erase box now says where to switch it off. Offline: Bridge tests (both .NET
-  builds) and `tests/test_gate.py`, `tests/test_padlocks_from_plugin.py`; live rows N9 to N12 in
+  off. To have it **start off on every AutoCAD start**, the PC's administrator sets DWORD
+  `AskBeforeErasing` = 0 under `HKLM\SOFTWARE\Policies\Heron\AutoCAD` (Ajmal's choice); a click in
+  Settings still turns it on until AutoCAD restarts. The answer still counts what was erased, and its
+  note says they were kept **without asking**, naming Settings or the administrator key, never that
+  the modeller chose. The erase box now says where to switch it off. Offline: Bridge tests (both .NET
+  builds) and `tests/test_gate.py`, `tests/test_padlocks_from_plugin.py`; live rows N9 to N14 in
   NEEDS-CHECKING are NOT RUN.
 
 ## 1.8.0 - 2026-11-22 - The first GitHub release (a pre-release)

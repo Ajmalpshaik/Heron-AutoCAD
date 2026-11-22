@@ -14,16 +14,24 @@ namespace Heron.AutoCAD.Bridge
     {
         public static readonly PolicyHolds None = new PolicyHolds(false, false, false);
 
-        public PolicyHolds(bool changes, bool publish, bool admin)
+        public PolicyHolds(bool changes, bool publish, bool admin, bool eraseQuestionOff = false)
         {
             Changes = changes;
             Publish = publish;
             Admin = admin;
+            EraseQuestionOff = eraseQuestionOff;
         }
 
         public bool Changes { get; }
         public bool Publish { get; }
         public bool Admin { get; }
+
+        /// <summary>
+        /// The administrator set the erase question to start off on this PC
+        /// (D-123). Not a hold: the modeller can still click it on, and their
+        /// click wins until AutoCAD restarts.
+        /// </summary>
+        public bool EraseQuestionOff { get; }
 
         /// <summary>Ask to Keep and the erase question have no policy: they are never held.</summary>
         public bool Holds(Padlock padlock) => padlock switch
@@ -48,6 +56,9 @@ namespace Heron.AutoCAD.Bridge
     /// The PC administrator's policy (D-60): HKLM\SOFTWARE\Policies\Heron\AutoCAD,
     /// DWORD values AllowChanges, AllowPublish, AllowAdmin. A value of 0 holds that
     /// padlock off; 1, any other number or no value leaves it to the modeller.
+    /// AskBeforeErasing 0 starts the erase question off (D-123): the one way
+    /// to remember that choice, since no file the modeller's account can
+    /// write (and so no chat) may turn it off.
     /// Only an administrator can write HKLM, so no chat or program the
     /// modeller runs can lift a hold. Read fresh each time, so a policy pushed
     /// while AutoCAD runs applies at once.
@@ -58,6 +69,7 @@ namespace Heron.AutoCAD.Bridge
         public const string AllowChanges = "AllowChanges";
         public const string AllowPublish = "AllowPublish";
         public const string AllowAdmin = "AllowAdmin";
+        public const string AskBeforeErasing = "AskBeforeErasing";
 
         public PolicyHolds Read()
         {
@@ -71,7 +83,8 @@ namespace Heron.AutoCAD.Bridge
                     return new PolicyHolds(
                         Denies(key.GetValue(AllowChanges)),
                         Denies(key.GetValue(AllowPublish)),
-                        Denies(key.GetValue(AllowAdmin)));
+                        Denies(key.GetValue(AllowAdmin)),
+                        Denies(key.GetValue(AskBeforeErasing)));
                 }
             }
             catch (Exception)

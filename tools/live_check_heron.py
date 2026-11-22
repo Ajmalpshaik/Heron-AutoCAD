@@ -897,6 +897,8 @@ BY_EYE: dict[str, str] = {
     "N10": "needs a click in Settings and in its question, which the runner cannot give",
     "N11": "needs the erase question turned off by a click in Settings (only a click can, D-59/D-123)",
     "N12": _RESTART,
+    "N13": _REGISTRY + ", then AutoCAD restarted",
+    "N14": _REGISTRY + ", a click in Settings and a restart",
     "O7": _ASK_TO_KEEP,
     "P2": "runs the installer with AutoCAD closed, outside AutoCAD",
     "P3": "runs Rollback.bat and restarts AutoCAD, outside the runner",

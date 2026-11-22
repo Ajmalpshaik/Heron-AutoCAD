@@ -21,6 +21,11 @@ namespace Heron.AutoCAD.Bridge
         /// On unless the modeller turned it off in Settings in this AutoCAD.
         /// </summary>
         public bool AskBeforeErasing { get; set; } = true;
+        /// <summary>
+        /// The erase question is off because this PC's administrator key starts
+        /// it off (D-123) and the modeller has not clicked it since.
+        /// </summary>
+        public bool EraseQuestionOffByPolicy { get; set; }
         public bool ActivityBanner { get; set; } = true;
 
         /// <summary>The padlocks a Windows policy holds off (D-60), so a refusal can say so.</summary>

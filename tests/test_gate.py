@@ -570,6 +570,16 @@ def test_an_erase_kept_without_asking_never_says_the_modeller_chose(env):
     assert "Ask before keeping erased objects" in note and "off in Heron's Settings" in note
 
 
+def test_an_erase_kept_by_the_administrator_key_names_the_key(env):
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 1, "erased_handles": ["A"]}
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0, "asked": False, "off_by": "policy"}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 1}')
+    note = json.loads(answered(call(erase), "DONE"))["heron_note"]
+    assert "chose" not in note and "without asking" in note
+    assert "administrator setting" in note and "AskBeforeErasing" in note
+    assert "Settings" not in note
+
+
 def test_keep_or_discard_covers_an_erase_so_it_is_not_asked_twice(env):
     FakeBridge.ask_to_keep = True
     FakeBridge.counted = {"added": 0, "modified": 0, "erased": 1, "erased_handles": ["A"]}

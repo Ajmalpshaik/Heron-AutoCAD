@@ -12,12 +12,14 @@
 
 Ajmal asked for a way to stop "Heron erased N objects" asking every time Claude re-places its own
 labels. Settings now has a fifth switch, **Ask before keeping erased objects** (`HERONASKERASE`),
-ON at every AutoCAD start, in memory only like the padlocks (D-59): **not** remembered after a
-restart, because a remembered value would be a file a chat could write. The plug-in decides
-(`BridgeProtocol.AskErase` answers `keep_erased`, `"asked": false`); the server's note says "kept
+ON at every AutoCAD start, in memory only like the padlocks (D-59): no file remembers it, because
+a file is something a chat could write. Ajmal chose the one safe way to remember "off": the
+administrator key, DWORD `AskBeforeErasing` = 0 under D-60's policy key, starts it off at every
+start (not a hold; a click wins until restart). The plug-in decides (`BridgeProtocol.AskErase`
+answers `keep_erased`, `"asked": false`, `offBy` settings or policy); the server's note says "kept
 without asking", never "the modeller chose". Offline tests pass; the add-in builds; live rows
-N9-N12 are NOT RUN. Not in a release yet (CHANGELOG "Unreleased"). **Open question for Ajmal:**
-remember it across restarts through an administrator policy key (as D-60), or leave it per start.
+N9-N14 are NOT RUN. Not in a release yet (CHANGELOG "Unreleased"). Ajmal sets the key himself in an
+administrator prompt; no chat may (the padlock guard refuses it).
 
 ## Earlier - 2026-11-22 (the first release prepared; session 2 of 3)
 

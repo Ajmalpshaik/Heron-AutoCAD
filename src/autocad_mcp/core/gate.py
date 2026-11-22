@@ -797,9 +797,14 @@ async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
     said = answer.get("answer")
     if said == "keep_erased" and answer.get("asked") is False:
         # Never "the modeller chose": nobody was asked (D-50, D-62).
+        where = (
+            "off on this PC by the administrator setting (AskBeforeErasing = 0, D-123)"
+            if answer.get("off_by") == "policy"
+            else "off in Heron's Settings"
+        )
         note = (
             f"The job erased {erased} object(s) and they stay erased without asking: "
-            f"the erase question ({ERASE_QUESTION_NAME}) is off in Heron's Settings. "
+            f"the erase question ({ERASE_QUESTION_NAME}) is {where}. "
             "Tell the modeller what was erased; Ctrl+Z in AutoCAD brings them back."
         )
     elif said == "keep_erased":

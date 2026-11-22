@@ -147,7 +147,7 @@ namespace Heron.AutoCAD.Addin
                 FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(S.TextPrimary),
             };
-            var line = S.Body(held ? HeronActions.HeldLine : Line(setting.Padlock, on), S.TextSecondary, 12);
+            var line = S.Body(held ? HeronActions.HeldLine : Line(setting.Padlock, on, config), S.TextSecondary, 12);
             line.Margin = new Thickness(0, 2, 0, 0);
             var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             words.Children.Add(name);
@@ -186,7 +186,7 @@ namespace Heron.AutoCAD.Addin
         }
 
         /// <summary>The one short line under a switch's name: what ON lets happen.</summary>
-        private static string Line(Padlock padlock, bool on)
+        private static string Line(Padlock padlock, bool on, HeronConfig config)
         {
             switch (padlock)
             {
@@ -197,8 +197,11 @@ namespace Heron.AutoCAD.Addin
                 case Padlock.Publish:
                     return "Heron can save, export and plot.";
                 case Padlock.EraseQuestion:
-                    return on
-                        ? "After a job erases anything: bring it back, or keep it erased?"
+                    if (on) return "After a job erases anything: bring it back, or keep it erased?";
+                    if (config.EraseQuestionOffByPolicy)
+                        return "What a job erases stays erased, without asking. This PC's administrator setting starts it off.";
+                    return config.Held.EraseQuestionOff
+                        ? "What a job erases stays erased, without asking. Off at every start on this PC."
                         : "What a job erases stays erased, without asking. On again at the next AutoCAD start.";
                 default:
                     if (on && HeronApplication.Server?.Protocol?.KeepGrantActive == true)

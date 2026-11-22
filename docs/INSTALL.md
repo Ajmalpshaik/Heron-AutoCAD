@@ -182,6 +182,12 @@ as AutoCAD has not been run for this page.)
    round: switching one *off* asks first. Switch on only what you need, for as long as
    you need it. The same switches are the commands `HERONCHANGES`, `HERONPUBLISH`, `HERONADMIN`,
    `HERONASKTOKEEP` and `HERONASKERASE`; `HERONSTOP` stops every chat at once.
+
+   The erase question comes back ON every time AutoCAD starts. To have it start **off** on your PC,
+   open a command prompt **as administrator** and run
+   `reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AskBeforeErasing /t REG_DWORD /d 0 /f`
+   (`reg delete HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AskBeforeErasing /f` undoes it). Only an
+   administrator can set this, so no chat can turn the question off by itself.
 3. **Ask Claude**, in the chat, for something harmless first:
 
    > Check the AutoCAD connection and tell me what's open.

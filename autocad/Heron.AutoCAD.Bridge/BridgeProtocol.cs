@@ -464,12 +464,15 @@ namespace Heron.AutoCAD.Bridge
             if (running == null || running.Risk == Risk.Read || running.Risk == Risk.View) return Refuse("Job", Texts.NoRunJob);
             var report = _host.Changes(Str(root, "job"));
             if (report == null || report.Erased == 0) return Ok(w => { w.WriteString("answer", "nothing_erased"); w.WriteNumber("restored", 0); });
-            if (!_config().AskBeforeErasing)
+            var config = _config();
+            if (!config.AskBeforeErasing)
             {
                 return Ok(w =>
                 {
                     w.WriteString("answer", "keep_erased");
                     w.WriteBoolean("asked", false);
+                    // Who turned it off: the modeller's click, or this PC's administrator key (D-123).
+                    w.WriteString("offBy", config.EraseQuestionOffByPolicy ? "policy" : "settings");
                     w.WriteNumber("erased", report.Erased);
                     w.WriteNumber("restored", 0);
                 });
@@ -613,6 +616,7 @@ namespace Heron.AutoCAD.Bridge
             w.WriteBoolean("changes", config.Held.Changes);
             w.WriteBoolean("publish", config.Held.Publish);
             w.WriteBoolean("admin", config.Held.Admin);
+            w.WriteBoolean("eraseQuestionOff", config.Held.EraseQuestionOff);
             w.WriteEndObject();
         }
 

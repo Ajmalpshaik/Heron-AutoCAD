@@ -8,7 +8,9 @@ namespace Heron.AutoCAD.Bridge
     ///
     /// Every AutoCAD starts with Changes, Publish and Admin off, Ask to Keep
     /// off as before (the owner's choice, 2026-11-21), and the erase question
-    /// on (D-50; the owner may turn it off, 2026-11-22). No file is read for them, so no
+    /// on (D-50; the owner may turn it off, 2026-11-22) unless the administrator's
+    /// key starts it off (D-123), which the modeller's click overrides until
+    /// AutoCAD restarts. No file is read for them, so no
     /// program that can write a file (an AI chat included) can turn one on. Each
     /// open AutoCAD has its own. Only the plug-in's own windows call TurnOn and
     /// TurnOff, after the modeller's click; the pipe has no request that
@@ -25,7 +27,8 @@ namespace Heron.AutoCAD.Bridge
         private bool _publish;
         private bool _admin;
         private bool _askToKeep;
-        private bool _eraseQuestion = true;
+        /// <summary>The modeller's last click on the erase question; null until then, so the policy decides.</summary>
+        private bool? _eraseClick;
 
         public HeronPadlocks(IHeronPolicy policy)
         {
@@ -63,7 +66,8 @@ namespace Heron.AutoCAD.Bridge
                     PublishEnabled = _publish,
                     AdminEnabled = _admin,
                     AskBeforeKeeping = _askToKeep,
-                    AskBeforeErasing = _eraseQuestion,
+                    AskBeforeErasing = Get(Padlock.EraseQuestion, held),
+                    EraseQuestionOffByPolicy = _eraseClick == null && held.EraseQuestionOff,
                     ActivityBanner = fileSettings.ActivityBanner,
                     Held = held,
                 };
@@ -76,7 +80,7 @@ namespace Heron.AutoCAD.Bridge
             lock (_gate)
             {
                 Drop(held);
-                return Get(padlock);
+                return Get(padlock, held);
             }
         }
 
@@ -110,13 +114,13 @@ namespace Heron.AutoCAD.Bridge
             if (held.Admin) _admin = false;
         }
 
-        private bool Get(Padlock padlock) => padlock switch
+        private bool Get(Padlock padlock, PolicyHolds held) => padlock switch
         {
             Padlock.Changes => _changes,
             Padlock.Publish => _publish,
             Padlock.Admin => _admin,
             Padlock.AskToKeep => _askToKeep,
-            Padlock.EraseQuestion => _eraseQuestion,
+            Padlock.EraseQuestion => _eraseClick ?? !held.EraseQuestionOff,
             _ => false,
         };
 
@@ -128,7 +132,7 @@ namespace Heron.AutoCAD.Bridge
                 case Padlock.Publish: _publish = on; break;
                 case Padlock.Admin: _admin = on; break;
                 case Padlock.AskToKeep: _askToKeep = on; break;
-                case Padlock.EraseQuestion: _eraseQuestion = on; break;
+                case Padlock.EraseQuestion: _eraseClick = on; break;
             }
         }
     }

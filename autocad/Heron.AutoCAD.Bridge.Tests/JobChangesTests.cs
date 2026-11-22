@@ -165,9 +165,22 @@ public class EraseProtocolTests
         Assert.True(reply.GetProperty("ok").GetBoolean());
         Assert.Equal("keep_erased", reply.GetProperty("answer").GetString());
         Assert.False(reply.GetProperty("asked").GetBoolean());
+        Assert.Equal("settings", reply.GetProperty("offBy").GetString());
         Assert.Equal(3, reply.GetProperty("erased").GetInt32());
         Assert.Equal(0, reply.GetProperty("restored").GetInt32());
         Assert.Empty(_host.EraseAsked); // no box
+    }
+
+    [Fact]
+    public void Off_by_the_administrator_key_the_answer_says_policy()
+    {
+        Begin("change");
+        _config.AskBeforeErasing = false;
+        _config.EraseQuestionOffByPolicy = true;
+        _host.Report = new ChangeReport { Erased = 1, AllErasedHandles = new[] { "A" } };
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "x" });
+        Assert.Equal("policy", reply.GetProperty("offBy").GetString());
+        Assert.Empty(_host.EraseAsked);
     }
 
     [Fact]

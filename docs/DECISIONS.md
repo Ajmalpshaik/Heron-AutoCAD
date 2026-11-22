@@ -214,11 +214,17 @@ ask every time.
   command `HERONASKERASE`). ON (green, as Ask to Keep) asks as before; OFF keeps what a job erases
   without the box. Like Ask to Keep, switching the question **off** is the risky side, so that is what
   asks first ("Stop asking before keeping erased objects?"); switching it back on never asks.
-- **On at every AutoCAD start, in memory only.** The task asked for it to be saved across restarts.
-  It is not: any file or registry key the modeller's account can write, a chat can write too, and a
-  chat that can switch the erase question off approves its own deletes, which is exactly what D-50
-  and D-59 stop. The way it could be remembered safely is an administrator's policy key in HKLM, as
-  D-60 does for the padlocks; that is Ajmal's call, not taken here.
+- **In memory only; no file remembers it.** Any file or registry key the modeller's account can
+  write, a chat can write too, and a chat that can switch the erase question off approves its own
+  deletes, which is exactly what D-50 and D-59 stop.
+- **Remembered only through the administrator's key** (Ajmal chose this, 2026-11-22): DWORD
+  `AskBeforeErasing` = 0 under `HKLM\SOFTWARE\Policies\Heron\AutoCAD` (D-60's key) starts the erase
+  question **off** at every AutoCAD start on that PC. Only an administrator can write HKLM, so a chat
+  (which never runs elevated) cannot. It is **not a hold**: the modeller can click it on, and a
+  click wins until AutoCAD restarts. Until a click it follows the key as it is now, so setting or
+  deleting the value applies at the next job. Any other value, or none, starts it on. Settings says
+  "This PC's administrator setting starts it off"; the answer's note names the key (`offBy:
+  "policy"` from the plug-in), never Settings.
 - **The plug-in decides, not the server.** The server still asks `ask_erase` after every job that
   erased something; `BridgeProtocol.AskErase` reads the switch and, when it is off, answers
   `keep_erased` with `"asked": false` without showing the box. A Read or View job still cannot ask.

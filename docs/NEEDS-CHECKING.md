@@ -363,6 +363,8 @@ below is NOT RUN**. Plug-in 1.5.0 installed.
 | N10 | Press its ON button | A question "Stop asking before keeping erased objects?" with **Keep asking** / **Stop asking**; Keep asking leaves it ON. Stop asking: the button shows OFF, the line says it stays erased without asking, the command line says it is now off | NOT RUN |
 | N11 | Question OFF, Ask to Keep OFF: `autocad_delete_entities` on one line, `confirm=true` | No erase box; the line stays erased; the answer starts "DONE - 0 added, 0 changed, 1 erased." and its note says it stays erased **without asking** because the erase question is off in Settings. One Ctrl+Z brings it back | NOT RUN |
 | N12 | Close and restart AutoCAD, press Heron, open Settings; then repeat N4 | The question is **ON** again; N4's box appears as before | NOT RUN |
+| N13 | In an **administrator** command prompt: `reg add HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AskBeforeErasing /t REG_DWORD /d 0 /f`; restart AutoCAD, press Heron, open Settings; then repeat N11 | The question shows **OFF** with "This PC's administrator setting starts it off."; no erase box; the note says it stays erased without asking because of the administrator setting (AskBeforeErasing), not Settings. Changes, Admin and Publish are NOT shown HELD | NOT RUN |
+| N14 | With N13's key still set, press the question's button to turn it ON; repeat N4; restart AutoCAD; then `reg delete HKLM\SOFTWARE\Policies\Heron\AutoCAD /v AskBeforeErasing /f` and open Settings again | After the click N4's box appears; after the restart it is OFF again; after the delete it shows **ON** without a restart | NOT RUN |
 
 ## Group O - Ideas from Heron AI for Revit, batch 3 (AutoCAD 2027, this PC)
 
