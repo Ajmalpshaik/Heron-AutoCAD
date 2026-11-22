@@ -135,8 +135,9 @@ banner on, because the banner is what shows the modeller that Heron is working.
 **Decided:** 2026-11-22, after AK13 failed with setup 1.8.0 on a PC where Claude is only the
 Claude desktop app ([#233](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/233)); Ajmal said
 "Yes, fix #233" and ship it as 1.8.1. **Status:** in force; offline tests
-(`tests/test_install_connect.py`) and `Check-Setup.ps1` in `release.yml`; live rows AK13, AK15 and
-AK16 NOT RUN when this was written.
+(`tests/test_install_connect.py`) and `Check-Setup.ps1` in `release.yml`; on the owner's PC AK15
+(dry run) and AK16 (the Code tab connected, his source folder still on its `.venv` server) PASS;
+AK13 (a whole setup on a Claude-app-only PC) NOT RUN.
 
 `Install.ps1 -Connect` looked only for a `claude` command and for `%APPDATA%\Claude`. The Microsoft
 Store Claude app has neither: its Code tab runs its own `claude.exe` from

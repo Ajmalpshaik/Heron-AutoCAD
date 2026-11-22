@@ -15,8 +15,11 @@
 entry through `claude mcp add --scope user`, never replaces an `autocad` entry already there,
 leaves the app's file alone while the app is open, and backs up every file first. `-DryRun` says
 what it would change. Offline: `tests/test_install_connect.py` (real script, made-up profiles) and
-`Check-Setup.ps1` in `release.yml`. Plug-in 1.8.1. Live: AK13 NOT RUN for 1.8.1; AK15 and AK16 are
-the owner's PC (dry run, then the real connect on his yes).
+`Check-Setup.ps1` in `release.yml`. Plug-in 1.8.1. Live: AK15 and AK16 PASS on the owner's PC (his
+yes): `.claude.json` now has the all-projects `autocad` entry (backup `.claude.json.heron-backup`);
+his source folder still starts its `.venv` server, another folder the installed one; the Claude
+app's own file was left alone (the app was open). AK13 (a whole 1.8.1 setup) NOT RUN. A plain
+`claude mcp list` in the source folder now warns "Conflicting scopes": harmless inside the app.
 
 ## Earlier - 2026-11-22 (six problems from the SAC2 split AC set, D-125)
 
