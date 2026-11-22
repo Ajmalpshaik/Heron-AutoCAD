@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A capability manifest for Heron AI's registry (2026-11-22, #75).** `tools/export_capabilities.py`
+  writes `dist/capabilities.json`: every tool with its padlock, kind, `Use when` lines, inputs, what
+  it needs of the plug-in (read from its own code, operations checked against the plug-in's list)
+  and its proof state from NEEDS-CHECKING (PASS / PARTLY / NOT RUN / FAIL / NO ROW), so a registry
+  can tell proven tools from unproven ones. Same file every time for the same code; every release
+  zip carries it. `autocad_list_materials` is now marked read-only for MCP clients, as it only reads.
+  No new tool, no runtime change, no live rows. How Heron AI would use this server, and what is
+  still missing on its side: [14](docs/14-heron-ai-adapter.md) ([D-122](docs/DECISIONS.md)).
+
 - **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
   drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,
   `autocad_add_multileader`, `autocad_table_from_excel` when it fills); the refusal says nothing was

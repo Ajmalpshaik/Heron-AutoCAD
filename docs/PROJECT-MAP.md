@@ -36,7 +36,7 @@ flowchart TD
 | [`docs/`](README.md) | All documentation | This file |
 | [`examples/`](../examples/README.md) | Claude Desktop config | |
 | [`archive/`](../archive/README.md) | Stopped experiments | Do not build on it |
-| `dist/` | The built `HeronAutoCAD.bundle`, **not in git** | `tools/build_plugin.py` |
+| `dist/` | The built `HeronAutoCAD.bundle` and `capabilities.json`, **not in git** | `tools/build_plugin.py`, `tools/export_capabilities.py` |
 | `.github/` | CI, issue and pull-request templates | `workflows/ci.yml` |
 
 ## C. Entry points
@@ -49,6 +49,7 @@ flowchart TD
 | Build the plug-in bundle | `.venv\Scripts\python.exe tools/build_plugin.py` |
 | Install / remove it (AutoCAD closed) | `.venv\Scripts\python.exe tools/install_plugin.py [--uninstall]` |
 | Repository rules | `.venv\Scripts\python.exe tools/check_structure.py` |
+| The capability manifest for a registry (Heron AI) | `.venv\Scripts\python.exe tools/export_capabilities.py` |
 | Live smoke test | `.venv\Scripts\python.exe tools/smoke_test.py` |
 | Offline tests | `.venv\Scripts\python.exe -m pytest -m "not live"` and `dotnet test autocad/Heron.AutoCAD.Bridge.Tests` |
 

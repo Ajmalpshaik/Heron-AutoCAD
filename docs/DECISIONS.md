@@ -130,6 +130,36 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-122 - Heron AI gets a capability manifest made from the code; its registry is not built yet
+
+**Decided:** 2026-11-22, for issue #75 (D-12). **Status:** in force; no runtime change, no live rows.
+D-12 offers this repository to Heron AI for Revit as its AutoCAD side once Heron's capability
+registry is ready. That registry does not exist yet, and Heron AI is never edited from here, so
+this side does only what it can on its own:
+- **A manifest, not a second list.** `tools/export_capabilities.py` writes `dist/capabilities.json`
+  from the live registry, `core/risk.py`, the tools' own code and `docs/NEEDS-CHECKING.md`: each
+  tool's padlock, kind, `Use when` lines, inputs, what it needs of the plug-in and its proof state.
+  Nothing in it is typed by hand, so it cannot drift. It is not kept in git (other sessions add
+  tools all day; a committed copy would be stale or a merge conflict on every PR); every release
+  zip carries it instead.
+- **Proven means a PASS row that names the tool.** A row that says "draw a line" in words does not
+  count: the safe way round. PASS / PARTLY / NOT RUN / FAIL / NO ROW, with the rows, so a registry
+  can tell proven tools from unproven ones.
+- **The plug-in a tool needs is read from its code** (`ast`): reaching `in_plugin` or
+  `plugin_runner` means the plug-in does part of the work; reaching only the faster reads, quiet
+  input or a named button means it is used when there; anything else is only gated. The operation
+  names are checked against `PluginOperations.cs`. Which plug-in release first had each operation
+  is not recorded, so `version_needed` is the plug-in built from the same code.
+- **The gate and padlocks stay in the AutoCAD plug-in** (D-14, D-59). Heron AI would be one more
+  MCP caller of the same server.
+- **Fixed on the way:** `autocad_list_materials` only reads but was not marked read-only for MCP
+  clients; it is now, and a test keeps every Read tool marked so (except `autocad_project_notes`
+  and `autocad_use_autocad`, which keep notes and the chosen AutoCAD).
+- **Rejected for now:** an `autocad://capabilities` resource. It would be runtime behaviour, and
+  the register it reads is not in an installed server; it comes when Heron's registry asks for a
+  live answer. Issue #75 stays open until Heron's registry lists these tools.
+  Design and the steps: [14](14-heron-ai-adapter.md).
+
 ## D-106 - PDF Import types -PDFIMPORT with every answer in one form, through autocad_run_lisp's sender
 
 **Decided:** 2026-11-21, for issue #113. **Status:** in force; live rows Group AO, all NOT RUN.
