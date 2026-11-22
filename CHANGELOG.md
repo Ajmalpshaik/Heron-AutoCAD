@@ -4,6 +4,20 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Sheets by the plug-in, a drawing list in one call, one PDF of many drawings (2026-11-21, #64-#67, #39, #40).**
+  `autocad_create_layout` and `autocad_add_viewport` are now done by the plug-in in .NET, so neither
+  touches `doc.PaperSpace`, which threw on a sheet tab; COM is the fallback for an older plug-in
+  (`made_by` says which), and over COM a busy moment after the layout is added is answered from
+  the drawing read back instead of "Outcome unknown". `copy_from` copies a sheet with everything on
+  it. Viewports can be **clipped** to an outline or a closed shape on the sheet, and get their
+  **annotation scale** (default: their own scale). New tool **`autocad_sheet_set`** (**193** in all):
+  a drawing list (number, title, scale, view) into sheets, viewports and filled title blocks, checked
+  whole first, one undo step. `autocad_publish_pdf` takes a **folder** or a **list of drawings**,
+  refusing an unsaved one or a missing xref by name. Title blocks go into the layout's own block;
+  `autocad_status` names a fact it cannot read instead of failing on a sheet tab; `space="paper"`
+  falls back to the active layout's block. Three new plug-in operations
+  ([D-90](docs/DECISIONS.md), [D-91](docs/DECISIONS.md)). `align_to_ucs` now twists the view the other way (337 for a UCS turned 23; reasoned, AF6). Live rows AF1-AF18 NOT RUN.
+
 - **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
   drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,
   `autocad_add_multileader`, `autocad_table_from_excel` when it fills); the refusal says nothing was
