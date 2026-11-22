@@ -273,8 +273,9 @@ copy of the version it replaces).
 - **Installed with the zip:** close AutoCAD, double-click `Uninstall.bat` from the folder. It shows what
   it will remove and asks you to type `Y`.
 
-Either way it takes the `autocad` entry out of Claude Code and Claude Desktop first, then removes only
-what it installed. **Your drawings are never touched.** Your saved commands, check lists, logs and
+Either way it takes the `autocad` entry out of Claude Code and Claude Desktop first (only an entry
+that starts Heron's installed server, and not the Claude app's own file while Claude is open: quit
+Claude first), then removes only what it installed. **Your drawings are never touched.** Your saved commands, check lists, logs and
 the audit in `%LOCALAPPDATA%\Heron\autocad` stay: delete that folder by hand if you want them gone.
 
 ---
