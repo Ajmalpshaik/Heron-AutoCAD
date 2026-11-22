@@ -1429,6 +1429,10 @@ is text. Still no colours in Excel.
   logic in a project. If the office list changes so a project change no longer fits, the run stops
   and says how to set or clear them. Each run names every check it used (`checks_used`) and where
   it came from (office / project), and a changed line says what changed from what.
+- **A read that failed is NO DATA too** (later, #211): a dimension whose size or a text whose
+  height could not be read makes its check NO DATA unless a failure was found among the rest; the
+  block table is read strictly for `xrefs_found`, so a damaged table is NO DATA, never "no xrefs";
+  a busy AutoCAD is raised for the retry. `checklists.gather` has its own tests.
 - **PASS is not "complies".** PASS means the checked value is met, for what Heron read, against the
   source named on the line (its clause, else the list). `autocad_checklist`,
   `autocad_checklist_report` and `autocad_check_standards` carry the same `pass_means` sentence; no
