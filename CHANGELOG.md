@@ -4,6 +4,8 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The drawing report's model space count is the plug-in's too (2026-11-22, #193).** `autocad_drawing_report` counted model space two COM round trips per object (up to 50,000). `count_entities` now takes `space: model` and the same cut-off, walks model space in COM's own order, and says so in its answer; without that, or with an older plug-in, the report counts over COM as before. Same answer either way ([D-114](docs/DECISIONS.md)). Live rows AS10-AS11 NOT RUN.
+
 - **The live-check runner covers groups AS and AO too (2026-11-21, D-118).** AS5 is measured (a
   layer of rays and an empty layer say why they have no extents); the other AS rows compare the plug-in
   with a second server started with --no-bridge, and the AO rows need the PDFs they name, so they have

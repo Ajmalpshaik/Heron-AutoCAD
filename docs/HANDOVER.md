@@ -8,7 +8,15 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-21 (tools into the plug-in where it pays off: #74, D-114)
+## Latest - 2026-11-22 (the drawing report's count by the plug-in, #193, rank 2 of #74)
+
+`autocad_drawing_report` counts model space through `count_entities` with `space: model` and the
+same 50,000 cut-off; the plug-in walks model space in COM's order and says `"space": "model"`, so a
+plug-in built before this (which would count the whole drawing) is not believed and COM counts
+instead. Tests: `tests/test_plugin_reads.py::TestDrawingReportCount`, `EntityReadsTests.cs`.
+**Next (on this PC):** live rows AS10 and AS11 with AS1-AS9. Next move: rank 1, #192 (count_blocks).
+
+## Earlier - 2026-11-21 (tools into the plug-in where it pays off: #74, D-114)
 
 The first two reads moved into the plug-in for speed, with COM kept as the fallback:
 `autocad_list_entities(summary_only=true)` (`count_entities`) and `autocad_get_extents(layer=...)`
