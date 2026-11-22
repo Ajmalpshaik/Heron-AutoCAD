@@ -11,6 +11,11 @@ Newest first. Dates are when the change was made.
   again for "make a tag block with a TAG attribute" (every finder phrase now in the top three).
   Live row AN13 NOT RUN.
 
+- **Check lists never PASS on a read that failed (2026-11-22, #211).** A dimension or text whose
+  size could not be read makes `no_overlapping_dimensions` / `text_heights` NO DATA, and a block
+  table that cannot be read makes `xrefs_found` NO DATA instead of "every xref found"
+  ([D-64](docs/DECISIONS.md)). `gather` is now tested on its own.
+
 - **The drawing tools (2026-11-21, #50, #51, #52, #55, #56).** One new tool, **192** in all (with the other sessions' tools).
   `coords="ucs"` on every `autocad_draw_*` tool, text, mtext, dimensions and blocks, and move, copy,
   rotate, scale, mirror and array: points, vertex lists and angles are read in the modeller's own
