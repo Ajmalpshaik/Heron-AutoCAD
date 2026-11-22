@@ -1,10 +1,17 @@
 name: release
 
-# A tag such as v1.5.0 builds the release zip on GitHub's own Windows machine,
-# from exactly the tagged code, writes its SHA-256 beside it, and publishes both
-# as a pre-release (Heron is not finished: see READ-ME-FIRST.txt). Run by hand
-# (workflow_dispatch), it builds and checks only, and keeps the zip as a
-# workflow artifact for 30 days.
+# A tag such as v1.5.0 builds the release on GitHub's own Windows machine, from
+# exactly the tagged code: the zip (Install.bat) and the one-file setup
+# (HeronAutoCAD-<version>-setup.exe, D-99), writes their SHA-256 beside them, and
+# publishes all three as a pre-release (Heron is not finished: see
+# READ-ME-FIRST.txt). Run by hand (workflow_dispatch), it builds and checks only,
+# and keeps the files as a workflow artifact for 30 days.
+#
+# Code signing (#72) runs only when the repository has both secrets
+# HERON_SIGN_PFX_BASE64 and HERON_SIGN_PFX_PASSWORD; without them the build says
+# "Not signed" and goes on. docs/SETUP.md "Code signing" says what they hold.
+# A run started by hand also signs a second build with a throwaway test
+# certificate and checks every signature (signing-dry-run), publishing nothing.
 on:
   push:
     tags: ["v*"]
@@ -19,7 +26,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build the release zip
+    name: Build the release zip and setup
     runs-on: windows-latest
     timeout-minutes: 40
     permissions:
@@ -45,14 +52,59 @@ jobs:
             echo "::error::The tag is ${GITHUB_REF_NAME} but autocad/Directory.Build.props says ${version}. Tag v${version}, or change the version first."
             exit 1
           fi
-      - name: Build
+      - name: Get Inno Setup (pinned and checked)
+        # Inno Setup 6.7.3, used only when its SHA-256 and its authors' signature check out.
+        shell: pwsh
+        run: ./tools/installer/Get-InnoSetup.ps1
+      - name: Code-signing certificate (skipped when the repository has none)
+        id: certificate
+        shell: pwsh
+        env:
+          PFX_BASE64: ${{ secrets.HERON_SIGN_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.HERON_SIGN_PFX_PASSWORD }}
+        run: |
+          $hasFile = [bool]$env:PFX_BASE64
+          $hasPassword = [bool]$env:PFX_PASSWORD
+          if (-not $hasFile -and -not $hasPassword) {
+            Write-Output "::notice title=Not signed::The repository has no code-signing certificate (secrets HERON_SIGN_PFX_BASE64 and HERON_SIGN_PFX_PASSWORD), so nothing is signed. Heron is released unsigned by Ajmal's decision (#164); docs/SETUP.md, Code signing."
+            "signed=no" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          if ($hasFile -ne $hasPassword) {
+            Write-Output "::error::Only one of HERON_SIGN_PFX_BASE64 and HERON_SIGN_PFX_PASSWORD is set. Set both, or neither."
+            exit 1
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'heron-sign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_BASE64))
+          "pfx=$pfx" >> $env:GITHUB_OUTPUT
+          "signed=yes" >> $env:GITHUB_OUTPUT
+      - name: Build the zip
+        env:
+          HERON_SIGN_PFX: ${{ steps.certificate.outputs.pfx }}
+          HERON_SIGN_PASSWORD: ${{ secrets.HERON_SIGN_PFX_PASSWORD }}
         run: python tools/make_release.py
+      - name: Build the setup
+        env:
+          HERON_SIGN_PFX: ${{ steps.certificate.outputs.pfx }}
+          HERON_SIGN_PASSWORD: ${{ secrets.HERON_SIGN_PFX_PASSWORD }}
+        run: python tools/make_installer.py
+      - name: Try the setup on this machine (no AutoCAD)
+        # Install from the zip, the setup over it, refusals while a stand-in acad.exe runs,
+        # uninstall. GitHub's machine has no AutoCAD: Group AK still needs a real PC.
+        shell: pwsh
+        run: ./tools/installer/Check-Setup.ps1 -Dist dist
+      - name: Remove the certificate file
+        if: always()
+        shell: pwsh
+        run: Remove-Item (Join-Path $env:RUNNER_TEMP 'heron-sign.pfx') -Force -ErrorAction SilentlyContinue
       - name: Say what was built
         if: always()
         shell: bash
+        env:
+          SIGNED: ${{ steps.certificate.outputs.signed }}
         run: |
           {
-            echo "### Release zip"
+            echo "### Release zip and setup"
             echo
             if [ -f dist/checksums.txt ]; then
               echo '```'
@@ -61,12 +113,19 @@ jobs:
             else
               echo "**No checksums.txt, so nothing is publishable.** The log above says which step failed."
             fi
+            echo
+            if [ "${SIGNED}" = "yes" ]; then
+              echo "Signed: Heron's DLLs, autocad-mcp.exe, Install.ps1, the setup and its uninstaller."
+            else
+              echo "**Not signed**, by Ajmal's decision (#164): a modeller trusts the plug-in once, at its first AutoCAD load."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: heron-autocad-release
           path: |
             dist/HeronAutoCAD-*-win64.zip
+            dist/HeronAutoCAD-*-setup.exe
             dist/checksums.txt
           if-no-files-found: error
           retention-days: 30
@@ -76,7 +135,46 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/HeronAutoCAD-*-win64.zip dist/checksums.txt \
+          gh release create "${GITHUB_REF_NAME}" dist/HeronAutoCAD-*-setup.exe dist/HeronAutoCAD-*-win64.zip dist/checksums.txt \
             --title "Heron AI for AutoCAD ${GITHUB_REF_NAME}" \
             --prerelease \
-            --notes "Not finished: for testing only. Unzip, close AutoCAD, double-click Install.bat. Check the download against checksums.txt (SHA-256). What changed: CHANGELOG.md."
+            --notes "Not finished: for testing only. Close AutoCAD, then double-click HeronAutoCAD-${GITHUB_REF_NAME#v}-setup.exe (or unzip the zip and double-click Install.bat). Check the downloads against checksums.txt (SHA-256). What changed: CHANGELOG.md."
+
+  signing-dry-run:
+    name: Signing works (throwaway test certificate, nothing published)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Install Heron and PyInstaller
+        run: python -m pip install . pyinstaller
+      - name: Get Inno Setup (pinned and checked)
+        shell: pwsh
+        run: ./tools/installer/Get-InnoSetup.ps1
+      - name: Make a throwaway test certificate
+        # Made on this machine for this run only. Its password has a $ in it on purpose:
+        # the setup's sign command must carry one.
+        shell: powershell
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Heron signing dry run' -CertStoreLocation Cert:\CurrentUser\My
+          $password = 'dry$run-' + [guid]::NewGuid().ToString('N')
+          Write-Output "::add-mask::$password"
+          $pfx = Join-Path $env:RUNNER_TEMP 'dry-run.pfx'
+          Export-PfxCertificate -Cert $cert -FilePath $pfx -Password (ConvertTo-SecureString $password -AsPlainText -Force) | Out-Null
+          [IO.File]::AppendAllText($env:GITHUB_ENV, "HERON_SIGN_PFX=$pfx`nHERON_SIGN_PASSWORD=$password`n")
+      - name: Build the zip, signed
+        run: python tools/make_release.py
+      - name: Build the setup, signed
+        run: python tools/make_installer.py
+      - name: Every file that should be signed is
+        shell: pwsh
+        run: ./tools/installer/Check-Signing.ps1 -Dist dist

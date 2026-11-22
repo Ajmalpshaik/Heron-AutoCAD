@@ -5,7 +5,10 @@
 # -Uninstall removes all three, after asking. Uninstall.bat runs it that way.
 # -Rollback puts back the version this one replaced, after asking. Rollback.bat runs it that way.
 # -CheckUpdate says whether a newer release exists. It never installs anything by itself.
-param([switch]$Uninstall, [switch]$Rollback, [switch]$CheckUpdate)
+# -Connect and -Disconnect only add or remove the "autocad" entry in Claude Code and Claude
+#  Desktop, without asking. The setup program (HeronAutoCAD-<version>-setup.exe) copies the
+#  files itself and runs these two, so both ways of installing set Claude up the same (D-99).
+param([switch]$Uninstall, [switch]$Rollback, [switch]$CheckUpdate, [switch]$Connect, [switch]$Disconnect)
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $plugins = Join-Path $env:APPDATA 'Autodesk\ApplicationPlugins'
@@ -64,12 +67,13 @@ if ($CheckUpdate) {
     } else {
         Write-Host "A newer version is out: $newest. Download it from:" -ForegroundColor Yellow
         Write-Host "  $($latest.html_url)"
-        Write-Host 'Nothing was installed: unzip the new one and run its Install.bat when AutoCAD is closed.'
+        Write-Host 'Nothing was installed. Close AutoCAD, then run the new HeronAutoCAD-<version>-setup.exe, or unzip the new zip and run its Install.bat.'
     }
     exit 0
 }
 
-# Windows PowerShell's "utf8" adds a byte-order mark, which Claude Desktop cannot read.
+# Windows PowerShell's "utf8" adds a byte-order mark, which Claude Desktop cannot read. Its
+# Get-Content reads a file without one as ANSI, so the file is read with ReadAllText (UTF-8).
 function Save-Config($cfg) {
     [IO.File]::WriteAllText($desktopCfg, ($cfg | ConvertTo-Json -Depth 10), (New-Object Text.UTF8Encoding $false))
 }
@@ -82,17 +86,82 @@ function Invoke-Claude([string[]]$arguments) {
     try { & claude @arguments 2>$null | Out-Null } finally { $ErrorActionPreference = $old }
 }
 
+# Tells Claude Code (all projects) and Claude Desktop where the server is. Other settings are
+# kept; Claude Desktop's file is saved as .heron-backup first. Returns one line per Claude.
+function Connect-Claude {
+    if (Get-Command claude -ErrorAction SilentlyContinue) {
+        Invoke-Claude @('mcp', 'remove', 'autocad')
+        Invoke-Claude @('mcp', 'add', '--scope', 'user', 'autocad', '--', $server)
+        'Claude Code:        connected (all projects)'
+    } else {
+        'Claude Code:        not found, skipped'
+    }
+    $desktopDir = Split-Path $desktopCfg
+    if (-not (Test-Path $desktopDir)) {
+        'Claude Desktop:     not found, skipped'
+        return
+    }
+    $cfg = [pscustomobject]@{}
+    if (Test-Path $desktopCfg) {
+        Copy-Item $desktopCfg "$desktopCfg.heron-backup" -Force
+        $raw = [IO.File]::ReadAllText($desktopCfg)
+        if ($raw -and $raw.Trim()) { $cfg = $raw | ConvertFrom-Json }
+    }
+    if (-not $cfg.PSObject.Properties['mcpServers']) {
+        $cfg | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{})
+    }
+    $entry = [pscustomobject]@{ command = $server }
+    if ($cfg.mcpServers.PSObject.Properties['autocad']) { $cfg.mcpServers.autocad = $entry }
+    else { $cfg.mcpServers | Add-Member -NotePropertyName autocad -NotePropertyValue $entry }
+    Save-Config $cfg
+    'Claude Desktop:     connected (restart it; old settings saved as .heron-backup)'
+}
+
+# Takes the "autocad" entry out of Claude Code and Claude Desktop. Nothing else is touched.
+function Disconnect-Claude {
+    if (Get-Command claude -ErrorAction SilentlyContinue) {
+        Invoke-Claude @('mcp', 'remove', 'autocad')
+        'Claude Code:        "autocad" entry removed'
+    }
+    if (Test-Path $desktopCfg) {
+        $raw = [IO.File]::ReadAllText($desktopCfg)
+        if ($raw -and $raw.Trim()) {
+            $cfg = $raw | ConvertFrom-Json
+            if ($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad']) {
+                $cfg.mcpServers.PSObject.Properties.Remove('autocad')
+                Save-Config $cfg
+                'Claude Desktop:     "autocad" entry removed (restart it)'
+            }
+        }
+    }
+}
+
 if (Get-Process acad -ErrorAction SilentlyContinue) {
     Write-Host 'AutoCAD is open. Close AutoCAD, then run this again. Nothing was changed.' -ForegroundColor Yellow
     exit 1
 }
 
+# Run by the setup program after it copied the files, and by its uninstaller before it removes
+# them. It shows these lines on its last page.
+if ($Connect) { Connect-Claude | ForEach-Object { [Console]::Out.WriteLine($_) }; exit 0 }
+if ($Disconnect) { Disconnect-Claude | ForEach-Object { [Console]::Out.WriteLine($_) }; exit 0 }
+
 if ($Uninstall) {
+    # Installed with the setup program: its own uninstaller removes every file it put there.
+    if (Get-ChildItem $serverDir -Filter 'unins*.exe' -ErrorAction SilentlyContinue) {
+        Write-Host 'Heron was installed with its setup program, so remove it the Windows way:' -ForegroundColor Yellow
+        Write-Host '  Windows Settings > Apps, find "Heron AI for AutoCAD", Uninstall' -ForegroundColor Yellow
+        Write-Host '  (or Start menu > Heron AI for AutoCAD > Remove Heron AI for AutoCAD). Nothing was removed.' -ForegroundColor Yellow
+        exit 0
+    }
     $hasClaude = [bool](Get-Command claude -ErrorAction SilentlyContinue)
     $inDesktop = $false
     if (Test-Path $desktopCfg) {
-        $cfg = Get-Content $desktopCfg -Raw | ConvertFrom-Json
-        $inDesktop = [bool]($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad'])
+        $raw = [IO.File]::ReadAllText($desktopCfg)
+        if ($raw -and $raw.Trim()) {
+            $cfg = $raw | ConvertFrom-Json
+            $inDesktop = [bool]($cfg.mcpServers -and $cfg.mcpServers.PSObject.Properties['autocad'])
+        }
     }
     if (-not ((Test-Path $target) -or (Test-Path $server) -or $inDesktop)) {
         Write-Host 'Heron AI for AutoCAD is not installed for this Windows user. Nothing to remove.' -ForegroundColor Yellow
@@ -102,6 +171,7 @@ if ($Uninstall) {
     Write-Host 'This removes Heron AI for AutoCAD for your Windows user:'
     Write-Host "  - the plug-in   $target"
     Write-Host "  - the server    $server"
+    if (Test-Path $previous) { Write-Host "  - the earlier version kept for Rollback.bat   $previous" }
     Write-Host '  - the "autocad" entry in Claude Code and Claude Desktop'
     Write-Host 'Your drawings and your other Claude settings are not touched.'
     Write-Host ''
@@ -113,11 +183,8 @@ if ($Uninstall) {
 
     if (Test-Path $target) { Remove-Item $target -Recurse -Force }
     if (Test-Path $server) { Remove-Item $server -Force }
-    if ($hasClaude) { Invoke-Claude @('mcp', 'remove', 'autocad') }
-    if ($inDesktop) {
-        $cfg.mcpServers.PSObject.Properties.Remove('autocad')
-        Save-Config $cfg
-    }
+    if (Test-Path $previous) { Remove-Item $previous -Recurse -Force }
+    Disconnect-Claude | Out-Null
     Write-Host 'Heron AI for AutoCAD removed. Restart Claude Desktop if it is open.' -ForegroundColor Green
     exit 0
 }
@@ -193,32 +260,7 @@ if ((Get-BundleVersion $target) -ne $now -or -not (Test-Path $server) -or (Get-I
 Write-Host "Checked:            plug-in $now and the server are in place"
 
 # 3. connect Claude
-if (Get-Command claude -ErrorAction SilentlyContinue) {
-    Invoke-Claude @('mcp', 'remove', 'autocad')
-    Invoke-Claude @('mcp', 'add', '--scope', 'user', 'autocad', '--', $server)
-    Write-Host 'Claude Code:        connected (all projects)'
-} else {
-    Write-Host 'Claude Code:        not found, skipped'
-}
-$desktopDir = Split-Path $desktopCfg
-if (Test-Path $desktopDir) {
-    if (Test-Path $desktopCfg) {
-        Copy-Item $desktopCfg "$desktopCfg.heron-backup" -Force
-        $cfg = Get-Content $desktopCfg -Raw | ConvertFrom-Json
-    } else {
-        $cfg = [pscustomobject]@{}
-    }
-    if (-not $cfg.PSObject.Properties['mcpServers']) {
-        $cfg | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{})
-    }
-    $entry = [pscustomobject]@{ command = $server }
-    if ($cfg.mcpServers.PSObject.Properties['autocad']) { $cfg.mcpServers.autocad = $entry }
-    else { $cfg.mcpServers | Add-Member -NotePropertyName autocad -NotePropertyValue $entry }
-    Save-Config $cfg
-    Write-Host 'Claude Desktop:     connected (restart it; old settings saved as .heron-backup)'
-} else {
-    Write-Host 'Claude Desktop:     not found, skipped'
-}
+Connect-Claude | ForEach-Object { Write-Host $_ }
 
 Write-Host ''
 Write-Host 'Done. Start AutoCAD, open the Heron tab and press Heron to connect.' -ForegroundColor Green

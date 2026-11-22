@@ -4,7 +4,10 @@
 |---|---|---|
 | `build_plugin.py` | No (needs the .NET SDK) | Builds the plug-in for all three AutoCAD ranges into `dist/HeronAutoCAD.bundle` |
 | `install_plugin.py` | **Closed** | Copies the bundle into `%APPDATA%\Autodesk\ApplicationPlugins`; `--uninstall` removes it |
-| `make_release.py` | No (needs the .NET SDK and PyInstaller) | Builds `dist/HeronAutoCAD-<version>-win64.zip` and `dist/checksums.txt` (its SHA-256): the bundle, the server as one `autocad-mcp.exe`, and `Install.bat` / `Uninstall.bat` (asks before removing) / `Rollback.bat` (asks before going back) / `CheckForUpdate.bat` (never installs) from `release_files/`, and `capabilities.json` (`export_capabilities.py`). On GitHub, a `v` tag builds and publishes it (`release.yml`). The target PC needs no Python, .NET SDK or admin password |
+| `make_release.py` | No (needs the .NET SDK and PyInstaller) | Builds `dist/HeronAutoCAD-<version>-win64.zip` and `dist/checksums.txt` (its SHA-256): the bundle, the server as one `autocad-mcp.exe`, and `Install.bat` / `Uninstall.bat` (asks before removing) / `Rollback.bat` (asks before going back) / `CheckForUpdate.bat` (never installs) from `release_files/`, and `capabilities.json` (`export_capabilities.py`). On GitHub, a `v` tag builds and publishes it with the setup (`release.yml`). The target PC needs no Python, .NET SDK or admin password |
+| `make_installer.py` | No (Windows, after `make_release.py`; needs Inno Setup 6) | Builds `dist/HeronAutoCAD-<version>-setup.exe`, the one-file setup a modeller double-clicks, from `installer/HeronAutoCAD.iss` and `make_release.py`'s release folder; adds it to `dist/checksums.txt`. Per user, no admin; refuses while AutoCAD runs; sets Claude up with `Install.ps1 -Connect`; removed from Windows Settings > Apps ([D-99](../docs/DECISIONS.md)). `release.yml` builds it with a pinned Inno Setup 6.7.3 |
+| `installer/Check-Setup.ps1` | No | Installs and removes Heron on GitHub's Windows machine to check the setup (`release.yml` runs it). **Changes the Windows profile it runs in**: it refuses to run anywhere else |
+| `signing.py` | No | Signs Heron's DLLs, `autocad-mcp.exe`, `Install.ps1` and the setup when `HERON_SIGN_PFX` and `HERON_SIGN_PASSWORD` name a certificate; otherwise one "Not signed" line. Releases are unsigned by Ajmal's decision ([SETUP, Code signing](../docs/SETUP.md#code-signing), #164); the step stays for if that changes |
 | `export_capabilities.py` | No | Writes `dist/capabilities.json`: every tool with its padlock, `Use when` lines, inputs, what it needs of the plug-in and its NEEDS-CHECKING proof (PASS / PARTLY / NOT RUN / FAIL / NO ROW), for a registry such as Heron AI's. Same file every time for the same code; every release zip carries it ([14](../docs/14-heron-ai-adapter.md), D-122) |
 | `check_secrets.py` | No | No credential in any tracked file (key shapes, private keys, passwords in config lines) or file named like one (.env, *.pem). Runs in CI; exit 2 = could not look, never a pass |
 | `check_structure.py` | No | Repository rules (AutoCAD API only in the add-in, every tool has a level, doc links). Runs in CI |
@@ -39,6 +42,12 @@ C:\hbuild\v\Scripts\python.exe -m pip install . pyinstaller
 
 ```bash
 C:\hbuild\v\Scripts\python.exe tools/make_release.py
+```
+
+Then, for the one-file setup (Inno Setup 6 installed, or `HERON_ISCC` naming its `ISCC.exe`):
+
+```bash
+C:\hbuild\v\Scripts\python.exe tools/make_installer.py
 ```
 
 `live_check.py` turns the hand-kept register into one command. `--list` shows the rows and

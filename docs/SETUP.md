@@ -2,6 +2,15 @@
 
 Step by step, from nothing to Claude drawing in your AutoCAD.
 
+> **Only want to use Heron, not change it?** Download **`HeronAutoCAD-<version>-setup.exe`** from the
+> [releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases), close AutoCAD and Claude,
+> and double-click it. No Python, no .NET SDK, no administrator password: it installs for your
+> Windows user only, sets Claude Code and Claude Desktop up, and is removed from **Windows Settings >
+> Apps**. The zip with `Install.bat` on the same page does the same by hand. Neither has passed its
+> live checks yet ([NEEDS-CHECKING](NEEDS-CHECKING.md) Group AK and Group P).
+> [Installing for modellers](#installing-for-modellers-the-setup-program) below says what each changes.
+> The rest of this page is for building Heron from its source.
+
 ---
 
 ## 1. Check you can run this
@@ -170,3 +179,97 @@ Reading a DWG with AutoCAD closed also needs the free ODA File Converter from th
 Open Design Alliance, installed by hand. Heron finds it under Program Files\ODA
 and never downloads it; for another place, set `HERON_ODA_CONVERTER` to its
 `.exe` in the MCP settings.
+
+---
+
+## Installing for modellers: the setup program
+
+`HeronAutoCAD-<version>-setup.exe` is built by the release workflow on GitHub's Windows machine
+([D-99](DECISIONS.md)). It puts the same files in the same places as the zip's `Install.bat`:
+
+| What | Where |
+|---|---|
+| The plug-in, for AutoCAD 2021 to 2027 | `%APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle` |
+| The server | `%LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe` |
+| Claude Code (all projects) and Claude Desktop | one `autocad` entry each, written by `Install.ps1 -Connect`; Claude Desktop's old file is kept as `.heron-backup` |
+| Start menu | **Heron AI for AutoCAD** > *Check for a newer Heron* and *Remove Heron AI for AutoCAD* |
+
+- **It stops, and changes nothing, while AutoCAD is open**, or while Claude is using Heron's
+  installed server. It checks again just before copying, in case AutoCAD was started meanwhile.
+- **Update:** close AutoCAD, run the newer setup. It replaces the whole plug-in folder. It works
+  over a zip install too.
+- **Go back:** run the older setup from the releases page.
+- **Remove:** Windows Settings > Apps > Heron AI for AutoCAD > Uninstall. It takes the `autocad`
+  entry out of Claude first, then removes only what it installed (and the earlier version
+  `Install.bat` kept). Saved commands, check lists, logs and the audit in
+  `%LOCALAPPDATA%\Heron\autocad` stay. The zip's `Uninstall.bat` sends you here when the setup was used.
+- A log of each run is in `%TEMP%` (`Setup Log <date>.txt`).
+
+To build it yourself on Windows, after `tools/make_release.py` (needs Inno Setup 6):
+
+```bash
+C:\hbuild\v\Scripts\python.exe tools/make_installer.py
+```
+
+---
+
+## Code signing
+
+**Heron is not code-signed, by decision.** Ajmal decided on 2026-11-21 not to buy a certificate
+([#164](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/164); [#72](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/72)
+closed as not planned). Every release says **Not signed**. What a modeller sees, once:
+
+- **Windows SmartScreen** may say *Windows protected your PC* for the setup or `autocad-mcp.exe`:
+  choose **More info**, then **Run anyway**. A company antivirus may ask IT to allow the files.
+- **AutoCAD** may ask, the first time it loads Heron, whether to load this unsigned plug-in: choose
+  to load it **always**, so it does not ask again. Rows AK10 and AK11 record the exact box.
+
+The rest of this section is kept in case the decision changes.
+
+**What is ready.** With a certificate, the release signs Heron's own files with Windows' `signtool`
+(SHA-256, time-stamped so the signature outlives the certificate): the add-in DLLs
+(`Heron.AutoCAD.Addin.dll`, `Heron.AutoCAD.Bridge.dll` for each AutoCAD build), `autocad-mcp.exe`,
+`Install.ps1`, the setup and its uninstaller. Microsoft's own DLLs beside them are signed already.
+`tools/signing.py` does it; without a certificate it prints one line and the build goes on, and half
+a configuration stops the build instead of shipping unsigned files.
+
+**What to buy.** A code-signing certificate in Ajmal's own name (OV code signing, individual
+validation) from a public certificate authority. Since June 2023 these come on a USB token or as
+cloud signing, not as a file. Cloud signing can sign on GitHub, but needs the seller's sign-in step
+added to `release.yml` once the seller is chosen. A USB token signs only on the PC it is plugged into.
+Microsoft's Azure Artifact Signing is open to individuals only in the US and Canada (its quickstart,
+checked 2026-11-21).
+
+**Where it goes (a certificate file, `.pfx`).** GitHub > the repository > **Settings > Secrets and
+variables > Actions > New repository secret**, two secrets:
+
+| Secret | Holds |
+|---|---|
+| `HERON_SIGN_PFX_BASE64` | the `.pfx` file as base64 text: `[Convert]::ToBase64String([IO.File]::ReadAllBytes('heron.pfx'))` in PowerShell |
+| `HERON_SIGN_PFX_PASSWORD` | the file's password |
+
+**Trying it first, for free, on your own PC.** A test certificate you make yourself shows what
+AutoCAD does with a signed plug-in (rows AK10 and AK11) before anything is bought. It is trusted on
+that PC only, so never put it in the repository secrets. Make it in PowerShell:
+
+```bash
+$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Heron test signing" -CertStoreLocation Cert:\CurrentUser\My
+```
+
+```bash
+Export-PfxCertificate -Cert $cert -FilePath C:\hbuild\heron-test.pfx -Password (Read-Host -AsSecureString "Password")
+```
+
+Then build with it, in the same PowerShell window:
+
+```bash
+$env:HERON_SIGN_PFX = 'C:\hbuild\heron-test.pfx'; $env:HERON_SIGN_PASSWORD = Read-Host 'Password'
+```
+
+```bash
+C:\hbuild\v\Scripts\python.exe tools/make_release.py
+```
+
+To make this PC trust it, import the same `.pfx` into
+*Trusted Root Certification Authorities* and *Trusted Publishers* for your user (`certmgr.msc`), and
+remove it again after the test.

@@ -75,6 +75,20 @@ Newest first. Dates are when the change was made.
   removes a spline's fit points. Three new plug-in operations ([D-97](docs/DECISIONS.md)). Live rows
   AI1-AI14 NOT RUN.
 
+- **One-file setup for modellers (2026-11-21, #73, #35, #72 prepared).** The release now also
+  builds `HeronAutoCAD-<version>-setup.exe`: double-click, no administrator password, for your
+  Windows user only. It puts the plug-in and the server where `Install.bat` does, sets Claude Code
+  and Claude Desktop up with the same lines (`Install.ps1 -Connect`), stops while AutoCAD is open,
+  updates over an older version (or a zip install), and is removed from Windows Settings > Apps,
+  keeping your saved commands, check lists and logs. Built with a pinned, checked Inno Setup 6.7.3;
+  the release workflow installs and removes it on GitHub's Windows machine before publishing
+  ([D-99](docs/DECISIONS.md)). The zip and `Install.bat` stay until the setup passes live rows
+  AK1-AK11 (NOT RUN). `Uninstall.bat` now also removes the earlier version it kept, and sends a
+  setup install to Windows Apps. **Signing** is ready behind two repository secrets and skipped,
+  saying *Not signed*, without them. Ajmal decided not to buy a certificate (#164): Heron stays
+  unsigned, and a modeller trusts the plug-in once at its first AutoCAD load (`docs/SETUP.md`,
+  Code signing). **Tests** now always import this checkout's own `src`, also in a worktree (#35).
+
 - **The live-check runner covers groups AS and AO too (2026-11-21, D-118).** AS5 is measured (a
   layer of rays and an empty layer say why they have no extents); the other AS rows compare the plug-in
   with a second server started with --no-bridge, and the AO rows need the PDFs they name, so they have

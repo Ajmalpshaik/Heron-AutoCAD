@@ -83,6 +83,20 @@ live rows **AI1-AI14**. AI4 decides whether an entmade solid hatch lands (if it 
 become the default on the symbol shapes); AI11 says how AutoCAD shows a closed control-point
 spline; AI12 says whether `insert` at the count adds after the last fit point.
 
+## Earlier - 2026-11-21 (one-file setup #73, tests import their own src #35, signing prepared #72; D-99)
+
+`tools/make_installer.py` + `tools/installer/HeronAutoCAD.iss` (Inno Setup 6.7.3, pinned) build
+`HeronAutoCAD-<version>-setup.exe` in `release.yml`, after the zip, and `tools/installer/Check-Setup.ps1`
+installs and removes it on GitHub's Windows machine before anything is published (no AutoCAD
+there). Per user, same places as `Install.bat`, refuses while AutoCAD runs, Claude set up by
+`Install.ps1 -Connect` / `-Disconnect`. Signing (`tools/signing.py`) runs only with the secrets
+`HERON_SIGN_PFX_BASE64` + `HERON_SIGN_PFX_PASSWORD`; none exist, and Ajmal decided not to buy a
+certificate (#164; #72 closed not planned), so releases say *Not signed*.
+pytest now has `pythonpath = ["src"]`. Versions not bumped (the parent does).
+
+**Next (on this PC):** run Group **AK**. AK10-AK11 record what AutoCAD asks the first time it loads
+the unsigned plug-in, and that it asks only once. Keep the zip until AK1-AK8 pass.
+
 ## Earlier - 2026-11-21 (tools into the plug-in where it pays off: #74, D-114)
 
 The first two reads moved into the plug-in for speed, with COM kept as the fallback:

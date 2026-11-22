@@ -23,12 +23,16 @@ if importlib.util.find_spec("pythoncom") is None:
     sys.path.insert(0, str(WINSTUBS))
     importlib.import_module("_ctypes_names")  # the ctypes names message_filter.py needs
 
+# This checkout's own server code. pyproject.toml's pytest `pythonpath` puts it first for the
+# tests themselves; script_env() does the same for a script a test starts (#35).
+SRC = Path(__file__).resolve().parents[1] / "src"
+
 
 def script_env() -> dict[str, str]:
-    """The environment for a script a test starts: the stand-ins too, where pywin32 is missing."""
+    """The environment for a script a test starts: this checkout's src first, and the stand-ins where pywin32 is missing."""
     env = dict(os.environ)
-    if str(WINSTUBS) in sys.path:
-        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(WINSTUBS), env.get("PYTHONPATH", "")]))
+    first = [str(SRC)] + ([str(WINSTUBS)] if str(WINSTUBS) in sys.path else [])
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [*first, env.get("PYTHONPATH", "")]))
     return env
 
 

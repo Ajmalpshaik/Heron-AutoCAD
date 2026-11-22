@@ -10,6 +10,8 @@ You need
 You do NOT need Python, the .NET SDK or an administrator password.
 
 Install
+  (Prefer one file? HeronAutoCAD-<version>-setup.exe on the same release page does the same
+  and is removed from Windows Settings > Apps. Use one or the other.)
   1. Close AutoCAD.
   2. Double-click Install.bat.
   3. Restart Claude Desktop if you use it.
@@ -37,5 +39,6 @@ Remove it
   Close AutoCAD, then double-click Uninstall.bat. It shows what it removes and asks
   before removing anything. Keep this folder so Uninstall.bat is at hand.
 
-Windows SmartScreen or company antivirus may warn about autocad-mcp.exe because it is
-not code-signed. If your IT team blocks it, ask them to allow that file.
+Heron is not code-signed (Ajmal's decision). Windows SmartScreen or company antivirus may
+warn about autocad-mcp.exe: if your IT team blocks it, ask them to allow that file. The first
+time AutoCAD loads Heron it may ask whether to load it: choose to load it always, once.
