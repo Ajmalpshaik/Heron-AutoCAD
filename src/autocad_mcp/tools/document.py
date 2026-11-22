@@ -169,7 +169,7 @@ def _plot_pdf(
     PlotToFile gets the path alone. The layout's page setup and the plot
     settings are put back afterwards, so an export never rewrites them.
     """
-    layout = doc.ActiveLayout
+    layout, resynced = _on_screen_for_plot(doc)
     plot = doc.Plot
     background = doc.GetVariable("BACKGROUNDPLOT")
     quiet = plot.QuietErrorMode
@@ -220,6 +220,8 @@ def _plot_pdf(
         unrestored = _restore_plot_state(doc, layout, snapshot, background, quiet)
 
     result = {"layout": str(layout.Name), "paper": paper, "area": area}
+    if resynced:
+        result["layout_note"] = resynced
     if area == "view":
         result["view"] = str(view_name).strip()
     if scale is not None:
@@ -347,6 +349,45 @@ def _round_point(point: Sequence[float]) -> list[float]:
     return [round(float(v), 3) for v in point]
 
 
+def layout_on_screen(doc: Any) -> Any:
+    """The layout whose tab is on screen (CTAB), not whatever COM's ActiveLayout last held.
+
+    On 2026-11-22 the plug-in had put SAC2-104 on screen (CTAB said so), but
+    doc.ActiveLayout still gave SAC2-102 and the preview plotted that sheet
+    (D-125). CTAB is what the modeller sees, so it wins; ActiveLayout is the
+    answer only when CTAB cannot be read or names no layout.
+    """
+    active = doc.ActiveLayout
+    try:
+        tab = str(doc.GetVariable("CTAB") or "").strip()
+    except BaseException as exc:  # noqa: BLE001 - CTAB unreadable: COM's own answer then
+        raise_if_busy(exc)
+        return active
+    if not tab or str(active.Name).strip().lower() == tab.lower():
+        return active
+    layouts = doc.Layouts
+    for i in range(int(layouts.Count)):
+        layout = layouts.Item(i)
+        if str(layout.Name).strip().lower() == tab.lower():
+            return layout
+    return active
+
+
+def _on_screen_for_plot(doc: Any) -> tuple[Any, str | None]:
+    """The layout on screen, made COM's active one so PlotToFile plots it; and a note if it had to be."""
+    layout = layout_on_screen(doc)
+    active = doc.ActiveLayout
+    if str(active.Name) == str(layout.Name):
+        return active, None
+    # PlotToFile plots COM's active layout. Making it the tab already on screen
+    # changes nothing the modeller sees.
+    doc.ActiveLayout = layout
+    return layout, (
+        f"AutoCAD's COM side still had '{active.Name}' as the active layout while '{layout.Name}' "
+        "was on screen; the preview shows the one on screen."
+    )
+
+
 def _plot_png(
     doc: Any,
     target: str,
@@ -363,13 +404,15 @@ def _plot_png(
     With detail 2 or 3 the same area is then plotted again as overlapping
     windows (D-102), each beside target as <name>-<picture>.png.
     """
-    layout = doc.ActiveLayout
+    layout, resynced = _on_screen_for_plot(doc)
     plot = doc.Plot
     background = doc.GetVariable("BACKGROUNDPLOT")
     quiet = plot.QuietErrorMode
     snapshot = _snapshot_page_setup(doc, layout)
     size = None
     result: dict[str, Any] = {"area": area}
+    if resynced:
+        result["layout_note"] = resynced
     try:
         layout.ConfigName = PNG_PLOTTER
         layout.RefreshPlotDeviceInfo()

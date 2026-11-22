@@ -8,7 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (v1.8.0 checked and installed on the owner's PC; session 3 of 3)
+## Latest - 2026-11-22 (six problems from the SAC2 split AC set, D-125)
+
+Found drawing the SAC2 set live; fixed and tested offline in one PR, nothing run in AutoCAD.
+The add-in log (`%LOCALAPPDATA%\Heron\autocad\logs\addin-20261122.log`) named the viewport's bad
+line. What is left is live: rows **AF19-AF24**, all NOT RUN. **AF20 first**: the four SAC2 sheets
+may really be turned 90 degrees, so Page Setup on each wants a look before any PDF is made. The
+server part works after a server restart; the viewport and tab-switch parts of the plug-in need a
+plug-in built from this change (it compiles for all three builds). Decision number D-125 and rows
+AF19-AF24 were taken while #236 (D-123) and #237 (D-124, X26-X28) were open.
+
+## Earlier - 2026-11-22 (v1.8.0 checked and installed on the owner's PC; session 3 of 3)
 
 **State today:** tag **v1.8.0** = bc196d6; plug-in **1.8.0**, server **1.10.1**, **199** tools.
 On the owner's decision, v1.8.0 is now a **full release**, GitHub's *Latest*, with the same tag and

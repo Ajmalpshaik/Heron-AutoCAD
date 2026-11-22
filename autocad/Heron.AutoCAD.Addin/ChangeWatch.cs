@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Heron.AutoCAD.Bridge;
 using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace Heron.AutoCAD.Addin
@@ -16,12 +17,18 @@ namespace Heron.AutoCAD.Addin
         private static readonly ConditionalWeakTable<Database, object> Hooked = new ConditionalWeakTable<Database, object>();
         private static bool _hooked;
 
+        // AutoCAD's own work while it puts another tab on screen (D-125): the sheets'
+        // viewports turned off and on, the paper-space viewport erased and made again.
+        private static readonly TabSwitchWindow TabSwitch = new TabSwitchWindow();
+
         public static void Hook()
         {
             if (_hooked) return;
             var manager = AcApp.DocumentManager;
             foreach (Document doc in manager) Attach(doc.Database);
             manager.DocumentCreated += OnCreated;
+            AcApp.SystemVariableChanging += OnVariableWillChange;
+            AcApp.SystemVariableChanged += OnVariableChanged;
             _hooked = true;
         }
 
@@ -30,6 +37,8 @@ namespace Heron.AutoCAD.Addin
             if (!_hooked) return;
             var manager = AcApp.DocumentManager;
             manager.DocumentCreated -= OnCreated;
+            AcApp.SystemVariableChanging -= OnVariableWillChange;
+            AcApp.SystemVariableChanged -= OnVariableChanged;
             foreach (Document doc in manager) Detach(doc.Database);
             _hooked = false;
         }
@@ -37,6 +46,28 @@ namespace Heron.AutoCAD.Addin
         private static void OnCreated(object? sender, DocumentCollectionEventArgs e)
         {
             if (e.Document != null) Attach(e.Document.Database);
+        }
+
+        private static void OnVariableWillChange(object? sender, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangingEventArgs e)
+        {
+            try
+            {
+                TabSwitch.WillChange(e.Name);
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
+        private static void OnVariableChanged(object? sender, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventArgs e)
+        {
+            try
+            {
+                TabSwitch.Changed(e.Name);
+            }
+            catch (System.Exception)
+            {
+            }
         }
 
         private static void Attach(Database db)
@@ -83,6 +114,7 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnAppended(object? sender, ObjectEventArgs e)
         {
+            if (TabSwitch.Open) return; // AutoCAD switching tabs, not the job (D-125)
             if (!AcadJobHost.Counter.Counting)
             {
                 Outside(e.DBObject);
@@ -100,6 +132,7 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnModified(object? sender, ObjectEventArgs e)
         {
+            if (TabSwitch.Open) return; // AutoCAD switching tabs, not the job (D-125)
             if (!AcadJobHost.Counter.Counting)
             {
                 Outside(e.DBObject);
@@ -116,6 +149,7 @@ namespace Heron.AutoCAD.Addin
 
         private static void OnErased(object? sender, ObjectErasedEventArgs e)
         {
+            if (TabSwitch.Open) return; // AutoCAD switching tabs, not the job (D-125)
             if (!AcadJobHost.Counter.Counting)
             {
                 Outside(e.DBObject);

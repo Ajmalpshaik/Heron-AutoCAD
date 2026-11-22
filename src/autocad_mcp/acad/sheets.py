@@ -85,6 +85,40 @@ def media_dimensions(media: str) -> tuple[float, float] | None:
     return (width, height)
 
 
+def plot_turned(media: str, orientation: str | None) -> bool:
+    """Whether a sheet on this medium must plot turned 90 degrees to come out the way asked.
+
+    The same rule as the plug-in's SheetMath.PlotTurned (D-125). The medium is
+    matched the right way round whenever the plotter offers it, so the answer
+    is almost always False: the plot is not turned, whatever a template had.
+    Only a medium offered the other way round only is turned.
+    """
+    key = str(orientation or "").strip().lower()
+    if key not in ("portrait", "landscape"):
+        return False
+    size = media_dimensions(media)
+    if not size or size[0] == size[1]:
+        return False
+    return (size[0] < size[1]) != (key == "portrait")
+
+
+def turned_paper(
+    size: Sequence[float], margins: Sequence[float], rotation_degrees: int
+) -> tuple[tuple[float, float], tuple[float, float, float, float]]:
+    """A layout's paper as paper space sees it: the sides swapped when the plot turns 90 or 270.
+
+    AutoCAD keeps the paper size and margins the medium's own way round; the
+    plug-in's paper read swaps them for a turned plot (SheetMath.PaperInUnits,
+    Autodesk's GetMaximumExtents rule), and the COM read does the same so the
+    two never disagree (D-125). Margins are (left, bottom, right, top).
+    """
+    width, height = float(size[0]), float(size[1])
+    left, bottom, right, top = (float(v) for v in margins)
+    if int(rotation_degrees) % 180 == 90:
+        return (height, width), (bottom, left, top, right)
+    return (width, height), (left, bottom, right, top)
+
+
 def parse_scale(value: str | float) -> float:
     """A scale as paper units per drawing unit.
 

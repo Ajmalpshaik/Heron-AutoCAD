@@ -150,6 +150,29 @@ public class SheetMathTests
     }
 
     [Fact]
+    public void A_medium_matched_the_way_asked_is_never_turned()
+    {
+        // D-125: the SAC2 sheets kept a template's 90 degrees on the 841 x 594 medium.
+        Assert.False(SheetMath.PlotTurned("ISO_full_bleed_A1_(841.00_x_594.00_MM)", "landscape"));
+        Assert.False(SheetMath.PlotTurned("ISO_full_bleed_A1_(594.00_x_841.00_MM)", "portrait"));
+    }
+
+    [Fact]
+    public void A_medium_offered_only_the_other_way_round_is_turned()
+    {
+        Assert.True(SheetMath.PlotTurned("ISO_A1_(594.00_x_841.00_MM)", "landscape"));
+        Assert.True(SheetMath.PlotTurned("ISO_A1_(841.00_x_594.00_MM)", "Portrait"));
+    }
+
+    [Fact]
+    public void No_orientation_a_square_sheet_or_no_size_is_not_turned()
+    {
+        Assert.False(SheetMath.PlotTurned("ISO_full_bleed_A1_(841.00_x_594.00_MM)", ""));
+        Assert.False(SheetMath.PlotTurned("Square_(500.00_x_500.00_MM)", "portrait"));
+        Assert.False(SheetMath.PlotTurned("Letter", "portrait"));
+    }
+
+    [Fact]
     public void A_closed_outline_drops_its_repeated_last_corner()
     {
         var points = SheetMath.Outline(new double[] { 0, 0, 100, 0, 100, 50, 0, 50, 0, 0 }, out var refusal);

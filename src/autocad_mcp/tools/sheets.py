@@ -51,7 +51,7 @@ from ._shared import COORDS_OPT, current_ucs, in_plugin, ucs_for, world_coords
 
 # The media-name matching is already proven and tested in document.py (the PDF
 # export path); a sheet picks its paper the same way rather than a second way.
-from .document import _match_media  # noqa: PLC2701
+from .document import _MEDIA_NAME, _match_media, _normalize_media, layout_on_screen  # noqa: PLC2701
 
 # AcActiveSpace: acPaperSpace = 0, acModelSpace = 1 (document.py reads it too).
 AC_PAPER_SPACE = 0
@@ -143,7 +143,8 @@ def _layouts(doc: Any) -> dict[str, Any]:
 def _pick_layout(doc: Any, name: str | None) -> Any:
     """One layout by name, or the active one. 'Model' is refused for sheet work."""
     if not name:
-        layout = doc.ActiveLayout
+        # The tab on screen (CTAB), which COM's ActiveLayout did not always follow (D-125).
+        layout = layout_on_screen(doc)
         if str(layout.Name) == "Model":
             raise AutocadError(
                 "Model space is active, not a sheet. Name the layout, or switch to one "
@@ -197,7 +198,9 @@ def _paper_of(layout: Any) -> dict[str, Any]:
         high = tuple(float(v) for v in margins[1])[:2]
     rotation = int(_try(lambda: layout.PlotRotation, 0) or 0)
     degrees = next((deg for deg, code in PLOT_ROTATIONS.items() if code == rotation), 0)
-    return plan.paper_info(size, (low[0], low[1], high[0], high[1]), media, plotter, degrees)
+    # The same turn rule as the plug-in's read, so the two never disagree (D-125).
+    size, edges = plan.turned_paper(size, (low[0], low[1], high[0], high[1]), degrees)
+    return plan.paper_info(size, edges, media, plotter, degrees)
 
 
 def _paper_from_plugin(paper: dict[str, Any]) -> dict[str, Any]:
@@ -245,7 +248,26 @@ def _sheet_of(info: dict[str, Any], margins: Any, title_block_width: float | Non
         )
     except ValueError as exc:
         sheet["frame_note"] = f"The frame could not be worked out: {exc}"
+    if int(info.get("plot_rotation_degrees") or 0) % 180 == 90:
+        sheet["plot_turned_note"] = (
+            "This sheet plots turned 90 degrees (Page Setup > Drawing orientation), so its paper "
+            "is read the other way round from the sheet size's name. Check Page Setup before "
+            "making a PDF."
+        )
     return sheet
+
+
+def _orientation_check(sheet: dict[str, Any], asked: str | None) -> str | None:
+    """A warning when the sheet does not come out the way round that was asked (D-125)."""
+    key = str(asked or "").strip().lower()
+    got = sheet.get("orientation")
+    width, height = (sheet.get("paper") or [0, 0])[:2]
+    if key not in ("portrait", "landscape") or width == height or got == key:
+        return None
+    return (
+        f"The sheet was asked for {key} but reads {got} ({width:g} x {height:g}). Check Page "
+        "Setup's drawing orientation, then set it with autocad_page_setup(orientation=...)."
+    )
 
 
 # What the plug-in answers when it cannot do an operation at all: no plug-in
@@ -269,6 +291,24 @@ def by_plugin(operation: str, args: dict[str, Any], what: str) -> tuple[dict[str
 # ---------------------------------------------------------------------------
 # Page setup
 # ---------------------------------------------------------------------------
+
+
+def _size_label(media: str) -> str:
+    """The size words of a canonical media name: 'iso full bleed a1' for ISO_full_bleed_A1_(841.00_x_594.00_MM)."""
+    match = _MEDIA_NAME.match(_normalize_media(media)) if media else None
+    return str(match["label"]).strip() if match else ""
+
+
+def _same_label(names: tuple[str, ...], label: str, orientation: str) -> str | None:
+    """The medium with exactly this size label, the way round asked: the sheet turned, its variant kept."""
+    for name in names:
+        match = _MEDIA_NAME.match(_normalize_media(name))
+        if not match or str(match["label"]).strip() != label:
+            continue
+        width, height = float(match["w"]), float(match["h"])
+        if width == height or (width < height) == (orientation == "portrait"):
+            return name
+    return None
 
 
 def _set_page(
@@ -315,34 +355,47 @@ def _set_page(
         _try(lambda: layout.RefreshPlotDeviceInfo())
         written["plotter"] = str(plotter).strip()
 
-    if paper_size:
+    key = str(orientation or "").strip().lower()
+    if key and key not in ("portrait", "landscape"):
+        raise AutocadError("orientation must be 'portrait' or 'landscape'.")
+    size_words = str(paper_size or "").strip()
+    if key and not size_words:
+        # Orientation alone (D-125): the same sheet size the other way round. It
+        # used to be ignored with "needs a paper_size", and the answer then read
+        # back the old sheet as if nothing was wrong.
+        size_words = _size_label(str(_try(lambda: layout.CanonicalMediaName, "") or ""))
+        if not size_words:
+            written["orientation_ignored"] = (
+                f"'{key}' needs a paper_size with it: this sheet's size could not be read from "
+                "its media name. Pass paper_size as well."
+            )
+            key = ""
+
+    if size_words:
         names = tuple(_try(lambda: layout.GetCanonicalMediaNames(), ()) or ())
         if not names:
             raise AutocadError(
                 "AutoCAD reported no sheet sizes for this layout's plotter. Set the plotter "
                 f"first (plotter='{PDF_PLOTTER}')."
             )
-        wanted = str(paper_size).strip()
-        if orientation and not any(w in wanted.lower() for w in ("portrait", "landscape")):
-            wanted = f"{wanted} {str(orientation).strip().lower()}"
-        layout.CanonicalMediaName = _match_media(names, wanted)
-        written["paper_size"] = str(_try(lambda: layout.GetLocaleMediaName(layout.CanonicalMediaName), wanted))
-
-    if orientation:
-        key = str(orientation).strip().lower()
-        if key not in ("portrait", "landscape"):
-            raise AutocadError("orientation must be 'portrait' or 'landscape'.")
-        # An ISO sheet comes in both ways round and the media name says which,
-        # so the orientation is chosen with the paper size above - it is not a
-        # setting of its own. PlotRotation only turns the drawing on the sheet,
-        # so it is left alone. On its own, orientation therefore does nothing,
-        # and saying so beats reporting a change that did not happen.
-        if paper_size:
+        wanted = size_words
+        if key and not any(w in wanted.lower() for w in ("portrait", "landscape")):
+            wanted = f"{wanted} {key}"
+        media = (_same_label(names, size_words, key) if not paper_size else None) or _match_media(names, wanted)
+        layout.CanonicalMediaName = media
+        written["paper_size"] = str(_try(lambda: layout.GetLocaleMediaName(media), wanted))
+        if key:
             written["orientation"] = key
+        # The medium is matched the right way round, so the plot is not turned
+        # whatever the layout had before; only a medium offered the other way
+        # round only is turned (plan.plot_turned, D-125). The 2026-11-22 sheets
+        # kept a template's 90 degrees on an 841 x 594 sheet.
+        turned = plan.plot_turned(media, key)
+        if _write(layout, "PlotRotation", PLOT_ROTATIONS[90 if turned else 0]):
+            written["plot_rotation"] = 90 if turned else 0
         else:
-            written["orientation_ignored"] = (
-                f"'{key}' needs a paper_size with it: the sheet itself carries which way round "
-                "it goes. Pass paper_size as well."
+            written["plot_rotation_note"] = (
+                "AutoCAD would not set the drawing orientation; check Page Setup before making a PDF."
             )
 
     if plot_area:
@@ -673,6 +726,8 @@ def make_layout(
             info = _paper_from_plugin(report.get("paper") or {})
         except AutocadError:
             info = _try(lambda: _paper_of(_pick_layout(doc, made)))
+        if info and paper_size:
+            info = _plot_not_turned(doc, made, info, orientation, page)
         if info:
             result["paper"] = info
             result["sheet"] = _sheet_of(info, margins, title_block_width)
@@ -685,15 +740,53 @@ def make_layout(
             result["copied_from"] = report["copied_from"]
         if activate:
             result["activated"] = bool(report.get("activated", True))
-        return result
+        return _say_orientation(result, orientation if paper_size else None)
 
+    # Orientation goes with a paper size only: without one the template's sheet is kept,
+    # and orientation alone would turn it (autocad_page_setup's orientation-only rule).
     result = _make_layout_com(
-        doc, clean, paper_size, orientation, plotter, plot_style_table, copy_from, margins,
-        title_block_width, activate,
+        doc, clean, paper_size, orientation if paper_size else None, plotter, plot_style_table,
+        copy_from, margins, title_block_width, activate,
     )  # fmt: skip
     result["made_by"] = "com"
     result["plugin_note"] = why_not
+    return _say_orientation(result, orientation if paper_size else None)
+
+
+def _say_orientation(result: dict[str, Any], asked: str | None) -> dict[str, Any]:
+    """Add a warning when the sheet reads the other way round from what was asked (D-125)."""
+    sheet = result.get("sheet")
+    warning = _orientation_check(sheet, asked) if isinstance(sheet, dict) else None
+    if warning:
+        result["warning"] = f"{result['warning']} {warning}" if result.get("warning") else warning
     return result
+
+
+def _plot_not_turned(
+    doc: Any, made: str, info: dict[str, Any], orientation: str | None, page: dict[str, Any]
+) -> dict[str, Any]:
+    """Put a new sheet's plot the right way round when the plug-in left a template's turn on it.
+
+    Plug-in 1.8.0 never set the drawing orientation, so a new layout kept the
+    template's 90 degrees on the landscape medium it had just picked, and its
+    paper read back upright (594 x 841) on 2026-11-22 (D-125). A newer plug-in
+    sets it itself and this does nothing. Never raises: the sheet is made.
+    """
+    turned = plan.plot_turned(str(info.get("media") or ""), orientation)
+    now = int(info.get("plot_rotation_degrees") or 0)
+    if (now % 180 == 90) == turned:
+        return info
+    layout = _try(lambda: _pick_layout(doc, made))
+    wanted = 90 if turned else 0
+    if layout is None or not _write(layout, "PlotRotation", PLOT_ROTATIONS[wanted]):
+        page["plot_rotation_note"] = (
+            f"The sheet plots turned {now} degrees and AutoCAD would not change that. Set Page "
+            "Setup's drawing orientation by hand, or call autocad_page_setup(orientation=...)."
+        )
+        return info
+    page["plot_rotation"] = wanted
+    page["plot_rotation_was"] = now
+    return _try(lambda: _paper_of(layout)) or info
 
 
 BUSY_READBACK_TRIES = 10
@@ -1380,8 +1473,7 @@ def make_viewport(
         "locked": bool(locked),
     }
 
-    report, why_not = by_plugin(
-        "add_viewport",
+    report, why_not = _viewport_by_plugin(
         {
             "layout": sheet_name, "paper_centre": [cx, cy], "paper_width": pw, "paper_height": ph,
             "look_at": [look_at[0], look_at[1]], "twist": angle % 360.0, "scale_ratio": ratio,
@@ -1390,7 +1482,6 @@ def make_viewport(
             "clip_handle": clip_handle.strip() if clip_handle else None,
             "annotation_scale": annotation,
         },
-        "Adding the viewport",
     )  # fmt: skip
     if report is not None:
         result["handle"] = str(report.get("handle", ""))
@@ -1430,6 +1521,32 @@ def make_viewport(
     result["made_by"] = "com"
     result["plugin_note"] = why_not
     return result
+
+
+# The plug-in's words when AutoCAD threw inside the operation: its transaction
+# was aborted, so nothing was made (PluginRunner.Run).
+_AUTOCAD_REFUSED = "AutoCAD refused it ("
+
+
+def _viewport_by_plugin(args: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    """The plug-in's viewport, or (None, why) when COM must make it.
+
+    Besides an older plug-in, AutoCAD itself refusing the plug-in's viewport
+    falls back to COM (D-125): plug-in 1.8.0 set StandardScale to
+    CustomScale, which AutoCAD refuses with eInvalidInput, so every viewport
+    failed on 2026-11-22 while the COM route (row D16, PASS) still works. The
+    plug-in aborted its transaction, so nothing is made twice. A refusal of
+    Heron's own (a padlock, a bad layer name, HERONSTOP) stays the answer.
+    """
+    try:
+        return in_plugin("add_viewport", args, "Adding the viewport"), None
+    except AutocadError as exc:
+        text = str(exc)
+        if text == OLD_PLUGIN or any(marker in text for marker in _NO_PLUGIN):
+            return None, text
+        if text.startswith(_AUTOCAD_REFUSED) and not args.get("clip_outline") and not args.get("clip_handle"):
+            return None, f"Heron's plug-in could not make it ({text.split('.')[0].strip()}), so it was made over COM."
+        raise
 
 
 def _target_area(
