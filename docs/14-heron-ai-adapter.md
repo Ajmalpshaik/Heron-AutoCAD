@@ -73,7 +73,7 @@ plug-in operation with its level, the resources, and how many tools are in each 
 - **A tool that runs other tools** (`autocad_sequence`, `autocad_saved_command`) is listed as
   `gate`; the tools in its steps say what they need.
 
-On 2026-11-22 it listed 192 tools: 5 PASS, 14 PARTLY, 1 FAIL, 143 NOT RUN, 29 NO ROW. Run it for
+On 2026-11-22 it listed 193 tools: 5 PASS, 14 PARTLY, 1 FAIL, 144 NOT RUN, 29 NO ROW. Run it for
 today's numbers; numbers typed here go stale.
 
 ## 3. What is still missing on Heron AI's side
