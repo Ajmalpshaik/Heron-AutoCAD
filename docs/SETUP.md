@@ -192,7 +192,7 @@ and never downloads it; for another place, set `HERON_ODA_CONVERTER` to its
 |---|---|
 | The plug-in, for AutoCAD 2021 to 2027 | `%APPDATA%\Autodesk\ApplicationPlugins\HeronAutoCAD.bundle` |
 | The server | `%LOCALAPPDATA%\Heron\autocad\autocad-mcp.exe` |
-| Claude Code (all projects) and Claude Desktop | one `autocad` entry each, written by `Install.ps1 -Connect`; Claude Desktop's old file is kept as `.heron-backup` |
+| Claude Code (all projects) and Claude Desktop | one `autocad` entry each, written by `Install.ps1 -Connect` ([INSTALL section 5](INSTALL.md#5-connect-claude) says where it looks); each file it changes is kept first as `.heron-backup`, and an `autocad` entry already there is kept |
 | Start menu | **Heron AI for AutoCAD** > *Check for a newer Heron* and *Remove Heron AI for AutoCAD* |
 
 - **It stops, and changes nothing, while AutoCAD is open**, or while Claude is using Heron's

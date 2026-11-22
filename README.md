@@ -1,8 +1,8 @@
 # Heron AI for AutoCAD
 
-> **Dear Modelers - this is the first release (v1.8.0), for testing, not a finished product.**
+> **Dear Modelers - this is an early release (v1.8.1), for testing, not a finished product.**
 >
-> This repository is public so the work is open. The first **release (v1.8.0)** is on the
+> This repository is public so the work is open. The newest **release (v1.8.1)** is on the
 > [releases page](https://github.com/Ajmalpshaik/Heron-AutoCAD/releases). It installs and the
 > plug-in loads in AutoCAD 2027, but most tools have not been checked in AutoCAD yet
 > ([NEEDS-CHECKING](docs/NEEDS-CHECKING.md)) and the files are not code-signed. Install it only to help test, on drawings you can afford to undo
