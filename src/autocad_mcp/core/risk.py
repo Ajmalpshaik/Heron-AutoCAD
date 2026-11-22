@@ -61,6 +61,9 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "read_file",
         "list_groups",
         "list_annotation_scales",
+        # Hyperlinks and the geographic location, read (D-111).
+        "list_hyperlinks",
+        "get_geo_location",
     ),
     Risk.VIEW: (
         "check_folder",
@@ -71,6 +74,8 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "open_drawing",
         "create_drawing",
         "set_3d_view",
+        # Tiled viewports on the Model tab: the screen, not the drawing (D-111).
+        "tiled_viewports",
     ),
     Risk.CHANGE: (
         "undo_last",
@@ -81,6 +86,11 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "add_wipeout",
         "attach_xref",
         "manage_xref",
+        # Cleaning up and referencing (#104, #112, #118; D-84).
+        "attach_underlay",
+        "clip_reference",
+        "overkill",
+        "trace_boundary",
         "draw_line",
         "draw_polyline",
         "draw_rectangle",
@@ -193,11 +203,17 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "space_dimensions",
         "break_dimensions",
         "annotation_scales",
+        # PDF Import: a PDF page as lines, -PDFIMPORT typed in one form (D-106).
+        "import_pdf",
         # The smaller draw gaps from the ribbon audit (D-108): COM, and Heron's own maths.
         "add_construction_line",
         "add_region",
         "add_donut",
         "divide_curve",
+        # The smaller ribbon gaps, part 2 of #119 (D-110, D-111).
+        "associative_array",
+        "hyperlinks",
+        "geo_location",
     ),
     Risk.PUBLISH: (
         "export_attribute_sheet",
@@ -208,6 +224,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "publish_pdf",
         "checklist_report",  # writes an .xlsx and an .html next to the drawing (D-65)
         "share_checklist",  # writes the office folder or the project folder, where the team reads (D-93)
+        "etransmit",  # writes a folder or a .zip of the drawing and its files (D-85)
     ),
     Risk.ADMIN: (
         "send_command",

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.variants import group_coordinates, point_to_list
 from .units import deg, round_or_none
 
@@ -51,13 +51,22 @@ def _try(getter, default=None):
     """Read one COM property, tolerating types that do not implement it."""
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        raise_if_busy(exc)
         return default
 
 
 def short_type(entity: Any) -> str:
     """Map a COM entity to this server's short type name."""
-    name = _try(lambda: str(entity.ObjectName), "")
+    return short_type_name(_try(lambda: str(entity.ObjectName), ""))
+
+
+def short_type_name(name: str) -> str:
+    """This server's short type name for an AutoCAD class name ('AcDbLine' -> 'line').
+
+    COM gives the class name as ObjectName, the plug-in as the object's
+    class (D-114): both go through here, so they say the same type.
+    """
     if name in OBJECT_NAME_MAP:
         return OBJECT_NAME_MAP[name]
     # Dimensions come in eight concrete classes that all behave the same here.
@@ -187,8 +196,8 @@ def read_attributes(block_ref: Any) -> dict[str, str]:
     try:
         for att in block_ref.GetAttributes():
             result[str(att.TagString)] = str(att.TextString)
-    except BaseException:  # noqa: BLE001 - block may carry no attributes
-        pass
+    except BaseException as exc:  # noqa: BLE001 - block may carry no attributes
+        raise_if_busy(exc)
     return result
 
 
@@ -197,7 +206,8 @@ def bounding_box(entity: Any) -> dict[str, list[float]] | None:
     try:
         lo, hi = entity.GetBoundingBox()
         return {"min": point_to_list(lo), "max": point_to_list(hi)}
-    except BaseException:  # noqa: BLE001
+    except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         return None
 
 
@@ -210,6 +220,7 @@ def resolve_handle(doc: Any, handle: str) -> Any:
     try:
         return doc.HandleToObject(str(handle).strip())
     except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         raise AutocadError(
             f"No entity with handle '{handle}' exists in the active drawing. "
             "Handles are per-drawing and change when a drawing is recreated — "

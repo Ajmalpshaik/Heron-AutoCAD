@@ -20,7 +20,7 @@ from ..acad.entities import resolve_handle
 from ..acad.geometry import MOST_SPLINE_DEGREE, control_spline
 from ..acad.tables import apply_properties
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, group_coordinates
 from . import _shared
@@ -44,10 +44,13 @@ from ._shared import (
 Vec3 = tuple[float, float, float]
 
 
-def _try(getter, default=None):
+def _try(getter, default=None, busy_ok=False):
+    """One COM read or call that may fail; busy_ok for a restore, a cancel or a wait (D-100)."""
     try:
         return getter()
-    except BaseException:  # noqa: BLE001 - absent properties are expected here
+    except BaseException as exc:  # noqa: BLE001 - absent properties are expected here
+        if not busy_ok:
+            raise_if_busy(exc)
         return default
 
 
@@ -218,6 +221,7 @@ async def autocad_draw_spline(
                     entity.Closed2 = True
                     is_closed = True
                 except BaseException as exc:  # noqa: BLE001 - drawn open, and said
+                    raise_if_busy(exc)
                     not_set.append(f"closed ({com_message(exc)})")
             notes = apply_properties(doc, entity, layer, aci, linetype)
 
@@ -271,6 +275,7 @@ async def _control_spline(points: list[list[float]], closed: bool, start_tangent
                 try:
                     payload.update(apply_properties(doc, doc.HandleToObject(payload["handle"]), None, None, linetype))
                 except Exception as exc:  # noqa: BLE001 - drawn; the linetype is said, not raised
+                    raise_if_busy(exc)  # busy after the write: "Outcome unknown", never a false "not set"
                     payload["not_set"] = [f"linetype ({com_message(exc)})"]
         payload.setdefault("closed", bool(closed))
         payload.setdefault("degree", int(degree))
@@ -550,6 +555,7 @@ async def autocad_draw_multiline(
             try:
                 before = str(doc.GetVariable("CMLSTYLE"))
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"The drawing's current multiline style could not be read ({com_message(exc)}), "
                     "so it is not changed. Draw without 'style', or set it with CMLSTYLE first."
@@ -559,6 +565,7 @@ async def autocad_draw_multiline(
                 try:
                     doc.SetVariable("CMLSTYLE", str(style).strip())
                 except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
                     raise AutocadError(
                         f"This drawing has no multiline style called '{style}' ({com_message(exc)}). "
                         "Make it with MLSTYLE, or copy it in with autocad_import_from_drawing."
@@ -572,12 +579,13 @@ async def autocad_draw_multiline(
                     try:
                         setattr(entity, prop, value)
                     except BaseException as exc:  # noqa: BLE001 - drawn, and said
+                        raise_if_busy(exc)
                         not_set.append(f"{prop} ({com_message(exc)})")
                 notes = apply_properties(doc, entity, layer, aci, None)
             finally:
                 # Inside the undo step, so one Ctrl+Z takes the multiline and the style back.
                 if before is not None:
-                    _try(lambda: doc.SetVariable("CMLSTYLE", before))
+                    _try(lambda: doc.SetVariable("CMLSTYLE", before), busy_ok=True)
             mitred, is_closed, why = close_multiline(entity, flat) if by_plugin else (False, bool(closed), "")
 
         payload = created_payload(
@@ -610,12 +618,12 @@ async def autocad_draw_multiline(
 
 
 def close_multiline(entity: Any, flat: list[float]) -> tuple[bool, bool | None, str]:
-    """Have the plug-in close a multiline just drawn, mitring its last corner. Never raises.
+    """Have the plug-in close a multiline just drawn, mitring its last corner.
 
     Returns (mitred, closed, why not): closed is True, False (left open), or
     None when the plug-in's answer never came and it may have closed it.
     The multiline is drawn already, so an error would send the chat round to
-    draw it twice. If the plug-in says it cannot close it, the first point is
+    draw it twice; only a busy AutoCAD goes up, as "Outcome unknown" (D-100). If the plug-in says it cannot close it, the first point is
     added again over COM - the old way, overlapped - and why is said. After
     an unknown outcome nothing more is done to it: adding the first point to
     a multiline the plug-in did close late would spoil it.
@@ -626,7 +634,8 @@ def close_multiline(entity: Any, flat: list[float]) -> tuple[bool, bool | None, 
         if report.get("closed"):
             return True, True, ""
         why = "Heron's plug-in did not close it"
-    except Exception as exc:  # noqa: BLE001 - drawn; what happened is said, never raised
+    except Exception as exc:  # noqa: BLE001 - drawn; what happened is said
+        raise_if_busy(exc)  # a busy AutoCAD goes up as "Outcome unknown" (D-100), not as "could not close"
         if "Outcome unknown" in str(exc):
             return False, None, (
                 f"Heron's plug-in did not answer ({exc}), so {handle} may or may not be closed. "
@@ -636,6 +645,7 @@ def close_multiline(entity: Any, flat: list[float]) -> tuple[bool, bool | None, 
     try:
         entity.Coordinates = double_array(list(flat) + list(flat[:3]))
     except BaseException as exc:  # noqa: BLE001 - drawn open; said
+        raise_if_busy(exc)
         return False, False, f"{why}; adding the first point again failed too ({com_message(exc)}), so it is OPEN"
     return False, True, why
 
@@ -716,8 +726,8 @@ def _wait_for_new(doc: Any, target: Any, before: int) -> tuple[Any, bool]:
     """
     deadline = time.monotonic() + COMMAND_WAIT_S
     while True:
-        busy = bool(_try(lambda: int(doc.GetVariable("CMDACTIVE")), 0))
-        count = int(_try(lambda: target.Count, before))
+        busy = bool(_try(lambda: int(doc.GetVariable("CMDACTIVE")), 0, busy_ok=True))
+        count = int(_try(lambda: target.Count, before, busy_ok=True))
         if not busy and count > before:
             return target.Item(count - 1), False
         if time.monotonic() >= deadline:
@@ -816,7 +826,7 @@ async def autocad_add_wipeout(
             made, busy = _wait_for_new(doc, target, before)
             if made is None or str(_try(lambda: made.ObjectName, "")) != "AcDbWipeout":
                 # Cancel whichever way it went, so AutoCAD is never left at the prompt.
-                _try(lambda: doc.SendCommand("\x1b\x1b"))
+                _try(lambda: doc.SendCommand("\x1b\x1b"), busy_ok=True)
                 raise AutocadError(
                     "AutoCAD did not take the WIPEOUT input and was left asking; it has been "
                     "cancelled and no wipeout was kept. Check that no other command was running."
@@ -827,6 +837,7 @@ async def autocad_add_wipeout(
                 try:
                     doc.SetVariable("WIPEOUTFRAME", WIPEOUT_FRAMES[frame_key])
                 except BaseException as exc:  # noqa: BLE001 - this release may lack it
+                    raise_if_busy(exc)
                     not_set.append(f"frames ({com_message(exc)})")
             notes = apply_properties(doc, made, layer, aci, None)
             erased = False
@@ -835,6 +846,7 @@ async def autocad_add_wipeout(
                     outline.Delete()
                     erased = True
                 except BaseException as exc:  # noqa: BLE001 - the wipeout stands either way
+                    raise_if_busy(exc)
                     not_set.append(f"erase_boundary ({com_message(exc)})")
 
         payload = created_payload(made, notes, corners=len(corners or []), boundary_erased=erased)

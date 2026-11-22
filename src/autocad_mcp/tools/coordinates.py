@@ -22,7 +22,7 @@ from pydantic import Field
 from ..acad.coords import Ucs, advice, as_vec3
 from ..acad.units import deg
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.gate import quiet_sender
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint
@@ -59,7 +59,8 @@ def _describe_saved(item: Any) -> dict[str, Any]:
                 "tilted": ucs.tilted,
             }
         )
-    except Exception:  # noqa: BLE001 - a listing must not fail on one unreadable row
+    except Exception as exc:  # noqa: BLE001 - a listing must not fail on one unreadable row
+        raise_if_busy(exc)
         row["readable"] = False
     return row
 
@@ -67,7 +68,8 @@ def _describe_saved(item: Any) -> dict[str, Any]:
 def _ucs_name(doc: Any) -> str:
     try:
         return str(doc.GetVariable("UCSNAME")).strip()
-    except BaseException:  # noqa: BLE001 - unnamed UCS reads back empty anyway
+    except BaseException as exc:  # noqa: BLE001 - unnamed UCS reads back empty anyway
+        raise_if_busy(exc)
         return ""
 
 
@@ -126,7 +128,8 @@ async def autocad_get_ucs() -> str:
         for key, variable in (("elevation", "ELEVATION"), ("thickness", "THICKNESS")):
             try:
                 result[key] = round(float(doc.GetVariable(variable)), 9)
-            except BaseException:  # noqa: BLE001 - old drawings may not carry it
+            except BaseException as exc:  # noqa: BLE001 - old drawings may not carry it
+                raise_if_busy(exc)
                 result[key] = None
         result["advice"] = advice(ucs)
         result["saved"] = [
@@ -298,6 +301,7 @@ def _store(doc: Any, ucs: Ucs, name: str) -> Any:
             try:
                 item.Delete()
             except BaseException as exc:  # noqa: BLE001
+                raise_if_busy(exc)
                 raise AutocadError(
                     f"'{existing_name}' is already in this drawing and could not be "
                     f"replaced ({com_message(exc)}). Save under another name."
@@ -310,6 +314,7 @@ def _store(doc: Any, ucs: Ucs, name: str) -> Any:
             apoint(*ucs.origin), apoint(*on_x), apoint(*on_y), clean
         )
     except BaseException as exc:  # noqa: BLE001
+        raise_if_busy(exc)
         raise AutocadError(f"AutoCAD would not store the UCS '{clean}': {com_message(exc)}") from exc
 
 
@@ -322,7 +327,8 @@ def _ucs_from_entity(doc: Any, handle: str) -> Ucs:
     def _read(getter, default=None):
         try:
             return getter()
-        except BaseException:  # noqa: BLE001 - not every type carries these
+        except BaseException as exc:  # noqa: BLE001 - not every type carries these
+            raise_if_busy(exc)
             return default
 
     normal = as_vec3(_read(lambda: entity.Normal), (0.0, 0.0, 1.0))
@@ -417,6 +423,7 @@ async def autocad_convert_points(
             try:
                 ucs = Ucs.build(as_vec3(match.Origin), as_vec3(match.XVector), as_vec3(match.YVector))
             except Exception as exc:  # noqa: BLE001 - a corrupt table entry, reported as such
+                raise_if_busy(exc)
                 raise AutocadError(f"The saved UCS '{ucs_name}' could not be read: {exc}") from exc
             label = str(match.Name)
         else:

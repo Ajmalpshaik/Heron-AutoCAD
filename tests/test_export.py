@@ -437,3 +437,42 @@ class TestExportTool:
         )
         assert result.startswith("Error:")
         assert "only applies to PDF" in result
+
+
+class TestDwfExport:
+    """DWF goes the PDF way, through the DWF6 plotter (#179, D-111)."""
+
+    async def test_a_dwf_path_plots_through_the_dwf6_plotter(self, offline, tmp_path):
+        target = str(tmp_path / "plan.dwf")
+        result = json.loads(await document.autocad_export(path=target, area="layout", scale="1:1"))
+        assert result["format"] == "dwf" and result["exported"] is True
+        plotted = offline.Plot.calls[0]
+        assert plotted["layout"]["ConfigName"] == document.DWF_PLOTTER == "DWF6 ePlot.pc3"
+        assert plotted["args"] == (target,)
+        assert plotted["layout"]["PlotType"] == PLOT_AREAS["layout"]
+
+    async def test_the_layouts_own_plotter_is_put_back_after_a_dwf(self, offline, tmp_path):
+        await document.autocad_export(path=str(tmp_path / "plan.dwf"))
+        assert offline.ActiveLayout.state["ConfigName"] == "Microsoft Print to PDF"
+
+    async def test_paper_size_and_area_apply_to_dwf(self, offline, tmp_path):
+        result = json.loads(await document.autocad_export(path=str(tmp_path / "plan.dwf"), paper_size="A3"))
+        assert result["paper"] == "ISO full bleed A3 (420.00 x 297.00 MM)"
+
+    def test_an_unknown_sheet_names_the_dwf_plotter(self):
+        with pytest.raises(AutocadError, match="DWF6 ePlot"):
+            _match_media(MEDIA, "A7", document.DWF_PLOTTER)
+
+    async def test_a_dwf_not_written_is_an_error_naming_the_plotter(self, offline, tmp_path):
+        offline.Plot.write = False
+        result = await document.autocad_export(path=str(tmp_path / "plan.dwf"))
+        assert result.startswith("Error:") and "DWF6 ePlot.pc3" in result
+
+    async def test_plot_options_are_still_refused_for_dxf(self, offline, tmp_path):
+        result = await document.autocad_export(path=str(tmp_path / "plan.dxf"), area="layout")
+        assert "only applies to PDF and DWF" in result
+
+    def test_export_stays_a_publish_job(self):
+        from autocad_mcp.core.risk import Risk, risk_of
+
+        assert risk_of("autocad_export") is Risk.PUBLISH

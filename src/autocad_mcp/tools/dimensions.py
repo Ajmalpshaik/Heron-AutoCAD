@@ -29,7 +29,7 @@ from ..acad.selection import discard_selection_set, iter_selection, select_filte
 from ..acad.tables import ensure_layer
 from ..acad.units import rad
 from ..core.connection import get_doc, get_space, require_idle, run
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.quiet import QUIET_FIELD
 from ..core.quiet import quiet as quieted
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
@@ -283,7 +283,8 @@ def _dim_scale(doc: Any) -> float:
     """The drawing's DIMSCALE. A dimension made over COM does not pick it up itself."""
     try:
         return float(doc.GetVariable("DIMSCALE") or 0.0)
-    except BaseException:  # noqa: BLE001 - an old drawing may not carry it
+    except BaseException as exc:  # noqa: BLE001 - an old drawing may not carry it
+        raise_if_busy(exc)
         return 0.0
 
 
@@ -320,6 +321,7 @@ def find_dim_style(doc: Any, wanted: str) -> str:
         for i in range(doc.DimStyles.Count):
             names.append(str(doc.DimStyles.Item(i).Name))
     except BaseException as exc:  # noqa: BLE001 - say so rather than draw with the wrong style
+        raise_if_busy(exc)
         raise AutocadError(f"Could not read the drawing's dimension styles ({com_message(exc)}). Nothing was drawn.") from exc
     found = stored_name(names, wanted)
     if found is None:
@@ -602,6 +604,7 @@ async def autocad_dimension_run(
                 try:
                     dim = _make_one(target, entry, axis, ucs)
                 except BaseException as exc:  # noqa: BLE001 - one dimension, not the run
+                    raise_if_busy(exc)
                     failed.append({"index": entry["index"], "kind": entry["kind"],
                                    "reason": com_message(exc)})
                     continue
@@ -619,33 +622,34 @@ async def autocad_dimension_run(
                         except BaseException:  # noqa: BLE001 - say it is still there
                             why += (f", and it could not be deleted: {_handle_of(dim)} is still in the drawing "
                                     "in the current style; delete it by hand")
+                        raise_if_busy(exc)
                         failed.append({"index": entry["index"], "kind": entry["kind"], "reason": why})
                         continue
                     if style_scale is None:
                         try:
                             style_scale = round(float(dim.ScaleFactor), 6)
-                        except BaseException:  # noqa: BLE001 - only a report
-                            pass
+                        except BaseException as exc:  # noqa: BLE001 - only a report
+                            raise_if_busy(exc)
                 if text_override:
                     try:
                         dim.TextOverride = text_override
-                    except BaseException:  # noqa: BLE001 - the value still reads correctly
-                        pass
+                    except BaseException as exc:  # noqa: BLE001 - the value still reads correctly
+                        raise_if_busy(exc)
                 if scale is not None:
                     try:
                         dim.ScaleFactor = scale
-                    except BaseException:  # noqa: BLE001 - keep the style's own size
-                        pass
+                    except BaseException as exc:  # noqa: BLE001 - keep the style's own size
+                        raise_if_busy(exc)
                 if layer:
                     try:
                         dim.Layer = layer.strip()
-                    except BaseException:  # noqa: BLE001 - reported by the layer being wrong
-                        pass
+                    except BaseException as exc:  # noqa: BLE001 - reported by the layer being wrong
+                        raise_if_busy(exc)
                 measured = None
                 try:
                     measured = round(float(dim.Measurement), 6)
-                except BaseException:  # noqa: BLE001 - not every type reports it
-                    pass
+                except BaseException as exc:  # noqa: BLE001 - not every type reports it
+                    raise_if_busy(exc)
                 rows.append(
                     {
                         "kind": entry["kind"],
@@ -668,8 +672,8 @@ async def autocad_dimension_run(
                     if handle.upper() in plain:
                         try:
                             dim.ScaleFactor = drawing_scale
-                        except BaseException:  # noqa: BLE001 - the warning already names it
-                            pass
+                        except BaseException as exc:  # noqa: BLE001 - the warning already names it
+                            raise_if_busy(exc)
                 scaled["warning"] += " Those were given the drawing's DIMSCALE instead."
 
         result: dict[str, Any] = {
@@ -786,7 +790,8 @@ async def autocad_add_centre_marks(
             try:
                 centre = [float(v) for v in entity.Center][:2]
                 radius = float(entity.Radius)
-            except BaseException:  # noqa: BLE001 - unreadable, say so rather than guess
+            except BaseException as exc:  # noqa: BLE001 - unreadable, say so rather than guess
+                raise_if_busy(exc)
                 skipped.append({"handle": handle, "type": kind, "why": "centre or radius unreadable"})
                 return
             if radius < min_radius:

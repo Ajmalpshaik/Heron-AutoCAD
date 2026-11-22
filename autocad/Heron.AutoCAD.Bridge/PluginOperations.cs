@@ -4,19 +4,26 @@ namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
     /// The operations the plug-in does itself, because COM has no call for
-    /// them, and the level a job needs for each. Anything not listed here is
-    /// refused before AutoCAD is touched (D-40 in docs/DECISIONS.md).
+    /// them (D-40) or would take a round trip per object (D-114), and the
+    /// level a job needs for each. Anything not listed here is refused before
+    /// AutoCAD is touched (docs/DECISIONS.md).
     /// </summary>
     public static class PluginOperations
     {
         private static readonly Dictionary<string, Risk> Levels = new Dictionary<string, Risk>
         {
+            // Reads over the whole drawing that COM can do, but one round trip
+            // per object: the plug-in does them in one go (D-114).
+            ["count_entities"] = Risk.Read,
+            ["entity_extents"] = Risk.Read,
             ["solid_topology"] = Risk.Read,
             // Where dimension lines are, the drawing's and objects' annotation scales,
             // and the drawing's layer states (D-80, D-81).
             ["dimension_lines"] = Risk.Read,
             ["annotation_scales"] = Risk.Read,
             ["layer_state_names"] = Risk.Read,
+            // The files a drawing needs, for eTransmit (D-85): reads only.
+            ["list_dependencies"] = Risk.Read,
             // Selects, zooms and isolates what was asked for: on screen only.
             ["show"] = Risk.View,
             ["loft"] = Risk.Change,
@@ -53,6 +60,18 @@ namespace Heron.AutoCAD.Bridge
             ["planar_surface"] = Risk.Change,
             ["network_surface"] = Risk.Change,
             ["add_mesh"] = Risk.Change,
+            // Multileader and table styles: COM can make neither (D-104).
+            ["multileader_style"] = Risk.Change,
+            ["table_style"] = Risk.Change,
+            // An associative array (ARRAY) and the drawing's geographic location
+            // (GEOGRAPHICLOCATION): COM has a call for neither (D-110, D-111).
+            ["associative_array"] = Risk.Change,
+            ["geo_location"] = Risk.Read,
+            ["set_geo_location"] = Risk.Change,
+            // References and clean-up (D-84).
+            ["attach_underlay"] = Risk.Change,
+            ["clip_reference"] = Risk.Change,
+            ["trace_boundary"] = Risk.Change,
             ["publish_pdf"] = Risk.Publish,
         };
 

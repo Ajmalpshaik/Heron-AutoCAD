@@ -27,7 +27,7 @@ from win32com.client import VARIANT
 from ..acad import shapes3d
 from ..acad.tables import apply_properties
 from ..core.connection import get_doc, get_space, require_idle
-from ..core.errors import AutocadError, com_message
+from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import to_aci, undo_mark
 from ..core.variants import apoint, double_array, object_array, point_to_list
 
@@ -148,6 +148,7 @@ def draw_pieces(plan: dict[str, Any]) -> dict[str, Any]:
         except BaseException as exc:  # noqa: BLE001 - every refusal is answered the same way
             for _, solid in made:
                 _try_delete(solid)
+            raise_if_busy(exc)  # busy: the pieces may still be there, so "Outcome unknown"
             where = len(made)
             part = plan["pieces"][where]["part"] if where < len(plan["pieces"]) else "piece"
             raise AutocadError(
@@ -170,8 +171,8 @@ def draw_pieces(plan: dict[str, Any]) -> dict[str, Any]:
                 actual = (point_to_list(low), point_to_list(high))
                 if box_off(actual, shapes3d.expected_box(piece)) > BOX_TOLERANCE:
                     off.append(f"{piece['part']} {piece['index']}")
-            except BaseException:  # noqa: BLE001 - an unread box is not a wrong one
-                pass
+            except BaseException as exc:  # noqa: BLE001 - an unread box is not a wrong one
+                raise_if_busy(exc)
             rows.append(row)
         handles = [r["handle"] for r in rows]
         joined = None
@@ -182,6 +183,7 @@ def draw_pieces(plan: dict[str, Any]) -> dict[str, Any]:
                     first.Boolean(UNION, other)
                 joined = str(first.Handle)
             except BaseException as exc:  # noqa: BLE001 - the pieces stay; say the join failed
+                raise_if_busy(exc)
                 notes["join_warning"] = (
                     f"The pieces were made but AutoCAD would not join them all into one ({com_message(exc)}); "
                     "they are separate solids. autocad_solid_boolean(operation='union') can try again."
