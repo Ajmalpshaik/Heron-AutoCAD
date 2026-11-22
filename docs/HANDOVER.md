@@ -8,7 +8,14 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (the erase question can be switched off, D-123)
+## Latest - 2026-11-22 (Activity palette buttons, D-124)
+
+The Activity palette now shows Select / Zoom / Undo only where they can act (`PaletteRows.Buttons`,
+D-124): a save, export, dry run or empty job gets none. Built and tested offline; rows X26-X28 NOT
+RUN. Not plug-in-version bumped. Follow-up seen, not changed: an erase-only job whose objects the
+modeller had brought back by the erase question still offers Undo (its counts still say erased).
+
+## Earlier - 2026-11-22 (the erase question can be switched off, D-123)
 
 Ajmal asked for a way to stop "Heron erased N objects" asking every time Claude re-places its own
 labels. Settings now has a fifth switch, **Ask before keeping erased objects** (`HERONASKERASE`),

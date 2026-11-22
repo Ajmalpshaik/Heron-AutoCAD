@@ -96,7 +96,7 @@ for _key, _names in _G.items():
 # The few tools that have a button (or a window) on the Heron tab. There is no button per tool.
 HERON_TAB: dict[str, str] = {
     "autocad_status": "**Heron tab > Heron > Bridge Status** shows whether Heron is connected to this AutoCAD, and the padlocks. It is a window for you; this tool is the same check for Claude.",
-    "autocad_activity": "**Heron tab > Heron > Heron palette > Activity** lists the same changes, newest first, each with Select, Zoom and Undo.",
+    "autocad_activity": "**Heron tab > Heron > Heron palette > Activity** lists the same changes, newest first, with Select, Zoom and Undo where they can act.",
     "autocad_undo_last": "**Heron tab > Heron > Heron palette > Activity**, the Undo button beside a change, does the same for that change.",
     "autocad_saved_command": "**Heron tab > Heron > Heron palette > Saved commands** lists the commands saved with this tool.",
     "autocad_show": "**Heron tab > Heron > Heron palette > Activity**: Select and Zoom beside a change do the same for that change.",

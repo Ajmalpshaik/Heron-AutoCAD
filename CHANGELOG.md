@@ -4,6 +4,12 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Activity palette: Select, Zoom and Undo only where they can act (2026-11-22, D-124).** A card
+  for a save, an export, a refused job, a dry run or any job that made and changed nothing now has no buttons
+  (before, a "Save Drawing ... made 0, changed 0, erased 0" card still offered all three). Select and
+  Zoom show only when the job left objects to show; Undo only on Heron's newest change job that
+  changed something. The remaining checks (drawing in front, a change since, UNDOCTL) still answer
+  on the press. Rule in `PaletteRows.Buttons`, tested offline; live rows X26-X28 NOT RUN.
 - **The erase question can be switched off (2026-11-22, Ajmal asked; [D-123](docs/DECISIONS.md)).**
   Settings has a fifth switch, **Ask before keeping erased objects** (command `HERONASKERASE`). ON,
   the default at every AutoCAD start, asks "Heron erased N objects: bring them back or keep them

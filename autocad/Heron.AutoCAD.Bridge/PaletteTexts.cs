@@ -17,6 +17,8 @@ namespace Heron.AutoCAD.Bridge
 
         public const string ShowDiscarded = "This job was discarded, so there is nothing of it to show.";
 
+        public const string ShowDryRun = "This was a dry run: Heron took it back at once, so there is nothing of it to show.";
+
         public const string ShowOnlyErased = "This job only erased objects, so there is nothing of it left to show.";
 
         public const string ShowNothing = "This job made or changed nothing Heron can show.";

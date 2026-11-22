@@ -936,6 +936,7 @@ BY_EYE: dict[str, str] = {
     "W5": "needs Changes off; the runner works with Changes on",
     "W6": "needs a week of real work in the audit log, judged by you",
     **{f"X{n}": _PALETTE for n in range(1, 26) if n != 21},
+    **{f"X{n}": _PALETTE for n in (26, 27, 28)},  # D-124 palette buttons
     "X21": "needs AutoCAD 2025 / 2026 and 2021-2024 machines, which are not here",
     "Z1": "needs AutoCAD kept busy by hand (a heavy regen or a tab switch) while it runs",
     "Z6": "needs HATCH started by hand and left at its prompt",
