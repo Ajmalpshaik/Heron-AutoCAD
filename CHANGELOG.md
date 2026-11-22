@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Table and multileader follow-ups (2026-11-22, #191).** A table or multileader whose style the
+  drawing lacks no longer leaves an empty table or a bare leader behind (`autocad_add_table`,
+  `autocad_add_multileader`, `autocad_table_from_excel` when it fills); the refusal says nothing was
+  left. `autocad_update_table_links` lists what it really returns. `autocad_make_block` is found
+  again for "make a tag block with a TAG attribute" (every finder phrase now in the top three).
+  Live row AN13 NOT RUN.
+
 - **The drawing report's model space count is the plug-in's too (2026-11-22, #193).** `autocad_drawing_report` counted model space two COM round trips per object (up to 50,000). `count_entities` now takes `space: model` and the same cut-off, walks model space in COM's own order, and says so in its answer; without that, or with an older plug-in, the report counts over COM as before. Same answer either way ([D-114](docs/DECISIONS.md)). Live rows AS10-AS11 NOT RUN.
 
 - **Check lists never PASS on a read that failed (2026-11-22, #211).** A dimension or text whose

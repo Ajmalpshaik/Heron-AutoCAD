@@ -222,6 +222,21 @@ PLUGIN_ONLY = (
 )
 
 
+def discard_new(obj: Any) -> bool:
+    """Erase an object this tool has just made and is now refusing; True when it went.
+
+    For a refusal found only after the object exists (its style is missing):
+    without it the drawing keeps an empty table or a bare leader, and following
+    the refusal's advice makes a second one (#191).
+    """
+    try:
+        obj.Delete()
+        return True
+    except Exception as exc:  # noqa: BLE001 - the refusal that called this is the answer
+        raise_if_busy(exc)
+        return False
+
+
 def in_plugin(
     operation: str, args: dict[str, Any], what: str, *, changes: bool = True, timeout: float | None = None
 ) -> dict[str, Any]:
