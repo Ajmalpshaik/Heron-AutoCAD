@@ -8,6 +8,8 @@
    so no tool can slip past the padlocks.
 3. Every relative link in the Markdown docs points at a file that exists.
 4. The tool count docs/SETUP.md tells the reader to expect is the real one.
+5. No two docs/NN-*.md share a number, every tools/*.py is listed in tools/README.md,
+   and every tools/*.py that docs/PROJECT-MAP.md names exists.
 
 Exit code 0 when all hold, 1 with one line per problem otherwise.
 """
@@ -121,12 +123,38 @@ def stale_tool_count(root: Path = ROOT) -> list[str]:
     ]
 
 
+def doc_and_script_map(root: Path) -> list[str]:
+    problems = []
+    docs = root / "docs"
+    if docs.is_dir():
+        seen: dict[str, str] = {}
+        for path in sorted(docs.glob("[0-9][0-9]-*.md")):
+            number = path.name[:2]
+            if number in seen:
+                problems.append(f"docs/{path.name} and docs/{seen[number]} share the number {number}")
+            seen[number] = path.name
+    scripts = root / "tools"
+    if scripts.is_dir():
+        readme = scripts / "README.md"
+        listed = readme.read_text(encoding="utf-8") if readme.exists() else ""
+        for path in sorted(scripts.glob("*.py")):
+            if path.name not in listed:
+                problems.append(f"tools/{path.name} is not listed in tools/README.md")
+    project_map = docs / "PROJECT-MAP.md"
+    if project_map.exists():
+        for name in sorted(set(re.findall(r"tools/([\w-]+\.py)", project_map.read_text(encoding="utf-8")))):
+            if not (scripts / name).exists():
+                problems.append(f"docs/PROJECT-MAP.md names tools/{name}, which does not exist")
+    return problems
+
+
 def run_all(root: Path = ROOT) -> list[str]:
     return (
         autocad_api_outside_addin(root)
         + tools_without_level()
         + broken_links(root)
         + stale_tool_count(root)
+        + doc_and_script_map(root)
     )
 
 

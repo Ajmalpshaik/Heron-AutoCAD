@@ -1,4 +1,4 @@
-# 13 - Attribute sheets, folder checks and the Companion page
+# 15 - Attribute sheets, folder checks and the Companion page
 
 **Design note for issues #96, #97 and #91**, from the 2026-11-21 comparison with Heron AI for
 Revit. The ideas are Revit's. The code here is Heron for AutoCAD's own. None of this has been run

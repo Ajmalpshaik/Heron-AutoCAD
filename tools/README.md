@@ -13,6 +13,7 @@
 | `check_structure.py` | No | Repository rules (AutoCAD API only in the add-in, every tool has a level, doc links). Runs in CI |
 | `smoke_test.py` | Yes, with a drawing open | Live checks against a scratch drawing, then cleans up |
 | `live_check.py` | Yes, with Changes on and Ask to Keep off | Measures 198 live rows of `docs/NEEDS-CHECKING.md` (groups D-F, M-Z, AA-AS, RV) in its own scratch drawings and, with `--write`, records the results there; the other 201 rows of those groups get their NOT RUN reason |
+| `live_check_*.py`, `live_common.py`, `live_results.py` | Yes (through `live_check.py`) | The row groups `live_check.py` runs (`live_check_blocks.py`, `live_check_cleanup.py`, `live_check_drawing.py`, `live_check_edits.py`, `live_check_heron.py`, `live_check_layers.py`, `live_check_mep3d.py`, `live_check_reads.py`, `live_check_render.py`, `live_check_ribbon2.py`, `live_check_styles.py`), their shared helpers and the result writer. Not run by hand |
 | `protocol_check.py` | Yes | Starts the server as Claude does and does the MCP handshake over stdio |
 | `memory_check.py` | Yes, Heron connected | Reads acad.exe's Private Bytes over 100 rounds of Heron reads; PASS when the last reading is within 10 % of the first (NEEDS-CHECKING I7) |
 

@@ -1524,7 +1524,7 @@ escaped, so there is nothing on the PC to reach. The page shows only what the ga
 `autocad_companion` read in its own Read job (drawing, units, layout, view, selection, with the
 time): no COM outside a job. Writing it never fails a job. Pages older than 7 days are removed.
 Revit's editable tables and dashboard need the page to send things back, so a local server with
-a token: left for a decision of its own. Design: [13 §3](13-sheets-folders-companion.md).
+a token: left for a decision of its own. Design: [15 §3](15-sheets-folders-companion.md).
 
 ## D-70 - A folder of drawings is checked read only, one at a time, as a View tool
 
@@ -1536,7 +1536,7 @@ left open; the modeller's drawing is made active again at the end. It changes wh
 open, never what is in one, so it is a **View** tool (like `autocad_open_drawing`) and needs no
 Changes padlock. A drawing that will not open is NOT RUN with AutoCAD's reason; HERONSTOP leaves
 the rest out. Not ObjectDBX: a database opened that way has no selection sets or system
-variables, which the checks read. Design: [13 §2](13-sheets-folders-companion.md).
+variables, which the checks read. Design: [15 §2](15-sheets-folders-companion.md).
 
 ## D-69 - Attributes go to Excel and back; only the cells the modeller changed are written
 
@@ -1550,7 +1550,7 @@ conflict, listed, not written). A blank cell never empties an attribute. Only ch
 written, in one undo step, listed old -> new (`before_after`, D-62); nothing to write opens no undo
 step. A `.csv` with a Handle column is accepted and compared with the drawing alone. The `.xlsx`
 is written and read with the standard library (`acad/xlsx.py`): no new package. Design:
-[13 §1](13-sheets-folders-companion.md).
+[15 §1](15-sheets-folders-companion.md).
 
 ## D-68 - One docked Heron palette: Activity with Undo by D-54's rule, saved commands run by a copy of the server
 
