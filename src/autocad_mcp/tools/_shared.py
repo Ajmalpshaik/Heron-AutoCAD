@@ -134,11 +134,38 @@ def world_angle(degrees: float | None, ucs: Ucs | None) -> float | None:
     """A caller's angle as a world angle.
 
     On a plan UCS every angle is simply turned by the UCS rotation, which is
-    what a drafter means by "horizontal" on a rotated grid.
+    what a drafter means by "horizontal" on a rotated grid. On a flipped one
+    it also runs the other way round (D-96).
     """
     if degrees is None or ucs is None:
         return degrees
-    return (float(degrees) + ucs.rotation_degrees) % 360.0
+    return ucs.angle_to_world(degrees)
+
+
+def world_turn(degrees: float, ucs: Ucs | None) -> float:
+    """An amount of turning (ROTATE's angle, a polar array's fill) as the world one."""
+    return float(degrees) if ucs is None else ucs.turn_to_world(degrees)
+
+
+FLIPPED_UCS = (
+    "The drawing's current UCS is flipped (its Z points down), so {what} drawn here would read "
+    "mirrored in that view: AutoCAD's own commands lay it on the UCS's plane, and this tool "
+    "cannot. Set a UCS that is not flipped, or draw it with coords='world'."
+)
+
+
+def not_flipped(ucs: Ucs | None, what: str) -> Ucs | None:
+    """The UCS, unless it is flipped and the object would come out mirrored (text, a block, a dimension)."""
+    if ucs is not None and ucs.flipped:
+        raise AutocadError(FLIPPED_UCS.format(what=what))
+    return ucs
+
+
+def ucs_used(payload: dict[str, Any], ucs: Ucs | None) -> dict[str, Any]:
+    """Say in a reply which UCS the points were read in, as autocad_batch_draw does."""
+    if ucs is not None:
+        payload["converted_from_ucs"] = ucs.describe()
+    return payload
 
 
 def point(value: Sequence[float] | None, name: str, ucs: Ucs | None = None) -> Any:
@@ -193,6 +220,21 @@ PLUGIN_ONLY = (
     "call for it, and this server is running with the plug-in switched off (--no-bridge). "
     "Start it with the bridge on and press Heron in AutoCAD."
 )
+
+
+def discard_new(obj: Any) -> bool:
+    """Erase an object this tool has just made and is now refusing; True when it went.
+
+    For a refusal found only after the object exists (its style is missing):
+    without it the drawing keeps an empty table or a bare leader, and following
+    the refusal's advice makes a second one (#191).
+    """
+    try:
+        obj.Delete()
+        return True
+    except Exception as exc:  # noqa: BLE001 - the refusal that called this is the answer
+        raise_if_busy(exc)
+        return False
 
 
 def in_plugin(

@@ -82,6 +82,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "saved_command",
         "draw_spline",
         "draw_multiline",
+        "edit_spline",
         "add_wipeout",
         "attach_xref",
         "manage_xref",

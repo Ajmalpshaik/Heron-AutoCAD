@@ -176,6 +176,13 @@ def describe(entity: Any, include_geometry: bool = True) -> dict[str, Any]:
     elif kind == "spline":
         info["closed"] = bool(_try(lambda: entity.Closed, False))
         info["control_point_count"] = _try(lambda: int(entity.NumberOfControlPoints))
+        info["degree"] = _try(lambda: int(entity.Degree))
+        # Numbered from 0, as autocad_edit_spline takes them; a spline drawn by
+        # control points has none.
+        fit = group_coordinates(_try(lambda: entity.FitPoints, []) or [], 3)
+        info["fit_point_count"] = len(fit)
+        if fit:
+            info["fit_points"] = fit
 
     elif kind == "region":
         info["area"] = round_or_none(_try(lambda: entity.Area))

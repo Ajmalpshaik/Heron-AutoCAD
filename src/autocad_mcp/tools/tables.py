@@ -47,6 +47,7 @@ from ._shared import (
     COORDS_OPT,
     LAYER_OPT,
     before_after,
+    discard_new,
     in_plugin,
     point,
     ucs_for,
@@ -144,10 +145,11 @@ def fill_table(
             table.StyleName = style.strip()
         except Exception as exc:  # noqa: BLE001
             raise_if_busy(exc)
+            gone = discard_new(table)
             raise AutocadError(
                 f"This drawing has no table style called '{style}' ({com_message(exc)}). Make it with "
                 "autocad_create_styles(table_styles=...), copy it in with autocad_import_from_drawing, "
-                "or leave style out."
+                "or leave style out." + (" Nothing was left in the drawing." if gone else " An empty one was left in the drawing; erase it.")
             ) from exc
     if not widths:
         # Fit each column to its text at the height it will have: the one asked
@@ -381,7 +383,9 @@ async def autocad_update_table_links(
     filled from a sheet, or drawn by hand) is listed, not changed.
 
     Returns:
-        JSON: {"updated": [{handle, link, source}], "not_linked": [handle], "failed": [{handle, why}]}
+        JSON: {"updated": [{handle, source}], "not_linked": [handle], "note": str (only when no
+        table is linked)}. A workbook that cannot be read refuses the whole job and nothing
+        is changed (D-83), so there is no per-table failure list.
 
     Examples:
         - Use when: "the sheet changed in Excel, update the linked table".

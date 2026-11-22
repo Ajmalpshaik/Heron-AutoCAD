@@ -51,6 +51,19 @@ public class EntityReadsTests
     }
 
     [Fact]
+    public void Past_the_cut_off_an_object_is_in_the_total_but_not_counted_by_class()
+    {
+        // autocad_drawing_report counts the first 50,000 model space objects by type (#193).
+        var tally = new EntityTally();
+        tally.Count("AcDbLine", "0");
+        tally.Skip();
+        tally.Skip();
+        var reply = Written(tally.WriteCounts);
+        Assert.Equal(3, reply.GetProperty("total").GetInt32());
+        Assert.Equal("[[\"AcDbLine\",1]]", reply.GetProperty("by_class").GetRawText());
+    }
+
+    [Fact]
     public void Nothing_selected_is_a_count_of_none()
     {
         var reply = Written(new EntityTally().WriteCounts);
