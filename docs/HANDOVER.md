@@ -49,8 +49,7 @@ command), `autocad_etransmit` (Publish; plug-in `list_dependencies`, packing in
 `attach_underlay`, `clip_reference`; images over COM). The plug-in builds for net48, net8 and net10
 here, but nothing has run in AutoCAD: rows AD1-AD12, all NOT RUN. Versions not bumped (the parent
 does): the plug-in parts need the release after 1.7.0. D-84, D-85; known limits §35. The ribbon
-coverage page (docs/12) still lists Boundary and Overkill as gaps in its Home rows, left for the
-parent so as not to collide with the 2D-edit session's rows.
+coverage page (docs/12) now lists Boundary and Overkill as built (NOT RUN live).
 
 ## Earlier - 2026-11-21 (a sequence stops at a drawing switch, #165; D-98)
 
