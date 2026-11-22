@@ -48,5 +48,41 @@ namespace Heron.AutoCAD.Bridge
         /// </summary>
         public static bool InFront(ActivityEntry job, string? active) =>
             active == null || DrawingNames.Same(active, job.Drawing);
+
+        /// <summary>
+        /// Which buttons a job's card gets (D-123). A button shows only when it
+        /// can act: a save, an export or a job that made and changed nothing has
+        /// nothing to select, zoom to or undo, so it gets none. Decided from the
+        /// job alone and whether it is Heron's newest, both of which redraw the
+        /// list when they change. What can change without a redraw (another
+        /// job running, the drawing in front, a change by the modeller since,
+        /// UNDOCTL) is still checked on the click by
+        /// <see cref="ActivityLog.CanShow"/> and <see cref="ActivityLog.CanUndo"/>,
+        /// which say why not.
+        /// </summary>
+        /// <param name="job">The job, from <see cref="ActivityLog.Entries"/>.</param>
+        /// <param name="newest">True for the first of <see cref="ActivityLog.Entries"/>: only Heron's newest change may be undone.</param>
+        public static JobButtons Buttons(ActivityEntry job, bool newest)
+        {
+            if (job.Running || job.Undone || job.Outcome == "discarded") return new JobButtons();
+            var show = job.ShownHandles.Length > 0;
+            var undo = newest
+                && job.Tool != ActivityLog.UndoTool
+                && job.Risk == Risk.Change
+                && job.Ok && job.Outcome == "done"
+                && job.Counted && job.Added + job.Modified + job.Erased > 0
+                // With no UNDO mark, one step back would undo Heron's zoom instead.
+                && (job.Marked || job.ViewsSince == 0);
+            return new JobButtons { Select = show, Zoom = show, Undo = undo };
+        }
+    }
+
+    /// <summary>The buttons a job's card shows in the Activity list (D-123).</summary>
+    public sealed class JobButtons
+    {
+        public bool Select { get; set; }
+        public bool Zoom { get; set; }
+        public bool Undo { get; set; }
+        public bool Any => Select || Zoom || Undo;
     }
 }

@@ -24,7 +24,7 @@ namespace Heron.AutoCAD.Addin
     /// <summary>
     /// The Heron palette (D-68): one docked PaletteSet with two tabs, drawn in
     /// Heron's window style (D-45). Activity lists Heron's recent change jobs
-    /// with Select, Zoom and Undo; Saved commands lists the commands saved in
+    /// with Select, Zoom and Undo where they can act (D-123); Saved commands lists the commands saved in
     /// a chat, fills their inputs and runs one through the server's gate. The
     /// rules are the bridge's (ActivityLog, SavedCommandList, PaletteServer);
     /// this file only shows them and makes the AutoCAD calls. Main thread only.
@@ -151,7 +151,7 @@ namespace Heron.AutoCAD.Addin
 
     /// <summary>
     /// Issue #92: Heron's recent change jobs, newest first, each with Select,
-    /// Zoom and Undo; with what happened to the drawings between them (#48),
+    /// Zoom and Undo where they can act (D-123); with what happened to the drawings between them (#48),
     /// drawn again the moment a drawing opens, comes to the front, is saved or
     /// closes.
     /// </summary>
@@ -200,8 +200,9 @@ namespace Heron.AutoCAD.Addin
                 none.Margin = new Thickness(14, 12, 14, 0);
                 _rows.Children.Add(none);
             }
+            var newest = entries.Count > 0 ? entries[0].Job : null;
             foreach (var row in PaletteRows.Merge(entries, AcadJobHost.Drawings.Recent(PaletteRows.MostDrawingRows)))
-                _rows.Children.Add(row.Job != null ? Row(row.Job, active) : DrawingRow(row.Drawing!));
+                _rows.Children.Add(row.Job != null ? Row(row.Job, active, row.Job.Job == newest) : DrawingRow(row.Drawing!));
         }
 
         /// <summary>Something that happened to a drawing: one quiet line between the jobs (#48).</summary>
@@ -212,7 +213,7 @@ namespace Heron.AutoCAD.Addin
             return line;
         }
 
-        private UIElement Row(ActivityEntry entry, string? active)
+        private UIElement Row(ActivityEntry entry, string? active, bool newest)
         {
             var body = new StackPanel();
             var what = S.Body(entry.Summary, S.TextPrimary, 12.5);
@@ -222,21 +223,33 @@ namespace Heron.AutoCAD.Addin
             body.Children.Add(S.Body(entry.At.ToString("HH:mm") + "  ·  " + FileName(entry.Drawing) + where + "  ·  " + entry.State, S.TextMuted, 11));
             body.Children.Add(S.Body(entry.Counts, S.TextSecondary, 11));
 
-            if (!entry.Running)
+            // Only the buttons that can act (D-123): a save or a job that made
+            // nothing gets none, so no empty row of buttons either.
+            var offer = PaletteRows.Buttons(entry, newest);
+            if (offer.Any)
             {
                 var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(-8, 6, 0, 0) };
-                var select = HeronPalette.SmallButton("Select");
-                select.ToolTip = "Select what this job made or changed.";
-                select.Click += (s, e) => Show(entry.Job, false);
-                var zoom = HeronPalette.SmallButton("Zoom");
-                zoom.ToolTip = "Zoom to what this job made or changed, and select it.";
-                zoom.Click += (s, e) => Show(entry.Job, true);
-                var undo = HeronPalette.SmallButton("Undo");
-                undo.ToolTip = "Undo this job, only if it is Heron's newest change and nothing changed since.";
-                undo.Click += (s, e) => Undo(entry.Job);
-                buttons.Children.Add(select);
-                buttons.Children.Add(zoom);
-                buttons.Children.Add(undo);
+                if (offer.Select)
+                {
+                    var select = HeronPalette.SmallButton("Select");
+                    select.ToolTip = "Select what this job made or changed.";
+                    select.Click += (s, e) => Show(entry.Job, false);
+                    buttons.Children.Add(select);
+                }
+                if (offer.Zoom)
+                {
+                    var zoom = HeronPalette.SmallButton("Zoom");
+                    zoom.ToolTip = "Zoom to what this job made or changed, and select it.";
+                    zoom.Click += (s, e) => Show(entry.Job, true);
+                    buttons.Children.Add(zoom);
+                }
+                if (offer.Undo)
+                {
+                    var undo = HeronPalette.SmallButton("Undo");
+                    undo.ToolTip = "Undo this job, only if nothing changed in the drawing since.";
+                    undo.Click += (s, e) => Undo(entry.Job);
+                    buttons.Children.Add(undo);
+                }
                 body.Children.Add(buttons);
             }
             return HeronPalette.Card(body);

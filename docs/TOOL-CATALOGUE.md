@@ -6205,7 +6205,7 @@ Works with AutoCAD closed, and never changes the file. A DXF is read directly. A
 - A never-saved drawing with no path given returns an error asking for one, rather than triggering AutoCAD's blocking Save As dialog.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D30, T5).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D30, T5, X25).
 
 ### `autocad_switch_drawing`
 
@@ -6251,7 +6251,7 @@ Each entry: when, the tool, what it was, the drawing, the outcome (done, discard
 - *Not for:* the modeller wants AutoCAD's own undo history - that is AutoCAD's UNDO list, which includes their own work.
 
 **Where to find it.** There is no ribbon button for it. Ask Claude in the chat, in plain words. No padlock needed: it only reads the drawing. Heron must be pressed (connected).
-On the Heron tab: **Heron tab > Heron > Heron palette > Activity** lists the same changes, newest first, each with Select, Zoom and Undo.
+On the Heron tab: **Heron tab > Heron > Heron palette > Activity** lists the same changes, newest first, with Select, Zoom and Undo where they can act.
 
 **How to use it.**
 1. Open the drawing in AutoCAD and press **Heron** on the Heron tab (or type `HERON`), so the heron is orange.

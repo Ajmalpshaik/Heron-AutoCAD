@@ -4,7 +4,12 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
-Nothing yet.
+- **Activity palette: Select, Zoom and Undo only where they can act (2026-11-22, D-123).** A card
+  for a save, an export, a refused job or any job that made and changed nothing now has no buttons
+  (before, a "Save Drawing ... made 0, changed 0, erased 0" card still offered all three). Select and
+  Zoom show only when the job left objects to show; Undo only on Heron's newest change job that
+  changed something. The remaining checks (drawing in front, a change since, UNDOCTL) still answer
+  on the press. Rule in `PaletteRows.Buttons`, tested offline; live rows X25-X27 NOT RUN.
 
 ## 1.8.0 - 2026-11-22 - The first GitHub release (a pre-release)
 

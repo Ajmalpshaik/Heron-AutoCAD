@@ -331,25 +331,32 @@ It updates live with the drawings too ([D-98](DECISIONS.md), section 6b): the to
 came to the front*, *Drawing1.dwg saved as plan.dwg*, *b.dwg closed*; the 15 newest), and a job
 whose drawing is not the one in front says **not in front**.
 
-| Button | What it does | When it says no |
-|---|---|---|
-| **Select** | Selects what the job made or changed (up to 500) | a job is running; another drawing is in front; the job only erased, was discarded or was undone |
-| **Zoom** | The same, and zooms to it. Leaves no undo step of its own | the same |
-| **Undo** | Undoes the job: `UNDO Back` to its mark when Ask to Keep was on, else one `UNDO 1`; then checks that what it made is gone | see below |
+A card shows only the buttons that can act ([D-123](DECISIONS.md)): a save, an export, a refused
+job or a job that made and changed nothing has no buttons at all.
+
+| Button | What it does | Shown when | When the press still says no |
+|---|---|---|---|
+| **Select** | Selects what the job made or changed (up to 500) | the job left objects to show, and was not discarded or undone | a job is running; another drawing is in front |
+| **Zoom** | The same, and zooms to it. Leaves no undo step of its own | the same | the same |
+| **Undo** | Undoes the job: `UNDO Back` to its mark when Ask to Keep was on, else one `UNDO 1`; then checks that what it made is gone | Heron's newest job, a drawing change that ended done and changed something (see below) | see below |
 
 Select and Zoom work whichever chat holds this AutoCAD. **Undo is yours**, like Ctrl+Z: no padlock is
 needed and it works on any chat's job, but only by the D-54 rule, so your own work is never taken
-with it. It refuses, and says why, when:
+with it. The button is not shown when:
 
-- it is not Heron's newest change here, or a job is running;
+- it is not Heron's newest change here, or the job is still running;
 - it ran an AutoCAD command, AutoLISP or a save (Admin or Publish), was discarded, did not finish
   cleanly, changed nothing, or was itself an undo;
+- Ask to Keep was off for it and Heron zoomed or showed objects since (one step back would undo the
+  zoom).
+
+When it is shown, the press still refuses, and says why, when:
+
+- a job is running, or another palette Undo is waiting;
 - the drawing in front is another one;
 - anything changed in a drawing outside Heron's jobs since it ended (your own work, or another
   program), or Heron cannot tell;
-- UNDO is off or keeps one step only (UNDOCTL);
-- Ask to Keep was off for it and Heron zoomed or showed objects since (one step back would undo the
-  zoom).
+- UNDO is off or keeps one step only (UNDOCTL).
 
 After a palette Undo, a chat's `autocad_undo_last` is refused: the drawing changed since.
 

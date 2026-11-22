@@ -223,6 +223,131 @@ public class ActivityLogTests
         Assert.True(log.CanUndo("j1", Clean()).Allowed);
     }
 
+    // ----- which buttons a card shows (D-123) -----
+
+    private JobButtons ButtonsOf(string job)
+    {
+        var entries = _log.Entries;
+        var entry = entries.Single(e => e.Job == job);
+        return PaletteRows.Buttons(entry, entries[0].Job == job);
+    }
+
+    private static string Shown(JobButtons b) =>
+        (b.Select ? "S" : "-") + (b.Zoom ? "Z" : "-") + (b.Undo ? "U" : "-");
+
+    [Fact]
+    public void A_save_that_made_changed_and_erased_nothing_gets_no_buttons()
+    {
+        // Ajmal's card: "Save Drawing ... done, made 0, changed 0, erased 0".
+        Job("s1", Risk.Publish, added: 0, tool: "autocad_save_drawing");
+        Assert.Equal("made 0, changed 0, erased 0", _log.Entries[0].Counts);
+        Assert.Equal("---", Shown(ButtonsOf("s1")));
+        Assert.False(ButtonsOf("s1").Any);
+    }
+
+    [Fact]
+    public void An_export_or_command_that_made_nothing_gets_no_buttons()
+    {
+        Job("p1", Risk.Publish, added: 0, tool: "autocad_export");
+        Assert.Equal("---", Shown(ButtonsOf("p1")));
+        Job("a1", Risk.Admin, added: 0, tool: "autocad_send_command");
+        Assert.Equal("---", Shown(ButtonsOf("a1")));
+        Job("c1", added: 0);
+        Assert.Equal("---", Shown(ButtonsOf("c1")));
+    }
+
+    [Fact]
+    public void The_newest_change_that_made_something_gets_all_three()
+    {
+        Job("j1", added: 2);
+        Assert.Equal("SZU", Shown(ButtonsOf("j1")));
+    }
+
+    [Fact]
+    public void An_older_change_keeps_select_and_zoom_but_not_undo()
+    {
+        Job("j1");
+        Job("j2");
+        Assert.Equal("SZ-", Shown(ButtonsOf("j1")));
+        Assert.Equal("SZU", Shown(ButtonsOf("j2")));
+        // A save after a change: the change is no longer Heron's newest.
+        Job("s1", Risk.Publish, added: 0);
+        Assert.Equal("SZ-", Shown(ButtonsOf("j2")));
+    }
+
+    [Fact]
+    public void A_command_that_drew_something_can_be_shown_but_never_undone_here()
+    {
+        Job("a1", Risk.Admin, added: 1);
+        Assert.Equal("SZ-", Shown(ButtonsOf("a1")));
+    }
+
+    [Fact]
+    public void An_erase_only_job_gets_undo_but_nothing_to_select_or_zoom_to()
+    {
+        _log.Begin(new JobInfo { Job = "e1", Tool = "autocad_delete_entities", Risk = Risk.Change, Drawing = Dwg }, At);
+        _log.End(new JobEnd { Job = "e1", Ok = true, Outcome = "done" }, new ChangeReport { Erased = 2 });
+        Assert.Equal("--U", Shown(ButtonsOf("e1")));
+    }
+
+    [Fact]
+    public void Discarded_undone_running_and_undo_jobs_get_no_undo()
+    {
+        Job("d1", outcome: "discarded");
+        Assert.Equal("---", Shown(ButtonsOf("d1")));
+        Job("u1", tool: ActivityLog.UndoTool);
+        Assert.False(ButtonsOf("u1").Undo);
+        Job("j1");
+        _log.Undone("j1");
+        Assert.Equal("---", Shown(ButtonsOf("j1")));
+        _log.Begin(new JobInfo { Job = "r1", Tool = "autocad_draw_line", Risk = Risk.Change, Drawing = Dwg }, At);
+        Assert.Equal("---", Shown(ButtonsOf("r1")));
+    }
+
+    [Fact]
+    public void A_failed_job_that_left_objects_can_be_shown_but_not_undone()
+    {
+        Job("f1", outcome: "failed", ok: false);
+        Assert.Equal("SZ-", Shown(ButtonsOf("f1")));
+        Job("n1", outcome: "unknown", ok: false);
+        Assert.Equal("SZ-", Shown(ButtonsOf("n1")));
+    }
+
+    [Fact]
+    public void Without_a_mark_a_heron_zoom_since_hides_undo_and_with_a_mark_it_stays()
+    {
+        Job("j1");
+        Job("v1", Risk.View);
+        Assert.Equal("SZ-", Shown(ButtonsOf("j1")));
+        Job("k1", ask: true);
+        Job("v2", Risk.View);
+        Assert.Equal("SZU", Shown(ButtonsOf("k1")));
+    }
+
+    [Fact]
+    public void A_hidden_button_is_one_the_click_would_refuse_and_an_allowed_click_has_its_button()
+    {
+        // Pin the card's buttons to the click rules, so the two cannot drift apart.
+        Job("j1");
+        Job("s1", Risk.Publish, added: 0);
+        Job("a1", Risk.Admin, added: 2);
+        Job("d1", outcome: "discarded");
+        Job("f1", outcome: "failed", ok: false);
+        Job("u1", tool: ActivityLog.UndoTool);
+        Job("z1", added: 0);
+        Job("k1", ask: true, added: 3);
+        Job("v1", Risk.View);
+        foreach (var entry in _log.Entries)
+        {
+            var buttons = ButtonsOf(entry.Job);
+            var show = _log.CanShow(entry.Job, Dwg);
+            var undo = _log.CanUndo(entry.Job, Clean());
+            Assert.True(buttons.Select == show.Allowed, entry.Job + " select: " + show.Reason);
+            Assert.True(buttons.Zoom == show.Allowed, entry.Job + " zoom: " + show.Reason);
+            Assert.True(buttons.Undo == undo.Allowed, entry.Job + " undo: " + undo.Reason);
+        }
+    }
+
     [Fact]
     public void A_palette_undo_never_holds_jobs_off_longer_than_a_minute()
     {
