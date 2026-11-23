@@ -6,7 +6,7 @@ using Heron.AutoCAD.Bridge;
 namespace Heron.AutoCAD.Bridge.Tests;
 
 /// <summary>
-/// autocad_merge_layers in the plug-in (#199, D-146): the objects on the old
+/// autocad_merge_layers in the plug-in (#199, D-147): the objects on the old
 /// layers it sends (layer_objects), and the merge it makes in one transaction
 /// (merge_layers), all of it or none. tests/test_plugin_merge_layers.py holds
 /// the server side to this.

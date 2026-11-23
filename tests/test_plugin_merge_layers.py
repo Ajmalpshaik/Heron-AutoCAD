@@ -1,4 +1,4 @@
-"""autocad_merge_layers in the plug-in: one read, one transaction (#199, D-146), no AutoCAD.
+"""autocad_merge_layers in the plug-in: one read, one transaction (#199, D-147), no AutoCAD.
 
 Over COM the merge reads every item of every block definition (2-3 round trips
 each), then writes one call per moved object; a failure half way leaves part of

@@ -1965,7 +1965,7 @@ An import from Revit or IFC often draws every wall line twice, or in pieces lyin
 4. Read the first line of the answer: DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN. Ask for a preview to look at the result.
 
 **What it needs from you.**
-- Optional: `layers`, `handles`, `tolerance`, `ignore_layer`, `join_end_to_end`, `space`, `confirm`, `plan_id`.
+- Optional: `layers`, `handles`, `tolerance`, `ignore_layer`, `join_end_to_end`, `tidy_polylines`, `space`, `confirm`, `plan_id`.
 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
@@ -1978,7 +1978,7 @@ An import from Revit or IFC often draws every wall line twice, or in pieces lyin
 - confirm=true without the listing's plan_id, or after the drawing changed, does nothing and says to list again.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD1, AD13).
 
 ### `autocad_polyline_info`
 

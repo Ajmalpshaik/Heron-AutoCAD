@@ -172,7 +172,7 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
     standards = by_name["autocad_check_standards"]["plugin"]
     assert standards["role"] == "when_there" and standards["operations"] == ["entity_properties"]
     assert "faster_from" not in standards
-    # The layer merge reads and merges through the plug-in when it is there, COM otherwise (D-146).
+    # The layer merge reads and merges through the plug-in when it is there, COM otherwise (D-147).
     merging = by_name["autocad_merge_layers"]["plugin"]
     assert merging["role"] == "when_there" and merging["operations"] == ["layer_objects", "merge_layers"]
     assert merging["version_needed"] is None and "faster_from" not in merging

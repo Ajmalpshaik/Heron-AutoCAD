@@ -299,7 +299,7 @@ def faster_read(operation: str, args: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def faster_change(operation: str, args: dict[str, Any], what: str) -> dict[str, Any] | None:
-    """A change over many objects the plug-in makes in one transaction (D-146), or None: make it over COM.
+    """A change over many objects the plug-in makes in one transaction (D-147), or None: make it over COM.
 
     On the worker thread, inside the tool's job and its UNDO mark. None, with
     nothing changed, when the plug-in is not in this job (--no-bridge), is

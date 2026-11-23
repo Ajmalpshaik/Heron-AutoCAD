@@ -851,9 +851,9 @@ character by character. Work on a copy of the drawing for the writing rows. **Ev
 | BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
 | BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
 
-## Group BJ - The layer merge read and made by the plug-in: one transaction, all or none (D-146) (AutoCAD 2027, this PC)
+## Group BJ - The layer merge read and made by the plug-in: one transaction, all or none (D-147) (AutoCAD 2027, this PC)
 
-Added on 2026-11-23 ([D-146](DECISIONS.md), issue #199). Built and tested offline only
+Added on 2026-11-23 ([D-147](DECISIONS.md), issue #199). Built and tested offline only
 (`tests/test_plugin_merge_layers.py` runs the merge both ways over one fake drawing and compares the
 answers and the drawings left; `LayerMergeTests.cs` what the plug-in reads and writes). The plug-in
 operations `layer_objects` and `merge_layers` have never run. Needs the plug-in rebuilt and reinstalled
@@ -1301,7 +1301,7 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 
-Added on 2026-11-21 for issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
 [05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
 Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
 parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and
@@ -1321,6 +1321,7 @@ the server restarted. **Every row below is NOT RUN.**
 | AD10 | A saved drawing with a nested xref, a JPG, a PDF underlay, an SHX text style and a .ctb: `autocad_etransmit`. Unzip it on another PC (or rename the project folder) and open the drawing | The zip holds the drawing, both xrefs, the image, the PDF, the .shx, PlotStyles/x.ctb and the report; on the other PC every xref, image, underlay and font is found from the drawing's folder | NOT RUN |
 | AD11 | `autocad_etransmit` on an unsaved drawing; on a saved one with Publish off; with `list_only=true` | Unsaved: refused, "save it first". Publish off: refused naming Publish, no file. list_only: the list, no file written | NOT RUN |
 | AD12 | With the 1.7.0 plug-in still installed: attach a PDF, clip an xref, trace a boundary, eTransmit | Each says the plug-in does not have the operation and to update it; nothing changes in the drawing | NOT RUN |
+| AD13 | Draw a polyline 0,500 > 0,0 > 1000,0 > 400,0 (its tail goes back along the last segment) and one with a spike part way along (0,0 > 10,0 > 10,5 > 10,0 > 20,0). `autocad_overkill(tidy_polylines=true)`, then the same with `confirm=true` and its `plan_id`; then Ctrl+Z once. Also a polyline whose width changes along it, doubled the same way | Dry run: the first under `rebuild` with segment 2 going, the spike and the varying-width one under `left` with why; nothing changed. Confirm: the same handle now 0,500 > 0,0 > 1000,0 (3 vertices, length 1500), no erase question; the spike one unchanged. Ctrl+Z once brings back all 4 vertices | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

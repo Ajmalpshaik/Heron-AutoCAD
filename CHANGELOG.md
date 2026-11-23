@@ -6,7 +6,7 @@ Newest first. Dates are when the change was made.
 
 - **The layer merge is one transaction in the plug-in: all of it or none (2026-11-23,
   [#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
-  [D-146](docs/DECISIONS.md)).** `autocad_merge_layers` reads the objects on the old layers with the plug-in's new
+  [D-147](docs/DECISIONS.md)).** `autocad_merge_layers` reads the objects on the old layers with the plug-in's new
   Read operation `layer_objects` (in the COM read's order, so the preview and counts are the same), then makes the
   merge with the new Change operation `merge_layers`: the planned objects moved and the empty old layers purged in
   one transaction. One object that will not move now refuses the whole merge with "Nothing was changed", where COM
@@ -14,6 +14,13 @@ Newest first. Dates are when the change was made.
   cannot read as COM's). The padlock, `confirm=true`, the one undo step and Keep or Discard are unchanged. New
   helper `_shared.faster_change`. Tested offline only (the merge run both ways over one fake drawing, answers and
   drawings compared, and through the real gate); not tested in AutoCAD: live rows BJ1-BJ7 NOT RUN.
+- **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
+  [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
+  OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end
+  and a zig-zag along one straight line or circle are listed under `rebuild` with the segments going, and the
+  confirm (same `plan_id`, same undo step) sets that polyline's vertices and bulges again from vertices it
+  already had. A spike part way along, an old-style 2D polyline and one whose width changes along it are left,
+  with why. Off by default, so nothing changes for a call without it. Tested offline only; live row AD13 NOT RUN.
 - **The standards check's objects are read by the plug-in in one go (2026-11-23,
   [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
   [D-145](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and
