@@ -531,7 +531,7 @@ def _merge_items(doc: Any, sources: Sequence[str]) -> list[tuple[dict[str, Any],
     return found
 
 
-# ---- the merge in the plug-in: one read, one transaction (#199, D-146) --------------
+# ---- the merge in the plug-in: one read, one transaction (#199, D-147) --------------
 
 WHERE = ("drawing", "blocks", "attributes")
 
@@ -578,7 +578,7 @@ class _ByHandle:
 
 
 def plugin_merge(sources: Sequence[str], target: str, moving: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
-    """The plug-in's merge in one transaction: every planned object moved, or none (D-146). None: merge over COM."""
+    """The plug-in's merge in one transaction: every planned object moved, or none (D-147). None: merge over COM."""
     report = faster_change("merge_layers", {
         "layers": list(sources), "into": target, "handles": [item["handle"] for item in moving],
     }, "Merging the layers")
@@ -654,7 +654,7 @@ async def autocad_merge_layers(
             sources, target = check_merge(layers, into, existing)
         except ValueError as exc:
             raise AutocadError(f"{exc}. Nothing was changed.") from exc
-        # The plug-in reads the old layers' objects in one go (D-146); COM, 2-3 round
+        # The plug-in reads the old layers' objects in one go (D-147); COM, 2-3 round
         # trips per item of every block definition, only for an older one.
         items = plugin_merge_items(sources)
         objects: Any

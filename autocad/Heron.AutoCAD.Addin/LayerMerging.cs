@@ -7,7 +7,7 @@ using AcException = Autodesk.AutoCAD.Runtime.Exception;
 namespace Heron.AutoCAD.Addin
 {
     /// <summary>
-    /// autocad_merge_layers in the plug-in (#199, D-146). Main thread only,
+    /// autocad_merge_layers in the plug-in (#199, D-147). Main thread only,
     /// inside PluginRunner's transaction: layer_objects is a read (aborted),
     /// merge_layers a change that all lands or none of it does.
     /// </summary>
