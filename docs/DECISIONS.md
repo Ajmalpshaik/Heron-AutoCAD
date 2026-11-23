@@ -101,14 +101,16 @@ before it), live rows NOT RUN (NEEDS-CHECKING Group BD). Refines D-50's count; D
    attribute sheet used to count over the first 4 KB, where decimal commas below a semicolon header could
    outvote it ("1,5;2,5"); Excel pads every row, a title too, with the same separators, so one line is
    enough. A tie is a comma. Not changed: `layer_standard._delimiter` (it reads the header line already)
-   and `text_tools._read_rows` (labels from CSV, comma only), noted for the parent.
+   and `text_tools._read_rows` (`autocad_set_attributes(csv_path=...)`, comma only), issue
+   [#259](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/259).
 7. **`autocad_copy_from_drawing` no longer copies by handle unseen.** A handle is unique only inside one
    drawing, and low handles overlap in nearly every pair of drawings, so a handle read in the active
    drawing cannot be told from one read in the source: it is **not** refused or warned on by guessing.
    Instead (a) a handle that names no drawn object in the source (a layer, a style, a block definition:
    no `Layer` of its own) is refused before anything is copied, and (b) the answer and the dry run name each
    source object's type and layer (`source_objects`, the first 50, `source_objects_left_out` for the rest),
-   so the chat can see a wrong object before or after the copy.
+   so the chat can see a wrong object before or after the copy. A wrong handle that names a drawn object
+   in the source is still copied: this makes it visible, it does not detect it.
 - **S13's follow-up (D-139):** `autocad_super_hatch` validates `layer` with `validate_name` before anything
   is sent, and sends the trimmed name.
 
