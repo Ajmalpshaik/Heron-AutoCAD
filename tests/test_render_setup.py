@@ -389,10 +389,23 @@ def test_levels():
 # ---------------------------------------------------------------------------
 
 
+MODEL_LAYOUT_ID = 43
+
+
+class ModelLayout:
+    ObjectID = ObjectID32 = MODEL_LAYOUT_ID
+
+
+class ModelLayouts:
+    def Item(self, name):
+        return ModelLayout()
+
+
 class View:
     def __init__(self, name, direction=(-1.0, -1.0, 1.0)):
         self.Name, self.Direction = name, direction
         self.Center, self.Width, self.Height = (0.0, 0.0, 0.0), 8000.0, 6000.0
+        self.LayoutId = MODEL_LAYOUT_ID  # a view of the Model tab (save_view refuses a sheet's, #190)
         self.deleted = False
 
     def Delete(self):
@@ -416,6 +429,7 @@ class ViewDoc:
 
     def __init__(self, *names, stalls=False):
         self.Views = Views(*names)
+        self.Layouts = ModelLayouts()
         self.sent: list[str] = []
         self.stalls = stalls
 

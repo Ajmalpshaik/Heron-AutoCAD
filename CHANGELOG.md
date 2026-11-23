@@ -4,6 +4,20 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A busy AutoCAD is proven not to be a wrong answer in the block, table, light and copy tools, and `autocad_save_view(replace=true)` no longer deletes a layout's view
+  (2026-11-23, [#189](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/189),
+  [#190](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/190), [D-128](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group AV) are NOT RUN.
+  - #189: D-100 had already made those `except` blocks let a busy refusal up. Each tool the issue lists
+    (`autocad_sync_attributes`, `autocad_table_from_excel`, `autocad_set_table_cells`,
+    `autocad_set_render_exposure`, `autocad_list_lights`, `autocad_copy_from_drawing`) now has a test with a
+    stand-in drawing that refuses: it must end in "AutoCAD stayed busy" or "Outcome unknown", never in
+    skipped inserts with success, cells in `not_set`, "did not answer for EXPVALUE", "no block called" or
+    "has nothing with the handle". A refusal that is not busy keeps its old fallback.
+  - #190: `autocad_save_view(replace=true)` refuses a layout's (sheet's) view of that name in plain words
+    and never deletes it, for a window and for `from_screen`. A view counts as the Model tab's only when
+    its `LayoutId` is the Model layout's `ObjectID`; if AutoCAD does not say, it is refused too.
+
 - **Text sent to AutoLISP can no longer break out of its string, and a LISP error is answered at once
   (2026-11-23, [#207](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/207),
   [#157](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/157), [D-129](docs/DECISIONS.md)).**

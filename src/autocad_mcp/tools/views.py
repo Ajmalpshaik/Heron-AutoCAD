@@ -56,6 +56,38 @@ def _views(doc: Any) -> dict[str, Any]:
     }
 
 
+def _refuse_a_layouts_view(doc: Any, existing: Any, name: str) -> None:
+    """Refuse to replace a view that belongs to a layout (a sheet), plainly (#190, D-128).
+
+    A sheet's saved view ("DETAIL-A") is not a model view: deleting it to
+    make a model view of the same name would break whatever on the sheet uses
+    it. A view is the Model tab's only when its LayoutId is the Model layout's
+    own ObjectID (as RenderView.cs checks the plug-in's camera view). When
+    that cannot be read, the view is not deleted either: nothing proves it is
+    a model view. A busy AutoCAD is not "cannot be read": it goes up as it is.
+    """
+    try:
+        layout = doc.Layouts.Item("Model")
+    except BaseException as exc:  # noqa: BLE001 - no Model layout to compare with: nothing is deleted
+        raise_if_busy(exc)
+        layout = None
+    model = _read(layout, "ObjectID") if layout is not None else None
+    model_32 = _read(layout, "ObjectID32") if layout is not None else None
+    belongs = _read(existing, "LayoutId")
+    try:
+        ids = {int(v) for v in (model, model_32) if v is not None}
+        is_model = belongs is not None and int(belongs) in ids
+    except (TypeError, ValueError):
+        is_model = False
+    if is_model:
+        return
+    raise AutocadError(
+        f"'{name}' is a view of a layout (a sheet), not of the model, so replace=true does not replace it "
+        "and nothing was changed. Give the new view another name."
+        + ("" if belongs is not None else " (AutoCAD did not say which layout the view belongs to.)")
+    )
+
+
 def _describe(view: Any) -> dict[str, Any]:
     """One saved view as a location: its middle, its size and its corners."""
     centre = [float(v) for v in (_read(view, "Center", (0.0, 0.0, 0.0)) or (0.0, 0.0, 0.0))][:3]
@@ -189,7 +221,9 @@ async def autocad_save_view(
 
     Error Handling:
         - A name already saved is refused unless replace=true; a layout's
-          (paper space) view of that name is refused even then.
+          (paper space) view of that name is refused even then, in plain
+          words, and is never deleted (also when AutoCAD does not say which
+          layout the view belongs to).
         - Objects that report no extents are named rather than silently skipped.
     """
     clean = validate_name(name, "view")
@@ -256,6 +290,8 @@ async def autocad_save_view(
                 "overwrite it, or pick another name."
             )
 
+        if existing is not None:
+            _refuse_a_layouts_view(doc, existing, clean)
         with undo_mark(doc):
             if existing is not None:
                 try:
@@ -341,6 +377,8 @@ def _save_screen(doc: Any, clean: str, replace: bool) -> dict[str, Any]:
             f"This drawing already has a view called '{clean}'. Pass replace=true to "
             "overwrite it, or pick another name."
         )
+    if existing is not None:
+        _refuse_a_layouts_view(doc, existing, clean)
     with undo_mark(doc):
         if existing is not None:
             try:

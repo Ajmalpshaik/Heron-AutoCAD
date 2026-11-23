@@ -1094,6 +1094,23 @@ scratch metric drawing. **Every row below is NOT RUN.**
 | AY2 | Same server, now open your own AutoCAD, disconnect your Remote Desktop session without closing AutoCAD, sign in again and run the setup and `Install.bat` | Both stop with "AutoCAD is open. Close AutoCAD... Nothing was changed." | NOT RUN |
 | AY3 | Download a release's `checksums.txt` and files onto Linux or macOS and run `sha256sum -c checksums.txt` | Each file says `OK` | NOT RUN |
 
+## Group AV - Busy refusals in block, table, light and copy tools; save_view and a sheet's view (D-128) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 (D-128, issues #189 and #190). Built and tested offline only
+(`tests/test_busy_block_table_light_copy.py`, `tests/test_save_view_layout.py`). Server only: restart the
+server after pulling; no plug-in build is needed. To keep AutoCAD busy past the message filter's 3 s,
+open the Options dialog (OP) and leave it open. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AV1 | A block with 4 inserts that carry attributes. Options dialog open, `autocad_sync_attributes(block=...)` | "AutoCAD stayed busy ... press Esc"; no list of skipped inserts, no "touched"; after closing the dialog the same call syncs all 4 | NOT RUN |
+| AV2 | Options dialog open, `autocad_table_from_excel` on a .csv, then `autocad_set_table_cells` on a table | Each says "AutoCAD stayed busy" (nothing written yet); never "DONE" with cells in `not_set` or `refused` | NOT RUN |
+| AV3 | Options dialog open, `autocad_set_render_exposure(exposure=7)`, then `autocad_list_lights` | Both say "AutoCAD stayed busy"; never "This AutoCAD did not answer for EXPVALUE" and never a null exposure | NOT RUN |
+| AV4 | Two drawings open, Options dialog open, `autocad_copy_from_drawing` for 2 handles that exist | "AutoCAD stayed busy"; never "has nothing with the handle(s)"; nothing copied | NOT RUN |
+| AV5 | In a layout tab save a view named DETAIL-A (VIEW, New, in paper space). On the Model tab: `autocad_save_view(name="DETAIL-A", corner1=[0,0], corner2=[100,50], replace=true)`, then the same with `from_screen=true` | Refused both times: "'DETAIL-A' is a view of a layout (a sheet) ... nothing was changed"; `autocad_list_views` still lists DETAIL-A and the sheet's viewport that uses it is unchanged | NOT RUN |
+| AV6 | On the Model tab save a view PUMP-AREA, then `autocad_save_view(name="PUMP-AREA", corner1=[0,0], corner2=[100,50], replace=true)`, then the same with `from_screen=true` | Both replace it ("replaced": true). If either says "a view of a layout" or "did not say which layout", this AutoCAD does not give LayoutId as the fix assumed: report it, do not work round it | NOT RUN |
+| AV7 | `autocad_save_view(name="PUMP-AREA", ..., replace=true)` with the Options dialog open | "AutoCAD stayed busy" (or OUTCOME UNKNOWN); the view PUMP-AREA is not left deleted without its replacement | NOT RUN |
+
 ## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
 
 | Row | Do | Pass looks like | Result |
