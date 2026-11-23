@@ -34,6 +34,16 @@ namespace Heron.AutoCAD.Bridge
 
         public int Count => _items.Count;
 
+        /// <summary>The selection filters, one per old layer, as the server's COM read selects with.</summary>
+        public static IReadOnlyList<IReadOnlyList<FilterPair>> ParseFilters(JsonElement filters)
+        {
+            if (filters.ValueKind != JsonValueKind.Array || filters.GetArrayLength() == 0 || filters.GetArrayLength() > MostLayers)
+                throw new RunRefusal("layer_objects needs 'filters': one filter per old layer, one to " + MostLayers + ".");
+            var list = new List<IReadOnlyList<FilterPair>>();
+            foreach (var filter in filters.EnumerateArray()) list.Add(EntityFilter.Parse(filter));
+            return list;
+        }
+
         /// <summary>
         /// True once a block reference with an attribute on an old layer has a
         /// definition that holds no attribute definitions: whether COM's

@@ -53,7 +53,7 @@ Each tool's entry:
 | `plugin.role` | `gate`: the plug-in only guards the call and COM does the work. `operations`: the plug-in does some of the work, for some options at least. `when_there`: COM does it, and the plug-in is used when it is there (faster reads, quiet input, a box's button) | The tool's own code |
 | `plugin.operations` | The plug-in's own operations the tool asks for, each checked against `PluginOperations.cs` | The tool's own code |
 | `plugin.version_needed` | For `operations`: the plug-in built from the same code. Empty for the others: any connected plug-in | `autocad/Directory.Build.props` |
-| `plugin.faster_from` | For a read the plug-in does faster: from which plug-in on | `READS_SINCE` in `core/bridge.py`; left out for a read in `NEWER_READS`, whose release is not named yet ([D-127](DECISIONS.md), [D-134](DECISIONS.md), [D-138](DECISIONS.md)) |
+| `plugin.faster_from` | For a read the plug-in does faster: from which plug-in on | `READS_SINCE` in `core/bridge.py`; left out for a read in `NEWER_READS`, whose release is not named yet ([D-127](DECISIONS.md), [D-134](DECISIONS.md), [D-138](DECISIONS.md), [D-146](DECISIONS.md)) |
 | `plugin.runs_other_tools` | True for `autocad_sequence` and `autocad_saved_command`: what their steps need, they need | The tool's own code |
 | `proof.state` | **PASS** (every row naming it passed), **PARTLY** (some did, the rest are not run), **NOT RUN**, **FAIL** (a row failed and was not run again), **NO ROW** (no row names it) | [NEEDS-CHECKING](NEEDS-CHECKING.md) |
 | `proof.rows`, `proof.passed_in` | Each row and its state; the AutoCAD versions it passed in | [NEEDS-CHECKING](NEEDS-CHECKING.md) |

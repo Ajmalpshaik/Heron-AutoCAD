@@ -22,7 +22,7 @@ namespace Heron.AutoCAD.Addin
         public static RunResult Objects(Document doc, Transaction tr, RunArgs args)
         {
             var list = new LayerObjectList(args.Texts("layers"));
-            foreach (var filter in TextFactList.ParseFilters(args.Element("filters")))
+            foreach (var filter in LayerObjectList.ParseFilters(args.Element("filters")))
                 foreach (var id in EntityReads.Select(doc, filter))
                     if (tr.GetObject(id, OpenMode.ForRead, false) is Entity entity)
                         list.Add(entity.Handle.ToString(), entity.Layer, LayerObjectList.Drawing);

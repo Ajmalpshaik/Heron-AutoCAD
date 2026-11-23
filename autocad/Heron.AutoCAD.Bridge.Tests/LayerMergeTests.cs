@@ -75,6 +75,21 @@ public class LayerMergeTests
     }
 
     [Fact]
+    public void One_filter_per_old_layer_up_to_a_hundred()
+    {
+        using var args = Args(new { filters = new[] { new[] { new object[] { 8, "DUCT" } }, new[] { new object[] { 8, "Duct`-Old" } } } });
+        var filters = LayerObjectList.ParseFilters(args.Element("filters"));
+        Assert.Equal(2, filters.Count);
+        Assert.Equal("Duct`-Old", filters[1][0].Text);
+        var many = new object[LayerObjectList.MostLayers];
+        for (var i = 0; i < many.Length; i++) many[i] = new[] { new object[] { 8, "L" + i } };
+        using var most = Args(new { filters = many });
+        Assert.Equal(LayerObjectList.MostLayers, LayerObjectList.ParseFilters(most.Element("filters")).Count);
+        using var none = Args(new { filters = new object[0] });
+        Assert.Throws<RunRefusal>(() => LayerObjectList.ParseFilters(none.Element("filters")));
+    }
+
+    [Fact]
     public void The_merge_is_read_from_its_args()
     {
         using var args = Args(new { layers = new[] { "DUCT", "duct", "Duct-Old" }, into = "M-DUCT", handles = new[] { "2A", "4A" } });

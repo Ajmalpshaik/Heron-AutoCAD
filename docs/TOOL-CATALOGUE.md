@@ -4042,9 +4042,9 @@ AutoCAD's LAYMERGE. Objects move from the old layers in model space, on every la
 
 **Limits and versions.**
 - Layer 0, an xref's layer, a layer that is not there, or merging a layer into itself is refused before anything changes.
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB7).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB7, BJ1).
 
 ### `autocad_remap_layers`
 

@@ -53,4 +53,11 @@ BY_EYE: dict[str, str] = {
     "BE8": "needs a block with an invisible attribute, and " + _OVER_COM,
     "BE9": _OLD + "; then a plan with 2,000 tagged blocks timed both ways, and Ctrl+Z pressed by hand",
     "BE10": "needs a title block whose attributes hold fields, and " + _OVER_COM,
+    "BJ1": "needs a real drawing with layers to merge in every place an object can be, and " + _OVER_COM,
+    "BJ2": "needs Keep or Discard answered by hand, a second copy of the drawing, and " + _OVER_COM,
+    "BJ3": "needs Ctrl+Z pressed by hand and the layers looked at in the layer manager",
+    "BJ4": "needs a viewport freeze and a layer filter set up by hand, and which layers stay written down both ways",
+    "BJ5": "needs a proxy object from another application, and a second server started with --no-bridge",
+    "BJ6": "needs a block whose attribute definitions were deleted by hand, and what COM's read lists written down",
+    "BJ7": _OLD + "; then a plan with 20,000 objects on the old layers merged and timed both ways",
 }
