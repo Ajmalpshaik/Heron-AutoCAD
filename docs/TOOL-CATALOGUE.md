@@ -4401,10 +4401,11 @@ Give two corners, or the objects the area should cover, and it is saved as an Au
 
 **Limits and versions.**
 - A name already saved is refused unless replace=true; a layout's (paper space) view of that name is refused even then, in plain words, and is never deleted (also when AutoCAD does not say which layout the view belongs to).
+- A name holding a line break, Esc, tab or other control character is refused before anything is typed or any view is deleted (#242).
 - Objects that report no extents are named rather than silently skipped.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13, AV5, AV6, AV7).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13, AV5, AV6, AV7, BA1, BA2).
 
 ### `autocad_sheet_set`
 
@@ -6509,7 +6510,7 @@ Unlike autocad_send_command, this gets a value back. AutoCAD's COM interface has
 - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are rejected before anything is sent, since AutoCAD would otherwise sit waiting for the closing bracket.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10).
+**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10, BA3).
 
 ### `autocad_saved_command`
 
@@ -6579,7 +6580,7 @@ This is the escape hatch for anything the typed tools do not cover — BOUNDARY,
 - expect_box without press (or the reverse), or a plug-in older than 1.7.0, is refused before anything is sent.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N4, V1, V4, V7, Z1, RV1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N4, V1, V4, V7, Z1, RV1, BA4).
 
 ### `autocad_sequence`
 

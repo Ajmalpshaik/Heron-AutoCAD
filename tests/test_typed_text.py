@@ -98,6 +98,12 @@ class TestViewName:
         assert result.startswith("Error: The view name holds ")
         assert "Nothing was typed." in result
 
+    def test_the_corners_and_handles_path_refuses_it_too(self, monkeypatch):
+        # Not typed there (Views.Add takes the name over COM), but a control character is never a valid view name.
+        monkeypatch.setattr(views, "get_doc", lambda: Untouched())
+        result = asyncio.run(views.autocad_save_view(name="A\x1bB", corner1=[0, 0], corner2=[10, 10]))
+        assert result.startswith("Error: The view name holds an Esc character")
+
     def test_a_trailing_newline_is_not_hidden_by_the_clean_up(self, monkeypatch):
         # validate_name strips the name, which would drop a trailing newline unseen.
         monkeypatch.setattr(views, "get_doc", lambda: Untouched())

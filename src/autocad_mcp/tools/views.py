@@ -232,6 +232,8 @@ async def autocad_save_view(
           (paper space) view of that name is refused even then, in plain
           words, and is never deleted (also when AutoCAD does not say which
           layout the view belongs to).
+        - A name holding a line break, Esc, tab or other control character is
+          refused before anything is typed or any view is deleted (#242).
         - Objects that report no extents are named rather than silently skipped.
     """
     # Before the name is cleaned: strip() would hide a trailing newline, and an Esc or a

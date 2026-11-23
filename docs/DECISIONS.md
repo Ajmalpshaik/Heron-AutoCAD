@@ -29,7 +29,8 @@ means the same on both sides: below 0x20, DEL, NUL, U+0080 to U+009F, U+2028, U+
 Nothing can be escaped on a command line, so it is refused in plain words ("holds a line break ... Nothing
 was typed."); accents, Arabic, Malayalam and the rest of Unicode pass. *Not done, noted for later:*
 `validate_name` itself (26 callers, `acad/tables.py`, outside this session's area) still lets control
-characters into layer, style and block names; those names go to COM, not to the command line.
+characters into layer, style and block names; those names go to COM, not to the command line
+([#249](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/249)).
 Also read, not changed: `autocad_purge` and `autocad_audit` type fixed words picked by a checked option.
 
 **run_lisp named box on a busy retry (#210, part 1).** `autocad_run_lisp` asked the plug-in for its one
@@ -43,7 +44,7 @@ its ask, so it was left alone.
 
 **HERONSTOP and `expect_dialog` (#210, part 2).** `BridgeProtocol` refused begin, send_quiet and run for a
 stopped job but still took `expect_dialog`, so a stopped job could arm the dialog watch. It is refused now,
-with the same "Stopped" answer. A bridge test begins an Admin job, names a button (taken), stops Heron,
+with the same "Stopped" answer (this adds `expect_dialog` to the list in D-51, which stays as written). A bridge test begins an Admin job, names a button (taken), stops Heron,
 names another (refused, `refusedBy` Stopped, nothing reached the host).
 
 ## D-128 - Every busy refusal in the block, table, light and copy tools is proven per tool; `save_view(replace=true)` never deletes a layout's view

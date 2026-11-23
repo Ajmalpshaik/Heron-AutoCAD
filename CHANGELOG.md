@@ -10,7 +10,8 @@ Newest first. Dates are when the change was made.
   Tested offline only: the live rows (NEEDS-CHECKING Group BA) are NOT RUN.
   - #242: every tool that types text at the command line was read. Only `autocad_save_view` with
     `from_screen=true` typed a caller's string (the view name) with no check; a newline, Esc or tab in it
-    is now refused in plain words before anything is typed or any old view is deleted. The other paths
+    is now refused in plain words before anything is typed or any old view is deleted (the same refusal
+    applies to the corners and handles path, where a control character was never a valid name). The other paths
     (wipeout, dimension break, UCS, viewport by MVIEW, visual style) type only numbers, hex handles or
     fixed words; tests prove it. The check is one shared helper in `acad/lisp.py`, the same definition of
     "control character" as the AutoLISP side (D-129).
