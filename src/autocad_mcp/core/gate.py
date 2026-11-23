@@ -47,7 +47,7 @@ from .bridge import (
 )
 from .connection import get_app, run
 from .drawing_events import Mark, Verdict, front_moved, judge
-from .errors import AutocadError, is_retryable, raise_if_busy
+from .errors import AutocadError, com_message, is_retryable, raise_if_busy
 from .risk import Risk, risk_of
 
 DISCARDED = "Discarded: nothing was kept."
@@ -297,7 +297,15 @@ async def _probe() -> tuple[int, str]:
         doc = app.ActiveDocument
         return pid, str(doc.FullName) or str(doc.Name)
 
-    return await run(look)
+    try:
+        return await run(look)
+    except AutocadError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - a COM error here used to escape every tool's handler bare (#39)
+        raise AutocadError(
+            f"Heron could not tell which drawing AutoCAD has open ({com_message(exc)}). Click "
+            "the drawing's Model tab, or press Esc in AutoCAD, and try again."
+        ) from exc
 
 
 async def _mark() -> bool:

@@ -111,8 +111,9 @@ class TestTheAnswerSaysWhatWasPlotted:
         assert info["smallest_clear_text"] == pytest.approx(8 * 841 / 1600, rel=0.01)
 
     async def test_text_smaller_than_that_gets_a_tip_to_look_closer(self, make_doc):
+        # One picture asked for (detail=1): a whole sheet left out gets its close-ups by itself (D-140).
         make_doc(text_size=2.5)
-        info = _info(await document.autocad_preview())
+        info = _info(await document.autocad_preview(detail=1))
         assert "detail=2" in info["tip"]
 
     async def test_a_small_sheet_with_big_text_gets_no_tip(self, make_doc):
@@ -152,9 +153,10 @@ class TestTheAnswerSaysWhatWasPlotted:
 
 
 class TestDetailGivesCloseUpsOfTheSameArea:
-    async def test_default_is_one_picture_as_before(self, make_doc):
+    async def test_detail_1_is_one_picture_as_before(self, make_doc):
+        # The default was one picture until D-140; detail=1 keeps it so.
         doc = make_doc()
-        result = await document.autocad_preview()
+        result = await document.autocad_preview(detail=1)
         assert [type(block) for block in result] == [Image, str]
         assert len(doc.Plot.calls) == 1
 
@@ -263,3 +265,55 @@ class TestDetailGivesCloseUpsOfTheSameArea:
         result = await mcp.call_tool("autocad_preview", {"detail": 2})
         kinds = [type(block).__name__ for block in result.content]
         assert kinds == ["ImageContent"] * 5 + ["TextContent"]
+
+
+class TestAWholeSheetGetsItsCloseUpsByItself:
+    """#41, D-140: the A1 extents picture showed only the frame; windows showed everything."""
+
+    async def test_an_a1_sheet_at_1_1_comes_with_four_close_ups(self, make_doc):
+        doc = make_doc()
+        result = await document.autocad_preview()
+        assert [type(block) for block in result] == [Image] * 5 + [str]
+        assert len(doc.Plot.calls) == 5
+        info = _info(result)
+        assert "four close-ups were added" in info["detail_added"] and "detail=1" in info["detail_added"]
+        assert info["detail_smallest_clear_text"] < 2.5
+        assert "tip" not in info
+
+    async def test_its_frame_inside_the_margins_counts_as_the_sheet(self, make_doc):
+        make_doc(extents=((20.0, 10.0, 0.0), (831.0, 584.0, 0.0)))
+        assert "detail_added" in _info(await document.autocad_preview())
+
+    async def test_a_sheet_drawn_at_1_100_in_model_space_counts_too(self, make_doc):
+        make_doc(extents=((0.0, 0.0, 0.0), (84100.0, 59400.0, 0.0)), text_size=250.0)
+        assert "detail_added" in _info(await document.autocad_preview())
+
+    async def test_a_drawing_that_is_not_a_sheet_stays_one_picture(self, make_doc):
+        doc = make_doc(extents=((0.0, 0.0, 0.0), (3000.0, 1000.0, 0.0)), text_size=2.5)
+        info = _info(await document.autocad_preview())
+        assert "detail_added" not in info and len(doc.Plot.calls) == 1
+        assert "tip" in info
+
+    async def test_a_sheet_whose_text_reads_stays_one_picture(self, make_doc):
+        doc = make_doc(text_size=5.0)
+        info = _info(await document.autocad_preview())
+        assert "detail_added" not in info and len(doc.Plot.calls) == 1
+
+    async def test_extents_stretched_by_something_far_off_are_not_a_sheet(self, make_doc):
+        doc = make_doc(extents=((0.0, 0.0, 0.0), (50000.0, 594.0, 0.0)))
+        assert "detail_added" not in _info(await document.autocad_preview())
+        assert len(doc.Plot.calls) == 1
+
+    async def test_a_window_is_left_as_asked(self, make_doc):
+        doc = make_doc()
+        await document.autocad_preview(area="window", corner1=[0, 0], corner2=[841, 594])
+        assert len(doc.Plot.calls) == 1
+
+    async def test_the_page_setup_is_put_back_after_them(self, make_doc):
+        doc = make_doc()
+        before = dict(doc.ActiveLayout.state)
+        await document.autocad_preview()
+        after = doc.ActiveLayout.state
+        assert {k: after[k] for k in ("ConfigName", "PlotType", "CanonicalMediaName")} == {
+            k: before[k] for k in ("ConfigName", "PlotType", "CanonicalMediaName")
+        }
