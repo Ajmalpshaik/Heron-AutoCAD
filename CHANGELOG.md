@@ -20,12 +20,13 @@ Newest first. Dates are when the change was made.
     plug-in now refuses `expect_dialog` too, as it does begin, send_quiet and run. The plug-in changed:
     rebuild and reinstall it for the second part.
 
-- **The palette's Select and Zoom work again when a job made styles or layers (2026-11-23,
+- **The palette's Select and Zoom work again when a job made a multileader style's arrow block (2026-11-23,
   [#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), [D-132](docs/DECISIONS.md)).**
   Tested offline only: the live rows (NEEDS-CHECKING Group AZ, and X25) are NOT RUN. The plug-in changed.
-  - Only drawing objects in the space in front are selected and zoomed to. A style, a layer, an object on
-    another layout or the Model tab, or one inside a block definition is left out, and the palette says how
-    many and why ("3 could not be selected: ..."). With none selectable it says so; it never fails the click.
+  - Only drawing objects in the space in front are selected and zoomed to. An object inside a block
+    definition (such as the arrow block AutoCAD adds for a multileader style), on another layout or the
+    Model tab, or not a drawing object at all is left out, and the palette says how many and why ("3 could
+    not be selected: ..."). With none selectable it says so; it never fails the click.
   - `autocad_show` answers `shown` as what is really selected, and lists the rest in `not_selectable` with
     a reason. It isolates only when something is selected.
   - The Keep or Discard question says objects are selected only when they are. Before, the same fault

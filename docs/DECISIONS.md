@@ -56,10 +56,14 @@ tested offline only (bridge tests), live rows NOT RUN (NEEDS-CHECKING Group AZ, 
 Issue [#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), the live FAIL of X25 in 1.8.0.
 
 **The fault.** `Showing.SelectAndZoom` passed the id of every handle a job made or changed that still
-existed to `Editor.SetImpliedSelection`: styles, layers, dictionaries and objects in another space too.
-AutoCAD throws `eInvalidInput` for those, so the whole click did nothing, and the zoom after it never ran.
-The cause is read from the code and the log, not proven in AutoCAD; X25's jobs made multileader and
-table styles, which are not entities.
+existed to `Editor.SetImpliedSelection`. The palette's handles are entities only (`ChangeWatch` counts an
+appended or modified `Entity`, nothing else), but not all of them are in the space in front. A multileader
+style with an arrow other than closed filled makes AutoCAD add the arrow's block definition
+(`DrawingStyles.Arrow` sets DIMBLK), and its lines and solids are entities **inside a block definition**.
+Those, attributes, and objects on another layout cannot be selected: AutoCAD throws `eInvalidInput`, the
+whole click did nothing, and the zoom after it never ran. This is the likely cause of X25 (its jobs made
+multileader styles), read from the code and the log, not proven in AutoCAD. `autocad_show` takes any
+handle the chat gives, so there a style or a layer can come in too.
 
 **The rule now.** Each handle is looked up and given a place (`ShowPlace`, in the bridge):
 - **in the space in front**: an `Entity` whose owner is `Database.CurrentSpaceId`. Only these are selected,
@@ -91,8 +95,8 @@ would not select them. The count every caller gets (`ShowOutcome.Count`) is what
 - More than 500 handles: nothing is selected and the line says so, instead of claiming 500+ selected.
 
 **Not changed.** D-124's buttons still show Select and Zoom whenever the job has handles to show: the
-bridge cannot tell a style from a line offline, so a job that made only styles gets the buttons, and the
-press says why nothing can be selected.
+bridge cannot tell where an entity is offline, so a job whose only objects are inside a block definition
+(a multileader style's arrow block) gets the buttons, and the press says why nothing can be selected.
 
 ---
 
