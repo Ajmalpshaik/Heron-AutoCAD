@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The live-check runner covers groups AU, AV, AW, AX, AZ, BA, BB, BC, BE and BF, part 2 of
+  [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222), which it closes (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
+  New files `tools/live_check_textsafety.py` (AW, BA, BF), `live_check_keepbox.py` (AV, AX, AZ, BC) and
+  `live_check_plugin_reads.py` (AU, BB, BE), each with an offline test holding a good and a bad recording per
+  check. 16 rows are measured: AW1-AW4, AW9, AW11-AW14, BA1, BA2, BF1, BF2, AV6, AZ6 and BC13. The other 66
+  have their reason: the plug-in reads (AU, BB, BE) are compared with a second `--no-bridge` server, which the
+  runner does not start; the palette, Keep and erase boxes, Ask to Keep on, UNDO off, the Options dialog, HERONSTOP
+  and any command left open on purpose are a person's. AV6, AZ6 and BA2 need the Model tab in front and say "not
+  run this time" with a sheet in front (the runner never switches tab). With part 1 every group of the register
+  on main except the older A, B, C, G-L and S is the runner's (243 measured, 330 with a reason). No rule is new
+  (no D-135), no tool changed. **Run only against recorded answers, never in AutoCAD.**
 - **The live-check runner covers groups AF, AI, AK, AR, AT and AY, part 1 of
   [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222) (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
   New files `tools/live_check_sheets.py` (AF), `live_check_drawtools.py` (AI), `live_check_solids.py` (AR),
