@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The dialog watch's live rows get a way in, and the bundle leaves `.pdb` out on Linux too (2026-11-23,
+  [#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213), [#262](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/262),
+  [D-142](docs/DECISIONS.md)).** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed OPEN, CLOSE and PURGE,
+  which Heron refuses before sending, so no box could open. They now use AutoLISP's alert box through
+  `autocad_run_lisp` with Admin on (the watch presses Esc; the box's title is read from the answer) and the
+  runner measures them, each with a good and a bad recording; `DIALOG_COMMANDS` is not loosened. New helper
+  `live_common.addin_log_lines()`. Not tested in AutoCAD: live rows V1, V4, V6, V7 NOT RUN. `build_plugin.py`
+  ignored `*.pdb` with a case-sensitive pattern, so an upper-case `.PDB` was copied on Linux and
+  `test_the_bundle_leaves_pdb_files_out` failed in cloud sessions; the ignore now ignores the letter case on every OS.
 - **Sheet-tab and preview bugs (2026-11-23, [#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
   [#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40), [#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41),
   [D-141](docs/DECISIONS.md)).** `autocad_create_layout` over COM no longer answers "Outcome unknown: AutoCAD

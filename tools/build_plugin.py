@@ -74,6 +74,11 @@ def package_contents() -> str:
     return "\n".join(parts) + "\n"
 
 
+def _leave_out_pdb(folder: str, names: list[str]) -> set[str]:
+    """The .pdb files in a folder, in any letter case: shutil.ignore_patterns is case-sensitive on Linux (#262)."""
+    return {name for name in names if name.lower().endswith(".pdb")}
+
+
 def make_bundle(built: dict[str, Path], out: Path) -> Path:
     """Copy each build into its Contents folder and write PackageContents.xml."""
     bundle = out / BUNDLE
@@ -84,7 +89,7 @@ def make_bundle(built: dict[str, Path], out: Path) -> Path:
         if not (source / MODULE).is_file():
             raise SystemExit(f"{MODULE} is missing for {tfm} in {source}. Build first.")
         # No .pdb debug files: a modeller does not need them (#232).
-        shutil.copytree(source, bundle / "Contents" / folder, ignore=shutil.ignore_patterns("*.pdb"))
+        shutil.copytree(source, bundle / "Contents" / folder, ignore=_leave_out_pdb)
     (bundle / "PackageContents.xml").write_text(package_contents(), encoding="utf-8")
     return bundle
 
