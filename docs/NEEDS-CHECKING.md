@@ -1329,6 +1329,8 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 | AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
 | AL8 | D-149 (#270, 2026-11-23). Restart the server. The runner draws a line straight into model space, then sets `Radius` on it over COM (a property a line does not have) | Within a second or two: `PropertyRefused`, naming `'Radius'` and saying AutoCAD was not busy; never "Outcome unknown", "stayed busy" or "Lost the COM connection" after ten seconds | NOT RUN |
 | AL9 | D-149 (#270). Options dialog open. `autocad_modify_entity` on a line, `layer='0'` | As AL1: "AutoCAD stayed busy ... press Esc" (or the change made once the dialog is closed); never "AutoCAD has no property" or "would not set" | NOT RUN |
+| AL10 | D-153 (#280, 2026-11-23). Restart the server. The runner draws a line straight into model space, then reads `Radius` off it over COM (a member a line does not have) | Within a second or two: `MemberMissing`, naming `'Radius'` and saying AutoCAD was not busy; never "Outcome unknown", "stayed busy" or "Lost the COM connection" after ten seconds | NOT RUN |
+| AL11 | D-153 (#280). Options dialog open. `autocad_get_entity` on a circle | As AL1: "AutoCAD stayed busy ... press Esc" (or the circle read once the dialog is closed); never "AutoCAD has no property or method" | NOT RUN |
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 

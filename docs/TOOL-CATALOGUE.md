@@ -1492,7 +1492,7 @@ Two lines: each is trimmed or extended to the arc's tangent point (or the chamfe
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AW11, AI12, AL1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AW11, AI12, AL1, AL11).
 
 ### `autocad_get_extents`
 

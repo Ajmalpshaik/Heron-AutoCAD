@@ -446,6 +446,28 @@ async def by_hand_set(handle: str, name: str, value: Any) -> dict[str, Any]:
     return {"error": error, "seconds": round(time.monotonic() - started, 2)}
 
 
+async def by_hand_get(handle: str, name: str) -> dict[str, Any]:
+    """Read one COM member straight off an object, as Heron's own code does, and time it (#280).
+
+    Answers ``{"error": "<type>: <words>" or None, "seconds": <how long>}``; never raises.
+    """
+    import time
+
+    from autocad_mcp.acad.entities import resolve_handle
+    from autocad_mcp.core.connection import get_doc, run
+
+    def read() -> None:
+        getattr(resolve_handle(get_doc(), handle), name)
+
+    started = time.monotonic()
+    try:
+        await run(read)
+        error = None
+    except BaseException as exc:  # noqa: BLE001 - the answer is what the row measures
+        error = f"{type(exc).__name__}: {exc}"
+    return {"error": error, "seconds": round(time.monotonic() - started, 2)}
+
+
 async def by_hand_group(handles: list[str], name: str) -> str:
     """A group made as the modeller makes one with GROUP (name '*' for an unnamed one), not through Heron."""
     from autocad_mcp.core.connection import get_doc, run

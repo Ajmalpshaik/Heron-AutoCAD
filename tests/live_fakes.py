@@ -193,7 +193,7 @@ def play(monkeypatch: Any, check: Any, answers: dict[str, Any], ctx: lc.Context 
 # The runner's own AutoCAD helpers a check may call (live_common.py).
 HELPERS = (
     "read_padlocks", "save_scratch", "other_drawing", "activate", "drawing_names", "read_props",
-    "exists", "by_hand_line", "by_hand_set", "by_hand_group", "by_hand_width", "by_hand_true_colour", "file_stamp", "files_in",
+    "exists", "by_hand_line", "by_hand_set", "by_hand_get", "by_hand_group", "by_hand_width", "by_hand_true_colour", "file_stamp", "files_in",
     "new_drawing", "save_active", "save_as", "close_drawing", "open_drawing", "addin_log_lines",
 )
 
