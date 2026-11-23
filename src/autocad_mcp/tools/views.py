@@ -28,6 +28,7 @@ from pydantic import Field
 
 from ..acad.coords import corners_box
 from ..acad.entities import bounding_box, resolve_handles
+from ..acad.lisp import refuse_control
 from ..acad.tables import validate_name
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
@@ -233,6 +234,9 @@ async def autocad_save_view(
           layout the view belongs to).
         - Objects that report no extents are named rather than silently skipped.
     """
+    # Before the name is cleaned: strip() would hide a trailing newline, and an Esc or a
+    # line break inside it is typed into -VIEW _Save as a key press (#242).
+    refuse_control(name, "view name")
     clean = validate_name(name, "view")
     if from_screen:
         if corner1 or corner2 or handles:
@@ -377,6 +381,7 @@ def _save_screen(doc: Any, clean: str, replace: bool) -> dict[str, Any]:
     written by hand and their meaning differs for a 3D view; -VIEW Save takes
     everything AutoCAD itself keeps for the view on screen.
     """
+    refuse_control(clean, "view name")  # the typing site: before the old view is deleted (#242)
     saved = _views(doc)
     existing = next((v for k, v in saved.items() if k.lower() == clean.lower()), None)
     if existing is not None and not replace:

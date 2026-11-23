@@ -291,6 +291,25 @@ public class StopTests
         _protocol.Stop();
         Assert.True(Send(new { op = "ping", token = Token, conversation = "chat-a" }).GetProperty("stopped").GetBoolean());
     }
+
+    [Fact]
+    public void A_stopped_job_is_refused_a_named_button_for_a_box()
+    {
+        // #210: HERONSTOP also stops expect_dialog, so a stopped job cannot arm the dialog watch.
+        Assert.True(Send(new
+        {
+            op = "begin", token = Token, client = "pc", conversation = "chat-a", job = "j1",
+            tool = "autocad_run_lisp", risk = "admin", summary = "Run LISP", drawing = @"C:\a.dwg",
+        }).GetProperty("ok").GetBoolean());
+        var before = Send(new { op = "expect_dialog", token = Token, conversation = "chat-a", job = "j1", title = "Purge - Confirm Purge", button = "Yes" });
+        Assert.True(before.GetProperty("ok").GetBoolean());
+        Assert.Single(_host.Expected);
+        _protocol.Stop();
+        var stopped = Send(new { op = "expect_dialog", token = Token, conversation = "chat-a", job = "j1", title = "Other box", button = "OK" });
+        Assert.False(stopped.GetProperty("ok").GetBoolean());
+        Assert.Equal("Stopped", stopped.GetProperty("refusedBy").GetString());
+        Assert.Single(_host.Expected);
+    }
 }
 
 /// <summary>Undo Heron's last change only when the modeller changed nothing since (D-54).</summary>
