@@ -4,7 +4,7 @@
 
 Every one of Heron's **199** tools, in plain words, grouped by the job it does. For each tool: what it does, the problem it solves, where to find it, how to use it step by step, what it needs from you, the result to expect, its limits, and whether anyone has seen it work in a real AutoCAD.
 
-> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **5** tools PASS, **14** PARTLY, **152** NOT RUN, **1** FAIL, **27** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
+> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **154** NOT RUN, **1** FAIL, **25** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
 
 ## How Heron's tools work (the same for every tool)
 
@@ -94,7 +94,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | [`autocad_copy_entities`](#autocad_copy_entities) | Editing and reading objects | Changes | NOT RUN |
 | [`autocad_copy_from_drawing`](#autocad_copy_from_drawing) | Blocks, attributes and references | Changes | NOT RUN |
 | [`autocad_count_blocks`](#autocad_count_blocks) | Blocks, attributes and references | none: reads the drawing | PARTLY |
-| [`autocad_count_text`](#autocad_count_text) | Text, labels and tables | none: reads the drawing | NO ROW |
+| [`autocad_count_text`](#autocad_count_text) | Text, labels and tables | none: reads the drawing | NOT RUN |
 | [`autocad_create_drawing`](#autocad_create_drawing) | Files and drawings | none: changes only what is on screen | NO ROW |
 | [`autocad_create_hatch_pattern`](#autocad_create_hatch_pattern) | Drawing and coordinates | Changes + Publish | NOT RUN |
 | [`autocad_create_layer`](#autocad_create_layer) | Layers and linetypes | Changes | NOT RUN |
@@ -131,7 +131,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | [`autocad_fillet_chamfer`](#autocad_fillet_chamfer) | Editing and reading objects | Changes | NOT RUN |
 | [`autocad_fillet_solid_edges`](#autocad_fillet_solid_edges) | 3D, lights and rendering set-up | Changes | PARTLY |
 | [`autocad_find_replace_text`](#autocad_find_replace_text) | Text, labels and tables | Changes | NOT RUN |
-| [`autocad_find_text`](#autocad_find_text) | Text, labels and tables | none: reads the drawing | NO ROW |
+| [`autocad_find_text`](#autocad_find_text) | Text, labels and tables | none: reads the drawing | NOT RUN |
 | [`autocad_flatten_views`](#autocad_flatten_views) | 3D, lights and rendering set-up | Changes | NOT RUN |
 | [`autocad_gaps`](#autocad_gaps) | Heron itself, looking, commands and settings | none: reads the drawing | NOT RUN |
 | [`autocad_geo_location`](#autocad_geo_location) | 3D, lights and rendering set-up | Changes | NOT RUN |
@@ -234,7 +234,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | [`autocad_thicken_surface`](#autocad_thicken_surface) | 3D, lights and rendering set-up | Changes | NOT RUN |
 | [`autocad_tidy_entities`](#autocad_tidy_entities) | Editing and reading objects | Changes | NOT RUN |
 | [`autocad_tiled_viewports`](#autocad_tiled_viewports) | Heron itself, looking, commands and settings | none: changes only what is on screen | NOT RUN |
-| [`autocad_total_length`](#autocad_total_length) | Editing and reading objects | none: reads the drawing | PASS |
+| [`autocad_total_length`](#autocad_total_length) | Editing and reading objects | none: reads the drawing | PARTLY |
 | [`autocad_trace_boundary`](#autocad_trace_boundary) | Drawing and coordinates | Changes | NOT RUN |
 | [`autocad_transform_3d`](#autocad_transform_3d) | 3D, lights and rendering set-up | Changes | NOT RUN |
 | [`autocad_trim_extend`](#autocad_trim_extend) | Editing and reading objects | Changes | NOT RUN |
@@ -1773,9 +1773,9 @@ Three modes, picked by which arguments you pass: - point1 + point2: straight-lin
 
 **Limits and versions.**
 - Returns an error naming the three modes if no usable combination of arguments is given.
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA7, AO9).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA7, BB4, BB5, AO9).
 
 ### `autocad_mirror_entities`
 
@@ -2155,9 +2155,9 @@ Lengths are in drawing units (check autocad_status). Splines and ellipses are me
 - Technical shape of the answer: `JSON: {"total_length", "total_area", "rows": [{layer|type, count, length, area, unmeasured}]}`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PASS** in AutoCAD 2027 (rows A26).
+**Live proof.** **PARTLY**: rows A26 passed in AutoCAD 2027; the rest are NOT RUN (rows A26, BB1, BB2, BB3, BB10).
 
 ### `autocad_trim_extend`
 
@@ -2523,9 +2523,9 @@ Use instead of calling autocad_add_label again and again — a column of 15 labe
 - Technical shape of the answer: `JSON: {"total", "distinct", "counts": {value: n}, "sum"?}`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BB7, BB8, BB9).
 
 ### `autocad_create_styles`
 
@@ -2621,9 +2621,9 @@ This is the fastest way to locate something described by its label — a room na
 - Technical shape of the answer: `JSON: {"query": str, "count": int, "truncated": bool, "matches": [{"handle": str, "type": str, "layer": str, "text": str, "position": [x, y, z], "source": "text" | "mtext" | "attribute", "attribute_tag": str, # attribute matches only ...`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BB6, BB10).
 
 ### `autocad_label_segment_lengths`
 

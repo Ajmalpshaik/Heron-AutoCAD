@@ -224,6 +224,8 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `entity_extents` (Read) | `autocad_get_extents(layer=...)` | `Editor.SelectAll`, `Entity.GeometricExtents` ([D-114](DECISIONS.md)) |
 | `block_references` (Read) | `autocad_count_blocks` (#192) | `Editor.SelectAll` with COM's INSERT filter; each reference's real name (`DynamicBlockTableRecord`), layer and `DynamicBlockReferencePropertyCollection`, each value with its type; with `nested`, the block references in every definition that is not a layout or an xref ([D-127](DECISIONS.md)) |
 | `block_definitions` (Read) | `autocad_list_blocks` (#194) | Each named `BlockTableRecord`: items, `IsFromExternalReference` and `PathName`, `IsDynamicBlock`, attribute tags; with `counts`, the references per real name ([D-127](DECISIONS.md)) |
+| `entity_lengths` (Read) | `autocad_total_length`, `autocad_measure(layer=...)` (#195) | `Editor.SelectAll` with COM's filter (and only the `classes` asked for); each object's class, layer, `Line` / `Polyline` / `Polyline2d` / `Polyline3d` / `Arc.Length`, `Circle.Circumference`, `Curve` / `Hatch` / `Region.Area`, the closed flag, a spline's `NurbsData` and an ellipse's radii and parameters. The server keeps only what COM gives for each class ([D-134](DECISIONS.md)) |
+| `entity_texts` (Read) | `autocad_count_text`, `autocad_find_text` (#197) | `Editor.SelectAll` once per filter in `filters`; each `DBText.TextString` / `MText.Contents` (formatting codes left in), `Position` / `Location`, a block reference's `Name` and its `AttributeCollection` in order, each attribute's tag, text and multiline / constant flags ([D-134](DECISIONS.md)) |
 | `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
 | `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |
 | `attach_underlay` | `autocad_attach_underlay` (PDF, DWF, DGN) | `PdfDefinition` / `DwfDefinition` / `DgnDefinition` in the drawing's dictionary, loaded, and a `PdfReference` / `DwfReference` / `DgnReference` ([D-84](DECISIONS.md)) |
@@ -239,7 +241,8 @@ and `entity_extents` are not "COM has no call for it": COM can do them, but one 
 object. With an older plug-in, or one that cannot do the read, the tool reads over COM instead and
 gives the same answer; a stop or "Outcome unknown" is said, not read again. `block_references` and
 `block_definitions` came after 1.8.1 ([D-127](DECISIONS.md)): 1.8.0 and 1.8.1 say they do not have
-them, and the two block tools read over COM. Which tools come next:
+them, and the two block tools read over COM. `entity_lengths` and `entity_texts` came after 1.8.1 too
+([D-134](DECISIONS.md)): the length and text tools read over COM with 1.8.0 and 1.8.1. Which tools come next:
 [13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
 
 ## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)

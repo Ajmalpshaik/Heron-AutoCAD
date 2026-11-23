@@ -12,6 +12,7 @@ without AutoCAD; the tools only gather that data over COM.
 from __future__ import annotations
 
 import fnmatch
+import math
 from collections.abc import Callable, Iterable
 from typing import Annotated, Any, Literal
 
@@ -158,6 +159,148 @@ def _area(entity: Any) -> float | None:
     except BaseException as exc:  # noqa: BLE001
         raise_if_busy(exc)
         return None
+
+
+# ---- lengths and areas read by the plug-in in one go (#195, D-134) -------------
+
+# Which COM property gives each class its length, and whether COM gives it an
+# Area and a Closed flag, as AutoCAD's own type libraries list them (axdb24enu,
+# axdb25enu and axdb26enu.tlb: the same in all three). The plug-in reads more
+# off the .NET object than COM gives (an ellipse is Closed, a 3D polyline has an
+# Area); only what is listed here is kept. A class not listed is read over COM
+# whenever a tool would read it.
+_NO_LENGTH_OR_AREA = (
+    "AcDbText", "AcDbMText", "AcDbBlockReference", "AcDbMInsertBlock", "AcDbAttributeDefinition",
+    "AcDbPoint", "AcDbXline", "AcDbRay", "AcDbLeader", "AcDbMLeader", "AcDbTable", "AcDbFace",
+    "AcDbSolid", "AcDbTrace", "AcDb3dSolid", "AcDbMline", "AcDbWipeout", "AcDbRasterImage",
+    "AcDbViewport", "AcDbHelix", "AcDbFcf", "AcDbShape", "AcDbPolyFaceMesh", "AcDbPolygonMesh",
+    "AcDbRotatedDimension", "AcDbAlignedDimension", "AcDb2LineAngularDimension",
+    "AcDb3PointAngularDimension", "AcDbDiametricDimension", "AcDbRadialDimension",
+    "AcDbRadialDimensionLarge", "AcDbOrdinateDimension", "AcDbArcDimension",
+)
+COM_FACTS: dict[str, tuple[str | None, bool, bool]] = {
+    "AcDbLine": ("Length", False, False),
+    "AcDbPolyline": ("Length", True, True),
+    "AcDb2dPolyline": ("Length", True, True),
+    "AcDb3dPolyline": ("Length", False, True),
+    "AcDbArc": ("ArcLength", True, False),
+    "AcDbCircle": ("Circumference", True, False),
+    "AcDbEllipse": (None, True, False),
+    "AcDbSpline": (None, True, True),
+    "AcDbHatch": (None, True, False),
+    "AcDbRegion": (None, True, False),
+    **dict.fromkeys(_NO_LENGTH_OR_AREA, (None, False, False)),
+}
+
+
+def plugin_number(value: Any) -> float:
+    """A number from the plug-in as COM gives it (a float); NotTheSame for anything else."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise NotTheSame(f"a number that is not one: {value!r}")  # "not finite" among them
+    return float(value)
+
+
+def _numbers(values: Any) -> tuple[float, ...]:
+    if not isinstance(values, list):
+        raise NotTheSame("a list of numbers that is not one")
+    return tuple(plugin_number(v) for v in values)
+
+
+def _shape(kind: str, shape: Any) -> dict[str, Any]:
+    """A spline's or an ellipse's definition under COM's property names, for curve_length."""
+    if not isinstance(shape, list) or not shape:
+        raise NotTheSame("a definition of the wrong shape")
+    if shape[0] == "spline" and kind == "AcDbSpline" and len(shape) == 6:
+        _, degree, rational, points, knots, weights = shape
+        if isinstance(degree, bool) or not isinstance(degree, int) or not isinstance(rational, bool):
+            raise NotTheSame("a spline's degree or rational flag")
+        found: dict[str, Any] = {
+            "Degree": degree, "IsRational": rational, "ControlPoints": _numbers(points), "Knots": _numbers(knots),
+        }
+        if rational:
+            found["Weights"] = _numbers(weights)
+        return found
+    if shape[0] == "ellipse" and kind == "AcDbEllipse" and len(shape) == 5:
+        major, minor, start, end = (plugin_number(v) for v in shape[1:])
+        return {"MajorRadius": major, "MinorRadius": minor, "StartParameter": start, "EndParameter": end}
+    raise NotTheSame(f"a definition {shape[0]!r} for a {kind}")
+
+
+class PluginEntity:
+    """One object of the plug-in's entity_lengths, as the COM object it stands for (D-134).
+
+    It has only the properties COM has for its class (COM_FACTS); reading any
+    other raises AttributeError, as COM does. So curve_length, _area and
+    autocad_measure's loop read it with the code they read COM with, and the
+    answer is the same either way. A length or area the plug-in could not
+    read is missing too: COM's read of it fails the same way.
+    """
+
+    def __init__(self, row: Any) -> None:
+        if not isinstance(row, list) or len(row) != 6:
+            raise NotTheSame("a row of the wrong shape")
+        kind, layer, length, area, closed, shape = row
+        if not isinstance(kind, str) or not isinstance(layer, str):
+            raise NotTheSame("a class or layer that is not text")
+        if kind not in COM_FACTS:
+            raise NotTheSame(f"a {kind}: which length and area COM gives it is not known here")
+        prop, has_area, has_closed = COM_FACTS[kind]
+        facts: dict[str, Any] = {}
+        length = None if length is None else plugin_number(length)
+        area = None if area is None else plugin_number(area)
+        if prop and length is not None:
+            facts[prop] = length
+        if has_area and area is not None:
+            facts["Area"] = area
+        if has_closed:
+            if not isinstance(closed, bool):
+                raise NotTheSame(f"a {kind} without its Closed flag")
+            facts["Closed"] = closed
+        # .NET's Helix is a Spline, so a helix may come with a spline's definition: COM gives it none.
+        if shape is not None and kind in ("AcDbSpline", "AcDbEllipse"):
+            facts.update(_shape(kind, shape))
+        self.ObjectName = kind
+        self.Layer = layer
+        self._facts = facts
+
+    def __getattr__(self, name: str) -> Any:
+        facts = self.__dict__.get("_facts", {})
+        if name in facts:
+            return facts[name]
+        raise AttributeError(name)
+
+
+def plugin_entities(read: dict[str, Any]) -> list[PluginEntity]:
+    """The objects of the plug-in's entity_lengths answer; NotTheSame when it is not one this server reads as COM."""
+    items = read.get("items")
+    if not isinstance(items, list):
+        raise NotTheSame("an answer without its items")
+    return [PluginEntity(row) for row in items]
+
+
+def plugin_lengths(pairs: Iterable[tuple[int, Any]], classes: Iterable[str] | None = None) -> list[PluginEntity] | None:
+    """The selected objects' lengths and areas, read by the plug-in in one go (#195); None: read them over COM."""
+    args: dict[str, Any] = {"filter": [[code, value] for code, value in pairs]}
+    if classes is not None:
+        args["classes"] = sorted(classes)
+    read = faster_read("entity_lengths", args)
+    if read is None:
+        return None
+    try:
+        return plugin_entities(read)
+    except (TypeError, ValueError, KeyError):  # NotTheSame, or an answer of the wrong shape
+        return None
+
+
+def _length_items(entities: Iterable[Any]) -> list[dict[str, Any]]:
+    """The curves autocad_total_length sums, read off COM objects or the plug-in's (the same code)."""
+    items: list[dict[str, Any]] = []
+    for entity in entities:
+        kind = str(entity.ObjectName)
+        if not is_curve(kind):
+            continue
+        items.append({"type": kind, "layer": str(entity.Layer), "length": _length(entity), "area": _area(entity)})
+    return items
 
 
 def _dynamic_properties(ref: Any) -> list[Any]:
@@ -357,18 +500,16 @@ async def autocad_total_length(
     """
 
     def work() -> list[dict[str, Any]]:
+        # Every curve is read: the plug-in in one go, COM 7-10 round trips each, only for an older one.
+        entities = plugin_lengths(filter_pairs(entity_type, layer), _CURVES)
+        if entities is not None:
+            return _length_items(entities)
         doc = get_doc()
         sel = select_filtered(doc, entity_type=entity_type, layer=layer)
-        items: list[dict[str, Any]] = []
         try:
-            for entity in iter_selection(sel):
-                kind = str(entity.ObjectName)
-                if not is_curve(kind):
-                    continue
-                items.append({"type": kind, "layer": str(entity.Layer), "length": _length(entity), "area": _area(entity)})
+            return _length_items(iter_selection(sel))
         finally:
             discard_selection_set(doc)
-        return items
 
     return dumps(total_lengths(await run(work), group_by))
 

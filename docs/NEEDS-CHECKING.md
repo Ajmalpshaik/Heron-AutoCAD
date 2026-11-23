@@ -768,6 +768,30 @@ when the plug-in read it. **Every row below is NOT RUN.**
 | AU7 | A MINSERT, a block placed on a sheet (layout) and an xref: `autocad_count_blocks()` and `autocad_list_blocks()` both ways | Each is counted the same both ways (the sheet's block included in both) | NOT RUN |
 | AU8 | Draw a line yourself, run AU1 and AU4, then press Ctrl+Z once | The Ctrl+Z takes away **your line**: the reads left no undo step | NOT RUN |
 
+## Group BB - Lengths and texts the plug-in reads in one go: total_length, measure, count_text, find_text (D-134) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-134](DECISIONS.md), issues #195 and #197). Built and tested offline only
+(`tests/test_plugin_length_text_reads.py` compares the plug-in and COM answers on one fake drawing;
+`EntityFactsTests.cs` what the plug-in writes). The plug-in operations `entity_lengths` and
+`entity_texts` have never run. Needs the plug-in rebuilt and reinstalled from code that has them
+(plug-ins 1.8.0 and 1.8.1 do not: they are read over COM), and the server restarted. "Both ways" means
+the same call to a second server started with `--no-bridge`, as in Groups AS and AU; the plug-in's log
+shows `operation entity_lengths` / `operation entity_texts` when the plug-in read it. "The same text"
+means the two answers compared character by character. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BB1 | A real MEP plan: `autocad_total_length(layer='M-*')`, `group_by='type'` and `group_by='none'`, both ways | The log shows `operation entity_lengths`; the same text both ways, every length and area **to the last digit** | NOT RUN |
+| BB2 | A drawing with a line, an open and a closed polyline, an old-style 2D polyline, an open and a closed 3D polyline, an arc and a circle: `autocad_total_length(group_by='type')` both ways | The same text; the closed 3D polyline has no area in either (COM has no Area for it), the circle's area is in both, the open polyline's area in neither | NOT RUN |
+| BB3 | A spline (fit-point and control-point, one rational), a full ellipse and an elliptical arc: `autocad_total_length(group_by='type')` both ways | The same text to the last digit (both measured by the server from the definition); the full ellipse has no area in either | NOT RUN |
+| BB4 | A layer holding lines, a circle, an open polyline, an arc, an ellipse, a hatch, text and a block: `autocad_measure(layer=...)` both ways | The same text: `total_length` (no circumference), `total_area` (the open polyline, arc, ellipse and hatch areas in), `counted_length`, `counted_area`, `by_type` in the same order | NOT RUN |
+| BB5 | A layer with a surface, a mesh or another class D-134's table does not list: `autocad_measure(layer=...)` with the plug-in | No `operation entity_lengths` answer is used (the log shows the call, the tool reads over COM): the same answer as `--no-bridge` | NOT RUN |
+| BB6 | A plan with left- and centre-justified text, mtext with formatting (bold, a font, `\P` line breaks, stacked fractions, a field) and blocks with attributes, one a changed dynamic block: `autocad_find_text(query=...)` for a word in each, both ways, also with `limit=1` and `include_attributes=false` | The log shows `operation entity_texts`; the same text both ways: mtext with its codes, positions (the centred text's too: COM's InsertionPoint against .NET's Position), the `*U` block name, the same first match under `limit=1` | NOT RUN |
+| BB7 | Same plan: `autocad_count_text()`, `source='attributes', tag='SIZE'`, `pattern='^DN'`, `normalise=false`, `sum_numeric=true`, both ways | The same text both ways, `sum` included | NOT RUN |
+| BB8 | A block with a multiline attribute and one with a constant attribute: `autocad_count_text(source='attributes')` with the plug-in; then check over COM what `GetAttributes` gives for each | With the plug-in the tool reads over COM (D-134 does not trust these yet): the same answer as `--no-bridge`. Write down whether COM's TextString of the multiline attribute matches its .NET `TextString`, and whether a constant attribute is in `GetAttributes` | NOT RUN |
+| BB9 | A block whose attribute definitions were deleted from the block after insert (the attributes stay on the reference): `autocad_count_text(source='attributes')` both ways | The same text: COM's `HasAttributes` agrees with the attributes the plug-in found | NOT RUN |
+| BB10 | Plug-in 1.8.1 installed (no length or text reads): BB1, BB4, BB6 and BB7, then on a plan with 20,000 texts and 20,000 curves time `autocad_find_text(query='zzz')` and `autocad_total_length()` with the new plug-in and over COM; then draw a line yourself, run them all, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line** | NOT RUN |
+
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only

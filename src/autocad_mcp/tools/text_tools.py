@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import os
 import re
+from collections.abc import Iterable
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
@@ -19,14 +20,20 @@ from pydantic import Field
 from ..acad import geometry
 from ..acad.curves import read_path
 from ..acad.entities import resolve_handle, resolve_handles
-from ..acad.selection import discard_selection_set, iter_selection, select_filtered
+from ..acad.selection import (
+    discard_selection_set,
+    filter_pairs,
+    iter_selection,
+    select_filtered,
+)
 from ..acad.tables import apply_properties
 from ..acad.text import unformat
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, point_to_list
-from ._shared import LAYER_OPT, before_after, point
+from ._shared import LAYER_OPT, before_after, faster_read, point
+from .takeoff import NotTheSame, plugin_number
 
 Order = Literal["rows", "columns", "path", "given"]
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
@@ -199,6 +206,103 @@ def _attribute_refs(doc: Any, block_name: str | None, layer: str | None) -> tupl
     return refs, objects
 
 
+# ---- texts read by the plug-in in one go (#197, D-134) --------------------------
+
+class PluginAttribute:
+    """One attribute of a block reference, as COM's GetAttributes gives it: TagString and TextString."""
+
+    def __init__(self, tag: str, text: str) -> None:
+        self.TagString = tag
+        self.TextString = text
+
+
+class PluginText:
+    """One object of the plug-in's entity_texts, as the COM object it stands for (D-134).
+
+    A text or an mtext has TextString (an mtext's with its formatting codes
+    left in, as COM gives it), Handle, Layer and InsertionPoint; a block
+    reference has Name (COM's, so a changed dynamic block's *U name),
+    HasAttributes and GetAttributes instead of TextString. Reading anything
+    else raises AttributeError, as COM does, so count_text's and find_text's
+    own loops read it with the code they read COM with.
+    """
+
+    def __init__(self, row: Any, kind: str) -> None:
+        if not isinstance(row, list) or len(row) != 6:
+            raise NotTheSame("a row of the wrong shape")
+        handle, layer, text, point, name, attributes = row
+        if not isinstance(handle, str) or not isinstance(layer, str):
+            raise NotTheSame("a handle or layer that is not text")
+        if not isinstance(point, list) or len(point) != 3:
+            raise NotTheSame("an object without its insertion point")
+        facts: dict[str, Any] = {
+            "Handle": handle,
+            "Layer": layer,
+            "InsertionPoint": tuple(plugin_number(v) for v in point),
+        }
+        if kind in ("block", "insert"):
+            if not isinstance(name, str) or not isinstance(attributes, list):
+                raise NotTheSame("a block reference without its name or attributes")
+            found = []
+            for item in attributes:
+                if not isinstance(item, list) or len(item) != 4:
+                    raise NotTheSame("an attribute of the wrong shape")
+                tag, value, multiline, constant = item
+                if not isinstance(tag, str) or not isinstance(value, str):
+                    raise NotTheSame("an attribute whose tag or text is not text")
+                if multiline is not False or constant is not False:
+                    # Not yet shown to read the same as over COM (Group BB): COM reads the drawing.
+                    raise NotTheSame("a multiline or constant attribute")
+                found.append(PluginAttribute(tag, value))
+            facts["Name"] = name
+            facts["HasAttributes"] = bool(found)
+            self._attributes: tuple[PluginAttribute, ...] | None = tuple(found)
+        else:
+            if not isinstance(text, str):
+                raise NotTheSame("a text without its text")
+            facts["TextString"] = text
+            self._attributes = None
+        self._facts = facts
+
+    def __getattr__(self, name: str) -> Any:
+        facts = self.__dict__.get("_facts", {})
+        if name in facts:
+            return facts[name]
+        raise AttributeError(name)
+
+    def GetAttributes(self) -> tuple[PluginAttribute, ...]:  # noqa: N802 - COM's name
+        if self._attributes is None:
+            raise AttributeError("GetAttributes")
+        return self._attributes
+
+
+def plugin_texts(filters: list[list[tuple[int, Any]]], kinds: list[str]) -> list[list[PluginText]] | None:
+    """The objects each filter selects, read by the plug-in in one go (#197), in the order asked.
+
+    kinds says what each filter selects ("text", "mtext", or "block" /
+    "insert" for block references). None: read them over COM, as when the
+    plug-in is older or its answer is not one this server reads as COM.
+    """
+    if not filters:
+        return []
+    args = {"filters": [[[code, value] for code, value in pairs] for pairs in filters]}
+    read = faster_read("entity_texts", args)
+    if read is None:
+        return None
+    try:
+        groups = read["groups"]
+        if not isinstance(groups, list) or len(groups) != len(filters):
+            raise NotTheSame("an answer without a group for every filter")
+        out = []
+        for group, kind in zip(groups, kinds, strict=True):
+            if not isinstance(group, list):
+                raise NotTheSame("a group that is not a list")
+            out.append([PluginText(row, kind) for row in group])
+        return out
+    except (TypeError, ValueError, KeyError):  # NotTheSame, or an answer of the wrong shape
+        return None
+
+
 @mcp.tool(name="autocad_set_attributes", **tool_meta("Set Block Attributes"))
 @tool_errors
 async def autocad_set_attributes(
@@ -362,25 +466,36 @@ async def autocad_count_text(
     regex = re.compile(pattern, re.IGNORECASE) if pattern else None
 
     def work() -> list[str]:
-        doc = get_doc()
         values: list[str] = []
         kinds = (["text", "mtext"] if source in ("all", "text") else []) + (["insert"] if source in ("all", "attributes") else [])
+
+        def read(kind: str, entities: Iterable[Any]) -> None:
+            for e in entities:
+                if kind != "insert":
+                    values.append(str(e.TextString))
+                    continue
+                try:
+                    if not e.HasAttributes:
+                        continue
+                    for a in e.GetAttributes():
+                        if not tag or str(a.TagString).upper() == tag.upper():
+                            values.append(str(a.TextString))
+                except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
+                    continue
+
+        # Every text and attribute is read: the plug-in in one go, as the COM
+        # objects they stand for (D-134); COM, a round trip each, only for an older one.
+        found = plugin_texts([filter_pairs(kind, layer) for kind in kinds], kinds)
+        if found is not None:
+            for kind, entities in zip(kinds, found, strict=True):
+                read(kind, entities)
+            return values
+        doc = get_doc()
         for kind in kinds:
             sel = select_filtered(doc, entity_type=kind, layer=layer)
             try:
-                for e in iter_selection(sel):
-                    if kind != "insert":
-                        values.append(str(e.TextString))
-                        continue
-                    try:
-                        if not e.HasAttributes:
-                            continue
-                        for a in e.GetAttributes():
-                            if not tag or str(a.TagString).upper() == tag.upper():
-                                values.append(str(a.TextString))
-                    except BaseException as exc:  # noqa: BLE001
-                        raise_if_busy(exc)
-                        continue
+                read(kind, iter_selection(sel))
             finally:
                 discard_selection_set(doc)
         return values

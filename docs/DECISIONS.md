@@ -5,6 +5,48 @@
 
 ---
 
+## D-134 - Lengths and texts are read by the plug-in in one go, dressed as the COM objects they stand for
+
+**Decided:** 2026-11-23, by session S8 of the 2026-11-23 wave ("Yes, next 10"), on issues #195 and
+#197 (ranks 4 and 6 of #74), under D-114. **Status:** in force; tested offline only, live rows NOT RUN
+(NEEDS-CHECKING Group BB). `autocad_total_length` and `autocad_measure(layer=...)` ask the plug-in's
+new Read operation `entity_lengths`; `autocad_count_text` and `autocad_find_text` ask `entity_texts`.
+COM stays the fallback, as D-114 sets out. The rules:
+(1) **Raw facts, and the tools' own COM code reads them.** The plug-in sends, per selected object in
+the order selected, what it read off the .NET object: for `entity_lengths` the class (COM's
+ObjectName), layer, length (`Line.Length`, `Polyline.Length`, `Polyline2d.Length`,
+`Polyline3d.Length`, `Arc.Length`, `Circle.Circumference`), area (`Curve.Area`, `Hatch.Area`,
+`Region.Area`), closed flag and, for a spline or an ellipse, its definition (NURBS data; radii and
+parameters); for `entity_texts`, one group per filter asked for (text, mtext, block references), each
+object's handle, layer, text (a text's `TextString`, an mtext's `Contents`, formatting codes left in),
+insertion point (`Position` / `Location`), block `Name` (the `*U` name, as COM's Name) and attributes
+in the reference's own order. The server turns each row into a stand-in object with COM's property
+names (`takeoff.PluginEntity`, `text_tools.PluginText`), and the loops that read COM objects read
+these unchanged: `curve_length`, `_area`, `autocad_measure`'s loop, `count_text`'s and `find_text`'s.
+So a spline or an ellipse is measured by `geometry.nurbs_length` / `ellipse_length` from the same
+numbers either way, and nothing about the answer is built twice.
+(2) **Only what COM gives.** .NET gives more than COM: an ellipse is `Closed`, a 3D polyline and a line
+have an `Area`, a helix is a `Spline` (the plug-in sends no definition for it, and the server would not use one). A stand-in has only the properties COM has for its class, from `takeoff.COM_FACTS`,
+read off AutoCAD's own type libraries (`axdb24enu.tlb`, `axdb25enu.tlb`, `axdb26enu.tlb` list the
+same: a 3D polyline has Length and Closed but no Area; an arc ArcLength and Area; a circle
+Circumference and Area, no Length; an ellipse Area only; a spline Area and Closed). Reading any other
+raises AttributeError, as COM does, so a full ellipse still has no area in `total_length` and a circle
+still adds no length in `measure`. `tests/test_plugin_length_text_reads.py` checks the table against
+those type libraries when AutoCAD is installed (skipped in CI).
+(3) **Read over COM when not sure.** The whole read goes to COM when an object's class is not in the
+table (in `measure`, which reads every class; `total_length` asks for the curve classes only), a
+number is not finite (the plug-in writes the text "not finite", since its JSON writer refuses NaN), an
+attribute is multiline or constant (not yet shown to read the same, BB rows), a group is missing for a
+filter asked for, or anything has the wrong shape. These checks come before the loops, whose broad
+`except` would otherwise turn a bad row into a quietly different answer.
+(4) **An older plug-in.** As D-127: `entity_lengths` and `entity_texts` join `bridge.NEWER_READS`;
+1.8.0 and 1.8.1 say they do not have them and the tools read over COM; the capability manifest names
+no "faster from" version for these four tools until the release is named.
+`_attribute_refs` (`text_tools.py`) is unchanged: `count_text` has its own loop, and the block-attribute
+reads move in #198. Rejected: matching the search text in the plug-in (C#'s lower case is not
+Python's `.lower()` for every letter, so a match could be missed); measuring splines and ellipses in
+the plug-in (the server's own sum would differ in the last digits); a merged "length" fact (the two
+tools read different properties: `total_length` takes Circumference, `measure` does not).
 ## D-133 - Text typed with SendCommand refuses control characters; run_lisp asks for a named box once per job; a stopped job gets no expect_dialog
 
 **Decided:** 2026-11-23, by session S7 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BA). Issues [#242](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/242) and [#210](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/210).
