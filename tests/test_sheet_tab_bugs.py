@@ -1,4 +1,4 @@
-"""A sheet tab on screen, and a new sheet's page setup (issues #39, #40; D-140). No AutoCAD.
+"""A sheet tab on screen, and a new sheet's page setup (issues #39, #40; D-141). No AutoCAD.
 
 #39 (row D33, AutoCAD 2027, 2026-10-28): with a sheet tab active, autocad_status
 and autocad_add_table(space="paper") raised a bare "Exception occurred". The

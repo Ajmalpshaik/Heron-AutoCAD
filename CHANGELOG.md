@@ -6,7 +6,7 @@ Newest first. Dates are when the change was made.
 
 - **Sheet-tab and preview bugs (2026-11-23, [#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
   [#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40), [#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41),
-  [D-140](docs/DECISIONS.md)).** `autocad_create_layout` over COM no longer answers "Outcome unknown: AutoCAD
+  [D-141](docs/DECISIONS.md)).** `autocad_create_layout` over COM no longer answers "Outcome unknown: AutoCAD
   went busy" for a sheet it made: the page setup set `CustomScale`, which a layout does not have
   (`SetCustomScale` now, also for the PDF export), and centred a layout plot, which AutoCAD refuses; the
   plot style table now gets written. `autocad_status` on a sheet tab reads the space and tab from TILEMODE
@@ -15,6 +15,25 @@ Newest first. Dates are when the change was made.
   in the gate's first look is an answer, not a bare "Exception occurred". `autocad_preview` of a whole
   sheet whose text cannot read in one picture adds the four close-ups by itself (`detail_added`;
   `detail=1` for one picture). Tested offline only; live rows D8, D20, D33 and AM7 NOT RUN.
+- **Replace-shaped edits D-136 did not cover get the whole-change question (2026-11-23,
+  [#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), [D-140](docs/DECISIONS.md)).** A join,
+  explode, trim or break run as a step of `autocad_sequence` or a saved command makes the whole call a
+  replace job: Heron's UNDO mark first, refused with none, and "Undo the whole change" takes back the whole
+  sequence, not only the erased objects. `autocad_solid_boolean`, `autocad_associative_array`,
+  `autocad_make_block` (in place of the objects) and `autocad_add_region` (with `erase_outlines`) are replace
+  jobs too. The gate now gets each call's arguments from `tool_errors`. The runner gives each BG row its
+  reason (a person answers the box). Tested offline only; live rows BG1-BG8 NOT RUN.
+- **The live-check runner covers groups AU, AV, AW, AX, AZ, BA, BB, BC, BD, BE and BF, part 2 of
+  [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222), which it closes (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
+  New files `tools/live_check_textsafety.py` (AW, BA, BF), `live_check_keepbox.py` (AV, AX, AZ, BC) and
+  `live_check_plugin_reads.py` (AU, BB, BE) and `live_check_bugfixes.py` (BD), each with an offline test holding a good and a bad recording per
+  check. 18 rows are measured: AW1-AW4, AW9, AW11-AW14, BA1, BA2, BF1, BF2, AV6, AZ6, BC13, BD4 and BD6. The other 70
+  have their reason: the plug-in reads (AU, BB, BE) are compared with a second `--no-bridge` server, which the
+  runner does not start; the palette, Keep and erase boxes, Ask to Keep on, UNDO off, the Options dialog, HERONSTOP
+  and any command left open on purpose are a person's. AV6, AZ6 and BA2 need the Model tab in front and say "not
+  run this time" with a sheet in front (the runner never switches tab). With part 1 every group of the register
+  on main except the older A, B, C, G-L and S is the runner's (245 measured, 334 with a reason). `tests/test_live_check_render.py` also gets the recordings for AE2's `-VIEW _Restore` path (S11), good and bad. No rule is new
+  (no D-135), no tool changed. **Run only against recorded answers, never in AutoCAD.**
 - **Tool bugs found by the live-check runner, settled (2026-11-23, [#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218),
   [D-137](docs/DECISIONS.md)).** A super hatch refused after attaching its xref no longer raises the
   keep-erased box (a table record made and erased in one job is no erase, in the plug-in's count).

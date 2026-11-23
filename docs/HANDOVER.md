@@ -8,7 +8,7 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (S16: sheet tab and preview bugs, #39, #40, #41; D-140)
+## Latest - 2026-11-23 (S16: sheet tab and preview bugs, #39, #40, #41; D-141)
 
 Root-caused by reading the code, nothing run in AutoCAD. **#40 found:** the COM page setup set a
 layout's `CustomScale`, which does not exist (`SetCustomScale` does), then centred a layout plot;

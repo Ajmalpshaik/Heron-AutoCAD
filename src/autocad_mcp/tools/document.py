@@ -358,7 +358,7 @@ def _is_sheet(box: Box) -> bool:
 
 
 def _sheet_too_fine(doc: Any, box: Box, clear: float) -> str | None:
-    """Why a whole-sheet extents preview gets its close-ups by itself, or None (#41, D-140).
+    """Why a whole-sheet extents preview gets its close-ups by itself, or None (#41, D-141).
 
     On 2026-10-28 an extents picture of an A1 sheet at 1:1 showed only its
     frame, while windows over its parts showed everything. One picture of a
@@ -466,7 +466,7 @@ def _plot_png(
     With detail 2 or 3 the same area is then plotted again as overlapping
     windows (D-102), each beside target as <name>-<picture>.png. With detail
     None (the tool's default) a whole sheet whose text cannot read in one
-    picture gets the four close-ups by itself (#41, D-140).
+    picture gets the four close-ups by itself (#41, D-141).
     """
     auto = detail is None
     detail = 1 if detail is None else detail

@@ -379,6 +379,31 @@ def test_ae3_restores_the_view_by_hand(monkeypatch, typed):
     assert typed == ["_.-VIEW _Restore LC-AE3-CAM-1\n"]
 
 
+def _ae2_perspective(*reads: int) -> dict:
+    """AE2 with PERSPECTIVE read as these values in turn (the check reads it twice)."""
+    return {**AE2, "autocad_get_variable": variables(PERSPECTIVE=Steps(list(reads)), LENSLENGTH=24.0,
+                                                     VIEWDIR=way(AE2_EYE, AE2_TARGET))}
+
+
+def test_ae2_types_nothing_when_perspective_comes_on_by_itself(monkeypatch, typed):
+    verdict = play(monkeypatch, CHECKS["AE2"], _ae2_perspective(1, 1))
+    assert verdict.passed and typed == [] and "came on by itself" in verdict.evidence
+
+
+def test_ae2_restores_the_view_by_hand_when_perspective_stays_0_and_passes(monkeypatch, typed):
+    verdict = play(monkeypatch, CHECKS["AE2"], _ae2_perspective(0, 1))
+    assert verdict.passed, verdict.evidence
+    assert typed == [f"_.-VIEW _Restore {AE2_NAME}\n"]
+    assert f"stayed 0 until VIEW Restore {AE2_NAME}" in verdict.evidence
+
+
+def test_ae2_fails_when_perspective_is_still_0_after_view_restore(monkeypatch, typed):
+    verdict = play(monkeypatch, CHECKS["AE2"], _ae2_perspective(0, 0))
+    assert not verdict.passed and not verdict.refused
+    assert typed == [f"_.-VIEW _Restore {AE2_NAME}\n"]
+    assert "PERSPECTIVE reads 0" in verdict.evidence and "VIEW Restore" in verdict.evidence
+
+
 def test_ae4_fails_when_replace_erases_the_old_view(monkeypatch):
     calls = AE4["autocad_add_camera_view"].items
     erasing = seq(calls[0], calls[1], camera("LC-AE4-CAM-1", AE4_MOVED, AE4_TARGET, created=False, erased=1), calls[3])

@@ -111,7 +111,7 @@ class TestTheAnswerSaysWhatWasPlotted:
         assert info["smallest_clear_text"] == pytest.approx(8 * 841 / 1600, rel=0.01)
 
     async def test_text_smaller_than_that_gets_a_tip_to_look_closer(self, make_doc):
-        # One picture asked for (detail=1): a whole sheet left out gets its close-ups by itself (D-140).
+        # One picture asked for (detail=1): a whole sheet left out gets its close-ups by itself (D-141).
         make_doc(text_size=2.5)
         info = _info(await document.autocad_preview(detail=1))
         assert "detail=2" in info["tip"]
@@ -154,7 +154,7 @@ class TestTheAnswerSaysWhatWasPlotted:
 
 class TestDetailGivesCloseUpsOfTheSameArea:
     async def test_detail_1_is_one_picture_as_before(self, make_doc):
-        # The default was one picture until D-140; detail=1 keeps it so.
+        # The default was one picture until D-141; detail=1 keeps it so.
         doc = make_doc()
         result = await document.autocad_preview(detail=1)
         assert [type(block) for block in result] == [Image, str]
@@ -268,7 +268,7 @@ class TestDetailGivesCloseUpsOfTheSameArea:
 
 
 class TestAWholeSheetGetsItsCloseUpsByItself:
-    """#41, D-140: the A1 extents picture showed only the frame; windows showed everything."""
+    """#41, D-141: the A1 extents picture showed only the frame; windows showed everything."""
 
     async def test_an_a1_sheet_at_1_1_comes_with_four_close_ups(self, make_doc):
         doc = make_doc()

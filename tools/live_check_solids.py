@@ -259,7 +259,7 @@ CHECKS: tuple[Check, ...] = (
 )
 
 BY_EYE: dict[str, str] = {
-    "AR12": "the two-piece solid comes from a union, which erases the two boxes, so Heron asks to keep them erased (D-50)",
+    "AR12": "the two-piece solid comes from a union, which erases the two boxes, so Heron asks to keep the change or undo the whole change (D-140)",
     "AR13": "needs Ask to Keep on and Discard answered by hand each time, and the runner stops when Ask to Keep is on",
     "AR14": "needs AutoCAD 2025 / 2026 and 2021-2024 machines, which are not here",
 }
