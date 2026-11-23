@@ -1,7 +1,8 @@
 """Live checks for Overkill, boundary, eTransmit, underlays and clips (group AD).
 
 Run by ``live_check.py``; see ``live_common.py`` for the rules every check keeps.
-Overkill is only listed here (its confirm step erases, so Heron asks, D-50);
+Overkill is only listed here (its confirm step erases, so Heron asks, D-50),
+except its polyline tidy (AD13), whose confirm only rebuilds a polyline;
 the underlay and clip rows need files and an eye, and the big-plan rows need
 the plan that hung -BOUNDARY, so those are left to a person.
 """
@@ -83,11 +84,40 @@ async def ad11_etransmit_refuses_unsaved_and_lists_without_writing(ctx: Context)
             "The Publish-off refusal was not tried: it needs Publish off, this row Publish on")
 
 
+async def ad13_overkill_rebuilds_a_polyline_going_back_over_itself(ctx: Context) -> str:
+    o = lc.origin("AD13")
+    made = parse(await batch.autocad_batch_draw(operations=[
+        {"type": "polyline", "points": [_at(o, 0, 500), _at(o, 0, 0), _at(o, 1000, 0), _at(o, 400, 0)], "layer": "LC-AD13"},
+    ]))
+    (handle,) = made["handles"]
+    listed = parse(await cleanup.autocad_overkill(handles=[handle], tidy_polylines=True))
+    rows = listed.get("rebuild") or []
+    expect(listed.get("confirmed") is False and len(rows) == 1 and rows[0].get("handle") == handle,
+           f"the dry run did not list {handle} to rebuild: {str(listed)[:160]}")
+    going = [g.get("segment") for g in rows[0].get("segments_going") or []]
+    expect(going == [2], f"it lists segments {going} going, not segment 2 (the tail going back)")
+    before = parse(await query.autocad_get_entity(handle=handle))
+    expect(before.get("vertex_count") == 4, f"the dry run changed the polyline: {before.get('vertex_count')} vertices")
+    done = parse(await cleanup.autocad_overkill(handles=[handle], tidy_polylines=True, confirm=True,
+                                                plan_id=listed["plan_id"]))
+    expect(done.get("confirmed") is True and not done.get("erase_count"), f"the confirm answered {str(done)[:160]}")
+    after = parse(await query.autocad_get_entity(handle=handle))
+    want = [_at(o, 0, 500), _at(o, 0, 0), _at(o, 1000, 0)]
+    got = after.get("vertices") or []
+    same = len(got) == 3 and all(near(p[0], q[0], 1e-6) and near(p[1], q[1], 1e-6) for p, q in zip(got, want, strict=False))
+    expect(same, f"after the confirm {handle} has vertices {got}, not {want}")
+    expect(near(after.get("length"), 1500.0, 1e-6), f"its length is {after.get('length')}, not 1500")
+    return (f"the dry run listed segment 2 of {handle} going and left it at 4 vertices; the confirm rebuilt the same "
+            "handle to 3 vertices, length 1500, nothing erased. Ctrl+Z (one step back) was not tried by the runner")
+
+
 CHECKS: tuple[Check, ...] = (
     Check("AD1", "AD", "Overkill lists and changes nothing", ad1_overkill_lists_and_changes_nothing),
     Check("AD8", "AD", "a room round a column has its net area", ad8_a_room_round_a_column_has_its_net_area),
     Check("AD11", "AD", "eTransmit refuses unsaved, lists without writing",
           ad11_etransmit_refuses_unsaved_and_lists_without_writing, frozenset({"publish"})),
+    Check("AD13", "AD", "Overkill rebuilds a polyline going back over itself",
+          ad13_overkill_rebuilds_a_polyline_going_back_over_itself),
 )
 
 BY_EYE: dict[str, str] = {

@@ -246,6 +246,93 @@ class TestOverkillTool:
         assert cleanup.read_curve(arc)["start_angle"] == 0.0
 
 
+
+class Pline(Ent):
+    """A lightweight polyline: vertices, bulges and widths, writes recorded."""
+
+    def __init__(self, doc, handle, vertices, bulges=None, closed=False, layer="0", widths=None):
+        super().__init__(doc, handle, "AcDbPolyline", layer, Closed=closed, Normal=(0.0, 0.0, 1.0), Elevation=0.0)
+        object.__setattr__(self, "verts", [list(v) for v in vertices])
+        object.__setattr__(self, "bulges", list(bulges or [0.0] * len(vertices)))
+        object.__setattr__(self, "widths", widths)
+        doc.ModelSpace.items.append(self)
+
+    @property
+    def Coordinates(self):
+        return tuple(c for v in self.verts for c in v)
+
+    @Coordinates.setter
+    def Coordinates(self, value):
+        flat = list(getattr(value, "value", value))
+        object.__setattr__(self, "verts", [flat[i:i + 2] for i in range(0, len(flat), 2)])
+        self.doc.set.append((self.Handle, "Coordinates", tuple(flat)))
+
+    def GetBulge(self, i):
+        return self.bulges[i] if i < len(self.bulges) else 0.0
+
+    def SetBulge(self, i, b):
+        while len(self.bulges) <= i:
+            self.bulges.append(0.0)
+        self.bulges[i] = b
+
+    @property
+    def ConstantWidth(self):
+        if self.widths:
+            raise RuntimeError("no one width")
+        return 0.0
+
+    @ConstantWidth.setter
+    def ConstantWidth(self, value):
+        self.doc.set.append((self.Handle, "ConstantWidth", value))
+
+    def GetWidth(self, i):
+        return self.widths[i] if self.widths else (0.0, 0.0)
+
+
+class TestOverkillTidyPolylines:
+    def drawing(self, widths=None):
+        doc = Doc()
+        Pline(doc, "3A", [[0, 500], [0, 0], [1000, 0], [400, 0]], widths=widths)
+        Pline(doc, "3B", [[0, 2000], [10, 2000], [10, 2005], [10, 2000], [20, 2000]])
+        return doc
+
+    def test_off_by_default_polylines_are_never_changed(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing())
+        out = call(cleanup.autocad_overkill())
+        assert "rebuild" not in out and out["left_count"] == 2
+        assert "Nothing" in out["note"] and doc.set == []
+
+    def test_the_dry_run_lists_the_segments_going_and_changes_nothing(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing())
+        out = call(cleanup.autocad_overkill(tidy_polylines=True))
+        assert out["confirmed"] is False and out["rebuild_count"] == 1
+        row = out["rebuild"][0]
+        assert row["handle"] == "3A" and [g["segment"] for g in row["segments_going"]] == [2]
+        assert out["left"][0]["handles"] == ["3B"] and "part way along" in out["left"][0]["why"]
+        assert doc.set == [] and doc.marks == [] and "plan_id" in out["next_step"]
+
+    def test_confirm_rebuilds_the_same_polyline_in_one_undo_step(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing())
+        listed = call(cleanup.autocad_overkill(tidy_polylines=True))
+        out = call(cleanup.autocad_overkill(tidy_polylines=True, confirm=True, plan_id=listed["plan_id"]))
+        assert out["confirmed"] is True and "rebuilt 1 polyline" in out["note"]
+        assert doc.by_handle["3A"].verts == [[0.0, 500.0], [0.0, 0.0], [1000.0, 0.0]]
+        assert doc.by_handle["3B"].verts == [[0, 2000], [10, 2000], [10, 2005], [10, 2000], [20, 2000]]
+        assert doc.marks == ["start", "end"] and doc.deleted == []
+
+    def test_the_plan_id_of_a_tidy_listing_does_not_confirm_a_plain_one(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing())
+        listed = call(cleanup.autocad_overkill(tidy_polylines=True))
+        out = call(cleanup.autocad_overkill(confirm=True, plan_id=listed["plan_id"]))
+        assert "Nothing" in out["note"] and doc.set == []
+
+    def test_a_polyline_whose_width_changes_is_left(self, monkeypatch):
+        doc = patch(monkeypatch, cleanup, self.drawing(widths=[(0.0, 5.0), (5.0, 5.0), (5.0, 5.0)]))
+        out = call(cleanup.autocad_overkill(tidy_polylines=True))
+        assert out["rebuild_count"] == 0 and any("width changes" in r["why"] for r in out["left"])
+        assert doc.set == []
+
+
 # ---- boundary -------------------------------------------------------------------------
 
 

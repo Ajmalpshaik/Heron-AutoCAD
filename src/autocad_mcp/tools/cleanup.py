@@ -36,6 +36,7 @@ from ._shared import (
     ucs_for,
     world_coords,
 )
+from .edit2d import _width, _write_polyline
 from .xrefs import _walk, _xref_nodes
 
 # ---- Overkill (#112) ---------------------------------------------------------------
@@ -88,6 +89,8 @@ def read_curve(entity: Any) -> dict[str, Any] | None:
             item["end_angle"] = float(entity.EndAngle)
         return item
     name = str(entity.ObjectName)
+    if name == "AcDb2dPolyline":
+        item["old_style"] = True
     if name == "AcDb2dPolyline" and int(_try(lambda: entity.Type, 0) or 0) != 0:
         # A curve-fit or spline-fit polyline: its vertices are not its shape.
         item["kind"] = "fitted polyline"
@@ -163,7 +166,10 @@ def _short(rows: list[dict[str, Any]], most: int = MOST_LISTED) -> list[dict[str
 
 def _fingerprint(found: dict[str, Any]) -> str:
     """A short fingerprint of exactly what would be erased and stretched, to tie confirm to the list shown."""
-    text = json.dumps({"erase": found["erase"], "change": found["change"]}, sort_keys=True, default=str)
+    shown = {"erase": found["erase"], "change": found["change"]}
+    if found.get("rebuild"):
+        shown["rebuild"] = found["rebuild"]
+    text = json.dumps(shown, sort_keys=True, default=str)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
 
@@ -175,6 +181,7 @@ async def autocad_overkill(
     tolerance: Annotated[float, Field(default=overkill_geometry.DEFAULT_TOLERANCE, gt=0, le=1000, description="How close two curves must be to count as the same, in drawing units. AutoCAD's OVERKILL uses 0.000001; an import with rounding noise may need 0.01 or more.")] = overkill_geometry.DEFAULT_TOLERANCE,
     ignore_layer: Annotated[bool, Field(default=False, description="true: a line on one layer can be a copy of one on another layer. false (the default): only on the same layer.")] = False,
     join_end_to_end: Annotated[bool, Field(default=False, description="true: lines (and arcs) that only touch end to end in one straight run are joined into one too, as OVERKILL's 'combine co-linear objects when aligned end to end'.")] = False,
+    tidy_polylines: Annotated[bool, Field(default=False, description="true: a polyline that goes back over itself, or has zero-length segments, is rebuilt from its own vertices without the doubled stretch, as OVERKILL's 'optimize segments within polylines'. false (the default): polylines are only erased when they are copies, never changed.")] = False,
     space: Annotated[str, SPACE_OPT] = "model",
     confirm: Annotated[bool, Field(default=False, description="false (the default) only lists what would be erased and stretched. true does it, in one undo step, after the modeller has seen the list.")] = False,
     plan_id: Annotated[str | None, Field(default=None, description="With confirm=true: the plan_id the listing call gave. If the drawing changed since, nothing is done and it says so.")] = None,
@@ -189,8 +196,14 @@ async def autocad_overkill(
     of a polyline, a loose line lying on a polyline. The oldest object
     (lowest handle) is always the one kept.
 
-    Polylines are never broken or changed: where one overlaps another, or a
-    loose line lies only partly on one, it is listed under 'left'.
+    Polylines are never broken: where one overlaps another, or a loose line
+    lies only partly on one, it is listed under 'left'. With
+    tidy_polylines=true a polyline that goes back over itself (a doubled
+    stretch at its end, or a zig-zag along one straight line or circle) or
+    has zero-length segments is rebuilt from its own vertices without them
+    (listed under 'rebuild' with the segments going); one that goes back
+    over itself part way along, which one polyline cannot draw any other
+    way, is listed under 'left'.
 
     The first call changes nothing and gives a plan_id. With confirm=true
     and that plan_id it erases and stretches exactly what was listed (if
@@ -204,6 +217,7 @@ async def autocad_overkill(
         tolerance (float): how close is the same, in drawing units.
         ignore_layer (bool): compare across layers.
         join_end_to_end (bool): also join lines touching end to end.
+        tidy_polylines (bool): also rebuild polylines going back over themselves.
         space (str): 'model' or 'paper'.
         confirm (bool): false lists, true does it.
         plan_id (Optional[str]): the listing's plan_id, needed with confirm.
@@ -213,6 +227,9 @@ async def autocad_overkill(
              "stretch_count": int, "erase": [{"handle", "type", "reason",
              "kept"}], "change": [{"handle", "type", "start", "end" |
              "start_angle", "end_angle", "was", "why"}],
+             "rebuild_count": int, "rebuild": [{"handle", "vertices", "bulges",
+             "segments_going": [{"segment", "from", "to", "why"}],
+             "new_segments", "why"}],
              "left": [{"handles", "why"}], "skipped_count": int}
 
     Examples:
@@ -221,6 +238,8 @@ async def autocad_overkill(
         - Use when: "run overkill on the A-WALL layer" — layers=['A-WALL'].
         - Use when: "delete duplicate lines after the Revit export".
         - Use when: "merge the overlapping duct lines into one".
+        - Use when: "the polylines go back over themselves, optimise the
+          segments" — tidy_polylines=true.
         - Don't use when: you want to delete objects you already picked -
           autocad_delete_entities.
         - Don't use when: you want overlapping objects listed for a check -
@@ -239,7 +258,19 @@ async def autocad_overkill(
         doc = get_doc()
         require_idle(doc)
         items, scanned = _curves_in(doc, space, layers, handles)
-        found = overkill_geometry.plan(items, tolerance, ignore_layer, join_end_to_end)
+        found = overkill_geometry.plan(items, tolerance, ignore_layer, join_end_to_end, tidy_polylines)
+        widths: dict[str, float] = {}
+        if found["rebuild"]:
+            # Widths are read only for the polylines to rebuild: one whose width
+            # changes along it is left, as the everyday 2D edits leave it.
+            by_handle = {str(i["handle"]): i for i in items}
+            for row in found["rebuild"]:
+                try:
+                    widths[row["handle"]] = _width(doc.HandleToObject(row["handle"]))
+                except AutocadError:
+                    by_handle[row["handle"]]["width_varies"] = True
+            if len(widths) < len(found["rebuild"]):
+                found = overkill_geometry.plan(items, tolerance, ignore_layer, join_end_to_end, tidy_polylines)
         fingerprint = _fingerprint(found)
         result: dict[str, Any] = {
             "confirmed": False,
@@ -255,9 +286,12 @@ async def autocad_overkill(
             "skipped_count": len(found["skipped"]),
             "skipped": _short(found["skipped"], 20),
         }
-        if len(found["erase"]) > MOST_LISTED or len(found["change"]) > MOST_LISTED:
+        if tidy_polylines:
+            result["rebuild_count"] = len(found["rebuild"])
+            result["rebuild"] = _short(found["rebuild"])
+        if max(len(found["erase"]), len(found["change"]), len(found["rebuild"])) > MOST_LISTED:
             result["listed"] = f"The first {MOST_LISTED} of each are listed; the counts are whole."
-        if not found["erase"] and not found["change"]:
+        if not found["erase"] and not found["change"] and not found["rebuild"]:
             result["note"] = "Nothing doubled or overlapping was found. Nothing was changed."
             return result
         if not confirm:
@@ -275,7 +309,7 @@ async def autocad_overkill(
                    "the drawing (or the options) changed since that list, so it is not what the modeller saw. ")
                 + "Call again without confirm to list it, show it, then confirm with the new plan_id."
             )
-        acting_on = {r["handle"] for r in found["erase"] + found["change"]}
+        acting_on = {r["handle"] for r in found["erase"] + found["change"] + found["rebuild"]}
         touched = {str(i["layer"]) for i in items if i["handle"] in acting_on}
         locked = _locked(doc, touched)
         if locked:
@@ -292,13 +326,19 @@ async def autocad_overkill(
                 else:
                     entity.StartAngle = float(row["start_angle"])
                     entity.EndAngle = float(row["end_angle"])
+            for row in found["rebuild"]:
+                # The same polyline (same handle), its vertices and bulges set again.
+                path = {"vertices": row["vertices"], "bulges": row["bulges"], "closed": row["closed"]}
+                _write_polyline(doc.HandleToObject(row["handle"]), path, widths.get(row["handle"], 0.0))
             for row in found["erase"]:
                 doc.HandleToObject(row["handle"]).Delete()
         result["confirmed"] = True
+        rebuilt = f", rebuilt {len(found['rebuild'])} polyline(s)" if found["rebuild"] else ""
         result["note"] = (
-            f"Erased {len(found['erase'])} and stretched {len(found['change'])} in one undo step. "
+            f"Erased {len(found['erase'])} and stretched {len(found['change'])}{rebuilt} in one undo step. "
             "AutoCAD asks the modeller whether to keep the erased ones erased; if they say no, "
-            "the erased objects come back and the stretched lines stay stretched (nothing is lost)."
+            "the erased objects come back and the stretched lines (and rebuilt polylines) stay as they "
+            "now are (nothing is lost)."
         )
         return result
 

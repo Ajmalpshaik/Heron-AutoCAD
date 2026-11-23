@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
+  [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-145](docs/DECISIONS.md)).** AutoCAD
+  OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end
+  and a zig-zag along one straight line or circle are listed under `rebuild` with the segments going, and the
+  confirm (same `plan_id`, same undo step) sets that polyline's vertices and bulges again from vertices it
+  already had. A spike part way along, an old-style 2D polyline and one whose width changes along it are left,
+  with why. Off by default, so nothing changes for a call without it. Tested offline only; live row AD13 NOT RUN.
 - **Lengthen, and a fillet or chamfer between a line, an arc and a polyline's end (2026-11-23,
   [#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154), [D-144](docs/DECISIONS.md)).** New tool
   `autocad_lengthen` makes a line, an arc or an open polyline longer or shorter at one end: by a distance
