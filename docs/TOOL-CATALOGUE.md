@@ -4,7 +4,7 @@
 
 Every one of Heron's **199** tools, in plain words, grouped by the job it does. For each tool: what it does, the problem it solves, where to find it, how to use it step by step, what it needs from you, the result to expect, its limits, and whether anyone has seen it work in a real AutoCAD.
 
-> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **153** NOT RUN, **1** FAIL, **26** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
+> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **154** NOT RUN, **1** FAIL, **25** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
 
 ## How Heron's tools work (the same for every tool)
 
@@ -206,7 +206,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | [`autocad_separate_solid`](#autocad_separate_solid) | 3D, lights and rendering set-up | Changes | NOT RUN |
 | [`autocad_sequence`](#autocad_sequence) | Heron itself, looking, commands and settings | Changes | NOT RUN |
 | [`autocad_set_3d_view`](#autocad_set_3d_view) | 3D, lights and rendering set-up | none: changes only what is on screen | NOT RUN |
-| [`autocad_set_attributes`](#autocad_set_attributes) | Blocks, attributes and references | Changes | NO ROW |
+| [`autocad_set_attributes`](#autocad_set_attributes) | Blocks, attributes and references | Changes | NOT RUN |
 | [`autocad_set_current_layer`](#autocad_set_current_layer) | Layers and linetypes | Changes | NOT RUN |
 | [`autocad_set_dynamic_properties`](#autocad_set_dynamic_properties) | Blocks, attributes and references | Changes | PASS |
 | [`autocad_set_layer_state`](#autocad_set_layer_state) | Layers and linetypes | Changes | NOT RUN |
@@ -2562,7 +2562,7 @@ A dimension style is built the way AutoCAD's own API requires: the DIM variables
 - The drawing's own DIM variables are put back even if a style fails.
 - The plug-in does part of the work (`multileader_style`, `table_style`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, AN1, AN3, AN5, AN7, AN13).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, AN1, AN3, AN5, AN7, AN13, AZ1).
 
 ### `autocad_find_replace_text`
 
@@ -3640,7 +3640,7 @@ Same values for all, or one row per block from a list or CSV, matched by a tag o
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AZ4).
 
 ### `autocad_set_dynamic_properties`
 
@@ -3972,7 +3972,7 @@ Reading the layer list first is the reliable way to use the drawing's own naming
 **Limits and versions.**
 - The plug-in does part of the work (`layer_state_names`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q3, V2, AB5, AL1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q3, V2, AB5, AZ6, AL1).
 
 ### `autocad_merge_layers`
 
@@ -4401,10 +4401,11 @@ Give two corners, or the objects the area should cover, and it is saved as an Au
 
 **Limits and versions.**
 - A name already saved is refused unless replace=true; a layout's (paper space) view of that name is refused even then, in plain words, and is never deleted (also when AutoCAD does not say which layout the view belongs to).
+- A name holding a line break, Esc, tab or other control character is refused before anything is typed or any view is deleted (#242).
 - Objects that report no extents are named rather than silently skipped.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13, AV5, AV6, AV7).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13, AV5, AV6, AV7, BA1, BA2).
 
 ### `autocad_sheet_set`
 
@@ -6509,7 +6510,7 @@ Unlike autocad_send_command, this gets a value back. AutoCAD's COM interface has
 - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are rejected before anything is sent, since AutoCAD would otherwise sit waiting for the closing bracket.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10).
+**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10, BA3).
 
 ### `autocad_saved_command`
 
@@ -6579,7 +6580,7 @@ This is the escape hatch for anything the typed tools do not cover — BOUNDARY,
 - expect_box without press (or the reverse), or a plug-in older than 1.7.0, is refused before anything is sent.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N4, V1, V4, V7, Z1, RV1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N4, V1, V4, V7, Z1, RV1, BA4).
 
 ### `autocad_sequence`
 
@@ -6615,7 +6616,7 @@ This is AutoLISP's ``progn``: the steps that only make sense together, sent toge
 - A step that fails while running is reported with its own error text; the steps after it are marked skipped unless stop_on_error=false.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D27, D28, D29, D30, F23, N7, X24, Z5, AJ8, RV3).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D27, D28, D29, D30, F23, N7, X24, Z5, AJ8, AZ1, AZ5, RV3).
 
 ### `autocad_set_variable`
 
@@ -6674,14 +6675,15 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**: Select and Z
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"shown": int, "isolated": bool, "not_found": [str]} or {"isolation_ended": true}`
+- Technical shape of the answer: `JSON: {"shown": int, "isolated": bool, "not_found": [str], "not_selectable": [{"handle": str, "reason": str}]} or {"isolation_ended": true}`
 
 **Limits and versions.**
 - Handles that are not in the drawing come back in not_found; the rest are still shown.
 - Needs Heron's plug-in in AutoCAD (it does the selecting).
+- Only drawing objects in the space in front are selected; "shown" counts those. The rest come back in not_selectable: "other_space" (switch tabs first), "inside_block", "not_a_drawing_object" (a style or layer).
 - The plug-in does part of the work (`show`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows M1, O3, AD1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows M1, O3, AZ6, AD1).
 
 ### `autocad_status`
 

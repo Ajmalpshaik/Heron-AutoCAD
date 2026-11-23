@@ -530,7 +530,7 @@ Set-up: Changes on; a chat connected in Claude Code; Heron pressed. `HERONPALETT
 | X22 | Start AutoCAD from a command prompt after `set HERON_AUTOCAD_BRIDGE=off`; Changes **off**; press Run | Refused with the Changes sentence, as in X14: the run still goes through the plug-in's checks | NOT RUN |
 | X24 | Start a long `autocad_sequence` from the chat and, in the second before it begins, press **Undo** on the newest row (or type `HERONPALETTE` Undo while the chat is about to call) | The chat's call is refused with "The modeller is undoing a Heron change from the Heron palette right now. Try again in a moment."; the Undo removes only the palette's job; the retried call works | NOT RUN |
 | X23 | On a layout, inside a floating viewport: have the chat draw a circle (Ask to Keep off), press **Zoom** on it, then **Undo** | Record what happens. If Undo says "The drawing changed after this job", the viewport's zoom counted as a change (a viewport is an object): note it in 06 section 10 as a known limit. Either way nothing of the modeller's is undone | NOT RUN |
-| X25 | While a chat works in a drawing (sequences, some making multileader and table styles, and batch draws), press **Select** and **Zoom** on its Activity rows | The row's objects are selected; Zoom frames them | **FAIL** 2026-11-22, AutoCAD 2027 (26.0s), plug-in 1.8.0, seen in the add-in log: two Select and one Zoom each logged `eInvalidInput` from `Editor.SetImpliedSelection` (`ShowObjects.cs` line 70) and did nothing; the drawing was not changed. Likely cause: every object the job made is passed, not only entities in the current space ([#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234)) |
+| X25 | While a chat works in a drawing (sequences, some making multileader and table styles, and batch draws), press **Select** and **Zoom** on its Activity rows | The row's objects are selected; Zoom frames them | Fix in PR for #234 ([D-132](DECISIONS.md)), NOT RUN since the fix: run it with Group AZ. Earlier: **FAIL** 2026-11-22, AutoCAD 2027 (26.0s), plug-in 1.8.0, seen in the add-in log: two Select and one Zoom each logged `eInvalidInput` from `Editor.SetImpliedSelection` (`ShowObjects.cs` line 70) and did nothing; the drawing was not changed. Likely cause: every object the job made is passed, not only entities in the current space ([#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234)) |
 | X26 | Publish on. Ask the chat to save the drawing (`autocad_save_drawing`), then to export a PDF | Each card reads "made 0, changed 0, erased 0" and has **no** buttons at all: no Select, Zoom or Undo, and no empty gap under the counts (D-124) | NOT RUN |
 | X27 | Ask the chat to erase two lines (if Heron asks about the erase, keep them erased) | The card shows **Undo** only, no Select or Zoom; pressing Undo brings the two lines back | NOT RUN |
 | X28 | Draw a circle with the chat, then ask it to save; then ask for a line as a dry run (`dry_run=true`) | The circle's card shows **Select** and **Zoom** but no **Undo** (the save is now Heron's newest job); the save's card has no buttons; the dry run's card reads "dry run, taken back" and has no buttons | NOT RUN |
@@ -1127,6 +1127,23 @@ install it first. Changes on. Use a scratch drawing with UNDO on (UNDOCTL 5). **
 | AX8 | Ask to Keep on. Start `LINE` and leave it at its prompt, ask Heron to move an object, press Keep when asked, then look at the palette card and call `autocad_undo_last` | The card has no Undo button (the question's zoom is the last step); `autocad_undo_last` refuses, naming the zoom | NOT RUN |
 | AX7 | After AX3 or any OUTCOME UNKNOWN job, `autocad_gaps` | That job's advice says to look at the drawing (or remove by hand), never "Press Esc, then try again" | NOT RUN |
 
+## Group AZ - Select, Zoom, show and the Keep question: only drawing objects in the space in front (D-132) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-132](DECISIONS.md); issue #234). Built and tested offline only (bridge tests,
+`ShowPickTests`). **Nothing here has run in AutoCAD.** The plug-in changed: build and install it first.
+Changes on, a chat connected, Heron pressed, the Heron palette open (`HERONPALETTE`). Each row also
+passes only if `addin-*.log` has no `eInvalidInput` and no `Palette select:` / `Palette zoom:` error.
+Run X3 and X25 in Group X in the same session. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AZ1 | Ask to Keep off. In a drawing with no `_DOT` block yet, one `autocad_sequence` that makes a multileader style with arrow `dot` (`autocad_create_styles`) and draws two lines. Press **Select**, then **Zoom** on its card | Select: the two lines selected; the line under the list says "Selected 2 objects. N could not be selected: N are inside a block definition." (N is the arrow block's parts) Zoom: the view frames the two lines, still selected | NOT RUN |
+| AZ2 | In a fresh drawing, ask the chat for a multileader style with arrow `dot_blank` and nothing else. If its card shows Select and Zoom, press each | Nothing selected, nothing zoomed; the line says "Nothing of this job can be selected here: N are inside a block definition."; no error. If the card has no buttons, record that (the job counted no objects) | NOT RUN |
+| AZ3 | Draw a circle with the chat on the Model tab. Switch to a layout tab (not inside a viewport) and press **Select** on its card; then double-click inside a viewport and press **Zoom** | On the layout: "Nothing of this job can be selected here: 1 is on another layout or the Model tab. Switch to the tab they are on and press again." Inside the viewport: the circle is selected and the viewport frames it | NOT RUN |
+| AZ4 | Ask the chat to set an attribute on a block (`autocad_set_attributes`), then press **Select** on its card | The block reference is selected (one object), not an error | NOT RUN |
+| AZ5 | Ask to Keep **on**. In a drawing with no `_OPEN` block, one `autocad_sequence` that makes a multileader style with arrow `open` and draws one line; when the Keep box shows, look, then press **Discard it** | The box **does** appear (before the fix it could be skipped and the job discarded silently); it says "The object it made or changed is selected and in view." with the line selected; Discard removes the line, the style and the arrow block | NOT RUN |
+| AZ6 | `autocad_show` with the handles of a line, a layer (from `autocad_list_layers`) and an erased object, then again with `isolate=true` | First: `shown` 1, the layer in `not_selectable` with reason `not_a_drawing_object`, the erased one in `not_found`; the line selected and framed. With isolate: only the line stays on screen; `end_isolation=true` brings the rest back. With only the layer handle and `isolate=true`: `shown` 0, `isolated` false, and no command left waiting at "Select objects" | NOT RUN |
+
 ## Group AY - Installer and release polish (D-131) (a shared Windows server, not this PC)
 
 | Row | Do | Pass looks like | Result |
@@ -1225,3 +1242,18 @@ AssemblyResolve fallback), so a missing-DLL error would show there, in the add-i
 | S9 | Same sheet; `autocad_add_viewport(scale='1:25', centre=[...], paper_centre=[338,300], paper_width=560, paper_height=420)` | A viewport is made through MVIEW, aimed and scaled 1:25 and locked, and its handle comes back | NOT RUN |
 | S10 | `autocad_run_lisp` with a 2,100-character expression that is one form | Refused at once with "split it", nothing sent to AutoCAD (several forms are cut and sent since D-76: Z2) | NOT RUN |
 | S7 | On a UCS turned 23 degrees, with `coords="ucs"`: `autocad_transform_3d` move `[1000,0,0]`, `autocad_slice_solid` `plane="vertical_x"`, `autocad_extrude_profile` revolve about `[1,0,0]`, `autocad_dimension_run` horizontal, `autocad_add_solid` box 1000 x 600 | Each follows the **UCS** X axis (the box's 1000 side runs along it), not the world one. Before 2026-10-28 the points were turned into the world but the directions and the dimension angle were not | NOT RUN |
+
+## Group BA - Typed text refuses control characters; run_lisp's named box on a busy retry; a stopped job and expect_dialog (D-133) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-133](DECISIONS.md); issues #242 and #210). Built and tested offline only
+(`tests/test_typed_text.py`, `tests/test_run_lisp_expect_retry.py`, the bridge test
+`A_stopped_job_is_refused_a_named_button_for_a_box`). **Nothing here has run in AutoCAD.** BA1 and BA2 are
+server only (restart the server). BA4 needs the plug-in built from this change installed. Changes on for
+BA1 and BA2, Admin on for BA3 and BA4. Use a scratch drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BA1 | `autocad_save_view(name="A\nB", from_screen=true)` (a real line break in the name), then the same with a real Esc (`"A\u001bB"`) and a tab | Each is refused at once: "The view name holds a line break (an Esc character, a tab), which cannot be typed into AutoCAD's command line. ... Nothing was typed."; no view is made, no old view is deleted, `Command:` is free | NOT RUN |
+| BA2 | `autocad_save_view(name="LIVING-3D", from_screen=true)`, then again with `replace=true` | Saved as before (the name is typed through `-VIEW _Save`); the second call replaces it; Arabic or accented names without spaces also save | NOT RUN |
+| BA3 | Make AutoCAD busy (orbit a heavy 3D drawing, or start a long REGEN) and run `autocad_run_lisp('(+ 1 2)', expect_box='AutoCAD Message', press='OK')` several times | Either the result `3`, or "AutoCAD stayed busy ..."; **never** "give the box's exact title and one button, once per job" | NOT RUN |
+| BA4 | Run a `autocad_send_command` with `expect_box` on a box that really opens (`_-PURGE _A * _N`, `expect_box='Purge - Confirm Purge'`, `press='Yes'`) and, in the middle of it, type HERONSTOP in AutoCAD; then, with Heron stopped, call anything with `expect_box` | The stopped call is refused with the HERONSTOP sentence, nothing sent; after typing HERONSTOP again, the same call works. If the timing cannot be hit, the plain case (call with `expect_box` while stopped) still must be refused | NOT RUN |

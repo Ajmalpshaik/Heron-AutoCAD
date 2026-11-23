@@ -54,7 +54,8 @@ namespace Heron.AutoCAD.Bridge
 
         /// <summary>
         /// The modeller's emergency stop (HERONSTOP). Sticky until they lift it:
-        /// no new job, no drawing input and no plug-in operation for the job
+        /// no new job, no drawing input, no plug-in operation and no named button
+        /// for a box (expect_dialog, #210) for the job
         /// already running, which stops at its next request. Ending a job,
         /// Keep or Discard and the erase question still answer, so a stopped
         /// job can still be put back. Answered on the pipe thread, never waits
@@ -127,7 +128,7 @@ namespace Heron.AutoCAD.Bridge
                 if (!BridgeIdentity.TokenEquals(_token, Str(root, "token"))) return Refuse("Session", Texts.WrongSession);
                 var conversation = Str(root, "conversation");
 
-                if (_stopped && (op == "begin" || op == "send_quiet" || op == "run"))
+                if (_stopped && (op == "begin" || op == "send_quiet" || op == "run" || op == "expect_dialog"))
                     return Refuse("Stopped", Texts.Stopped);
 
                 try

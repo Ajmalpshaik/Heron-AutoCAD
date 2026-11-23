@@ -47,6 +47,100 @@ reads move in #198. Rejected: matching the search text in the plug-in (C#'s lowe
 Python's `.lower()` for every letter, so a match could be missed); measuring splines and ellipses in
 the plug-in (the server's own sum would differ in the last digits); a merged "length" fact (the two
 tools read different properties: `total_length` takes Circumference, `measure` does not).
+## D-133 - Text typed with SendCommand refuses control characters; run_lisp asks for a named box once per job; a stopped job gets no expect_dialog
+
+**Decided:** 2026-11-23, by session S7 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BA). Issues [#242](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/242) and [#210](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/210).
+
+**Typed text (#242).** D-129 escapes control characters in text that goes into an AutoLISP string, but a
+few tools type text straight at the command line. Each path was read, not assumed:
+- `tools/views.py` `-VIEW _Save {clean}`: **a real hole.** `validate_name` strips the ends and refuses
+  `< > / \ " : ; ? * | , = ``, but lets a newline, an Esc or a tab inside the name through, and the view name
+  is typed. Fixed: `refuse_control(name, "view name")` before the name is cleaned (a trailing newline would
+  be stripped unseen), and again at the typing site `_save_screen`, before the old view is deleted.
+- `tools/drafting.py` (`wipeout_command`) and `tools/dimensions_edit.py` (`dimbreak_command`): **safe.**
+  Only `float()` numbers and handles that match `[0-9A-Fa-f]{1,16}` are typed; the rest is fixed words.
+  A boundary handle is looked up through COM, never typed. Tests prove it.
+- `tools/coordinates.py` `_send`: **safe.** The only lines are `_.UCS _World` and `_.UCS _View`, reached
+  only for two values of a closed `Literal`. A test runs the tool with hostile modes.
+- `tools/sheets.py` `mview_command`: **safe.** Four numbers, `:.4f`.
+- `tools/solids.py` `_.VSCURRENT {option}`: **safe.** The option comes from `VISUAL_STYLE_OPTIONS` by a
+  key checked against `VISUAL_STYLES`; a name that is not on the list is refused before AutoCAD is touched.
+One helper, not a copy: `acad/lisp.py` `refuse_control(text, what)` raises `AutocadError` for a control
+character and uses the very `is_control` and `_refused_character` that `escape_control` uses, so "control"
+means the same on both sides: below 0x20, DEL, NUL, U+0080 to U+009F, U+2028, U+2029, a lone surrogate.
+Nothing can be escaped on a command line, so it is refused in plain words ("holds a line break ... Nothing
+was typed."); accents, Arabic, Malayalam and the rest of Unicode pass. *Not done, noted for later:*
+`validate_name` itself (26 callers, `acad/tables.py`, outside this session's area) still lets control
+characters into layer, style and block names; those names go to COM, not to the command line
+([#249](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/249)).
+Also read, not changed: `autocad_purge` and `autocad_audit` type fixed words picked by a checked option.
+
+**run_lisp named box on a busy retry (#210, part 1).** `autocad_run_lisp` asked the plug-in for its one
+named button inside `work()`, and `work()` runs again on a busy retry in the same job, so the second ask was
+refused ("once per job") when AutoCAD was only busy. Chosen over moving the ask below the reads: `work()`
+now keeps a flag and asks once (a closure variable lives across the retries of one call, as the job does).
+Moving it would have put the plug-in's refusal after the writes of USERS1, USERS2 and OSMODE; letting
+`DialogWatch.Expect` take the same pair twice is plug-in code outside this session's area. A real refusal
+of the first ask still stops the call with nothing sent. `autocad_send_command` has no retryable step after
+its ask, so it was left alone.
+
+**HERONSTOP and `expect_dialog` (#210, part 2).** `BridgeProtocol` refused begin, send_quiet and run for a
+stopped job but still took `expect_dialog`, so a stopped job could arm the dialog watch. It is refused now,
+with the same "Stopped" answer (this adds `expect_dialog` to the list in D-51, which stays as written). A bridge test begins an Admin job, names a button (taken), stops Heron,
+names another (refused, `refusedBy` Stopped, nothing reached the host).
+
+---
+
+## D-132 - Select, Zoom, show and the Keep question select only drawing objects in the space in front
+
+**Decided:** 2026-11-23, by session S6 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force;
+tested offline only (bridge tests), live rows NOT RUN (NEEDS-CHECKING Group AZ, and X25 re-opened).
+Issue [#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), the live FAIL of X25 in 1.8.0.
+
+**The fault.** `Showing.SelectAndZoom` passed the id of every handle a job made or changed that still
+existed to `Editor.SetImpliedSelection`. The palette's handles are entities only (`ChangeWatch` counts an
+appended or modified `Entity`, nothing else), but not all of them are in the space in front. A multileader
+style with an arrow other than closed filled makes AutoCAD add the arrow's block definition
+(`DrawingStyles.Arrow` sets DIMBLK), and its lines and solids are entities **inside a block definition**.
+Those, attributes, and objects on another layout cannot be selected: AutoCAD throws `eInvalidInput`, the
+whole click did nothing, and the zoom after it never ran. This is the likely cause of X25 (its jobs made
+multileader styles), read from the code and the log, not proven in AutoCAD. `autocad_show` takes any
+handle the chat gives, so there a style or a layer can come in too.
+
+**The rule now.** Each handle is looked up and given a place (`ShowPlace`, in the bridge):
+- **in the space in front**: an `Entity` whose owner is `Database.CurrentSpaceId`. Only these are selected,
+  and the zoom frames only these. An attribute or an old-style polyline vertex selects the object it
+  belongs to (the owner chain is followed up to four steps), each id once.
+- **other space**: owned by a layout's block table record (`IsLayout`) that is not the one in front.
+- **inside a block**: owned by a block definition, or by an object that is not in this space.
+- **not a drawing object**: not an `Entity` (a style, a layer, a definition).
+- **gone**: erased, not in the drawing, or not a handle.
+
+`ShowPick` (bridge, tested offline) sorts them and words the palette's line through `PaletteTexts.Shown`:
+"Selected 2 objects. 3 could not be selected: 1 is on another layout or the Model tab and 2 are not
+drawing objects (a style, a layer or a definition)." With none selectable: "Nothing of this job can be
+selected here: ..." (and "Switch to the tab they are on" when some are on another tab). All gone keeps
+the old sentence.
+
+**Never throws, never says more than is true.** `SetImpliedSelection` itself is now in a catch: if AutoCAD
+still refuses (a cause not foreseen here), it is logged, the zoom still runs, and the line says AutoCAD
+would not select them. The count every caller gets (`ShowOutcome.Count`) is what is really selected:
+- **the palette** says that number;
+- **`autocad_show`** answers `shown` as that number, keeps `not_found` for the gone ones, adds
+  `not_selectable` (each handle with `other_space`, `inside_block` or `not_a_drawing_object`) and
+  `selection_refused`, and sends `ISOLATEOBJECTS` only when something is really selected (with no
+  pickfirst set it would stop at "Select objects" and leave a command open);
+- **the Keep question** says "N objects ... are selected and in view" only for what is. Before, a throw
+  inside its main-thread work ended that work, `TryInvoke` returned false and `AskKeep` answered
+  "discard": with Ask to Keep on, a job that made a style could be discarded without the box ever
+  showing (read from the code, not seen live). The select is now also in its own catch there.
+- More than 500 handles: nothing is selected and the line says so, instead of claiming 500+ selected.
+
+**Not changed.** D-124's buttons still show Select and Zoom whenever the job has handles to show: the
+bridge cannot tell where an entity is offline, so a job whose only objects are inside a block definition
+(a multileader style's arrow block) gets the buttons, and the press says why nothing can be selected.
+
+---
 
 ## D-128 - Every busy refusal in the block, table, light and copy tools is proven per tool; `save_view(replace=true)` never deletes a layout's view
 

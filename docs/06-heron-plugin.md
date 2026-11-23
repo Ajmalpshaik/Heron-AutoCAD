@@ -349,7 +349,11 @@ job or a job that made and changed nothing has no buttons at all.
 | **Zoom** | The same, and zooms to it. Leaves no undo step of its own | the same | the same |
 | **Undo** | Undoes the job: `UNDO Back` to its mark when the server says at `end` that it put one down ([D-130](DECISIONS.md)), else one `UNDO 1`; then checks that what it made is gone | Heron's newest job, a drawing change that ended done and changed something (see below) | see below |
 
-Select and Zoom work whichever chat holds this AutoCAD. **Undo is yours**, like Ctrl+Z: no padlock is
+Select and Zoom work whichever chat holds this AutoCAD. They select only drawing objects in the
+space in front ([D-132](DECISIONS.md)): a style, a layer, an object on another layout or the Model
+tab, or one inside a block definition is left out, and the line under the list says how many and
+why. A job whose only objects are a style's arrow block says "Nothing of this job can be selected
+here". **Undo is yours**, like Ctrl+Z: no padlock is
 needed and it works on any chat's job, but only by the D-54 rule, so your own work is never taken
 with it. The button is not shown when:
 

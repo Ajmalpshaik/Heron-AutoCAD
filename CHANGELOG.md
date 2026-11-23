@@ -17,6 +17,35 @@ Newest first. Dates are when the change was made.
   **Tested offline only** (`tests/test_plugin_length_text_reads.py` runs all four tools both ways over
   one fake drawing and compares the text; `EntityFactsTests.cs` the plug-in side). Live rows BB1-BB10
   NOT RUN.
+- **A view name with a line break or Esc in it is refused, and run_lisp's named box answers "busy" when
+  AutoCAD was only busy (2026-11-23, [#242](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/242),
+  [#210](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/210), [D-133](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group BA) are NOT RUN.
+  - #242: every tool that types text at the command line was read. Only `autocad_save_view` with
+    `from_screen=true` typed a caller's string (the view name) with no check; a newline, Esc or tab in it
+    is now refused in plain words before anything is typed or any old view is deleted (the same refusal
+    applies to the corners and handles path, where a control character was never a valid name). The other paths
+    (wipeout, dimension break, UCS, viewport by MVIEW, visual style) type only numbers, hex handles or
+    fixed words; tests prove it. The check is one shared helper in `acad/lisp.py`, the same definition of
+    "control character" as the AutoLISP side (D-129).
+  - #210: a busy retry of `autocad_run_lisp` with `expect_box` no longer asks the plug-in for the named
+    button a second time, so the chat gets the busy answer instead of "once per job". After HERONSTOP the
+    plug-in now refuses `expect_dialog` too, as it does begin, send_quiet and run. The plug-in changed:
+    rebuild and reinstall it for the second part.
+
+- **The palette's Select and Zoom work again when a job made a multileader style's arrow block (2026-11-23,
+  [#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), [D-132](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group AZ, and X25) are NOT RUN. The plug-in changed.
+  - Only drawing objects in the space in front are selected and zoomed to. An object inside a block
+    definition (such as the arrow block AutoCAD adds for a multileader style), on another layout or the
+    Model tab, or not a drawing object at all is left out, and the palette says how many and why ("3 could
+    not be selected: ..."). With none selectable it says so; it never fails the click.
+  - `autocad_show` answers `shown` as what is really selected, and lists the rest in `not_selectable` with
+    a reason. It isolates only when something is selected.
+  - The Keep or Discard question says objects are selected only when they are. Before, the same fault
+    could end the question's work, and the job was then discarded without the box showing (read from
+    the code).
+
 - **A busy AutoCAD is proven not to be a wrong answer in the block, table, light and copy tools, and `autocad_save_view(replace=true)` no longer deletes a layout's view
   (2026-11-23, [#189](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/189),
   [#190](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/190), [D-128](docs/DECISIONS.md)).**

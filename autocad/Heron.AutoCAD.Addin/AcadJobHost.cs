@@ -87,7 +87,21 @@ namespace Heron.AutoCAD.Addin
                 asked = IdleQueue.TryInvoke(() =>
                 {
                     var doc = AcApp.DocumentManager.MdiActiveDocument;
-                    var count = doc == null ? request.Handles.Length : Showing.SelectAndZoom(doc, request.Handles);
+                    // Only what is really selected is counted (#234, D-132). A
+                    // throw here used to end this work, and the job was then
+                    // discarded without the question being asked.
+                    var count = 0;
+                    if (doc != null)
+                    {
+                        try
+                        {
+                            count = Showing.SelectAndZoom(doc, request.Handles).Count;
+                        }
+                        catch (Exception ex)
+                        {
+                            HeronLog.Error("Keep question: select and zoom", ex);
+                        }
+                    }
                     // That zoom is an undo step after the job: an unmarked one-step Undo would undo it (D-130).
                     if (doc != null) Activity.ShownForKeep(request.Job);
                     return HeronKeepQuestion.Ask(request.Summary, count);
