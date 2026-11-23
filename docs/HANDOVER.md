@@ -8,7 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
+## Latest - 2026-11-23 (S16: sheet tab and preview bugs, #39, #40, #41; D-141)
+
+Root-caused by reading the code, nothing run in AutoCAD. **#40 found:** the COM page setup set a
+layout's `CustomScale`, which does not exist (`SetCustomScale` does), then centred a layout plot;
+pywin32's "can not be set" read as busy, hence "Outcome unknown" on every sheet. **#39 and #41 made
+robust, cause not certain:** status reads TILEMODE / CTAB, `space="paper"` follows the tab on screen,
+a COM error in the gate's first look is an answer; a whole-sheet extents preview brings its four
+close-ups. **Next (on this PC):** restart the server, then rows D8 (also with `--no-bridge`), D20,
+D33 and AM7 (with AM1 on the A1 SLD).
+
+## Earlier - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
 
 The owner's "Yes, next 10". Five nested sessions, run at most three at a time, all merged with `python`,
 `plugin` and `review` green, nothing run in AutoCAD:

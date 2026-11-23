@@ -5,6 +5,52 @@
 
 ---
 
+## D-141 - A sheet tab is read from TILEMODE and CTAB; a layout's scale is SetCustomScale; a whole-sheet preview brings its close-ups
+
+**Decided:** 2026-11-23, by session S16 of the 2026-11-23 wave, for issues
+[#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
+[#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40) and
+[#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41). **Status:** in force; extends D-90
+(sheets) and D-125 (the tab on screen), and supersedes D-102's "the default preview stays one
+picture" for a whole sheet only. Root-caused by reading the code; no AutoCAD here. Tested offline
+only (`tests/test_sheet_tab_bugs.py`, `tests/test_preview_extents.py`); live rows D8, D20, D33 and
+AM7 NOT RUN.
+
+- **#40, found:** the COM page setup of a new sheet (`_set_page`, also `autocad_page_setup`) set
+  `layout.CustomScale`. A layout has no such property; only a viewport has. Autodesk's ActiveX
+  reference sets a layout's scale with `SetCustomScale(paper, drawing)`. pywin32 answers a property
+  it cannot set with `Property 'Item.CustomScale' can not be set.`, which `errors.is_dispatch_failure`
+  reads as a busy AutoCAD; once the layout was added that is "Outcome unknown: AutoCAD went busy",
+  every call, also with `activate=false`, after the plotter and A1 were written: exactly row D8. The
+  next line, `CenterPlot = True` on a layout plot, is refused by AutoCAD too (seen live in row D20).
+  Now: `set_custom_scale` (tools/document.py) for the sheet and for the PDF export; centring is not
+  asked of a layout plot (the answer says `centred: false` and why), and a refused centring is a note,
+  not a stop. The plot style table, written after both, now gets there. The plug-in route (D-90) did
+  neither and is unchanged. `is_dispatch_failure` is left as it is: it is shared by every tool, and a
+  busy AutoCAD does give that same message.
+- **#39, made robust (cause not certain):** the 2026-10-28 code read `doc.PaperSpace`, which threw
+  on a sheet tab; D-90 already fell back to the layout's block. What is new: the space and the tab in
+  `autocad_status` come from **TILEMODE and CTAB** first, AutoCAD's own variables, not COM's
+  ActiveSpace / ActiveLayout, which lagged the tab on 2026-11-22 (D-125). A sheet tab is `"paper"`
+  even with its viewport active, which is said as `viewport_active: true`. `get_space(doc, "paper")`
+  and the paper count use the block of the sheet CTAB names whenever COM's ActiveLayout names another
+  tab, or `doc.PaperSpace` throws. The window caption, version and drawing name are named in
+  `unreadable` instead of failing. And the gate's first look at AutoCAD ran outside every tool's error
+  handler, so a COM error there came out as a bare "Exception occurred": it is now an AutocadError,
+  which status answers through and other tools refuse in words.
+- **#41, made robust (cause not certain):** a picture of a whole sheet has too few pixels for its
+  text (D-102's most likely cause); windows over its parts showed everything live. So with `detail`
+  left out, an extents preview whose box is a **sheet** (A0-A2, ANSI D-E, ARCH D-E1, or its frame up
+  to about 11 % smaller, at 1:1 or a common drawing scale up to 1:1000) and whose TEXTSIZE is smaller
+  than the text the picture can read gets the four close-ups by itself, with `detail_added` saying
+  why. `detail=1` keeps one picture. A drawing that is not a sheet, a sheet whose text reads, a
+  window and the current view are unchanged, so most previews stay one picture. Not done: measuring
+  the extents afresh. D-102 trusted a regen to refresh EXTMIN/EXTMAX, but Autodesk says they shrink
+  only on ZOOM All / Extents; the plug-in's `entity_extents` cannot filter by space yet (its filter
+  takes type, layer, block and colour only), so that is left (row AM4 says whether it matters).
+
+---
+
 ## D-140 - A sequence with a replace step, and four more write-then-erase tools, get the whole-change question
 
 **Decided:** 2026-11-23, by session S14 of the 2026-11-23 wave ("Yes, next 10"), on issue

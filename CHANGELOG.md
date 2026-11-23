@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Sheet-tab and preview bugs (2026-11-23, [#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
+  [#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40), [#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41),
+  [D-141](docs/DECISIONS.md)).** `autocad_create_layout` over COM no longer answers "Outcome unknown: AutoCAD
+  went busy" for a sheet it made: the page setup set `CustomScale`, which a layout does not have
+  (`SetCustomScale` now, also for the PDF export), and centred a layout plot, which AutoCAD refuses; the
+  plot style table now gets written. `autocad_status` on a sheet tab reads the space and tab from TILEMODE
+  and CTAB, says `viewport_active` when the sheet's viewport is active, and never fails on the caption or
+  version; `space="paper"` draws on the sheet on screen even when COM's active layout lags it; a COM error
+  in the gate's first look is an answer, not a bare "Exception occurred". `autocad_preview` of a whole
+  sheet whose text cannot read in one picture adds the four close-ups by itself (`detail_added`;
+  `detail=1` for one picture). Tested offline only; live rows D8, D20, D33 and AM7 NOT RUN.
 - **Replace-shaped edits D-136 did not cover get the whole-change question (2026-11-23,
   [#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), [D-140](docs/DECISIONS.md)).** A join,
   explode, trim or break run as a step of `autocad_sequence` or a saved command makes the whole call a
