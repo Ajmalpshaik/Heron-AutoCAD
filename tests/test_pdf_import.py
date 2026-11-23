@@ -324,6 +324,41 @@ class TestTool:
         assert "M-PDF" not in doc.Layers.names
         assert doc.variables["FILEDIA"] == 1 and doc.variables["PDFIMPORTFILTER"] == 5
 
+    @staticmethod
+    def _lisp_error_on(doc, marker):
+        """The piece whose text holds ``marker`` comes back as a LISP error, as the wrapper writes it (#157)."""
+        original = doc.SendCommand
+
+        def send(text):
+            original(text)
+            if marker in text:
+                doc.variables[LISP_RESULT_VAR] = advanced.LISP_ERROR_PREFIX + "bad argument type: nil"
+
+        doc.SendCommand = send
+
+    def test_a_lisp_error_at_the_command_is_reported_never_read_as_an_import(self, acad, tmp_path):
+        doc = acad()
+        self._lisp_error_on(doc, "-PDFIMPORT")
+        answer = error(path=write_pdf(tmp_path), layer="M-PDF")
+        assert "Outcome unknown" in answer and "bad argument type: nil" in answer
+        assert f"piece {pdf.COMMAND_PIECE} of" in answer and "preview" in answer
+        assert len(doc.sent) == pdf.COMMAND_PIECE  # nothing after it was sent
+        assert doc.variables["FILEDIA"] == 1 and doc.variables[LISP_RESULT_VAR] == "his"
+
+    def test_a_lisp_error_before_the_command_means_nothing_was_imported(self, acad, tmp_path):
+        doc = acad()
+        self._lisp_error_on(doc, "heron:pdf0")
+        answer = error(path=write_pdf(tmp_path))
+        assert "before PDFIMPORT started" in answer and "nothing was imported" in answer
+        assert len(doc.sent) == 1
+
+    def test_a_lisp_error_in_the_count_is_not_read_as_a_count(self, acad, tmp_path):
+        doc = acad()
+        self._lisp_error_on(doc, "heron:pdfadd heron:e")
+        answer = call(path=write_pdf(tmp_path), layer="M-PDF")
+        assert answer["imported"] is None
+        assert "did not let Heron count" in answer["note"]
+
     def test_an_unknown_release_is_refused_and_nothing_is_set_or_sent(self, acad, tmp_path):
         doc = acad(acadver="23.1s (LMS Tech)")
         assert "nothing was sent" in error(path=write_pdf(tmp_path))

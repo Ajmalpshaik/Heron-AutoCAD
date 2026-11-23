@@ -106,6 +106,12 @@ def _timed_out(text: str) -> bool:
     return isinstance(payload, dict) and payload.get("timed_out") is True
 
 
+def _lisp_error(text: str) -> bool:
+    """The tool answered with AutoCAD's own LISP error message (autocad_run_lisp, #157)."""
+    payload = _payload(text)
+    return isinstance(payload, dict) and bool(payload.get("lisp_error"))
+
+
 def _stopped_part_way(text: str) -> str:
     """For code sent in pieces (autocad_run_lisp, D-76): "piece 2 of 5" when it stopped early, else ""."""
     payload = _payload(text)
@@ -205,6 +211,16 @@ def line(facts: Facts) -> str:
             else "AutoCAD did not answer within the wait, so the job may still have run"
         )
         why = opening + _so_far(facts, total, "and the plug-in could not count what changed.")
+    elif _lisp_error(facts.text):
+        # AutoCAD raised a LISP error and the code stopped there: never DONE. Pieces before it ran.
+        if total == 0 and facts.can_count:
+            word = NOTHING_CHANGED
+            why = "AutoCAD reported a LISP error, and no drawing object was added, changed or erased."
+        else:
+            word = OUTCOME_UNKNOWN
+            why = "AutoCAD reported a LISP error and the code stopped there; what ran before it is in the drawing" + _so_far(
+                facts, total, "and the plug-in could not count what changed."
+            )
     elif _stopped_part_way(facts.text):
         # Code sent in pieces that stopped early: the pieces before it ran, the rest never did.
         word = OUTCOME_UNKNOWN

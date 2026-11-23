@@ -141,27 +141,57 @@ LISP_OPEN_COMMAND_BITS = 3
 LISP_CANCEL_TRIES = 4
 
 
+# What the wrapper writes to USERS1, in front of AutoCAD's own message, when the
+# expression raised a LISP error (#157). Printable on purpose: it is typed into
+# AutoCAD and read back through a system variable, and a control character in
+# either direction was never proven live.
+LISP_ERROR_PREFIX = "~E~ "
+# The longest error message kept: USERS1 holds a few hundred characters at most.
+LISP_ERROR_MAX = 200
+
+
+def lisp_error_in(value: Any) -> str:
+    """AutoCAD's error message when ``value`` is what the wrapper writes for a LISP error, else ""."""
+    text = str(value)
+    if not text.startswith(LISP_ERROR_PREFIX):
+        return ""
+    return text[len(LISP_ERROR_PREFIX) :].strip() or "(AutoCAD gave no message)"
+
+
 def lisp_wrapper(expression: str) -> str:
     """The text sent to AutoCAD for autocad_run_lisp.
 
-    The expression is evaluated and its value kept. A command it left waiting
-    at a prompt (DVIEW, CAMERA, a ``(command ...)`` short of its last answer)
-    is then cancelled and its name kept, and only after that are the value and
-    the name written. Before this, the left-open command swallowed the result
-    write and every later call waited on AutoCAD (bedroom model, 2026-11-05).
-    ``(princ)`` last, so nothing is echoed into a prompt.
+    The expression is evaluated inside ``vl-catch-all-apply`` and its value kept;
+    a LISP error is caught there and its message kept instead (#157), so the
+    answer comes at once with AutoCAD's own words, not after the 10 s wait for a
+    result that was never written. A command it left waiting at a prompt
+    (DVIEW, CAMERA, a ``(command ...)`` short of its last answer) is then
+    cancelled and its name kept, and only after that are the value (or the
+    error) and the name written. Before this, the left-open command swallowed
+    the result write and every later call waited on AutoCAD (bedroom model,
+    2026-11-05). The first form clears ``heron:r`` and ``heron:c``, so an
+    expression AutoLISP could not even read never shows as the value (or the
+    left-open command) of an earlier call: the result write fails and the call
+    times out, as it always did. The wrapper is kept short, about 460
+    characters: it sits on every piece, and AutoCAD answered a 2,400-character
+    call only after its 10 s wait (known limit 3), which is why one form may be
+    at most FORM_MAX_CHARS. ``(princ)`` last, so nothing is echoed into a prompt.
     """
     is_open = f'(> (logand (getvar "CMDACTIVE") {LISP_OPEN_COMMAND_BITS}) 0)'
     return (
-        "(vl-load-com)"
-        f"(setq heron:r (vl-princ-to-string {expression})"
+        '(progn (vl-load-com) (setq heron:c "" heron:r nil) (princ))'
+        f"(setq heron:x (vl-catch-all-apply (function (lambda () {expression})) nil)"
+        f' heron:r (if (vl-catch-all-error-p heron:x) (strcat "{LISP_ERROR_PREFIX}"'
+        f" (substr (vl-catch-all-error-message heron:x) 1 {LISP_ERROR_MAX})) (vl-princ-to-string heron:x))"
         f' heron:c (if {is_open} (getvar "CMDNAMES") ""))'
         f"(repeat {LISP_CANCEL_TRIES} (if {is_open} (command)))"
         f'(setvar "{LISP_CANCELLED_VAR}" heron:c)'
         f'(setvar "{LISP_RESULT_VAR}" heron:r)'
         "(princ)\n"
     )
-# Longest piece autocad_run_lisp sends at once. The wrapper adds about 300
+
+
+# Longest piece autocad_run_lisp sends at once. The wrapper adds about 460
 # characters, and AutoCAD's command line drops longer text: a ~3,000-character
 # defun block arrived as nothing at all (Luxury Suite 2, 2026-11-09), while
 # calls under 2,000 worked all day. Longer code is cut between its top-level
@@ -454,6 +484,7 @@ async def autocad_run_lisp(
 
     Returns:
         str: JSON: {"expression": str, "result": str, "timed_out": bool,
+             "lisp_error": str (only when the code raised a LISP error),
              "cancelled_command": str (only when one was left open), "note": str,
              "chunks": int and "chunks_finished": int (only when it was cut)}
              "result" is the last form's value rendered as a string; "nil" is
@@ -476,12 +507,15 @@ async def autocad_run_lisp(
           data instead of a string.
 
     Error Handling:
+        - A LISP error is answered at once: "lisp_error" holds AutoCAD's own
+          message, "result" is null and the note names the piece that stopped
+          (#157). The pieces after it are not sent.
         - Reports timed_out=true if AutoCAD never wrote a result, which usually
-          means the expression raised a LISP error or is waiting for input.
+          means the expression is waiting for input or still running.
         - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are
           rejected before anything is sent, since AutoCAD would otherwise sit
           waiting for the closing bracket.
-        - One top-level form over LISP_MAX_CHARS (2,000) characters is refused,
+        - One top-level form over LISP_MAX_CHARS (1,750) characters is refused,
           never cut: AutoCAD drops longer command-line text without a word.
         - expect_box without press (or the reverse), or a plug-in older than
           1.7.0, is refused before anything is sent. Every box but the one
@@ -508,10 +542,21 @@ async def autocad_run_lisp(
             "check them with autocad_get_variable." if not_put_back else ""
         )
         last = runs[-1]
-        finished = sum(1 for r in runs if r["value"] != LISP_SENTINEL)
+        finished = sum(1 for r in runs if r["value"] != LISP_SENTINEL and not r["error"])
         answer: dict[str, Any] = {"expression": text if total == 1 else _shortened(text)}
 
-        if last["value"] == LISP_SENTINEL:
+        if last["error"]:
+            # A LISP error is answered at once, with AutoCAD's own words (#157).
+            answer.update({"result": None, "timed_out": False, "lisp_error": last["error"]})
+            note = (
+                f"AutoCAD reported a LISP error: {last['error']}. The code stopped there; what it "
+                "did before the error is in the drawing (one Ctrl+Z takes it back)."
+            )
+            if last["cancelled"]:
+                answer["cancelled_command"] = last["cancelled"]
+                note += f" It also left AutoCAD inside {last['cancelled']}; that was cancelled."
+            answer["note"] = note + _where(last["number"], total) + restore_note
+        elif last["value"] == LISP_SENTINEL:
             if not last["sent"]:
                 note = (
                     f"AutoCAD stayed busy before piece {last['number']} could be sent, so it and the "
@@ -527,9 +572,9 @@ async def autocad_run_lisp(
                 )
             else:
                 note = (
-                    "AutoCAD never wrote a result within the wait. The "
-                    "expression probably raised a LISP error, referenced an "
-                    "undefined symbol, or is waiting for input. But a long "
+                    "AutoCAD never wrote a result within the wait. A LISP error "
+                    "would have been answered at once, so the expression is "
+                    "probably waiting for input or still running. A long "
                     "expression can still have run and finished after the wait: "
                     "count what landed before sending it again, or it is drawn "
                     "twice. Check AutoCAD's command line, and press Esc there if "
@@ -568,8 +613,9 @@ def send_lisp_pieces(doc: Any, chunks: list[str]) -> tuple[list[dict[str, Any]],
     (autocad_import_pdf, D-106) types a command the same safe way: running
     object snaps off, a command left open cancelled and named, USERS1, USERS2
     and OSMODE put back patiently. Each run is {"number", "value", "answered",
-    "cancelled", "sent"}; the pieces after one that fails, times out or leaves
-    a command open are not sent.
+    "cancelled", "error", "sent"} ("error" is AutoCAD's message when the piece
+    raised a LISP error, else ""); the pieces after one that fails, raises a
+    LISP error, times out or leaves a command open are not sent.
     """
     total = len(chunks)
     previous: dict[str, str] = {}
@@ -604,7 +650,7 @@ def send_lisp_pieces(doc: Any, chunks: list[str]) -> tuple[list[dict[str, Any]],
                 if number > 1 and not _set_patiently(doc, LISP_RESULT_VAR, LISP_SENTINEL):
                     note_busy()
                     runs.append({"number": number, "value": LISP_SENTINEL, "answered": False,
-                                 "cancelled": "", "sent": False})
+                                 "cancelled": "", "error": "", "sent": False})
                     break
                 if number > 1:
                     _set_patiently(doc, LISP_CANCELLED_VAR, "")
@@ -614,9 +660,10 @@ def send_lisp_pieces(doc: Any, chunks: list[str]) -> tuple[list[dict[str, Any]],
                     raise AutocadError(_refused(exc, number, total)) from exc
                 value, answered = _wait_for_result(doc)
                 cancelled = _get_patiently(doc, LISP_CANCELLED_VAR) or ""
+                error = lisp_error_in(value)
                 runs.append({"number": number, "value": value, "answered": answered,
-                             "cancelled": cancelled, "sent": True})
-                if value == LISP_SENTINEL or cancelled:
+                             "cancelled": cancelled, "error": error, "sent": True})
+                if value == LISP_SENTINEL or cancelled or error:
                     break
     finally:
         if osmode is not None and not _set_patiently(doc, "OSMODE", osmode):

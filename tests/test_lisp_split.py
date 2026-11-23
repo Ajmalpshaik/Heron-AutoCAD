@@ -191,7 +191,7 @@ class TestRunLispInPieces:
 
     def test_every_piece_sent_stays_far_under_what_autocad_drops(self, lisp):
         _, doc = lisp(LONG)
-        assert all(len(sent) < 1100 for sent in doc.sent)
+        assert all(len(sent) < 1300 for sent in doc.sent)  # 700 of code + the wrapper (about 500, #157)
 
     def test_several_short_forms_are_one_progn_and_give_the_last_value(self, lisp):
         text, doc = lisp("(setq a 1) (setq b 2)")
