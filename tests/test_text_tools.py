@@ -56,6 +56,23 @@ def test_attribute_plan_from_rows_by_key_tag_or_layout():
     assert plan["unmatched_rows"] == ["Z"]
 
 
+
+@pytest.mark.parametrize(("content", "title"), [
+    ("SHEET;TITLE\r\nA-102;\"FIRST; SECOND FLOOR\"\r\n".encode("utf-8-sig"), "FIRST; SECOND FLOOR"),
+    ("SHEET;TITLE\r\nA-102;CAFÉ 1,5\r\n".encode("cp1252"), "CAFÉ 1,5"),  # Excel's CSV on a Western PC
+    (b"SHEET\tTITLE\nA-102\tSECOND FLOOR\n", "SECOND FLOOR"),
+    (b"SHEET,TITLE\nA-102,SECOND FLOOR\n", "SECOND FLOOR"),
+], ids=["semicolon", "cp1252", "tab", "comma"])
+def test_set_attributes_csv_reads_a_semicolon_or_cp1252_file_as_the_table_tool_does(tmp_path, content, title):
+    """#259: Excel on a European PC saves a semicolon CSV; it was read as one column, so no row matched."""
+    path = tmp_path / "sheets.csv"
+    path.write_bytes(content)
+    rows = t._read_rows(str(path))
+    assert rows == [{"SHEET": "A-102", "TITLE": title}]
+    plan = t.plan_attributes(REFS, rows=rows, key="SHEET")
+    assert [(c["handle"], c["tag"], c["new"]) for c in plan["changes"]] == [("2", "TITLE", title)]
+    assert plan["unknown_tags"] == []
+
 def test_tally_counts_and_sums():
     report = t.tally([r"{\H2;DN50}", "dn50", "DN80", "3.5 kW", "2 kW"], normalise=True, sum_numeric=True)
     assert report["counts"] == {"2 KW": 1, "3.5 KW": 1, "DN50": 2, "DN80": 1}

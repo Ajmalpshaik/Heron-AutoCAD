@@ -8,15 +8,15 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (S15: plug-in transactions and empty undo, #258, #80, D-140)
+## Latest - 2026-11-23 (S16: sheet tab and preview bugs, #39, #40, #41; D-141)
 
-Session S15. A plug-in operation that touched nothing (no object opened for change, added or erased, no
-variable changed, no work left for after it) is now aborted, not committed, so it leaves no undo step
-(`Bridge/OperationTransaction.cs`, `Addin/TransactionWatch.cs`). `GeoLocation.Change` keeps a new location
-inside the job's transaction or takes it off at once and refuses (`PostedObject`); the success path was
-already one undo step. `autocad_tiled_viewports` stays a View job (D-140 says why). #80's server-side part
-(an empty `StartUndoMark` group) moved to #263, waiting for T7. Nothing run in AutoCAD.
-**Next:** build and install the plug-in, then live rows AQ15-AQ17 with T7.
+Root-caused by reading the code, nothing run in AutoCAD. **#40 found:** the COM page setup set a
+layout's `CustomScale`, which does not exist (`SetCustomScale` does), then centred a layout plot;
+pywin32's "can not be set" read as busy, hence "Outcome unknown" on every sheet. **#39 and #41 made
+robust, cause not certain:** status reads TILEMODE / CTAB, `space="paper"` follows the tab on screen,
+a COM error in the gate's first look is an answer; a whole-sheet extents preview brings its four
+close-ups. **Next (on this PC):** restart the server, then rows D8 (also with `--no-bridge`), D20,
+D33 and AM7 (with AM1 on the A1 SLD).
 
 ## Earlier - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
 

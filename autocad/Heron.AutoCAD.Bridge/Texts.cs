@@ -54,7 +54,7 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>Ends every failed operation: the plug-in keeps nothing of one that failed.</summary>
         public const string NothingChanged = "Nothing was changed.";
 
-        /// <summary>A new object AutoCAD added itself would not join the job's transaction, and was taken off again (D-140).</summary>
+        /// <summary>A new object AutoCAD added itself would not join the job's transaction, and was taken off again (D-143).</summary>
         public static string PostedTakenBack(string what) =>
             "AutoCAD added " + what + " but would not take it into Heron's one-step change, so Heron took it off again. Try once more; if it says this again, use AutoCAD's own command.";
 

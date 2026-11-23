@@ -52,7 +52,7 @@ namespace Heron.AutoCAD.Addin
                             using (new TransactionWatch(doc.Database, end))
                                 result = Dispatch(request.Operation, doc, tr, args);
                             // A read, or a job that touched nothing, leaves nothing behind,
-                            // not even an empty undo step (D-34, D-140).
+                            // not even an empty undo step (D-34, D-143).
                             if (!end.Commit(workAfter: _afterCommit != null || _afterAbort != null))
                             {
                                 if (level != Risk.Read) HeronLog.Write("operation " + request.Operation + " touched nothing: aborted, no undo step");
@@ -87,7 +87,7 @@ namespace Heron.AutoCAD.Addin
             }
             catch (RunLeftBehind left)
             {
-                // Part of it is outside the aborted transaction: never "Nothing was changed" (D-140).
+                // Part of it is outside the aborted transaction: never "Nothing was changed" (D-143).
                 _afterCommit = null;
                 _afterAbort = null;
                 return RunResult.Failed(left.Message);

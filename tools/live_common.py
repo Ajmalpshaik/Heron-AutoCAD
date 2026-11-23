@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import sys
 from collections.abc import Awaitable, Callable
@@ -481,6 +482,18 @@ def files_in(folder: Path, pattern: str = "*") -> list[str]:
     """The names of the files in a folder that match a pattern, sorted; [] when there is no folder."""
     try:
         return sorted(p.name for p in Path(folder).glob(pattern) if p.is_file())
+    except OSError:
+        return []
+
+
+def addin_log_lines() -> list[str]:
+    """Today's lines of the plug-in's own log (``%LOCALAPPDATA%\\Heron\\autocad\\logs``, named by the UTC date); [] when there is none."""
+    from datetime import datetime, timezone
+
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    name = f"addin-{datetime.now(timezone.utc):%Y%m%d}.log"
+    try:
+        return (Path(base) / "Heron" / "autocad" / "logs" / name).read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return []
 

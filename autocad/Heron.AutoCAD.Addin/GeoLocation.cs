@@ -76,7 +76,7 @@ namespace Heron.AutoCAD.Addin
             {
                 // AutoCAD adds the location itself (PostToDb). It must then join this
                 // transaction, so an abort takes it back and a commit is one undo step
-                // with the rest; if it will not, it is taken off at once (D-140, #258).
+                // with the rest; if it will not, it is taken off at once (D-143, #258).
                 var fresh = new GeoLocationData { BlockTableRecordId = SymbolUtilityServices.GetBlockModelSpaceId(db) };
                 var posted = false;
                 try

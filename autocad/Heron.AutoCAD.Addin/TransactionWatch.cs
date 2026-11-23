@@ -7,7 +7,7 @@ namespace Heron.AutoCAD.Addin
 {
     /// <summary>
     /// Watches one plug-in operation's transaction for anything that could be a
-    /// change (D-140, issue #80): every object opened for change, added,
+    /// change (D-143, issue #80): every object opened for change, added,
     /// modified, erased, taken out or put back in the drawing, and every
     /// variable changed. OperationTransaction decides from that whether to
     /// commit; an operation that touched nothing is aborted, so it leaves no

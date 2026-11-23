@@ -294,6 +294,29 @@ Z8 = {
     "autocad_get_variable": {"name": "CMDACTIVE", "value": 0},
 }
 
+# --- V: the dialog watch, with AutoLISP's alert box as the way in (D-142) ------------------------
+
+BOX_ESC = "AutoCAD showed 'AutoCAD'; Heron closed it with Esc, nothing was kept from that step."
+BOX_OK = "AutoCAD showed 'AutoCAD'; Heron closed it with OK, nothing was kept from that step."
+BOX_ASKED = "AutoCAD showed 'AutoCAD'; Heron pressed OK on it, as this call asked (#101)."
+LOG_OLD = ["10:00:00.000 [1] connected", "10:00:01.000 [4] request ok"]
+LOG_WATCH = "10:05:00.100 [7] dialog watch: 'AutoCAD' -> Esc"
+
+
+def alerted(*boxes: str, timed_out: bool = False) -> str:
+    """What autocad_run_lisp answers for the alert, with the boxes the watch named."""
+    payload = {"expression": '(alert "Heron live check")', "result": "nil", "timed_out": timed_out}
+    if boxes:
+        payload["heron_dialogs"] = list(boxes)
+    return answer("DONE - no drawing object was added, changed or erased.", payload)
+
+
+STATUS_SAME = {"active_drawing": {"name": "Drawing1.dwg", "path": "", "model_space_entities": 12}, "heron": {"connected": True}}
+V1 = {"autocad_status": STATUS_SAME, "autocad_run_lisp": alerted(BOX_ESC), "autocad_get_variable": {"name": "CMDACTIVE", "value": 0}}
+V4 = {"autocad_batch_draw": drawn("4A"), "autocad_status": STATUS_SAME, "autocad_run_lisp": alerted(BOX_ESC), "lc.exists": True}
+V6 = {"autocad_run_lisp": alerted(BOX_ESC), "lc.addin_log_lines": seq(LOG_OLD, LOG_OLD, [*LOG_OLD, LOG_WATCH])}
+V7 = {"autocad_run_lisp": seq(alerted(BOX_ESC), alerted(BOX_ASKED), alerted(BOX_ESC))}
+
 # --- AG, AJ, RV ---------------------------------------------------------------------------------
 
 OFFICE = Path("C:/Temp/x/ag5-office/office.dwg")
@@ -399,6 +422,10 @@ SAMPLES: dict[str, tuple[dict, dict]] = {
     "U6": (U6, {"lc.files_in": seq([], ["live-check - checklist before-issue - 2026-11-21.xlsx"])}),
     "U7": (U7, {"autocad_checklist_report": seq({"saved": U7_FIRST}, {"saved": U7_FIRST})}),
     "U10": (U10, {"autocad_check_standards": {"checked": 10, "passed": True, "findings": []}}),
+    "V1": (V1, {"autocad_run_lisp": alerted(BOX_OK)}),
+    "V4": (V4, {"lc.exists": False}),
+    "V6": (V6, {"lc.addin_log_lines": seq(LOG_OLD, LOG_OLD, LOG_OLD)}),
+    "V7": (V7, {"autocad_run_lisp": seq(alerted(BOX_ESC), alerted(BOX_ESC), alerted(BOX_ESC))}),
     "W2": (W2, {"autocad_gaps": {"failures": []}}),
     "W3": (W3, {"autocad_why": {**W3["autocad_why"], "tool": {"tool": "autocad_draw_circle"}}}),
     "W4": (W4, {"autocad_why": {"can_run": True, "verdict": "x", "reasons": [{"reason": "x", "says": "Heron can do it.", "what_to_do": ""}]}}),
@@ -465,10 +492,94 @@ class TestTheLispIsShapedAsTheRowsSay:
             assert advanced.publish_call_in_lisp(text) is None
 
 
+class TestTheDialogWatchRowsHoldTheWatchToItsRules:
+    """The alert box has only OK. The watch may press Cancel, No or Esc; OK and Yes are never its to press."""
+
+    @pytest.mark.parametrize("row", ["V1", "V4", "V6"])
+    @pytest.mark.parametrize("button", ["OK", "Yes"])
+    def test_a_box_closed_with_ok_or_yes_fails(self, monkeypatch, ctx, row, button):
+        said = f"AutoCAD showed 'AutoCAD'; Heron closed it with {button}, nothing was kept from that step."
+        good, _ = SAMPLES[row]
+        verdict = play(monkeypatch, CHECKS[row], {**good, "autocad_run_lisp": alerted(said)}, ctx)
+        assert not verdict.passed and "never OK or Yes" in verdict.evidence
+
+    @pytest.mark.parametrize("row", ["V1", "V4", "V6", "V7"])
+    def test_an_answer_that_names_no_box_fails_and_says_what_to_do(self, monkeypatch, ctx, row):
+        good, _ = SAMPLES[row]
+        none = alerted()
+        bad = {"autocad_run_lisp": seq(none, none, none) if row == "V7" else none}
+        verdict = play(monkeypatch, CHECKS[row], {**good, **bad}, ctx)
+        assert not verdict.passed and not verdict.refused
+        assert "press Esc on it" in verdict.evidence
+
+    @pytest.mark.parametrize("row", ["V1", "V4", "V6"])
+    def test_a_box_left_open_is_a_timeout_that_fails(self, monkeypatch, ctx, row):
+        good, _ = SAMPLES[row]
+        verdict = play(monkeypatch, CHECKS[row], {**good, "autocad_run_lisp": alerted(timed_out=True)}, ctx)
+        assert not verdict.passed and "timed out" in verdict.evidence
+
+    def test_v1_fails_when_the_next_call_finds_autocad_inside_a_command(self, monkeypatch, ctx):
+        good, _ = SAMPLES["V1"]
+        verdict = play(monkeypatch, CHECKS["V1"], {**good, "autocad_get_variable": {"name": "CMDACTIVE", "value": 1}}, ctx)
+        assert not verdict.passed and "CMDACTIVE" in verdict.evidence
+
+    def test_v4_fails_when_the_drawing_in_front_changed(self, monkeypatch, ctx):
+        good, _ = SAMPLES["V4"]
+        other = {"active_drawing": {"name": "Other.dwg", "path": "", "model_space_entities": 3}}
+        verdict = play(monkeypatch, CHECKS["V4"], {**good, "autocad_status": seq(STATUS_SAME, other)}, ctx)
+        assert not verdict.passed and "Other.dwg" in verdict.evidence
+
+    def test_v6_fails_on_an_error_line_or_a_second_watch_line(self, monkeypatch, ctx):
+        good, _ = SAMPLES["V6"]
+        for extra in ("10:05:00.200 [7] dialog watch: could not post the press to 'AutoCAD'",
+                      "10:05:00.300 [7] bridge error: System.InvalidOperationException",
+                      "10:05:00.400 [7] dialog watch: 'AutoCAD' -> Esc"):
+            log = seq(LOG_OLD, LOG_OLD, [*LOG_OLD, LOG_WATCH, extra])
+            verdict = play(monkeypatch, CHECKS["V6"], {**good, "lc.addin_log_lines": log}, ctx)
+            assert not verdict.passed and not verdict.refused, extra
+
+    def test_v6_wants_the_log_line_to_name_the_box_and_the_press_in_the_answer(self, monkeypatch, ctx):
+        good, _ = SAMPLES["V6"]
+        wrong = "10:05:00.100 [7] dialog watch: 'AutoCAD' -> Cancel"
+        verdict = play(monkeypatch, CHECKS["V6"], {**good, "lc.addin_log_lines": seq(LOG_OLD, LOG_OLD, [*LOG_OLD, wrong])}, ctx)
+        assert not verdict.passed and "-> Esc" in verdict.evidence
+
+    def test_v6_is_not_run_when_there_is_no_log_to_read(self, monkeypatch, ctx):
+        good, _ = SAMPLES["V6"]
+        verdict = play(monkeypatch, CHECKS["V6"], {"lc.addin_log_lines": [], "autocad_run_lisp": good["autocad_run_lisp"]}, ctx)
+        assert verdict.refused and "log was not found" in verdict.evidence
+        assert not verdict.called("autocad_run_lisp"), "nothing is sent when the log cannot be read"
+
+    def test_v7_names_the_box_it_read_back_in_the_second_call(self, monkeypatch, ctx):
+        good, _ = SAMPLES["V7"]
+        verdict = play(monkeypatch, CHECKS["V7"], good, ctx)
+        asked = verdict.called("autocad_run_lisp")
+        assert asked[0].get("expect_box") is None
+        assert asked[1] == {"expression": heron.ALERT, "expect_box": "AutoCAD", "press": "OK"}
+        assert asked[2]["expect_box"] != "AutoCAD" and asked[2]["press"] == "OK", "a different title must stay a default close"
+
+    def test_v7_fails_when_a_box_with_another_title_is_pressed_as_asked(self, monkeypatch, ctx):
+        good, _ = SAMPLES["V7"]
+        log = seq(alerted(BOX_ESC), alerted(BOX_ASKED), alerted(BOX_ASKED))
+        verdict = play(monkeypatch, CHECKS["V7"], {**good, "autocad_run_lisp": log}, ctx)
+        assert not verdict.passed and "not said as closed by the watch" in verdict.evidence
+
+    def test_the_log_helper_reads_todays_file_and_is_empty_without_one(self, tmp_path, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+        assert lc.addin_log_lines() == []
+        folder = tmp_path / "Heron" / "autocad" / "logs"
+        folder.mkdir(parents=True)
+        (folder / f"addin-{datetime.now(timezone.utc):%Y%m%d}.log").write_text("a\nb\n", encoding="utf-8")
+        assert lc.addin_log_lines() == ["a", "b"]
+
+
 def test_every_heron_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(heron.BY_EYE)
     assert not set(CHECKS) & set(heron.BY_EYE)
-    assert {"V1", "V4", "V6", "V7"} <= set(heron.BY_EYE)
+    assert {"V1", "V4", "V6", "V7"} <= set(CHECKS), "the dialog rows are measured through the alert box (D-142)"
+    assert not {"V1", "V4", "V6", "V7"} & set(heron.BY_EYE)
+    assert {"V2", "V3", "V5", "V8"} <= set(heron.BY_EYE)
     assert {lc.group_of(r) for r in rows} >= {"AG", "AJ", "RV"}
-    assert all("#213" in heron.BY_EYE[r] for r in ("V1", "V4", "V7")), "the dialog rows point at their issue"
     assert len(rows) == len(CHECKS) + len(heron.BY_EYE)

@@ -306,6 +306,12 @@ caught first). If a command was running when the error came, it is still cancell
   NOT RUN live (NEEDS-CHECKING AF1-AF11). The two places that pick the space themselves (the
   wipeout in `tools/drafting.py`, the dimension edits in `tools/dimensions_edit.py`) use the same
   fallback (#169).
+- **Since [D-141](DECISIONS.md) (#39, #40):** on a sheet tab `autocad_status` takes the space and the
+  tab from TILEMODE and CTAB, not COM's ActiveSpace / ActiveLayout (which can lag the tab, D-125);
+  `active_space` is `"paper"` on a sheet even with its viewport active (`viewport_active: true` then);
+  `space="paper"` draws on the sheet CTAB names. Over COM a sheet's scale is set with
+  `SetCustomScale` (a layout has no `CustomScale`; that was the "went busy" of row D8), and a layout
+  plot is not centred. All NOT RUN live (D8, D20, D33).
 - `create_material(replace=true)` with only `diffuse_rgb` kept the old texture image, which covers
   the colour; from plug-in **1.4.2** the image is cleared (K16, NOT RUN).
 
@@ -366,7 +372,7 @@ Since [D-66](DECISIONS.md) the plug-in closes a modal box AutoCAD opens while a 
 Heron for Revit takes back a kept job that changed nothing, so its undo list gets no blank entry
 (its D-160). In AutoCAD this is only partly done ([D-62](DECISIONS.md), issue #80):
 - **Where an empty step could come from.** The plug-in opens no undo group of its own; reads leave
-  none at all ([D-34](DECISIONS.md)), and since [D-140](DECISIONS.md) neither does any plug-in
+  none at all ([D-34](DECISIONS.md)), and since [D-143](DECISIONS.md) neither does any plug-in
   operation that touched nothing: its transaction is aborted, not committed (live row AQ17). The groups come from the server: each change tool opens one
   (`StartUndoMark` / `EndUndoMark`) around its writes, and with Ask to Keep on, or for a dry run, the
   gate puts an `UNDO _Mark` down first ([D-18](DECISIONS.md)).
@@ -378,7 +384,7 @@ Heron for Revit takes back a kept job that changed nothing, so its undo list get
 - **Not fixed.** Other change tools open their group before they know there is nothing to do, and
   with Ask to Keep on Heron's mark stays in the list for a job that wrote nothing. Whether AutoCAD
   keeps an entry for an empty group, or for a mark with nothing after it, is not known: it has not
-  been checked in AutoCAD (NEEDS-CHECKING T7). This is the part of #80 still open after D-140, now issue #263.
+  been checked in AutoCAD (NEEDS-CHECKING T7). This is the part of #80 still open after D-143, now issue #263.
 - **Why it is not taken back afterwards.** Taking an entry out means one more `UNDO`. If AutoCAD
   kept no entry, that `UNDO` undoes the modeller's own last change instead. And the plug-in counts
   drawing objects only, so "counted nothing" is not proof: a layer or a variable may have changed.

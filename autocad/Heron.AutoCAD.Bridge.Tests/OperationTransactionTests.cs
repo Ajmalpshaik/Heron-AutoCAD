@@ -5,7 +5,7 @@ using Heron.AutoCAD.Bridge;
 namespace Heron.AutoCAD.Bridge.Tests;
 
 /// <summary>
-/// How a plug-in operation's transaction ends (D-140, issue #80), and a new
+/// How a plug-in operation's transaction ends (D-143, issue #80), and a new
 /// object AutoCAD posts itself kept inside the transaction (issue #258).
 /// </summary>
 public class OperationTransactionTests

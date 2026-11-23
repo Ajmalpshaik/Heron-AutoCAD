@@ -5,7 +5,7 @@
 
 ---
 
-## D-140 - A plug-in job that touched nothing is aborted; the geographic location joins the transaction or is taken off; tiled viewports stay a View job
+## D-143 - A plug-in job that touched nothing is aborted; the geographic location joins the transaction or is taken off; tiled viewports stay a View job
 
 **Decided:** 2026-11-23, by session S15 of the 2026-11-23 wave, on issues
 [#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258) and
@@ -45,6 +45,128 @@ copied). **Status:** in force; tested offline only, live rows AQ15-AQ17 NOT RUN.
   last change" never undoes the split by mistake; a test now holds that. As a Change job it would need the
   Changes padlock and a Keep question just to split the screen. No code changed for this; `core/risk.py` keeps it
   under VIEW, as AQ7 intends. AQ16 checks the split's own undo step live.
+
+---
+
+## D-142 - The dialog watch's live rows open their box with AutoLISP's alert, not with OPEN, CLOSE or PURGE
+
+**Decided:** 2026-11-23, by session S21 of the 2026-11-23 wave, on the parent session's decision for issue
+[#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213). **Status:** in force; tested offline only
+(`tests/test_live_check_heron.py`), live rows V1, V4, V6 and V7 NOT RUN. Settles how D-66's watch is tested;
+it changes no rule of the watch.
+
+**The gap.** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed `_OPEN`, `_CLOSE` and `_PURGE` through
+`autocad_send_command`. All three are in `DIALOG_COMMANDS`, which Heron refuses before anything is sent, and
+`suppress_dialogs` would have set FILEDIA to 0 anyway. So no live row could make AutoCAD open a box during
+a Heron job.
+
+**The way in.** `autocad_run_lisp('(alert "Heron live check")')` with Admin on. AutoLISP's alert is a real
+modal box, opened in the middle of the job, and `autocad_run_lisp` is not refused for it. The watch's
+rule is unchanged (Cancel, else No, else Esc; never OK, never Yes): the alert has only OK, so it gets Esc.
+- **`DIALOG_COMMANDS` is not loosened.** OPEN, CLOSE and PURGE stay refused.
+- **V1** the box is closed and named in `heron_dialogs`, and the next call works without pressing Esc.
+  **V4** keeps its point (never Yes, the change stays, the drawing stays open) with a line drawn first; the
+  "Save changes?" box itself cannot be reached. **V6** reads the add-in log for exactly one
+  `dialog watch: '<title>' -> Esc` line and no error lines. **V7** reads the box's real title from V1's
+  answer, then `expect_box=<title>, press="OK"` (`autocad_run_lisp` takes both, #101) must say "as this call
+  asked", and a different title must still be closed by the watch. V7's Admin-off refusal is not measured by
+  the runner: it never moves a padlock (D-59).
+- **The title is read, never assumed.** What AutoCAD calls its alert box is not known from here.
+- **The runner** (`tools/live_check_heron.py`) measures these four rows; `live_common.addin_log_lines()` is
+  the one new helper (today's `addin-<UTC date>.log` in `%LOCALAPPDATA%\Heron\autocad\logs`). Each row has a
+  good and a bad recording offline, and extra tests hold the watch to "never OK or Yes".
+- **Not tested in AutoCAD.** If the live run shows the alert answered differently (a title that is empty, a
+  Cancel instead of Esc), that is a finding for D-66, not for this entry.
+
+---
+
+## D-141 - A sheet tab is read from TILEMODE and CTAB; a layout's scale is SetCustomScale; a whole-sheet preview brings its close-ups
+
+**Decided:** 2026-11-23, by session S16 of the 2026-11-23 wave, for issues
+[#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
+[#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40) and
+[#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41). **Status:** in force; extends D-90
+(sheets) and D-125 (the tab on screen), and supersedes D-102's "the default preview stays one
+picture" for a whole sheet only. Root-caused by reading the code; no AutoCAD here. Tested offline
+only (`tests/test_sheet_tab_bugs.py`, `tests/test_preview_extents.py`); live rows D8, D20, D33 and
+AM7 NOT RUN.
+
+- **#40, found:** the COM page setup of a new sheet (`_set_page`, also `autocad_page_setup`) set
+  `layout.CustomScale`. A layout has no such property; only a viewport has. Autodesk's ActiveX
+  reference sets a layout's scale with `SetCustomScale(paper, drawing)`. pywin32 answers a property
+  it cannot set with `Property 'Item.CustomScale' can not be set.`, which `errors.is_dispatch_failure`
+  reads as a busy AutoCAD; once the layout was added that is "Outcome unknown: AutoCAD went busy",
+  every call, also with `activate=false`, after the plotter and A1 were written: exactly row D8. The
+  next line, `CenterPlot = True` on a layout plot, is refused by AutoCAD too (seen live in row D20).
+  Now: `set_custom_scale` (tools/document.py) for the sheet and for the PDF export; centring is not
+  asked of a layout plot (the answer says `centred: false` and why), and a refused centring is a note,
+  not a stop. The plot style table, written after both, now gets there. The plug-in route (D-90) did
+  neither and is unchanged. `is_dispatch_failure` is left as it is: it is shared by every tool, and a
+  busy AutoCAD does give that same message.
+- **#39, made robust (cause not certain):** the 2026-10-28 code read `doc.PaperSpace`, which threw
+  on a sheet tab; D-90 already fell back to the layout's block. What is new: the space and the tab in
+  `autocad_status` come from **TILEMODE and CTAB** first, AutoCAD's own variables, not COM's
+  ActiveSpace / ActiveLayout, which lagged the tab on 2026-11-22 (D-125). A sheet tab is `"paper"`
+  even with its viewport active, which is said as `viewport_active: true`. `get_space(doc, "paper")`
+  and the paper count use the block of the sheet CTAB names whenever COM's ActiveLayout names another
+  tab, or `doc.PaperSpace` throws. The window caption, version and drawing name are named in
+  `unreadable` instead of failing. And the gate's first look at AutoCAD ran outside every tool's error
+  handler, so a COM error there came out as a bare "Exception occurred": it is now an AutocadError,
+  which status answers through and other tools refuse in words.
+- **#41, made robust (cause not certain):** a picture of a whole sheet has too few pixels for its
+  text (D-102's most likely cause); windows over its parts showed everything live. So with `detail`
+  left out, an extents preview whose box is a **sheet** (A0-A2, ANSI D-E, ARCH D-E1, or its frame up
+  to about 11 % smaller, at 1:1 or a common drawing scale up to 1:1000) and whose TEXTSIZE is smaller
+  than the text the picture can read gets the four close-ups by itself, with `detail_added` saying
+  why. `detail=1` keeps one picture. A drawing that is not a sheet, a sheet whose text reads, a
+  window and the current view are unchanged, so most previews stay one picture. Not done: measuring
+  the extents afresh. D-102 trusted a regen to refresh EXTMIN/EXTMAX, but Autodesk says they shrink
+  only on ZOOM All / Extents; the plug-in's `entity_extents` cannot filter by space yet (its filter
+  takes type, layer, block and colour only), so that is left (row AM4 says whether it matters).
+
+---
+
+## D-140 - A sequence with a replace step, and four more write-then-erase tools, get the whole-change question
+
+**Decided:** 2026-11-23, by session S14 of the 2026-11-23 wave ("Yes, next 10"), on issue
+[#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), found by S10 under D-136. Applies Ajmal's
+D-136 choice ("Undo the whole change"); no new question to him. **Status:** in force; tested offline only
+(`tests/test_gate.py`, `tests/test_sequence.py`, `tests/test_saved_and_release.py`), live rows NOT RUN
+(NEEDS-CHECKING Group BG). Extends D-136, so D-50's erase question changes for these calls only.
+
+**The gap.** D-136's gate knew a replace job by the tool's own name. `autocad_sequence` (and
+`autocad_saved_command`, which runs one) calls each step's body directly inside one job named after the
+sequence, so a join, explode, trim or break run as a step got no mark (Ask to Keep off) and D-50's
+"Bring them back", which leaves both shapes on top of each other.
+
+**The rule now.**
+- **The gate is told the call's arguments.** `tool_errors` binds them with their defaults and passes them
+  to `guarded(args=...)`. `gate.replacing(tool, args)` names the tool in the call that replaces objects,
+  or None.
+- **Steps.** A tool that runs others registers a step reader in `gate.STEPS_OF`: `sequence.steps_of`
+  (the steps, checked by `plan_steps`, each with its tool's defaults) and `saved_commands.steps_of` (a
+  `run`, the saved steps with the inputs filled). A sequence with any replace step is a replace job, as
+  the tool alone is: the mark first with Ask to Keep on or off, **refused before any step runs** when no
+  mark can be put down (the refusal names the step: "Run Several Tools In Order (its step Join ...)"),
+  and the erase question "Keep the change, or undo the whole change?", whose undo goes back to the mark,
+  so it takes back **the whole sequence**, the steps before the join too. Then the gate checks every
+  step's new objects are gone. A sequence's or saved command's check-only `dry_run`, and a step list the
+  tool will refuse anyway, are no replace job (nothing runs; the tool says what is wrong).
+- **Four tools checked (the issue's list), from the code:**
+  - `autocad_solid_boolean`: **added to `REPLACES`.** The first solid is changed in place to the union,
+    the cut or the shared part, and the others are erased. Bringing back only the others leaves them
+    inside a union, or in the hole they cut, and the first solid is not as it was.
+  - `autocad_associative_array`: **added.** The array object holds copies of the sources, which AutoCAD
+    takes in and erases; bringing them back leaves them on top of the array's first item.
+  - `autocad_make_block`: **added when `keep_originals` is false** (its default, `gate.REPLACES_WHEN`).
+    The objects are erased under the new insert; bringing them back doubles them. With
+    `keep_originals=true` nothing is erased and nothing changes.
+  - `autocad_add_region` (the outline tool, AP3): **added when `erase_outlines` is true**. Bringing back
+    the outlines leaves them on the regions' edges. The regions' handles (`"regions"`) now count as new
+    objects that undoing the whole change must take away (`gate._made`).
+- **Unchanged:** every other tool and every sequence without a replace step, word for word (tested).
+  The live-check runner still leaves AC1, AP3 and the AQ rows to an eye: the box now asks the
+  whole-change question, which the runner cannot answer either.
 
 ---
 

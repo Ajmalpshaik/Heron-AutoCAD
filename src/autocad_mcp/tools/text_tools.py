@@ -10,6 +10,7 @@ matching are plain functions, tested without AutoCAD.
 from __future__ import annotations
 
 import csv
+import io
 import os
 import re
 from collections.abc import Callable, Iterable, Iterator
@@ -18,6 +19,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from ..acad import geometry
+from ..acad.attribute_sheet import csv_delimiter
 from ..acad.curves import read_path
 from ..acad.entities import resolve_handle, resolve_handles
 from ..acad.selection import (
@@ -165,12 +167,22 @@ def align_moves(boxes: dict[str, tuple[float, float, float, float]], mode: Align
 
 
 def _read_rows(csv_path: str) -> list[dict]:
+    """The rows of a CSV, as autocad_table_from_excel reads one (#259).
+
+    Comma, or the semicolon an Excel on a European PC writes (``csv_delimiter``);
+    UTF-8, or Excel's own cp1252 on a Western PC when the file is not UTF-8.
+    """
     path = os.path.expandvars(os.path.expanduser(csv_path.strip().strip('"')))
     try:
-        with open(path, encoding="utf-8-sig", newline="") as fh:
-            return list(csv.DictReader(fh))
+        with open(path, "rb") as fh:
+            content = fh.read()
     except OSError as exc:
         raise AutocadError(f"Could not read the CSV file {path}: {exc}") from exc
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("cp1252", errors="replace")
+    return list(csv.DictReader(io.StringIO(text, newline=""), delimiter=csv_delimiter(text)))
 
 
 # ---- AutoCAD side -----------------------------------------------------------
@@ -453,7 +465,7 @@ async def autocad_set_attributes(
     block_name: Annotated[str | None, Field(description="Only this block (real name), e.g. the title block. Default: every block with attributes.")] = None,
     values: Annotated[dict[str, str] | None, Field(description="{TAG: value} written to every matching block, e.g. {'REV': 'B'}.")] = None,
     rows: Annotated[list[dict[str, str]] | None, Field(description="Per-block values: one dict per block, with the 'key' column saying which block.")] = None,
-    csv_path: Annotated[str | None, Field(description="Or a CSV file holding the rows (first line = column names).")] = None,
+    csv_path: Annotated[str | None, Field(description="Or a CSV file holding the rows (first line = column names; comma or semicolon, as Excel saves it).")] = None,
     key: Annotated[str | None, Field(description="Column that picks the block: an attribute tag (e.g. 'SHEET_NO') or 'layout' for the layout name.")] = None,
     layer: Annotated[str | None, Field(description="Only blocks on this layer.")] = None,
     dry_run: Annotated[bool, Field(description="True: list the changes without making them.")] = False,

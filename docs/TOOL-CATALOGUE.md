@@ -4,7 +4,7 @@
 
 Every one of Heron's **199** tools, in plain words, grouped by the job it does. For each tool: what it does, the problem it solves, where to find it, how to use it step by step, what it needs from you, the result to expect, its limits, and whether anyone has seen it work in a real AutoCAD.
 
-> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **155** NOT RUN, **1** FAIL, **24** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
+> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **156** NOT RUN, **0** FAIL, **24** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
 
 ## How Heron's tools work (the same for every tool)
 
@@ -98,7 +98,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | [`autocad_create_drawing`](#autocad_create_drawing) | Files and drawings | none: changes only what is on screen | NO ROW |
 | [`autocad_create_hatch_pattern`](#autocad_create_hatch_pattern) | Drawing and coordinates | Changes + Publish | NOT RUN |
 | [`autocad_create_layer`](#autocad_create_layer) | Layers and linetypes | Changes | NOT RUN |
-| [`autocad_create_layout`](#autocad_create_layout) | Sheets and printing | Changes | FAIL |
+| [`autocad_create_layout`](#autocad_create_layout) | Sheets and printing | Changes | NOT RUN |
 | [`autocad_create_linetype`](#autocad_create_linetype) | Layers and linetypes | Changes + Publish | NOT RUN |
 | [`autocad_create_material`](#autocad_create_material) | 3D, lights and rendering set-up | Changes | NOT RUN |
 | [`autocad_create_styles`](#autocad_create_styles) | Text, labels and tables | Changes | NOT RUN |
@@ -376,7 +376,7 @@ A region is a flat face: its area and centre can be read, it can be extruded, an
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AP2, AP3, AP4).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AP2, AP3, AP4, BG8).
 
 ### `autocad_add_revision_cloud`
 
@@ -704,7 +704,7 @@ Coordinates are in the drawing's own units — call autocad_status first if you 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows L5, L7, V3, W5, AQ16, RV3).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows L5, L7, V3, W5, AQ16, RV3, BG1).
 
 ### `autocad_draw_multiline`
 
@@ -1196,7 +1196,7 @@ The array stays associative: in AutoCAD the modeller clicks it and edits the cou
 - An array AutoCAD builds somewhere other than asked is refused, and nothing is changed.
 - The plug-in does part of the work (`associative_array`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ1, BG7).
 
 ### `autocad_break_curve`
 
@@ -1623,7 +1623,7 @@ Lines in one straight line become one line; arcs of one circle one arc; anything
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA10, BC1, BC6, BC8, BC9).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA10, BC1, BC6, BC8, BC9, BG1).
 
 ### `autocad_list_entities`
 
@@ -3511,7 +3511,7 @@ Use for every separate part (fitting, elbow, clamp, plate, anchor, support piece
 - A tag with a space, a tag given twice, a constant attribute with no default, or constant and preset together are refused before anything is made.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **PARTLY**: rows A25 passed in AutoCAD 2027; the rest are NOT RUN (rows A25, K7, AC1, AC2, AF24).
+**Live proof.** **PARTLY**: rows A25 passed in AutoCAD 2027; the rest are NOT RUN (rows A25, K7, AC1, AC2, AF24, BG6).
 
 ### `autocad_manage_xref`
 
@@ -4179,7 +4179,7 @@ Returns the sheet's arithmetic worked out — paper size, frame, the corner a ti
 - copy_from naming a layout that is not there lists the ones that are.
 - The plug-in does part of the work (`create_layout`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **FAIL**: a live row failed and has not passed since (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22). Do not rely on it.
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22).
 
 ### `autocad_list_layouts`
 
@@ -5574,7 +5574,7 @@ The first solid is the one that remains and is modified; the others are **consum
 - The volume before and after is reported: a subtract that removed nothing shows up as an unchanged volume.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E28, E29, E30, AR12).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E28, E29, E30, AR12, BG5).
 
 ### `autocad_solid_properties`
 
@@ -6415,7 +6415,7 @@ Use after drawing something, to check it looks right before reporting it done. P
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AH1, AR1).
+**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AM7, AH1, AR1).
 
 ### `autocad_project_notes`
 
@@ -6511,7 +6511,7 @@ Unlike autocad_send_command, this gets a value back. AutoCAD's COM interface has
 - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are rejected before anything is sent, since AutoCAD would otherwise sit waiting for the closing bracket.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10, BA3).
+**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, V1, V7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10, BA3).
 
 ### `autocad_saved_command`
 
@@ -6547,7 +6547,7 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Saved commands** lists t
 - Running with an unknown or missing input names it; nothing is run.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T3).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T3, BG4).
 
 ### `autocad_send_command`
 
@@ -6617,7 +6617,7 @@ This is AutoLISP's ``progn``: the steps that only make sense together, sent toge
 - A step that fails while running is reported with its own error text; the steps after it are marked skipped unless stop_on_error=false.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D27, D28, D29, D30, F23, N7, X24, Z5, AJ8, AX5, AZ1, AZ5, RV3).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D27, D28, D29, D30, F23, N7, X24, Z5, AJ8, AX5, AZ1, AZ5, RV3, BG1).
 
 ### `autocad_set_variable`
 
@@ -6783,7 +6783,7 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**, the Undo but
 - Refused when Heron made no change in this chat, when the drawing is another one, when anything changed since, when Heron zoomed or ran a command since (with Ask to Keep off), or with a plug-in older than 1.5.0.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1, AQ16, AX4, AX5, AX6, AX8, BC1, BC3, BC12).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1, AQ16, AX4, AX5, AX6, AX8, BC1, BC3, BC12, BG2).
 
 ### `autocad_use_autocad`
 

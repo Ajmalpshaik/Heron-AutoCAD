@@ -3,7 +3,7 @@ using System;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// How a plug-in operation's transaction ends (D-140, issue #80).
+    /// How a plug-in operation's transaction ends (D-143, issue #80).
     ///
     /// Each operation runs in one transaction. A read is always aborted, so it
     /// leaves nothing behind, not even an empty undo step (D-34). Any other
@@ -58,7 +58,7 @@ namespace Heron.AutoCAD.Bridge
 
     /// <summary>
     /// A new object AutoCAD adds to the drawing itself (GeoLocationData.PostToDb),
-    /// then handed to the operation's transaction (D-140, issue #258).
+    /// then handed to the operation's transaction (D-143, issue #258).
     ///
     /// Either it ends up inside the transaction, so it lands or goes with the
     /// rest of the job and the job stays one undo step; or it is taken off again
