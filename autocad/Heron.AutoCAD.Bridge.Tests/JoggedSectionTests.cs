@@ -4,7 +4,7 @@ using Heron.AutoCAD.Bridge;
 namespace Heron.AutoCAD.Bridge.Tests;
 
 /// <summary>
-/// A jogged section line (#171, D-151): its legs, which are jogs, and where a
+/// A jogged section line (#171, D-152): its legs, which are jogs, and where a
 /// point on each leg lands on the 2D section. Legs parallel to each other read
 /// as one straight section (the jog takes no width); a leg at an angle is
 /// turned flat at true size beside the one before; a leg walking back is refused.

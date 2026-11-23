@@ -21,7 +21,7 @@ from ..core.connection import get_app, get_doc, run, sheet_on_screen
 from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, point_to_list
-from ._shared import before_after, current_ucs, in_plugin, plugin_read
+from ._shared import before_after, current_ucs, faster_read, in_plugin, plugin_read
 
 # Formats doc.Export writes directly. PDF goes through the plotter instead.
 EXPORT_FORMATS = {"dxf", "wmf", "sat", "bmp", "eps", "stl"}
@@ -302,13 +302,52 @@ def _plan_view(doc: Any) -> bool:
         return False
 
 
-def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None]:
-    """The area an extents preview covers, or None and the reason it cannot be told.
+# How far in an edge of the plug-in's model-space box must lie from EXTMIN/EXTMAX, as a
+# share of the bigger side, before EXTMIN/EXTMAX are taken to be stale (#269, D-151).
+STALE_SHARE = 0.01
 
-    Regenerates first, as autocad_get_extents does: EXTMIN/EXTMAX lag behind
-    erased objects (issue #41). A paper layout plots its own extents. In
-    model space the box is a plan box, so it maps onto the picture only in a
-    plan view of the world UCS.
+
+def _measured_model_box() -> Box | None:
+    """Model space's own extents, measured object by object by the plug-in (#269, D-151), or None.
+
+    None, so EXTMIN/EXTMAX are used as before, when the plug-in is not in this
+    job, is older than its space filter (DXF 410), or found nothing with extents.
+    """
+    measured = faster_read("entity_extents", {"filter": [[410, "Model"]]})
+    if not measured:
+        return None
+    low, high = measured.get("min"), measured.get("max")
+    if not isinstance(low, (list, tuple)) or not isinstance(high, (list, tuple)) or len(low) < 2 or len(high) < 2:
+        return None
+    try:
+        return _box(low, high)
+    except (TypeError, ValueError):
+        return None
+
+
+def _shrunk_inside(fresh: Box, old: Box) -> bool:
+    """True when ``fresh`` lies inside ``old`` and at least one of its edges is well in from it."""
+    size = max(old[1][0] - old[0][0], old[1][1] - old[0][1])
+    slack = size * 1e-9
+    inside = all(fresh[0][i] >= old[0][i] - slack and fresh[1][i] <= old[1][i] + slack for i in (0, 1))
+    moved = max(max(fresh[0][i] - old[0][i], old[1][i] - fresh[1][i]) for i in (0, 1))
+    return inside and moved > size * STALE_SHARE
+
+
+def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None, str | None]:
+    """The area an extents preview covers, or None and the reason it cannot be told; and a note.
+
+    Regenerates first, as autocad_get_extents does. A paper layout plots its
+    own extents. In model space the box is a plan box, so it maps onto the
+    picture only in a plan view of the world UCS.
+
+    EXTMIN/EXTMAX shrink only on ZOOM Extents or All, not on a regen, so after
+    an erase they can still reach where the erased object was (#41, #269). In
+    model space the plug-in measures the objects themselves (DXF 410 "Model");
+    when its box lies well inside EXTMIN/EXTMAX, that box is the one, and the
+    note (third value) says so: the picture is then a window over it. A plug-in
+    box that is bigger (an object on a frozen layer, which a plot leaves out)
+    is not used. No plug-in, or an older one: EXTMIN/EXTMAX as before (D-114).
     """
     try:
         doc.Regen(AC_ALL_VIEWPORTS)
@@ -316,7 +355,7 @@ def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None]:
         raise_if_busy(exc)
     model = bool(layout.ModelType)
     if model and not _plan_view(doc):
-        return None, "the screen is not a plan view of the world UCS"
+        return None, "the screen is not a plan view of the world UCS", None
     try:
         low = point_to_list(doc.GetVariable("EXTMIN" if model else "PEXTMIN"))
         high = point_to_list(doc.GetVariable("EXTMAX" if model else "PEXTMAX"))
@@ -324,7 +363,17 @@ def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None]:
     except BaseException as exc:  # noqa: BLE001 - no extents to read
         raise_if_busy(exc)
         box = None
-    return box, None if box else "the drawing has no extents (nothing drawn)"
+    note = None
+    if model and box:
+        fresh = _measured_model_box()
+        if fresh and _shrunk_inside(fresh, box):
+            note = (
+                f"EXTMIN/EXTMAX still reach {_round_point(box[0])} to {_round_point(box[1])}: AutoCAD "
+                "shrinks them only on ZOOM Extents. The picture covers the objects in model space as "
+                f"Heron in AutoCAD measured them, {_round_point(fresh[0])} to {_round_point(fresh[1])}."
+            )
+            box = fresh
+    return box, None if box else "the drawing has no extents (nothing drawn)", note
 
 
 def _clear_text(box: Box, pixels: tuple[float, float]) -> float:
@@ -501,9 +550,11 @@ def _plot_png(
 
         # Which area the picture covers, so a sheet too big for the pixels, or
         # extents stretched by something far off, can be seen (issue #41).
-        box, why_not = None, None
+        box, why_not, measured_note = None, None, None
         if area == "extents":
-            box, why_not = _extents_box(doc, layout)
+            box, why_not, measured_note = _extents_box(doc, layout)
+            if measured_note:
+                result["extents_note"] = measured_note
         elif area == "window":
             box = _box(corner1, corner2)
             why_not = None if box else "the window has no area"
@@ -543,7 +594,13 @@ def _plot_png(
 
         if area == "window":
             layout.SetWindowToPlot(_point2d(corner1, "corner1"), _point2d(corner2, "corner2"))
-        layout.PlotType = _PREVIEW_AREAS[area]
+            layout.PlotType = AC_WINDOW
+        elif measured_note and box:
+            # AutoCAD's own Extents plot would frame the stale EXTMIN/EXTMAX (#269).
+            layout.SetWindowToPlot(_point2d(box[0], "corner1"), _point2d(box[1], "corner2"))
+            layout.PlotType = AC_WINDOW
+        else:
+            layout.PlotType = _PREVIEW_AREAS[area]
         layout.UseStandardScale = True
         layout.StandardScale = AC_SCALE_TO_FIT
         layout.CenterPlot = True
@@ -1736,9 +1793,11 @@ async def autocad_preview(
         {"area", "layout", "size", "pixels", "plotted": {"min", "max",
         "width", "height"}, "smallest_clear_text", "detail": [{"picture",
         "part", "corner1", "corner2"}], "detail_smallest_clear_text",
-        "detail_added", "tip"}.
+        "detail_added", "extents_note", "tip"}.
         A `plotted` area much bigger than the sheet means something lies far
-        off: find it with autocad_get_extents.
+        off: find it with autocad_get_extents. `extents_note` says the
+        picture covers model space as Heron in AutoCAD measured it, because
+        EXTMIN/EXTMAX still reached an erased object.
 
     Examples:
         - Use when: you have drawn something and want to see it before saying

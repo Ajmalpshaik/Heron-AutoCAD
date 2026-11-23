@@ -458,6 +458,28 @@ async def am4_a_far_off_line_stretches_the_picture(ctx: Context) -> str:
         await _back(ctx, name)
 
 
+
+async def am8_an_erased_far_off_line_no_longer_stretches_the_picture(ctx: Context) -> str:
+    """D-151 (#269): with the plug-in, the preview measures model space itself, so stale EXTMIN/EXTMAX do not count."""
+    name, o = await _sheet(ctx, "AM8")
+    try:
+        (far,) = await _draw({"type": "line", "start": _at(o, 100000, 100000), "end": _at(o, 100010, 100000),
+                              "layer": "LC-AM8"})
+        await by_hand_erase(far)
+        _, info = await _preview(detail=1)
+        box = info.get("plotted") or {}
+        expect(box.get("max"), f"the preview says nothing of what it plotted: {info}")
+        top = _rel(o, box["max"])
+        expect(float(box["max"][0]) - o[0] < 1000 and float(box["max"][1]) - o[1] < 1000,
+               f"after erasing the far line the preview still plotted up to {top}: stale EXTMIN/EXTMAX were framed "
+               "(is the plug-in built from this change installed?)")
+        note = str(info.get("extents_note") or "")
+        said = (f"the plug-in's box was used: '{note[:90]}'" if note
+                else "EXTMIN/EXTMAX had already shrunk, so no extents_note was needed")
+        return f"after erasing the far line by hand, plotted reaches {top}, the sheet; {said}. The picture itself was not looked at"
+    finally:
+        await _back(ctx, name)
+
 async def am5_the_png_plotter_sizes_for_big_and_small(ctx: Context) -> str:
     o = lc.origin("AM5")
     await _draw({"type": "rectangle", "corner1": _at(o, 0, 0), "corner2": _at(o, 841, 594), "layer": "LC-AM5"})
@@ -494,6 +516,8 @@ DRAWING_AM: tuple[Check, ...] = (
     Check("AM5", "AM", "the PNG plotter sizes for big and small", am5_the_png_plotter_sizes_for_big_and_small),
     Check("AM6", "AM", "no close-ups in a 3D view, none of the view",
           am6_no_close_ups_in_a_3d_view_and_none_of_the_view),
+    Check("AM8", "AM", "an erased far-off line no longer stretches the picture",
+          am8_an_erased_far_off_line_no_longer_stretches_the_picture),
 )
 
 EYE_AM: dict[str, str] = {

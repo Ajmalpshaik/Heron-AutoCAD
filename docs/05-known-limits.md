@@ -528,7 +528,7 @@ From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
 
 ## 32. 3D for MEP: duct runs, spools, flat views, sections, surfaces, meshes have their own limits
 
-From [D-94](DECISIONS.md), [D-95](DECISIONS.md) and [D-151](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AH).
+From [D-94](DECISIONS.md), [D-95](DECISIONS.md) and [D-152](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AH).
 - **A duct run or a spool is its centreline through corner points**, with one bend per corner. A
   leg too short for the bends at its ends (radius x tan(angle / 2) each) or for a flange is refused
   with the numbers; a corner turning more than 179 degrees is refused. Fittings are plain: no
@@ -575,8 +575,11 @@ From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
   frame does. The answer's `smallest_clear_text` says what reads; use `detail=2` or `3`, or a
   window over one part. A bigger PNG needs a custom size added to `PublishToWeb PNG.pc3` by hand;
   COM cannot add one.
-- `plotted` comes from EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a layout), read after a regen. Whether a
-  regen shrinks them after an erase is not proven (AM4); a ZOOM Extents does.
+- `plotted` comes from EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a layout), read after a regen. AutoCAD
+  shrinks them only on ZOOM Extents. Since [D-151](DECISIONS.md) (#269), in model space, the plug-in
+  measures the objects themselves; when its box is well inside EXTMIN/EXTMAX, that box is plotted as a
+  window and `extents_note` says so. A sheet layout, no plug-in or an older one still uses the variables
+  (AM4, AM8 NOT RUN).
 - Close-ups need a plan view in the world UCS (or a window you give): in a 3D view the plan box does
   not match the picture, so they are skipped with the reason.
 

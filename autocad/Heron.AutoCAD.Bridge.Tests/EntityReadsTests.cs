@@ -125,6 +125,29 @@ public class EntityReadsTests
         Assert.Null(pairs[3].Text);
     }
 
+    [Fact]
+    public void The_filter_takes_a_space_so_a_read_can_measure_model_space_alone()
+    {
+        // #269: a preview's extents, measured over model space only (DXF 410), not every sheet too.
+        var pairs = EntityFilter.Parse(Json("[[410, \"Model\"]]"));
+        Assert.Single(pairs);
+        Assert.Equal((410, "Model"), (pairs[0].Code, pairs[0].Text));
+        Assert.Null(pairs[0].Number);
+        var sheet = EntityFilter.Parse(Json("[[410, \"SAC2-102\"], [8, \"M-*\"]]"));
+        Assert.Equal((410, "SAC2-102"), (sheet[0].Code, sheet[0].Text));
+    }
+
+    [Theory]
+    [InlineData("[[410, \"\"]]")]
+    [InlineData("[[410, \"  \"]]")]
+    [InlineData("[[410, 0]]")]
+    [InlineData("[[410]]")]
+    public void A_space_is_a_name(string filter)
+    {
+        var refusal = Assert.Throws<RunRefusal>(() => EntityFilter.Parse(Json(filter)));
+        Assert.Contains("by space (410)", refusal.Message);
+    }
+
     [Theory]
     [InlineData("{\"layer\": \"M-*\"}")]
     [InlineData("[[1, \"text\"]]")]

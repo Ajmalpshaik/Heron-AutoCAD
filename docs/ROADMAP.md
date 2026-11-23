@@ -174,7 +174,7 @@ done looks like here.
 - [x] A section plane and a 2D section from a 3D model: `autocad_section_plane`, by the plug-in
   (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
 - [x] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines:
-  `hidden_lines` and `jogged` (D-151); live rows AH17-AH21 NOT RUN. ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
+  `hidden_lines` and `jogged` (D-152); live rows AH17-AH21 NOT RUN. ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
 - [x] Multileader, table and dimension **style** creation from `autocad_create_styles`: the
   multileader and table styles by the plug-in since 2026-11-21 (D-104, live group AN NOT RUN).
   ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
