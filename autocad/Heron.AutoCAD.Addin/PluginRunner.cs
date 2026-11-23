@@ -180,6 +180,7 @@ namespace Heron.AutoCAD.Addin
                 case "entity_properties": return EntityReads.Properties(doc, tr, args);
                 case "layer_objects": return LayerMerging.Objects(doc, tr, args);
                 case "merge_layers": return LayerMerging.Merge(doc, tr, args);
+                case "write_attributes": return AttributeWrites.Write(doc, tr, args);
                 case "solid_topology": return SolidOperations.Topology(db, tr, args);
                 case "loft": return SolidOperations.Loft(db, tr, args);
                 case "fillet_edges": return SolidOperations.Fillet(db, tr, args);

@@ -23,7 +23,7 @@ from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ._shared import before_after
-from .text_tools import _attribute_refs
+from .text_tools import _attribute_refs, plugin_write_attributes
 
 MOST_NUMBER = 999
 MOST_LISTED = 200
@@ -185,6 +185,8 @@ async def autocad_apply_attribute_sheet(
         - A row whose block is gone, or a value under a tag the block does not
           have: listed, the rest still applied.
         - A cell AutoCAD would not take (a locked layer): listed in 'failed'.
+          Through Heron's plug-in the writes are one transaction: such a cell
+          refuses the whole sheet, and nothing is written.
     """
 
     drawing = await run(lambda: _drawing_path(get_doc()))
@@ -203,21 +205,25 @@ async def autocad_apply_attribute_sheet(
         if planned["changes"] and not dry_run:
             # Only the changed cells, all in one undo step; nothing to write opens no undo step.
             with undo_mark(doc):
-                for change in planned["changes"]:
-                    ref = objects.get(change["handle"])
-                    try:
-                        hit = False
-                        for att in ref.GetAttributes():
-                            if str(att.TagString) == change["tag"]:
-                                att.TextString = change["new"]
-                                hit = True
-                        if not hit:
-                            raise LookupError("the block no longer has that tag")
-                        ref.Update()
-                        written.append(change)
-                    except BaseException as exc:  # noqa: BLE001 - one cell, not the sheet
-                        raise_if_busy(exc)
-                        failed.append({"handle": change["handle"], "tag": change["tag"], "reason": str(exc) or type(exc).__name__})
+                # Through the plug-in every cell in one transaction, all or none (D-147); over COM cell by cell.
+                if plugin_write_attributes(planned["changes"], objects):
+                    written = list(planned["changes"])
+                else:
+                    for change in planned["changes"]:
+                        ref = objects.get(change["handle"])
+                        try:
+                            hit = False
+                            for att in ref.GetAttributes():
+                                if str(att.TagString) == change["tag"]:
+                                    att.TextString = change["new"]
+                                    hit = True
+                            if not hit:
+                                raise LookupError("the block no longer has that tag")
+                            ref.Update()
+                            written.append(change)
+                        except BaseException as exc:  # noqa: BLE001 - one cell, not the sheet
+                            raise_if_busy(exc)
+                            failed.append({"handle": change["handle"], "tag": change["tag"], "reason": str(exc) or type(exc).__name__})
         return {"planned": planned, "written": written, "failed": failed}
 
     done = await run(work)

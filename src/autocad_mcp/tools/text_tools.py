@@ -34,7 +34,7 @@ from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, point_to_list
-from ._shared import LAYER_OPT, before_after, faster_read, point
+from ._shared import LAYER_OPT, before_after, faster_change, faster_read, point
 from .takeoff import NotTheSame, plugin_number
 
 Order = Literal["rows", "columns", "path", "given"]
@@ -248,6 +248,39 @@ class ComRefs:
             return self[handle]
         except AutocadError:
             return default
+
+
+# The plug-in's words for "nothing was written: write these cells over COM" (AttributeWritePlan.UseCom).
+USE_COM = "Heron writes these over COM instead."
+
+
+def plugin_write_attributes(changes: list[dict[str, Any]], objects: Any) -> bool:
+    """The planned cells written by the plug-in in one transaction, all or none (#200, D-147); False: write them over COM.
+
+    Only after the plug-in read the blocks (``objects`` is then ComRefs): a
+    read over COM means a block or attribute the plug-in is not trusted for.
+    False, with nothing written, when the plug-in is older, does not have the
+    operation, or says one of the attributes is one it does not write yet
+    (multiline, constant, a field). Any other refusal is raised: the plug-in
+    wrote nothing, and the sheet is not then half-written over COM.
+    """
+    if not isinstance(objects, ComRefs) or not changes:
+        return False
+    sent = [[str(c["handle"]), str(c["tag"]), str(c["new"])] for c in changes]
+    try:
+        report = faster_change("write_attributes", {"changes": sent}, "Writing the attributes")
+    except AutocadError as exc:
+        if USE_COM in str(exc):
+            return False
+        raise
+    if report is None:
+        return False
+    if report.get("written") != len(sent):
+        raise AutocadError(
+            "Outcome unknown: Heron in AutoCAD wrote the attributes but its answer could not be read. Look at the "
+            "drawing (one Ctrl+Z takes the writes back) before trying again."
+        )
+    return True
 
 
 def _attribute_refs(doc: Any, block_name: str | None, layer: str | None) -> tuple[list[dict], Any]:
@@ -474,6 +507,8 @@ async def autocad_set_attributes(
 
     Same values for all, or one row per block from a list or CSV, matched by a
     tag or the layout name. Pairs with autocad_extract_attributes (read, edit, write back).
+    Through Heron's plug-in every change is written in one transaction: all of
+    it, or nothing if one block will not take it.
 
     Returns:
         JSON: {"changed": n, "changes": [{handle, block, layout, tag, old, new}], "unknown_tags", "unmatched_rows",
@@ -501,12 +536,14 @@ async def autocad_set_attributes(
             # Nothing differs: no write, so no empty undo step (D-62).
             return {"changed": 0, "dry_run": False, "blocks_read": len(refs), **plan, **before_after([])}
         with undo_mark(doc):
-            for change in plan["changes"]:
-                ref = objects[change["handle"]]
-                for att in ref.GetAttributes():
-                    if str(att.TagString) == change["tag"]:
-                        att.TextString = change["new"]
-                ref.Update()
+            # Through the plug-in every cell in one transaction (D-147); COM, a round trip per attribute, otherwise.
+            if not plugin_write_attributes(plan["changes"], objects):
+                for change in plan["changes"]:
+                    ref = objects[change["handle"]]
+                    for att in ref.GetAttributes():
+                        if str(att.TagString) == change["tag"]:
+                            att.TextString = change["new"]
+                    ref.Update()
         listed = [{"handle": c["handle"], "property": f"attribute {c['tag']}", "from": c["old"], "to": c["new"]}
                   for c in plan["changes"]]  # fmt: skip
         return {"changed": len(plan["changes"]), "blocks_read": len(refs), **plan, **before_after(listed)}

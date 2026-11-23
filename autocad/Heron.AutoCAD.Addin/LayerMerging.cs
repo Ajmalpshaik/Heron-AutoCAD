@@ -121,7 +121,8 @@ namespace Heron.AutoCAD.Addin
             return RunResult.Done(plan.Write);
         }
 
-        private static bool TryId(Database db, string handle, out ObjectId id)
+        /// <summary>The object a handle names, when it is in the drawing and not erased.</summary>
+        internal static bool TryId(Database db, string handle, out ObjectId id)
         {
             id = ObjectId.Null;
             long value;
