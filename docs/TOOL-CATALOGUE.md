@@ -4710,7 +4710,7 @@ AutoCAD's own calls place a solid by the centre of its bounding box, which is ha
 - radius and diameter together are refused rather than one quietly winning.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **PARTLY**: rows J3 passed in AutoCAD 2027; the rest are NOT RUN (rows E22, E23, F1, J3, AL2, S7).
+**Live proof.** **PARTLY**: rows J3 passed in AutoCAD 2027; the rest are NOT RUN (rows E22, E23, F1, J3, AH19, AL2, S7).
 
 ### `autocad_add_surface`
 
@@ -5037,12 +5037,13 @@ One undo step.
 ### `autocad_flatten_views`
 
 **What it does.** Draw plan, front and side views of 3D solids as 2D linework for a shop drawing (FLATSHOT, SOLPROF).
-Each view is the solids seen square on, hidden lines removed, made as a block of lines (front, top, right...) and set out beside each other so they line up: third angle by default (plan above the front, right view on the right). The model is not touched. Dimension the views with autocad_dimension_run; the answer gives each view's box on the sheet. One undo step.
+Each view is the solids seen square on, hidden lines removed, made as a block of lines (front, top, right...) and set out beside each other so they line up: third angle by default (plan above the front, right view on the right). The model is not touched. Dimension the views with autocad_dimension_run; the answer gives each view's box on the sheet. With hidden_lines=true the hidden edges are drawn too, inside each view's block on their own layer (HIDDEN, dashed), so they can be turned off or plotted lighter.
 
 **The problem it solves.**
 - "flatten this bracket to plan, front and side for the shop drawing" — handles=[the solid], insert_at beside the model.
 - "give me a FLATSHOT of the pipe spool, front and top only" — views=['front', 'top'].
 - "SOLPROF the pump skid, first angle" — projection='first'.
+- "flatshot the flange with the hidden lines dashed" or "show the bore as hidden lines" — hidden_lines=true.
 - *Not for:* the drawing should show a cut through the model - autocad_section_plane.
 - *Not for:* you only want to look at the model in 3D - autocad_set_3d_view.
 
@@ -5057,12 +5058,12 @@ Each view is the solids seen square on, hidden lines removed, made as a block of
 **What it needs from you.**
 - Needs `handles`: The 3D solids to draw, by handle: one part, or a whole spool or assembly.
 - Needs `insert_at`: [x, y] where the front view's lower-left corner goes, in clear space beside the model (autocad_get_extents).
-- Optional: `views`, `projection`, `gap`, `join`, `tangent_edges`, `name`, `layer`, `color`, `coords`.
+- Optional: `views`, `projection`, `gap`, `join`, `tangent_edges`, `hidden_lines`, `hidden_layer`, `name`, `layer`, `color`, and 1 more.
 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created": true, "handle": str (the first view), "views": [{"view", "block", "handle", "insert", "box": [minx, miny, maxx, maxy], "lines"}], "no_lines": [view...], "projection", "gap", "laid_flat_from", "verified"}`
+- Technical shape of the answer: `JSON: {"created": true, "handle": str (the first view), "views": [{"view", "block", "handle", "insert", "box": [minx, miny, maxx, maxy], "lines", "hidden_lines"}], "no_lines": [view...], "projection", "gap", "laid_flat_from" ...`
 
 **Limits and versions.**
 - A handle that is not a 3D solid is named, with what it is.
@@ -5070,7 +5071,7 @@ Each view is the solids seen square on, hidden lines removed, made as a block of
 - No lines for any view is refused with nothing changed.
 - The plug-in does part of the work (`flat_views`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH4, AH5).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH4, AH5, AH17, AH18).
 
 ### `autocad_geo_location`
 
@@ -5343,12 +5344,13 @@ Raise a plinth, deepen a recess, stretch a box to a new length. One undo step.
 ### `autocad_section_plane`
 
 **What it does.** Cut a section through a 3D model and draw the 2D section as a block (SECTIONPLANE, Generate Section).
-A section plane is put through the points and kept in the model; the 2D section of the solids it cuts (their cut outlines, hatched, and what is seen beyond, hidden lines removed) is made as one block, laid flat on the sheet at insert_at, the way AutoCAD's Generate Section / Elevation makes a 2D section. Right on the section is along the line from the first point to the second; up is up. One undo step.
+A section plane is put through the points and kept in the model; the 2D section of the solids it cuts (their cut outlines, hatched, and what is seen beyond, hidden lines removed) is made as one block, laid flat on the sheet at insert_at, the way AutoCAD's Generate Section / Elevation makes a 2D section. Right on the section is along the line from the first point to the second; up is up. With jogged=true the points are the corners of a section line in plan (an offset section stepping round a riser or a plant item).
 
 **The problem it solves.**
 - "cut a section A-A through the plant room along this line and put it on the right" — two points, insert_at.
 - "section through the riser looking north" — two points on an east-west line, look_towards a point to the north.
 - "a plan cut of the services at 2.7 m" — three points at z=2700.
+- "section B-B with a jog round the riser" or "offset section through the AHU and the pump" — jogged=true, the section line's corners in plan.
 - *Not for:* you want views of a part from outside, not a cut - autocad_flatten_views.
 - *Not for:* the solid itself should be cut in two - autocad_slice_solid.
 
@@ -5363,20 +5365,20 @@ A section plane is put through the points and kept in the model; the 2D section 
 **What it needs from you.**
 - Needs `points`: Two points: a vertical cut along the line between them, as a section line on a plan.
 - Needs `insert_at`: [x, y] where the 2D section's lower-left corner goes, in clear space (autocad_get_extents).
-- Optional: `look_towards`, `handles`, `hatch`, `background`, `keep_plane`, `name`, `plane_layer`, `layer`, `color`, `coords`.
+- Optional: `look_towards`, `handles`, `jogged`, `hatch`, `background`, `keep_plane`, `name`, `plane_layer`, `layer`, `color`, and 1 more.
 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: {"created": true, "handle": str, "block": str, "section_plane": str, "solids": int, "cut": int, "lines": int, "size": [w, h], "looking": [x, y, z], "right", "up", "laid_flat_from", "verified"}`
+- Technical shape of the answer: `JSON: {"created": true, "handle": str, "block": str, "section_plane": str, "solids": int, "cut": int, "lines": int, "size": [w, h], "looking": [x, y, z], "right", "up", "laid_flat_from", "legs", "jogs", "left_out_on_jogs", "verified"};`
 
 **Limits and versions.**
 - Points that make no line or no plane are refused, with why.
+- More than three points without jogged=true, or fewer than three with it, are refused before AutoCAD is asked. A jogged line that walks back across the view (it would draw over itself) is refused: make it two sections.
 - A plane that cuts and sees none of the solids is refused with nothing changed.
-- A handle that is not a 3D solid is named, with what it is.
 - The plug-in does part of the work (`section_plane`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH6, AH7, AH8).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AH6, AH7, AH8, AH19, AH20, AH21).
 
 ### `autocad_separate_solid`
 

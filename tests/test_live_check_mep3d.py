@@ -12,7 +12,7 @@ import math
 from pathlib import Path
 
 import pytest
-from live_fakes import load, play, seq
+from live_fakes import Sequence, load, play, seq
 
 from autocad_mcp.acad import shapes3d
 
@@ -356,6 +356,72 @@ AH14 = {
 }
 AH14_BAD = {"autocad_get_entity": seq(WIPE, {**WIPE, "bounding_box": box(O14, (0, 0, 0), (300, 300, 0))})}
 
+# --- AH17: hidden lines (D-152) ---------------------------------------------------------------------
+
+O17 = lc.origin("AH17")
+SPOOL17, _ = spool_at(O17)
+LAYERS_BEFORE = {"count": 1, "layers": [{"name": "0", "linetype": "Continuous"}]}
+LAYERS_AFTER = {"count": 2, "layers": [{"name": "0", "linetype": "Continuous"}, {"name": "HIDDEN", "linetype": "HIDDEN"}]}
+FRONT17 = {"handle": "VH", "type": "block", "layer": "0", "block_name": "FLATSHOT-2-FRONT",
+           "bounding_box": {"min": P(O17, 4000, -3000), "max": P(O17, 4000 + 2114.5, -3000 + 1614.5)}}
+FLAT17 = {"created": True, "handle": "VH", "projection": "third", "laid_flat_from": ["plane"], "hidden_layer": "HIDDEN",
+          "hidden_linetype": "ByLayer", "hidden_layer_made": True,
+          "views": [{"view": "front", "block": "FLATSHOT-2-FRONT", "handle": "VH", "lines": 40, "hidden_lines": 14}]}
+AH17 = {
+    "autocad_make_shape": SPOOL17,
+    "autocad_list_layers": seq(LAYERS_BEFORE, LAYERS_AFTER),
+    "autocad_flatten_views": FLAT17,
+    "autocad_get_entity": FRONT17,
+}
+# An older plug-in: no hidden lines, and the server's warning.
+AH17_BAD = {"autocad_flatten_views": {**FLAT17, "views": [{**FLAT17["views"][0], "hidden_lines": 0}]}}
+
+# --- AH19, AH20, AH21: jogged section lines (D-152) ---------------------------------------------------
+
+
+def cubes(prefix: str) -> Sequence:
+    return seq(*({"created": True, "handle": f"{prefix}{i}"} for i in (1, 2)))
+
+
+def jogged_at(row: str, at, size, legs: int, jogs: int):
+    o = lc.origin(row)
+    out = {"created": True, "handle": "JB", "block": "SECTION-3", "section_plane": "JP", "solids": 2, "cut": 2,
+           "lines": 10, "size": list(size), "looking": [0.0, 1.0, 0.0], "right": [1.0, 0.0, 0.0],
+           "up": [0.0, 0.0, 1.0], "laid_flat_from": "plane", "legs": legs, "jogs": jogs}
+    block = {"handle": "JB", "type": "block", "block_name": "SECTION-3", "layer": "0", "insertion_point": P(o, *at),
+             "size": {"width": size[0], "height": size[1]}}
+    good = {
+        "autocad_add_solid": cubes("C"),
+        "autocad_list_entities": seq(PLANES, {**PLANES, "total_matching": 3}),
+        "autocad_section_plane": out,
+        "autocad_get_entity": block,
+    }
+    return good, out, block
+
+
+AH19, OUT19, BLOCK19 = jogged_at("AH19", (0, -4000), mep.OFFSET_SIZE, 3, 1)
+# The jog drawn as a strip: the section wider than the two cuts side by side.
+AH19_BAD = {"autocad_get_entity": {**BLOCK19, "size": {"width": 4000.0 + 2000.0, "height": 1000.0}}}
+AH20, OUT20, BLOCK20 = jogged_at("AH20", (0, -7000), mep.ANGLED_SIZE, 2, 0)
+# The angled leg projected, not turned flat: the second cut 500 wide, not 707.1.
+AH20_BAD = {"autocad_get_entity": {**BLOCK20, "size": {"width": mep.ANGLED_SIZE[0] - (707.107 - 500), "height": 1000.0}}}
+AH21 = {
+    "autocad_list_entities": seq(PLANES, PLANES),
+    "autocad_status": seq(status(30), status(30)),
+    "autocad_section_plane": (
+        "REFUSED - Heron in AutoCAD refused it.\n\nError: Leg 3 walks back across the view, so the section would draw "
+        "over itself. Make it two sections, or turn that leg so it carries on the way the first goes. Nothing was changed."
+    ),
+}
+# An older plug-in cut a plane through the first three corners instead.
+AH21_BAD = {"autocad_section_plane": {**OUT19, "legs": None}}
+
+
+def test_the_jogged_sizes_are_the_registers_numbers():
+    assert mep.OFFSET_SIZE == (4000.0, 1000.0)
+    assert mep.ANGLED_SIZE[0] == pytest.approx(4828.43, abs=0.01)
+
+
 # Each row: the good recording, and what in it goes wrong for the FAIL.
 SAMPLES: dict[str, tuple[dict, dict]] = {
     "AH1": (AH1, AH1_BAD),
@@ -370,6 +436,10 @@ SAMPLES: dict[str, tuple[dict, dict]] = {
     "AH11": (AH11, AH11_BAD),
     "AH13": (AH13, AH13_BAD),
     "AH14": (AH14, AH14_BAD),
+    "AH17": (AH17, AH17_BAD),
+    "AH19": (AH19, AH19_BAD),
+    "AH20": (AH20, AH20_BAD),
+    "AH21": (AH21, AH21_BAD),
 }
 
 CHECKS = {c.row: c for c in mep.CHECKS}
@@ -380,7 +450,7 @@ def test_every_check_has_a_recording():
 
 
 def test_every_ah_row_is_measured_or_left_to_an_eye_once():
-    rows = {f"AH{n}" for n in range(1, 17)}
+    rows = {f"AH{n}" for n in range(1, 22)}
     assert set(CHECKS) | set(mep.BY_EYE) == rows
     assert not set(CHECKS) & set(mep.BY_EYE)
 

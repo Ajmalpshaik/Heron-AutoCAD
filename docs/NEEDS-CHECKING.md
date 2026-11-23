@@ -1013,7 +1013,9 @@ the row that says which cause #41 was. **Every row below is NOT RUN.**
 
 Added on 2026-11-21 ([D-94](DECISIONS.md), [D-95](DECISIONS.md); issues #53, #54, #109, #58,
 #57). Built and tested offline only (`tests/test_shapes3d.py`, `tests/test_model_views.py`,
-`SectionMathTests.cs`, `RunTests.cs`); the add-in **compiles** for all three AutoCAD builds. AH1-AH3
+`SectionMathTests.cs`, `RunTests.cs`); the add-in **compiles** for all three AutoCAD builds. AH17-AH21
+were added on 2026-11-23 for hidden lines and jogged section lines (#171, [D-152](DECISIONS.md); tested
+offline in `ObscuredLinesTests.cs`, `JoggedSectionTests.cs` and `tests/test_model_views.py`). AH1-AH3
 are server only (restart the server); the rest need the plug-in built from this change (six new
 operations) installed. Changes padlock on, `autocad_status` first, a scratch drawing in mm. After
 each row press **Ctrl+Z once** and check the drawing is back as it was. **Every row below is NOT
@@ -1036,7 +1038,12 @@ RUN.**
 | AH13 | `autocad_super_hatch(boundary=<it>, xref="<a tile .dwg>")`; then again with the xref's name | The xref attached (External References lists it) and tiled, clipped to the outline; the second call reuses it. Then a refusal case (an outline too big for 10,000 tiles with a .dwg not yet attached): refused and the xref not left attached | NOT RUN |
 | AH14 | A 300 x 300 wipeout over some lines: `autocad_super_hatch(boundary=<it>, wipeout=<its handle>, spacing=[600, 600])` | A grid of masks inside the outline hiding the lines under them; the original wipeout untouched | NOT RUN |
 | AH15 | Ask to keep on: run AH4, AH6, AH10, AH11 and AH12, answering Discard each time | Each is taken back whole; PURGE finds no FLATSHOT, SECTION or SUPERHATCH block left; no section plane left | NOT RUN |
-| AH16 | AH1-AH15 on AutoCAD 2025/2026 and 2021-2024 | As AH1-AH15 | NOT RUN (no PC with those versions yet) |
+| AH16 | AH1-AH15 and AH17-AH21 on AutoCAD 2025/2026 and 2021-2024 | As AH1-AH15 and AH17-AH21 | NOT RUN (no PC with those versions yet) |
+| AH17 | Hidden lines (#171, [D-152](DECISIONS.md)), on a drawing with no HIDDEN layer: the AH2 spool, `autocad_flatten_views(handles=[its five handles], views=["front"], insert_at=[4000, -3000], hidden_lines=true)` | One block FLATSHOT-n-FRONT the same size as AH4's front (2114.5 x 1614.5); `hidden_lines` above 0 for the front view, `hidden_layer` HIDDEN, `hidden_layer_made` true, and layer HIDDEN now in the drawing with linetype HIDDEN. On screen: the pipe's and flanges' bores dashed inside the outline, nothing dashed on top of a visible line. Compare with FLATSHOT done by hand with "Obscured lines" shown: the same hidden lines | NOT RUN |
+| AH18 | After AH17: freeze layer HIDDEN; thaw it. Then `autocad_flatten_views` again with `hidden_lines=true, hidden_layer="M-SHOP-HID"` where M-SHOP-HID already exists with linetype Continuous | Frozen, the dashed lines go and every visible line stays; thawed, they come back. The second answer says `hidden_linetype` HIDDEN and its hidden lines still show dashed on M-SHOP-HID; the layer's own linetype is still Continuous | NOT RUN |
+| AH19 | A jogged (offset) section: two 1000 boxes, `autocad_add_solid(shape="box", base=[500,500], length=1000, width=1000, height=1000)` and the same at `base=[3500,2500]`; `autocad_section_plane(points=[[-500,500],[2000,500],[2000,2500],[4500,2500]], jogged=true, background=false, insert_at=[0,-4000], handles=[both])` | `legs` 3, `jogs` 1, `cut` 2, `looking` [0,1,0]; the block 4000 x 1000 at 0,-4000: the two cut squares side by side, 2000 apart, as one straight section (the jog not drawn). Record `laid_flat_from` and any `left_out_on_jogs`. One section plane kept, with its three legs (compare with SECTIONPLANE "Draw section" by hand through the same corners) | NOT RUN |
+| AH20 | An angled leg: the AH19 boxes, `autocad_section_plane(points=[[-500,500],[2000,500],[4500,3000]], jogged=true, background=false, insert_at=[0,-7000], handles=[both])` | `legs` 2, `jogs` 0, `cut` 2; the block 4828.4 x 1000: the first box's cut 1000 wide, the second's at true size 707.1 wide (the 45 degree leg crosses it corner to side), laid beside the first leg. Then with `background=true`: record `laid_flat_from` and whether the boxes beyond sit where expected | NOT RUN |
+| AH21 | A section line that walks back: `autocad_section_plane(points=[[0,0],[1000,0],[1000,1000],[0,1000]], jogged=true, insert_at=[0,-9000])` | Refused, "walks back across the view ... Make it two sections", "Nothing was changed"; no section plane or block added | NOT RUN |
 
 ## Group AG - Files with AutoCAD closed, standards against a reference drawing, shared check lists (AutoCAD 2027, this PC)
 

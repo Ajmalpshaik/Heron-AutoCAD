@@ -5,11 +5,12 @@ plug-in does both of these with AutoCAD's own section object and its
 "generate 2D section" call:
 
 * ``autocad_flatten_views`` - plan, front and side views of solids as 2D
-  linework, hidden lines removed, each view a block set out the way a drawing
-  office sets out views (FLATSHOT).
+  linework, hidden lines removed (or, if asked, drawn dashed on their own
+  layer), each view a block set out the way a drawing office sets out views
+  (FLATSHOT).
 * ``autocad_section_plane`` - a section plane through given points, kept in
   the model, and its 2D section (cut outlines, hatch, what is seen beyond) as
-  a block on the sheet.
+  a block on the sheet. A section line may jog (D-152).
 
 Both run in one transaction inside AutoCAD: it all lands or none of it does.
 """
@@ -35,6 +36,15 @@ from ._shared import (
 VIEWS = ("front", "top", "right", "left", "back", "bottom")
 View = Literal["front", "top", "plan", "right", "left", "back", "bottom"]
 MOST_SOLIDS = 1000
+MOST_CORNERS = 50
+OLD_FOR_HIDDEN = (
+    "Heron in AutoCAD drew the views without hidden lines: the plug-in running is older than this "
+    "option and ignored it. Press Ctrl+Z once to take the views back, update Heron, and flatten again."
+)
+OLD_FOR_JOGS = (
+    "This Heron plug-in is older than jogged section lines, so it cannot cut along one. Update "
+    "Heron in AutoCAD, then cut it again. Nothing was changed."
+)
 
 
 def _point(value: list[float], name: str) -> list[float]:
@@ -88,6 +98,14 @@ async def autocad_flatten_views(
         bool,
         Field(default=False, description="Also draw the lines where a curved face runs smoothly into a flat one (SOLPROF keeps them off by default)."),
     ] = False,
+    hidden_lines: Annotated[
+        bool,
+        Field(default=False, description="Also draw the hidden (obscured) lines, dashed, on their own layer inside each view, as FLATSHOT's 'Obscured lines' option. Off by default: visible lines only."),
+    ] = False,
+    hidden_layer: Annotated[
+        str | None,
+        Field(default=None, description="Layer for the hidden lines, made with the HIDDEN linetype if missing. Omit for HIDDEN. Only with hidden_lines=true."),
+    ] = None,
     name: Annotated[
         str | None,
         Field(default=None, description="Start of the block names, e.g. 'BRACKET' gives BRACKET-FRONT, BRACKET-TOP. Omit for FLATSHOT-1-..."),
@@ -103,6 +121,9 @@ async def autocad_flatten_views(
     they line up: third angle by default (plan above the front, right view on
     the right). The model is not touched. Dimension the views with
     autocad_dimension_run; the answer gives each view's box on the sheet.
+    With hidden_lines=true the hidden edges are drawn too, inside each view's
+    block on their own layer (HIDDEN, dashed), so they can be turned off or
+    plotted lighter.
 
     One undo step.
 
@@ -114,6 +135,8 @@ async def autocad_flatten_views(
         gap (Optional[float]): space between views.
         join (bool): one solid for hiding lines.
         tangent_edges (bool): draw smooth-join lines.
+        hidden_lines (bool): also draw hidden lines, dashed.
+        hidden_layer (Optional[str]): their layer; default HIDDEN.
         name (Optional[str]): start of the block names.
         layer (Optional[str]): layer for the views, created if missing.
         color (Optional[str|int]): their colour.
@@ -122,8 +145,10 @@ async def autocad_flatten_views(
     Returns:
         str: JSON: {"created": true, "handle": str (the first view),
              "views": [{"view", "block", "handle", "insert", "box":
-             [minx, miny, maxx, maxy], "lines"}], "no_lines": [view...],
-             "projection", "gap", "laid_flat_from", "verified"}
+             [minx, miny, maxx, maxy], "lines", "hidden_lines"}],
+             "no_lines": [view...], "projection", "gap", "laid_flat_from",
+             "hidden_layer", "hidden_linetype", "verified"}; the hidden_
+             keys only with hidden_lines=true
 
     Examples:
         - Use when: "flatten this bracket to plan, front and side for the
@@ -131,6 +156,8 @@ async def autocad_flatten_views(
         - Use when: "give me a FLATSHOT of the pipe spool, front and top
           only" — views=['front', 'top'].
         - Use when: "SOLPROF the pump skid, first angle" — projection='first'.
+        - Use when: "flatshot the flange with the hidden lines dashed" or
+          "show the bore as hidden lines" — hidden_lines=true.
         - Don't use when: the drawing should show a cut through the model -
           autocad_section_plane.
         - Don't use when: you only want to look at the model in 3D -
@@ -140,11 +167,15 @@ async def autocad_flatten_views(
         - A handle that is not a 3D solid is named, with what it is.
         - A view name that is not one of the six is refused, with the list.
         - No lines for any view is refused with nothing changed.
+        - hidden_layer without hidden_lines is refused before AutoCAD is asked.
         - Needs the Heron plug-in built from this change; an older one says
-          to update.
+          to update. An older plug-in ignores hidden_lines: the answer then
+          warns, and says how to take the views back.
     """
     if not handles:
         raise AutocadError("Give the solids to flatten, by handle.")
+    if hidden_layer is not None and not hidden_lines:
+        raise AutocadError("hidden_layer is the layer for hidden lines: give hidden_lines=true with it, or leave it out.")
     chosen = [("top" if v == "plan" else v) for v in (views or ["front", "top", "right"])]
     if len(set(chosen)) != len(chosen):
         raise AutocadError("A view is asked for twice.")
@@ -160,13 +191,19 @@ async def autocad_flatten_views(
             "gap": None if gap is None else float(gap),
             "join": join,
             "tangent_edges": tangent_edges,
+            # Sent only when asked, so a view without hidden lines asks exactly what it asked before.
+            "hidden_lines": True if hidden_lines else None,
+            "hidden_layer": hidden_layer.strip() if hidden_lines and hidden_layer and hidden_layer.strip() else None,
             "name": name.strip() if name else None,
             "layer": layer,
             "color": to_aci(color),
         }
         return _created("flat_views", args, "Flattening solids to 2D views")
 
-    return dumps(await run(work))
+    result = await run(work)
+    if hidden_lines and "hidden_layer" not in result:
+        result["warning"] = OLD_FOR_HIDDEN
+    return dumps(result)
 
 
 @mcp.tool(name="autocad_section_plane", **tool_meta("Cut A Section Through The Model"))
@@ -176,11 +213,12 @@ async def autocad_section_plane(
         list[list[float]],
         Field(
             min_length=2,
-            max_length=3,
+            max_length=MOST_CORNERS,
             description=(
                 "Two points: a vertical cut along the line between them, as a section line on a "
                 "plan. Three points: the plane through all three (three points at one level make a "
-                "plan cut at that level)."
+                "plan cut at that level). With jogged=true: the corners of a section line in plan "
+                "(three or more), each leg a vertical cut."
             ),
         ),
     ],
@@ -202,6 +240,17 @@ async def autocad_section_plane(
         list[str] | None,
         Field(default=None, max_length=MOST_SOLIDS, description="The solids to cut. Omit for every 3D solid in model space (at most 1000)."),
     ] = None,
+    jogged: Annotated[
+        bool,
+        Field(
+            default=False,
+            description=(
+                "The points are the corners of a section line with jogs, as SECTIONPLANE's 'Draw section': "
+                "each leg is a vertical cut, laid out beside the last at true size; a leg along the view "
+                "(the jog itself) is not drawn."
+            ),
+        ),
+    ] = False,
     hatch: Annotated[bool, Field(default=True, description="Hatch the cut faces.")] = True,
     background: Annotated[bool, Field(default=True, description="Also draw what is seen beyond the cut, hidden lines removed.")] = True,
     keep_plane: Annotated[bool, Field(default=True, description="Keep the section plane in the model, as SECTIONPLANE leaves it, so the cut can be seen and moved.")] = True,
@@ -220,12 +269,21 @@ async def autocad_section_plane(
     2D section. Right on the section is along the line from the first point to
     the second; up is up.
 
+    With jogged=true the points are the corners of a section line in plan
+    (an offset section stepping round a riser or a plant item). Each leg cuts
+    straight down; on the 2D section each leg sits beside the one before at
+    true size, in the order walked, and a jog (a leg running the way the
+    section looks) is not drawn and takes no width - so parallel legs read as
+    one straight section, as a drawing office draws it.
+
     One undo step.
 
     Args:
-        points (list[list[float]]): two points (a vertical cut) or three (a plane).
+        points (list[list[float]]): two points (a vertical cut), three (a plane),
+            or with jogged=true the section line's corners.
         insert_at (list[float]): the section's lower-left corner on the sheet.
         look_towards (Optional[list[float]]): a point on the side to look at.
+        jogged (bool): the points are a jogged section line's corners.
         handles (Optional[list[str]]): the solids to cut; omit for all.
         hatch (bool): hatch the cut faces.
         background (bool): draw what is beyond the cut.
@@ -240,7 +298,8 @@ async def autocad_section_plane(
         str: JSON: {"created": true, "handle": str, "block": str,
              "section_plane": str, "solids": int, "cut": int, "lines": int,
              "size": [w, h], "looking": [x, y, z], "right", "up",
-             "laid_flat_from", "verified"}
+             "laid_flat_from", "legs", "jogs", "left_out_on_jogs",
+             "verified"}; legs, jogs and left_out_on_jogs only when jogged
 
     Examples:
         - Use when: "cut a section A-A through the plant room along this
@@ -249,6 +308,9 @@ async def autocad_section_plane(
           on an east-west line, look_towards a point to the north.
         - Use when: "a plan cut of the services at 2.7 m" — three points at
           z=2700.
+        - Use when: "section B-B with a jog round the riser" or "offset
+          section through the AHU and the pump" — jogged=true, the section
+          line's corners in plan.
         - Don't use when: you want views of a part from outside, not a cut -
           autocad_flatten_views.
         - Don't use when: the solid itself should be cut in two -
@@ -256,14 +318,24 @@ async def autocad_section_plane(
 
     Error Handling:
         - Points that make no line or no plane are refused, with why.
+        - More than three points without jogged=true, or fewer than three
+          with it, are refused before AutoCAD is asked. A jogged line that
+          walks back across the view (it would draw over itself) is refused:
+          make it two sections.
         - A plane that cuts and sees none of the solids is refused with
           nothing changed.
         - A handle that is not a 3D solid is named, with what it is.
     """
-    if len(points) not in (2, 3):
+    if jogged and len(points) < 3:
+        raise AutocadError(
+            "A jogged section line needs at least three corners (two legs). Two points make a straight "
+            "cut: leave jogged off."
+        )
+    if not jogged and len(points) not in (2, 3):
         raise AutocadError(
             "A section plane takes two points (a vertical cut along the line between them) or three "
-            f"(the plane through them), not {len(points)}."
+            f"(the plane through them), not {len(points)}. For a section line with jogs, give its "
+            "corners with jogged=true."
         )
     cut_points = [_point(p, f"points[{i}]") for i, p in enumerate(points)]
     at = _point(insert_at, "insert_at")
@@ -271,8 +343,12 @@ async def autocad_section_plane(
 
     def work() -> dict[str, Any]:
         world = _to_world(cut_points + [at] + ([towards] if towards else []), coords)
+        line = world[: len(cut_points)]
         args = {
-            "points": world[: len(cut_points)],
+            # A jogged line goes as section_line, so an older plug-in finds no points and refuses
+            # it, rather than cutting a plane through the first three corners.
+            "points": None if jogged else line,
+            "section_line": line if jogged else None,
             "insert_at": world[len(cut_points)],
             "look_towards": world[len(cut_points) + 1] if towards else None,
             "handles": list(handles) if handles else None,
@@ -284,6 +360,12 @@ async def autocad_section_plane(
             "layer": layer,
             "color": to_aci(color),
         }
-        return _created("section_plane", args, "Cutting a section")
+        try:
+            return _created("section_plane", args, "Cutting a section")
+        except AutocadError as exc:
+            # An older plug-in reads only "points", finds none, and says it needs two or three.
+            if jogged and "needs two points" in str(exc):
+                raise AutocadError(OLD_FOR_JOGS) from exc
+            raise
 
     return dumps(await run(work))

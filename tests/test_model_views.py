@@ -124,6 +124,29 @@ class TestFlattenViews:
         assert args["join"] is True and args["gap"] == 250.0 and args["name"] == "SPOOL-1"
 
 
+    def test_hidden_lines_are_asked_for_only_when_wanted(self, plugin):
+        plugin.reply = {"created": True, "handle": "7A", "hidden_layer": "HIDDEN", "hidden_linetype": "ByLayer",
+                        "views": [{"view": "front", "lines": 12, "hidden_lines": 4}]}
+        out = call(sections.autocad_flatten_views(handles=["2A"], insert_at=[0, 0], hidden_lines=True))
+        args = plugin.calls[0][1]
+        assert args["hidden_lines"] is True and "hidden_layer" not in args
+        assert "warning" not in out
+
+    def test_a_hidden_layer_is_passed_on_trimmed(self, plugin):
+        plugin.reply = {"created": True, "handle": "7A", "hidden_layer": "M-SHOP-HID"}
+        call(sections.autocad_flatten_views(handles=["2A"], insert_at=[0, 0], hidden_lines=True, hidden_layer=" M-SHOP-HID "))
+        assert plugin.calls[0][1]["hidden_layer"] == "M-SHOP-HID"
+
+    def test_a_hidden_layer_without_hidden_lines_is_refused_before_autocad_is_asked(self, plugin):
+        assert "hidden_lines=true" in error(sections.autocad_flatten_views(handles=["2A"], insert_at=[0, 0], hidden_layer="HID"))
+        assert plugin.calls == []
+
+    def test_an_older_plugin_that_ignored_hidden_lines_is_said(self, plugin):
+        # The reply of a plug-in from before hidden lines: no hidden_layer.
+        out = call(sections.autocad_flatten_views(handles=["2A"], insert_at=[0, 0], hidden_lines=True))
+        assert "without hidden lines" in out["warning"] and "Ctrl+Z" in out["warning"]
+
+
 # ---------------------------------------------------------------------------
 # A section plane (#109)
 # ---------------------------------------------------------------------------
@@ -152,6 +175,44 @@ class TestSectionPlane:
 
     def test_a_bad_point_is_named(self, plugin):
         assert "points[1]" in error(sections.autocad_section_plane(points=[[0, 0], [1, 2, 3, 4]], insert_at=[0, 0]))
+
+    def test_four_points_say_jogged(self, plugin):
+        assert "jogged=true" in error(sections.autocad_section_plane(points=[[0, 0], [1, 0], [1, 1], [2, 1]], insert_at=[0, 0]))
+
+    def test_a_jogged_line_goes_as_its_corners_not_as_points(self, plugin):
+        corners = [[-500, 500], [2000, 500], [2000, 2500], [4500, 2500]]
+        call(sections.autocad_section_plane(points=corners, insert_at=[0, -5000], jogged=True, look_towards=[0, 9000]))
+        operation, args = plugin.calls[0]
+        assert operation == "section_plane"
+        # Never "points": an older plug-in would cut a plane through the first three corners.
+        assert "points" not in args
+        assert args["section_line"] == [[-500.0, 500.0, 0.0], [2000.0, 500.0, 0.0], [2000.0, 2500.0, 0.0], [4500.0, 2500.0, 0.0]]
+        assert args["look_towards"] == [0.0, 9000.0, 0.0]
+
+    def test_a_jogged_line_of_two_points_is_refused_before_autocad_is_asked(self, plugin):
+        assert "leave jogged off" in error(sections.autocad_section_plane(points=[[0, 0], [1, 0]], insert_at=[0, 0], jogged=True))
+        assert plugin.calls == []
+
+    def test_a_jogged_lines_corners_go_through_the_ucs(self, plugin):
+        plugin.doc.ucs = ((1000.0, 0.0, 0.0), (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0))
+        call(sections.autocad_section_plane(points=[[0, 0], [100, 0], [100, 50]], insert_at=[0, 0], jogged=True, coords="ucs"))
+        assert plugin.calls[0][1]["section_line"] == [pytest.approx([1000.0, 0.0, 0.0]), pytest.approx([1000.0, 100.0, 0.0]),
+                                                      pytest.approx([950.0, 100.0, 0.0])]
+
+    def test_an_older_plugin_that_knows_no_jogs_says_to_update(self, plugin, monkeypatch):
+        from autocad_mcp.core.errors import AutocadError
+
+        def old(operation, args):
+            raise AutocadError("A section plane needs two points (a vertical cut along the line between them, in plan) "
+                               "or three (the plane through them). Nothing was changed.")
+
+        monkeypatch.setattr(_shared, "plugin_runner", lambda: old)
+        answer = error(sections.autocad_section_plane(points=[[0, 0], [1, 0], [1, 1]], insert_at=[0, 0], jogged=True))
+        assert "older than jogged" in answer and "Nothing was changed" in answer
+
+    def test_a_straight_cut_asks_exactly_what_it_asked_before(self, plugin):
+        call(sections.autocad_section_plane(points=[[0, 0], [100, 0]], insert_at=[0, 0]))
+        assert "section_line" not in plugin.calls[0][1]
 
     def test_points_go_through_the_ucs_in_full_3d(self, plugin):
         plugin.doc.ucs = ((0.0, 0.0, 1000.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))

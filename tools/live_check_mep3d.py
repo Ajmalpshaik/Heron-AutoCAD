@@ -1,5 +1,6 @@
 """Live checks for 3D for MEP (group AH): duct runs, pipe spools, flat views, sections,
-surfaces, meshes and the new super hatch tiles (D-94, D-95).
+surfaces, meshes and the new super hatch tiles (D-94, D-95), and a flat view's hidden lines
+and jogged section lines (D-152).
 
 Run by ``live_check.py``; see ``live_common.py`` for the rules every check keeps.
 Each row works at its own spot (``lc.origin``) and measures what came back with
@@ -72,6 +73,17 @@ SPOOL_PIECES = (
     ("pipe", (2000 - 57.15, -57.15, ELBOW_R), (2000 + 57.15, 57.15, 1476), PIPE_AREA * CUTS[1]),
     ("flange", (2000 - 114.5, -114.5, 1476), (2000 + 114.5, 114.5, 1500), FLANGE_VOLUME),
 )
+
+# AH19-AH21: two 1000 cubes, by the centre of their base, and the jogged lines cut through them (D-152).
+CUBES = ((500, 500), (3500, 2500))
+OFFSET_LINE = ((-500, 500), (2000, 500), (2000, 2500), (4500, 2500))
+# The two squares cut side by side as one straight section: from x=0 to 1000 and 3000 to 4000, seen from -500.
+OFFSET_SIZE = (4000.0, 1000.0)
+ANGLED_LINE = ((-500, 500), (2000, 500), (4500, 3000))
+# The 45 degree leg crosses the second cube from (3500, 2000) to (4000, 2500): 707.1 at true size, laid on
+# from the end of the 2500 first leg, so the far edge is 2500 + 2121.3 + 707.1 - 500 across from the first cut.
+ANGLED_SIZE = (2500 + math.sqrt(2) * 2000 - 500, 1000.0)
+WALKS_BACK_LINE = ((0, 0), (1000, 0), (1000, 1000), (0, 1000))
 
 # The L-shaped outline AH13 and AH14 tile: 3000 x 2400 overall.
 L_OUTLINE = ((0, 0), (3000, 0), (3000, 1200), (1200, 1200), (1200, 2400), (0, 2400))
@@ -220,6 +232,46 @@ def _tile_count(width: float, height: float, step: tuple[float, float], tile: tu
         return high - low + 1
 
     return across(width, step[0], tile[0]) * across(height, step[1], tile[1])
+
+
+async def _cubes(row: str) -> tuple[tuple[float, float], list[str]]:
+    """The two 1000 cubes AH19 and AH20 cut, at this row's own spot."""
+    o = lc.origin(row)
+    handles = []
+    for x, y in CUBES:
+        made = parse(await solids.autocad_add_solid(shape="box", base=_at(o, x, y), length=1000, width=1000,
+                                                    height=1000, layer=f"LC-{row}-BOX"))
+        expect(made.get("handle"), f"the cube at {x},{y} was not made: {made}")
+        handles.append(made["handle"])
+    return o, handles
+
+
+async def _layers() -> dict[str, dict[str, Any]]:
+    return {la["name"].upper(): la for la in parse(await layers.autocad_list_layers()).get("layers") or []}
+
+
+async def _jogged_section(row: str, line: tuple[tuple[float, float], ...], at: tuple[float, float],
+                          legs: int, jogs: int, size: tuple[float, float]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Cut the AH19 / AH20 cubes along a jogged line, background off; the answer and the block, checked."""
+    o, cubes = await _cubes(row)
+    planes = await _section_planes()
+    out = parse(await sections.autocad_section_plane(
+        points=[_at(o, x, y) for x, y in line], jogged=True, background=False, insert_at=_at(o, *at), handles=cubes,
+    ))
+    expect(out.get("legs") == legs and out.get("jogs") == jogs,
+           f"the line has {out.get('legs')} legs and {out.get('jogs')} jogs, not {legs} and {jogs}"
+           + ("" if "legs" in out else " (no legs said: is the plug-in older than jogged lines?)"))
+    expect(out.get("cut") == 2, f"it cut {out.get('cut')} of the 2 cubes")
+    looking = out.get("looking") or []
+    expect(len(looking) == 3 and all(near(a, b, 1e-9) for a, b in zip(looking, (0, 1, 0), strict=True)),
+           f"it looks {looking}, not [0, 1, 0] (north, left of the first leg)")
+    expect(await _section_planes() == planes + 1, "the section plane was not kept in the model")
+    block = await _entity(out["handle"])
+    expect(lc.near_point(block.get("insertion_point"), _at(o, *at), 1e-6), f"the section is not at {at[0]:g},{at[1]:g}")
+    got = block["size"]
+    expect(near(got["width"], size[0], 1.0) and near(got["height"], size[1], 1.0),
+           f"the section is {got['width']:.1f} x {got['height']:.1f}, not {size[0]:.1f} x {size[1]:.1f}")
+    return out, block
 
 
 async def _l_outline(o: tuple[float, float], layer: str) -> str:
@@ -633,6 +685,73 @@ async def ah14_a_wipeout_tile_masks_in_a_grid_and_the_original_stays(ctx: Contex
             "original wipeout unchanged. Whether the masks hide the lines, and the clip to the L, was not looked at")
 
 
+async def ah17_hidden_lines_go_dashed_on_their_own_layer(ctx: Context) -> str:
+    spool = await _spool(ctx, "AH17")
+    o = spool["base"]
+    before = await _layers()
+    at = _at(o, 4000, -3000)
+    out = parse(await sections.autocad_flatten_views(handles=spool["handles"], views=["front"], insert_at=at,
+                                                     hidden_lines=True))
+    expect(not out.get("warning"), f"the answer warns: {out.get('warning')}")
+    views = out.get("views") or []
+    expect(len(views) == 1 and views[0].get("view") == "front", f"the views made are {[v.get('view') for v in views]}")
+    front = views[0]
+    expect((front.get("hidden_lines") or 0) > 0 and (front.get("lines") or 0) > 0,
+           f"the front view has {front.get('lines')} visible and {front.get('hidden_lines')} hidden lines; the bores "
+           "should be hidden")
+    expect(out.get("hidden_layer") == "HIDDEN", f"the hidden lines are on {out.get('hidden_layer')}, not HIDDEN")
+    after = await _layers()
+    layer = after.get("HIDDEN") or {}
+    if "HIDDEN" in before:
+        made = "was there already"
+        continuous = str(before["HIDDEN"].get("linetype", "")).upper() == "CONTINUOUS"
+        want = "HIDDEN" if continuous else "ByLayer"
+        expect(out.get("hidden_linetype") == want,
+               f"layer HIDDEN is {before['HIDDEN'].get('linetype')}, so the lines should be {want}, not "
+               f"{out.get('hidden_linetype')}")
+    else:
+        made = "was made"
+        expect(out.get("hidden_layer_made") is True, "layer HIDDEN was not there, but the answer does not say it made it")
+        expect(str(layer.get("linetype", "")).upper() == "HIDDEN",
+               f"the new layer HIDDEN has linetype {layer.get('linetype')}, not HIDDEN")
+    info = await _entity(front["handle"])
+    box = info["bounding_box"]
+    w, h = box["max"][0] - box["min"][0], box["max"][1] - box["min"][1]
+    expect(near(w, 2114.5, 1.0) and near(h, 1614.5, 1.0),
+           f"the front view is {w:.1f} x {h:.1f}, not AH4's 2114.5 x 1614.5 (a hidden line outside the outline?)")
+    return (f"{front.get('block')}: {front.get('lines')} visible and {front.get('hidden_lines')} hidden lines, on layer "
+            f"HIDDEN (it {made}, linetype {layer.get('linetype')}; the lines {out.get('hidden_linetype')}), the view "
+            f"{w:.1f} x {h:.1f}. Whether they are the bores, dashed, and match FLATSHOT's obscured lines is by eye")
+
+
+async def ah19_an_offset_section_reads_as_one_straight_section(ctx: Context) -> str:
+    out, _ = await _jogged_section("AH19", OFFSET_LINE, (0, -4000), legs=3, jogs=1, size=OFFSET_SIZE)
+    return (f"{out.get('block')}: 3 legs, 1 jog, both cubes cut, looking north; {OFFSET_SIZE[0]:g} x "
+            f"{OFFSET_SIZE[1]:g} as one straight section. laid_flat_from {out.get('laid_flat_from')}, "
+            f"left_out_on_jogs {out.get('left_out_on_jogs', 0)}. The squares 2000 apart and the plane's legs against "
+            "SECTIONPLANE by hand are by eye")
+
+
+async def ah20_an_angled_leg_is_laid_flat_at_true_size(ctx: Context) -> str:
+    out, _ = await _jogged_section("AH20", ANGLED_LINE, (0, -7000), legs=2, jogs=0, size=ANGLED_SIZE)
+    return (f"{out.get('block')}: 2 legs, no jog, both cubes cut; {ANGLED_SIZE[0]:.1f} x {ANGLED_SIZE[1]:g}, so the "
+            f"second cube's cut is at its true 707.1 along the 45 degree leg. laid_flat_from "
+            f"{out.get('laid_flat_from')}. With background on: by eye")
+
+
+async def ah21_a_line_that_walks_back_is_refused(ctx: Context) -> str:
+    o = lc.origin("AH21")
+    planes, count = await _section_planes(), await lc.entity_count()
+    message = refusal(await sections.autocad_section_plane(
+        points=[_at(o, x, y) for x, y in WALKS_BACK_LINE], jogged=True, insert_at=_at(o, 0, -9000),
+    ))
+    expect("walks back" in message and "Nothing was changed" in message,
+           f"the line that walks back was refused without saying so: {message[:160]}")
+    expect(await _section_planes() == planes and await lc.entity_count() == count,
+           "the refused section left a plane or a block in the model")
+    return f"refused: '{message[:90]}...'; no plane and nothing added"
+
+
 CHECKS: tuple[Check, ...] = (
     Check("AH1", "AH", "a duct run is five solids end to end", ah1_a_duct_run_is_five_solids_end_to_end),
     Check("AH2", "AH", "a pipe spool is flanged, bored, drilled and cut",
@@ -652,6 +771,11 @@ CHECKS: tuple[Check, ...] = (
           ah13_an_xref_tile_is_attached_reused_and_a_refusal_leaves_none),
     Check("AH14", "AH", "a wipeout tile masks in a grid, the original stays",
           ah14_a_wipeout_tile_masks_in_a_grid_and_the_original_stays),
+    Check("AH17", "AH", "hidden lines go dashed on their own layer", ah17_hidden_lines_go_dashed_on_their_own_layer),
+    Check("AH19", "AH", "an offset section reads as one straight section",
+          ah19_an_offset_section_reads_as_one_straight_section),
+    Check("AH20", "AH", "an angled leg is laid flat at true size", ah20_an_angled_leg_is_laid_flat_at_true_size),
+    Check("AH21", "AH", "a section line that walks back is refused", ah21_a_line_that_walks_back_is_refused),
 )
 
 BY_EYE: dict[str, str] = {
@@ -660,4 +784,6 @@ BY_EYE: dict[str, str] = {
             "screen; it also needs an image file on disk",
     "AH15": "needs Ask to Keep on and Discard pressed each time, which the runner cannot do",
     "AH16": "needs AutoCAD 2025 / 2026 and 2021-2024 machines, which are not here",
+    "AH18": "freezing and thawing a layer and seeing the dashes go and come back is seen on screen, and it "
+            "needs a layer made by hand with linetype Continuous first",
 }
