@@ -343,6 +343,16 @@ def test_discard_with_undo_off_says_so(env):
     assert "UNDO is off" in result
 
 
+def test_reset_forgets_why_an_earlier_job_had_no_mark(monkeypatch):
+    # #254: a stale "AutoCAD was in a command" from an earlier job (or test) must not be a later reason.
+    monkeypatch.setattr(gate, "_last_drawing", None)
+    monkeypatch.setattr(gate, "_checked_mark", None)
+    monkeypatch.setattr(gate, "_no_mark", gate.NO_MARK_IN_COMMAND)
+    gate.reset()
+    assert gate._no_mark == ""
+    assert gate._no_mark_reason()[0].startswith("UNDO is off")
+
+
 def test_discard_when_autocad_was_in_a_command_says_so_not_undo_off(env, monkeypatch):
     # #206: the mark was skipped because AutoCAD was in a command; UNDOCTL was never the reason.
     FakeBridge.ask_to_keep = True

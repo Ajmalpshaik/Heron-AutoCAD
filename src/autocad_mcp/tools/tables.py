@@ -26,6 +26,7 @@ from typing import Annotated, Any
 from pydantic import Field
 
 from ..acad import xlsx
+from ..acad.attribute_sheet import csv_delimiter
 from ..acad.entities import resolve_handle
 from ..acad.table_cells import (
     DATA_ROW,
@@ -72,7 +73,8 @@ def read_rows(path: Path, sheet: str | None) -> tuple[str, list[list[str]]]:
             text = content.decode("utf-8-sig")
         except UnicodeDecodeError:
             text = content.decode("cp1252", errors="replace")  # Excel's "CSV" on a Western PC
-        return path.stem, [list(row) for row in csv.reader(io.StringIO(text))]
+        # Comma, or the semicolon a European Excel writes, as the attribute sheet reads it (#218).
+        return path.stem, [list(row) for row in csv.reader(io.StringIO(text), delimiter=csv_delimiter(text))]
     try:
         sheets = xlsx.read(content)
     except xlsx.SheetError as exc:

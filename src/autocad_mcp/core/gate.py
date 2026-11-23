@@ -240,10 +240,16 @@ def front_changed_in_job() -> tuple[str, str] | None:
 
 
 def reset(looked_at: str | None = None, mark: Mark | None = None) -> None:
-    """Forget which drawing Heron checked (tests, and a fresh server start)."""
-    global _last_drawing, _checked_mark
+    """Forget which drawing Heron checked (tests, and a fresh server start).
+
+    The reason the last ``_mark()`` gave for no mark is forgotten too: it
+    belongs to one job, and a stale "AutoCAD was in a command" must never be
+    the reason a later Discard gives (#254).
+    """
+    global _last_drawing, _checked_mark, _no_mark
     _last_drawing = looked_at
     _checked_mark = mark
+    _no_mark = ""
 
 
 async def _since_checked(pid: int | None, drawing: str) -> Verdict:

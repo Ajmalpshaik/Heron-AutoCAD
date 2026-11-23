@@ -441,6 +441,10 @@ def _plot_png(
         elif area == "window":
             box = _box(corner1, corner2)
             why_not = None if box else "the window has no area"
+            if box and detail > 1 and bool(layout.ModelType) and not _plan_view(doc):
+                # The close-ups split the window in world X and Y; in a 3D view or a
+                # turned UCS those parts do not match the picture (D-102, #218).
+                why_not = "the screen is not a plan view of the world UCS"
         found = _PIXEL_MEDIA.search(str(layout.CanonicalMediaName))
         pixels = (float(found.group(1)), float(found.group(2))) if found else None
         if box:
@@ -457,7 +461,7 @@ def _plot_png(
             result["smallest_clear_text"] = _clear_text(box, pixels)
         parts = []
         if detail > 1:
-            if box and pixels:
+            if box and pixels and why_not is None:
                 parts = _detail_parts(box, detail)
             else:
                 why_not = why_not or "the PNG plotter offers no size in pixels"

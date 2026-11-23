@@ -569,6 +569,16 @@ class TestDivideTool:
         assert "slopes" in refusal(dx.autocad_divide_curve(path_handle=ln.Handle, segments=2))
         assert doc.undo_marks == 0
 
+    def test_a_line_level_in_world_is_marked_whatever_its_normal(self, doc):
+        # #218 item 5, not a bug: a line is its two ends. Drawn along the X axis of a UCS
+        # tilted about X, it is level in world (normal tilted, ends at one Z), and the
+        # points land on it; a line drawn up that UCS's Y axis climbs and is refused above.
+        tilt = math.radians(30)
+        ln = Line(doc, (0, 0, 2700), (1000, 0, 2700))
+        ln.Normal = (0.0, -math.sin(tilt), math.cos(tilt))
+        out = answer(dx.autocad_divide_curve(path_handle=ln.Handle, segments=2))
+        assert [doc.objects[h].Coordinates for h in out["handles"]] == [(500, 0, 2700)]
+
     def test_tilted_run_is_refused(self, doc):
         c = Circle(doc, (0, 0, 0), 100.0)
         c.Normal = (1.0, 0.0, 0.0)

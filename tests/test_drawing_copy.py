@@ -258,6 +258,41 @@ class TestCopyTool:
         text = asyncio.run(between_drawings.autocad_copy_from_drawing(source="pump-room", handles=["1A", "FFF"], base_point=[0, 0]))
         assert text.startswith("Error:") and "FFF" in text and "Nothing was copied" in text and source.copies == []
 
+    def test_each_source_object_is_named_so_a_wrong_handle_shows(self, env):
+        # #218 item 7: a handle read in plan.dwg names some other object in pump-room.dwg.
+        target, source = drawings()
+        env(target, source)
+        for dry_run in (True, False):
+            result = answer(between_drawings.autocad_copy_from_drawing(
+                source="pump-room", handles=["1A", "1C"], base_point=[0, 0], dry_run=dry_run,
+            ))  # fmt: skip
+            assert result["source_objects"] == [
+                {"handle": "1A", "type": "AcDbLine", "layer": "M-PIPE"},
+                {"handle": "1C", "type": "AcDbMText", "layer": "M-ANNO"},
+            ]
+            assert "source_objects_left_out" not in result
+
+    def test_a_long_list_of_source_objects_is_cut_and_counted(self, env):
+        target, source = drawings()
+        source.objects.update({f"2{i:03X}": Entity(f"2{i:03X}") for i in range(60)})
+        env(target, source)
+        result = answer(between_drawings.autocad_copy_from_drawing(
+            source="pump-room", handles=[f"2{i:03X}" for i in range(60)], base_point=[0, 0], dry_run=True,
+        ))  # fmt: skip
+        assert len(result["source_objects"]) == between_drawings.MOST_LISTED
+        assert result["source_objects_left_out"] == 60 - between_drawings.MOST_LISTED
+
+    def test_a_handle_that_names_no_drawn_object_there_stops_it_all(self, env):
+        # A layer (no Layer of its own) under that handle in the source: never copied.
+        target, source = drawings()
+        layer = Named("M-PIPE")
+        layer.Handle, layer.ObjectName = "10", "AcDbLayerTableRecord"
+        source.objects["10"] = layer
+        env(target, source)
+        text = asyncio.run(between_drawings.autocad_copy_from_drawing(source="pump-room", handles=["1A", "10"], base_point=[0, 0]))
+        assert text.startswith("Error:") and "10 (AcDbLayerTableRecord)" in text and "not a drawn object" in text
+        assert "Nothing was copied" in text and source.copies == []
+
     def test_the_active_drawing_as_source_points_at_copy_entities(self, env):
         target, source = drawings()
         env(target, source)

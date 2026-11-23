@@ -147,11 +147,34 @@ def read_workbook(content: bytes) -> tuple[list[dict[str, str]], list[dict[str, 
     return _records(edit, "The sheet"), (_records(exported, "The 'As exported' sheet") if exported else None)
 
 
+CSV_DELIMITERS = (",", ";", "\t")
+
+
+def csv_delimiter(text: str) -> str:
+    """Comma, semicolon or tab: the one the first line holding any of them has most of, outside quotes.
+
+    Excel writes a semicolon CSV on a PC whose region has a decimal comma, and
+    pads every row, a title too, with the same separators. Read from one line,
+    "1,5;2,5" in the rows below cannot outvote the header's semicolons, as a
+    count over the whole text could. A tie, or no line with any, is a comma.
+    """
+    for line in text.splitlines()[:50]:
+        counts = dict.fromkeys(CSV_DELIMITERS, 0)
+        quoted = False
+        for char in line:
+            if char == '"':
+                quoted = not quoted
+            elif not quoted and char in counts:
+                counts[char] += 1
+        best = max(CSV_DELIMITERS, key=lambda mark: counts[mark])  # the first on a tie: the comma
+        if counts[best]:
+            return best
+    return ","
+
+
 def read_csv(text: str) -> list[dict[str, str]]:
-    """The rows of a CSV: comma or semicolon (Excel uses either, by the PC's region)."""
-    sample = text[:4096]
-    delimiter = ";" if sample.count(";") > sample.count(",") else ","
-    return _records(list(csv.reader(io.StringIO(text), delimiter=delimiter)), "The CSV")
+    """The rows of a CSV: comma, semicolon or tab (Excel uses either of the first two, by the PC's region)."""
+    return _records(list(csv.reader(io.StringIO(text), delimiter=csv_delimiter(text))), "The CSV")
 
 
 def _by_handle(records: list[dict[str, str]], where: str, without: list[int] | None = None) -> dict[str, dict[str, str]]:
