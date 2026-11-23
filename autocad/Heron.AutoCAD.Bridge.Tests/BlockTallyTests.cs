@@ -181,6 +181,31 @@ public class BlockTallyTests
     }
 
     [Fact]
+    public void An_operation_this_plug_in_lacks_is_refused_and_the_read_job_still_ends_normally()
+    {
+        // What 1.8.0 and 1.8.1 do with block_references on every call: the server then reads over COM
+        // inside the same job, which must still end as usual.
+        const string token = "tok";
+        var host = new FakeHost();
+        var protocol = new BridgeProtocol(host, () => new HeronConfig(), token, new HeronHold(), () => DateTime.UtcNow);
+        JsonElement Send(object request) => JsonDocument.Parse(protocol.Handle(JsonSerializer.Serialize(request))).RootElement.Clone();
+
+        Assert.True(Send(new
+        {
+            op = "begin", token, conversation = "chat-a", job = "j1", tool = "autocad_count_blocks", risk = "read",
+            summary = "Count", drawing = @"C:\Project\M-201.dwg",
+        }).GetProperty("ok").GetBoolean());
+        var reply = Send(new { op = "run", token, conversation = "chat-a", job = "j1", operation = "block_counts_v9", args = new { } });
+
+        Assert.False(reply.GetProperty("ok").GetBoolean());
+        Assert.Equal("BadRequest", reply.GetProperty("refusedBy").GetString());
+        Assert.Contains("does not have the operation 'block_counts_v9'", reply.GetProperty("message").GetString());
+        Assert.Empty(host.Runs);
+        Assert.True(Send(new { op = "end", token, conversation = "chat-a", job = "j1", ok = true, outcome = "done", summary = "Count", ms = 5 })
+            .GetProperty("ok").GetBoolean());
+    }
+
+    [Fact]
     public void A_plug_in_without_them_says_so_in_words_the_server_falls_back_on()
     {
         // Plug-ins 1.8.0 and 1.8.1 have count_entities but not these: tools/_shared.faster_read reads this as "use COM".
