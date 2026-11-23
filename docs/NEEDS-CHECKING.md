@@ -901,7 +901,9 @@ plug-in, restart the server. Scratch drawing in millimetres, `autocad_status` fi
 change row press **Ctrl+Z once** and check the drawing is back as it was. The .NET names were read
 from Autodesk's reference DLLs and the COM numbers from Autodesk's interop DLL; what they *mean*
 (an array's base point and angles, a geo location's reference point) was not, so each row compares
-with AutoCAD's own command. **Every row below is NOT RUN.**
+with AutoCAD's own command. AQ15-AQ17 were added on 2026-11-23 ([D-140](DECISIONS.md), #258, #80;
+`Bridge.Tests/OperationTransactionTests.cs`): a plug-in change, so build and install the plug-in first.
+**Every row below is NOT RUN.**
 
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
@@ -919,6 +921,9 @@ with AutoCAD's own command. **Every row below is NOT RUN.**
 | AQ12 | A new drawing never placed: `autocad_geo_location()` with no place; then `autocad_set_sun(latitude=9.93, longitude=76.27)` and `autocad_geo_location(point=[1000,2000])` | First refused, San Francisco named; then the location is Kochi at 1000,2000 and the sun's place did not move (`moved: false`) | NOT RUN |
 | AQ13 | INSUNITS 0: `autocad_geo_location(latitude=25.29, longitude=51.53)`; then units mm and `coordinate_system='UTM84-39N'`; then `'NOT-A-SYSTEM'`; then `action='remove'` | No units: refused; UTM84-39N: located at the same place; the unknown code: refused, nothing changed; remove: GEOGRAPHICLOCATION shows no location; one Ctrl+Z brings it back | NOT RUN |
 | AQ14 | AutoCAD 2025 / 2026 and 2021-2024 builds: AQ1, AQ4, AQ6, AQ8, AQ11 | As in AutoCAD 2027 | NO MACHINE |
+| AQ15 | ([D-140](DECISIONS.md), #258) A drawing in mm with no location: draw a line by hand, then `autocad_geo_location(latitude=25.29, longitude=51.53)`. Press Ctrl+Z once, then once more | `made: true`. The first Ctrl+Z takes the location off (GEOGRAPHICLOCATION shows none; LATITUDE / LONGITUDE back to what they were); the line is still there. The second Ctrl+Z removes the line. **Record if the location needed two Ctrl+Z** | NOT RUN |
+| AQ16 | ([D-140](DECISIONS.md), #258) Draw a line with `autocad_draw_line`, then `autocad_tiled_viewports(layout='two_vertical')`; ask "undo your last change" (`autocad_undo_last`), then the palette's Undo on the line's row | The split stays a View job: no padlock asked. Both Undos either remove the line and leave the split, or refuse plainly because a view step came after it; **neither undoes only the split**. Record which. One Ctrl+Z by hand after the split puts back one viewport | NOT RUN |
+| AQ17 | ([D-140](DECISIONS.md), #80) Ask to Keep off. Draw a line by hand. Then a plug-in job that has nothing to do and opens no server group: `autocad_update_table_links()` on a drawing with no Excel link. Open the Undo drop-down on the Quick Access toolbar | The plug-in's log says "touched nothing: aborted, no undo step". The list shows the hand-drawn line on top, no blank entry; one Ctrl+Z removes the line. **Record what the list shows on top** | NOT RUN |
 
 ## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
 

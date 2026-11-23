@@ -8,7 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
+## Latest - 2026-11-23 (S15: plug-in transactions and empty undo, #258, #80, D-140)
+
+Session S15. A plug-in operation that touched nothing (no object opened for change, added or erased, no
+variable changed, no work left for after it) is now aborted, not committed, so it leaves no undo step
+(`Bridge/OperationTransaction.cs`, `Addin/TransactionWatch.cs`). `GeoLocation.Change` keeps a new location
+inside the job's transaction or takes it off at once and refuses (`PostedObject`); the success path was
+already one undo step. `autocad_tiled_viewports` stays a View job (D-140 says why). #80's server-side part
+(an empty `StartUndoMark` group) moved to #263, waiting for T7. Nothing run in AutoCAD.
+**Next:** build and install the plug-in, then live rows AQ15-AQ17 with T7.
+
+## Earlier - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
 
 The owner's "Yes, next 10". Five nested sessions, run at most three at a time, all merged with `python`,
 `plugin` and `review` green, nothing run in AutoCAD:

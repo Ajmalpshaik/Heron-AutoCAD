@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A plug-in job that changed nothing leaves no undo step; the geographic location stays inside the
+  job (2026-11-23, [#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80),
+  [#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258), [D-140](docs/DECISIONS.md)).** Every plug-in
+  operation's transaction is watched with AutoCAD's own events; one that opened, added or erased no object
+  and changed no variable is aborted like a read instead of committed. A new geographic location that
+  AutoCAD will not take into the job's transaction is taken off again and the job refused, instead of being
+  left in the drawing outside it; if it cannot be taken off, the answer says it may still be there.
+  `autocad_tiled_viewports` stays a View job (the reason is in D-140), with a test that its own undo step is
+  counted after a change. The server's empty undo group is still open, as issue #263 (live row T7). Tested
+  offline only; live rows AQ15-AQ17 NOT RUN. Needs the new plug-in.
+
 - **Tool bugs found by the live-check runner, settled (2026-11-23, [#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218),
   [D-137](docs/DECISIONS.md)).** A super hatch refused after attaching its xref no longer raises the
   keep-erased box (a table record made and erased in one job is no erase, in the plug-in's count).

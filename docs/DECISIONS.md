@@ -5,6 +5,49 @@
 
 ---
 
+## D-140 - A plug-in job that touched nothing is aborted; the geographic location joins the transaction or is taken off; tiled viewports stay a View job
+
+**Decided:** 2026-11-23, by session S15 of the 2026-11-23 wave, on issues
+[#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258) and
+[#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80) (the idea of Heron for Revit's D-160; no files
+copied). **Status:** in force; tested offline only, live rows AQ15-AQ17 NOT RUN.
+
+- **No empty undo step from the plug-in (#80).** Where the job's undo pieces are: the server opens the group
+  (`StartUndoMark` / `EndUndoMark`, `core/registry.undo_mark`) and puts the `UNDO _Mark` down (D-18); the
+  plug-in opens no group, but each of its operations ends in a transaction `Commit` (`PluginRunner`), the one
+  piece the plug-in owns. Before, only a Read was aborted (D-34). Now every operation's transaction is watched
+  (`TransactionWatch`: AutoCAD's own events for an object opened for change, appended, modified, erased,
+  unappended or reappended, and a drawing or AutoCAD variable changed). One that touched none of those, and
+  left no work for after it (a sheet to put on screen, a regen, a clean-up), is **aborted**: with nothing
+  written, an abort leaves the same drawing a commit would, and it cannot leave an undo entry. Anything that
+  could be a change keeps the commit, as before: aborting a real change would lose the job, an empty step
+  costs one Ctrl+Z. The rule is `Bridge/OperationTransaction.cs`, tested offline.
+- **Not done, and why (the server's group).** An empty `StartUndoMark` / `EndUndoMark` pair, or a lone mark
+  with Ask to Keep on, may still leave an entry; whether AutoCAD keeps one is live row T7, unchanged. Taking it
+  out afterwards needs one more `UNDO`, which would undo the modeller's own work if AutoCAD kept nothing
+  ([05 §26](05-known-limits.md#26-a-job-that-changed-nothing-may-still-leave-an-undo-step)). Issue #80 closes with
+  the plug-in's part; the server's part waits for T7 in issue
+  [#263](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/263).
+- **GeoLocation inside the transaction (#258 a): real only on the failure path.** `GeoLocationData.PostToDb()`
+  then `tr.AddNewlyCreatedDBObject` is Autodesk's own documented order, and on success the location is in the
+  transaction and in the server's undo group, so the set is one Ctrl+Z (that part of the issue is not real by
+  the code; AQ15 checks it live). The real fault: when `AddNewlyCreatedDBObject` threw, the old code went on
+  with the location **outside** the transaction, left open for write, kept on success and erased by hand only
+  if a later check refused. Now `PostedObject.Post` either has it inside the transaction or takes it off at
+  once (`EraseFromDb`) and refuses ("Nothing was changed" is then true). If taking it off fails too, the answer
+  is a new `RunLeftBehind`: it says the location may still be there, and never "Nothing was changed". A post
+  that itself fails added nothing; the unused object is freed and AutoCAD's own error answers.
+- **Tiled viewports stay a View job (#258 b).** `autocad_tiled_viewports` deletes and adds viewport-table
+  records, but the `*Active` records are AutoCAD's own record of the screen: ZOOM, PAN and
+  `autocad_set_3d_view` write the same records, and those are View jobs too. The only other record is the named
+  configuration "Heron", Heron's own name (D-111). A View job keeps its own undo step, and both Undos already
+  count it as a step after the job (`views_since` in the gate, `ViewsSince` in the palette, D-54), so "undo the
+  last change" never undoes the split by mistake; a test now holds that. As a Change job it would need the
+  Changes padlock and a Keep question just to split the screen. No code changed for this; `core/risk.py` keeps it
+  under VIEW, as AQ7 intends. AQ16 checks the split's own undo step live.
+
+---
+
 ## D-139 - A symbol-table name with a control character in it is refused before anything reaches COM
 
 **Decided:** 2026-11-23, by session S13 of the 2026-11-23 wave ("Yes, next 10"), on issue
