@@ -130,6 +130,36 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-127 - Block counts are read by the plug-in in one go; every dynamic property value carries its type
+
+**Decided:** 2026-11-23, on issues #192 and #194 (ranks 1 and 3 of #74), under D-114. **Status:** in
+force. `autocad_count_blocks` asks the plug-in's `block_references` and `autocad_list_blocks` asks
+`block_definitions`, both at Read; COM stays the fallback, as D-114 sets out. The rules:
+(1) **Raw facts, one builder.** `block_references` sends each selected block reference in the order
+selected (the INSERT filter COM selects with), with its real name (COM's EffectiveName: the dynamic
+block's own name for a `*U` copy, the reference's name when that is blank), its layer and every
+dynamic property in AutoCAD's order as `[name, read_only, kind, value]`; with `nested`, the block
+references inside each definition that is neither a layout nor an xref. `block_definitions` sends
+each named definition's entity count, xref flag and path, dynamic flag and attribute tags, and with
+`counts` the references per real name in their own case. The server picks the visibility state and
+the properties counted by (`takeoff.block_ref`), skips and orders the listing
+(`layers.block_info`) and matches names without case with the same code as for COM. The plug-in
+skips only what the listing never shows anyway: layouts and names starting `*`.
+(2) **A value goes with its type.** The plug-in's JSON writes a whole-number double as `50`, which
+Python reads as an int while COM gives `50.0`, so a count by size would split in two. Each value is
+`real`, `int`, `text`, `point`, `none`, `error` (AutoCAD would not give it) or `other` (a type the
+server does not know). The server turns each back into COM's type. A value it needs that is
+`other` sends the whole read to COM; an `error` it needs skips that reference, as a failed COM read
+does. A value it does not need (read-only, not a visibility state) is never looked at, as over COM.
+(3) **An older plug-in.** No new version constant: 1.8.0 and 1.8.1 pass `READS_SINCE` but say they
+do not have these operations, and `faster_read` reads that as "use COM" (one wasted pipe call). The
+release that carries them is not known yet, so `bridge.NEWER_READS` names them, and the capability
+manifest gives these two tools no "faster from" version until the release is named. An answer
+without the `children` or `instances` it was asked for, or of the wrong shape, is not used.
+Rejected: a reply grouped by identical references (smaller, but its order differs from COM's, so
+"same answer" would rest on an argument instead of a test); counting in the plug-in by block name
+(`*U` copies and the server's case rules would differ). Live rows: Group AU, all NOT RUN.
+
 ## D-126 - The setup finds the Claude app's own Claude Code and settings, and never replaces an entry
 
 **Decided:** 2026-11-22, after AK13 failed with setup 1.8.0 on a PC where Claude is only the

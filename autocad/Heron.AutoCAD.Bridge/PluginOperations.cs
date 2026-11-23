@@ -16,6 +16,9 @@ namespace Heron.AutoCAD.Bridge
             // per object: the plug-in does them in one go (D-114).
             ["count_entities"] = Risk.Read,
             ["entity_extents"] = Risk.Read,
+            // Block counts for autocad_count_blocks and autocad_list_blocks (D-127).
+            ["block_references"] = Risk.Read,
+            ["block_definitions"] = Risk.Read,
             ["solid_topology"] = Risk.Read,
             // Where dimension lines are, the drawing's and objects' annotation scales,
             // and the drawing's layer states (D-80, D-81).

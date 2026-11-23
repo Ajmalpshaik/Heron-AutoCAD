@@ -215,7 +215,7 @@ class CodeMap:
 
 def plugin_use(code: CodeMap, function: Any, known: set[str], release: str) -> dict[str, Any]:
     """What a tool needs of the plug-in, from its own code."""
-    from autocad_mcp.core.bridge import READS_SINCE
+    from autocad_mcp.core.bridge import NEWER_READS, READS_SINCE
 
     original = inspect.unwrap(function)
     signals, seen = code.reach(original.__module__, original.__name__)
@@ -231,7 +231,8 @@ def plugin_use(code: CodeMap, function: Any, known: set[str], release: str) -> d
         "version_needed": release if role == "operations" else None,
         "runs_other_tools": RUNS_TOOLS in signals,
     }
-    if "faster_read" in signals:
+    # A read not yet in a release names no plug-in it is faster from (D-127).
+    if "faster_read" in signals and not set(use["operations"]) & NEWER_READS:
         use["faster_from"] = READS_SINCE
     return use
 

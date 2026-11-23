@@ -88,7 +88,7 @@ namespace Heron.AutoCAD.Addin
         }
 
         /// <summary>Everything in the drawing the filter matches, as ssget "X" (COM's acSelectionSetAll) takes it.</summary>
-        private static ObjectId[] Select(Document doc, RunArgs args)
+        internal static ObjectId[] Select(Document doc, RunArgs args)
         {
             var pairs = EntityFilter.Parse(args.Element("filter"));
             var values = new List<TypedValue>();

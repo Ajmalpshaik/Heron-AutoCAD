@@ -746,6 +746,28 @@ is NOT RUN.**
 | AS10 | The AS1 drawing: `autocad_drawing_report()`, then the same over COM (#193) | The log shows `operation count_entities`; `model_space` (`total`, `by_type`, key order too) is the same both ways, and counts model space only (not the sheets' title blocks) | NOT RUN |
 | AS11 | A drawing with more than 50,000 objects in model space: `autocad_drawing_report()` both ways, timed | The same `total`, `by_type` and "Only the first 50,000" note both ways; write both times in the result | NOT RUN |
 
+## Group AU - Block counts the plug-in reads in one go: count_blocks and list_blocks (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-127](DECISIONS.md), issues #192 and #194). Built and tested offline only
+(`tests/test_plugin_block_reads.py` compares the plug-in and COM answers on one fake drawing;
+`BlockTallyTests.cs` what the plug-in writes). The plug-in operations `block_references` and
+`block_definitions` build for all three targets but have never run. Needs the plug-in rebuilt and
+reinstalled from code that has them (plug-ins 1.8.0 and 1.8.1 do not: they are read over COM), and
+the server restarted. "Over COM" means the same call to a second server started with `--no-bridge`,
+as in Group AS; the plug-in's log shows `operation block_references` / `operation block_definitions`
+when the plug-in read it. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AU1 | A real MEP plan with dynamic valves or diffusers (some changed, so AutoCAD renamed them `*U..`): `autocad_count_blocks()` and `autocad_count_blocks(group_by='name_layer', layer='M-*')`, then the same over COM | The log shows `operation block_references`; `total` and `rows` are the same text both ways; the `*U` copies count under the block's own name | NOT RUN |
+| AU2 | Same drawing: `autocad_count_blocks(group_by='name_properties')` and `group_by='name_visibility'`, both ways | The same rows both ways; a whole-number size shows as `50.0` in both (never `50`), a flip state as `0` or `1`, a list choice as its text | NOT RUN |
+| AU3 | A drawing with blocks inside blocks (desks inside a room block): `autocad_count_blocks(include_nested=true)` both ways | The same `total` and rows; the nested desks counted once per placed room, in both | NOT RUN |
+| AU4 | `autocad_list_blocks()`, `include_unused=true` and `include_counts=false`, both ways, on a drawing with an xref, a block with attributes and a dynamic block | The log shows `operation block_definitions`; the same text both ways: `instances` by real name, the xref's `path`, `attribute_tags` in order, `dynamic` | NOT RUN |
+| AU5 | Plug-in 1.8.1 installed (it has no block reads): run AU1 and AU4 | Both answer over COM (no `operation block_...` line in the log), no error, the same answers as with the new plug-in | NOT RUN |
+| AU6 | A drawing with 5,000 or more block references: time `autocad_count_blocks(group_by='name_properties')` and `autocad_list_blocks()` with the plug-in and over COM | Same answers; write both times in the result. Pass: the plug-in is clearly faster | NOT RUN |
+| AU7 | A MINSERT, a block placed on a sheet (layout) and an xref: `autocad_count_blocks()` and `autocad_list_blocks()` both ways | Each is counted the same both ways (the sheet's block included in both) | NOT RUN |
+| AU8 | Draw a line yourself, run AU1 and AU4, then press Ctrl+Z once | The Ctrl+Z takes away **your line**: the reads left no undo step | NOT RUN |
+
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only
