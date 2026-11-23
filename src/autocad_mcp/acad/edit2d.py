@@ -1,5 +1,5 @@
-"""The geometry of the everyday 2D edits: trim, extend, fillet, chamfer, break, join,
-move a vertex, stretch (issues #103 and #49, D-78).
+"""The geometry of the everyday 2D edits: trim, extend, lengthen, fillet, chamfer, break, join,
+move a vertex, stretch (issues #103, #49 and #154, D-78).
 
 Plain functions over plain numbers, like acad/geometry.py and the shape library
 (D-30): nothing here touches AutoCAD, so every answer is tested offline. The tools
@@ -476,6 +476,71 @@ def extend(path: Path, at_end: bool, boundaries: Sequence[Path]) -> tuple[Path, 
     return (out if at_end else reverse(out)), gain
 
 
+# ---- lengthen ---------------------------------------------------------------------------
+
+
+def lengthen(path: Path, at_end: bool, mode: str, value: float) -> tuple[Path, float, float]:
+    """Make one end of an open path longer or shorter: AutoCAD's LENGTHEN Delta, Total and Percent.
+
+    ``mode`` is 'delta' (add ``value``; a negative value shortens), 'total' (the
+    whole path ``value`` long) or 'percent' (the whole path ``value`` percent of
+    its length now, so 100 changes nothing). A straight end runs on along its
+    own line and an arc end round its own circle (never to a full circle); a
+    shorter path is cut back along its own shape, over as many segments as it
+    takes, arcs kept as arcs. Returns (the new path, its length now, the change
+    in length).
+    """
+    if path["closed"]:
+        raise ValueError("A closed outline has no end to lengthen.")
+    old = length(path)
+    if mode == "delta":
+        new = old + value
+    elif mode == "total":
+        new = value
+    elif mode == "percent":
+        if value <= 0:
+            raise ValueError("A percent of 0 or less would leave nothing of it; give a percent above 0.")
+        new = old * value / 100.0
+    else:
+        raise ValueError(f"Unknown mode '{mode}': use delta, total or percent.")
+    eps = tolerance(path) * 10
+    if new <= eps:
+        raise ValueError(
+            f"That leaves {new:.6g} of it ({old:.6g} long now): it would vanish. Delete it instead, or "
+            "give a smaller change."
+        )
+    gain = new - old
+    if abs(gain) <= eps:
+        return path, old, 0.0
+    work = path if at_end else reverse(path)
+    if gain < 0:
+        out = sub_path(work, 0.0, new)
+    else:
+        last = _segs(work)[-1]
+        if last.length <= 0:
+            raise ValueError("Its last segment has no length, so it has no direction to lengthen in.")
+        verts = list(work["vertices"])
+        bulges = list(work["bulges"])
+        if last.centre is None:
+            u = _unit(_sub(last.end, last.start))
+            verts[-1] = _add(last.end, u, gain)
+        else:
+            sigma = 1.0 if last.sweep > 0 else -1.0
+            sweep = last.sweep + sigma * gain / last.radius
+            if abs(sweep) >= TWO_PI - 1e-6:
+                room = (TWO_PI - abs(last.sweep)) * last.radius
+                raise ValueError(
+                    f"The arc cannot grow by {gain:.6g}: that is more than a full circle. The most it can "
+                    f"grow is just under {room:.6g}."
+                )
+            end_angle = last.start_angle + sigma * abs(sweep)
+            verts[-1] = (last.centre[0] + last.radius * math.cos(end_angle),
+                         last.centre[1] + last.radius * math.sin(end_angle))
+            bulges[-1] = math.tan(sweep / 4.0)
+        out = {"vertices": verts, "bulges": bulges, "closed": False}
+    return (out if at_end else reverse(out)), new, gain
+
+
 # ---- break --------------------------------------------------------------------------
 
 
@@ -813,6 +878,459 @@ def chamfer_lines(
         "chamfer": [_r(p1), _r(p2)],
         "distances": [round(d1, 9), round(d2, 9)],
     }
+
+
+# ---- fillet and chamfer between lines, arcs and the ends of polylines --------------------------
+#
+# The two-line functions above keep their own, simpler maths. These take a *curve*: a path of
+# one segment, straight or an arc (the end segment of a polyline is cut out as one). The two
+# curves are met as if they ran on, as AutoCAD's FILLET does with TRIM mode on; each keeps the
+# part on one side of the corner, and the part nearer the corner is trimmed or extended to the
+# tangent point (fillet) or to a distance along the curve (chamfer; AutoCAD's CHAMFER takes
+# straight objects only, so a distance along an arc is Heron's own rule, D-143).
+
+
+def _one_segment(path: Path, name: str) -> Segment:
+    if path["closed"] or len(path["vertices"]) != 2:
+        raise ValueError(f"The {name} curve must be one line or one arc.")
+    seg = _segs(path)[0]
+    if seg.length <= 0:
+        raise ValueError(f"The {name} curve has no length.")
+    return seg
+
+
+def _wrap_half(angle: float) -> float:
+    """An angle turned into (-pi, pi]."""
+    a = angle % TWO_PI
+    return a - TWO_PI if a > math.pi else a
+
+
+def _arc_span(seg: Segment) -> tuple[float, float]:
+    """(anticlockwise start angle, span) of an arc segment, whichever way it was drawn."""
+    span = abs(seg.sweep)
+    a0 = seg.start_angle if seg.sweep > 0 else seg.start_angle + seg.sweep
+    return a0 % TWO_PI, span
+
+
+def _angle_at(seg: Segment, p: Point) -> float:
+    return math.atan2(p[1] - seg.centre[1], p[0] - seg.centre[0])
+
+
+def _meetings(a: Segment, b: Segment, eps: float) -> list[Point]:
+    """Where the two curves meet when each is run on without end (a line for ever, an arc round its circle)."""
+    if a.centre is None and b.centre is None:
+        found = _line_params(a.start, a.end, b.start, b.end)
+        return [] if found is None else [_add(a.start, _sub(a.end, a.start), found[0])]
+    if a.centre is None or b.centre is None:
+        line, arc = (a, b) if a.centre is None else (b, a)
+        return [_add(line.start, _sub(line.end, line.start), t)
+                for t in _line_circle(line.start, line.end, arc.centre, arc.radius, eps)]
+    return _circle_circle(a.centre, a.radius, b.centre, b.radius, eps)
+
+
+def _side_of(seg: Segment, x: Point, keep: Point | None, name: str, eps: float) -> dict[str, Any]:
+    """Which way from the corner ``x`` this curve is kept, and how far it reaches that way.
+
+    ``keep`` is a point on the part to keep. Without it a line keeps its end farther from
+    the corner; an arc beginning on the corner side keeps the longer part, and an arc the
+    corner lies outside keeps the way that reaches the nearer of its ends first.
+    """
+    if seg.centre is None:
+        d = _unit(_sub(seg.end, seg.start))
+        if keep is not None:
+            along = _dot(_sub(keep, x), d)
+            if abs(along) <= eps:
+                raise ValueError(f"The point to keep on the {name} curve is right at the corner; give one along it.")
+            u = d if along > 0 else (-d[0], -d[1])
+        else:
+            far = seg.start if _dist(seg.start, x) >= _dist(seg.end, x) else seg.end
+            u = _unit(_sub(far, x)) if _dist(far, x) > eps else d
+        reach = max(_dot(_sub(seg.start, x), u), _dot(_sub(seg.end, x), u))
+        if reach <= eps:
+            raise ValueError(f"Nothing of the {name} curve lies on that side of the corner.")
+        far_end = _add(x, u, reach)
+        return {"seg": seg, "kind": "line", "u": u, "reach": reach, "far": far_end}
+    a0, span = _arc_span(seg)
+    theta = _angle_at(seg, x)
+    delta = (theta - a0) % TWO_PI
+    slack = eps / seg.radius
+    on_arc = delta <= span + slack or delta >= TWO_PI - slack
+    if on_arc and delta >= TWO_PI - slack:
+        delta = 0.0
+    if on_arc:
+        reach = {1.0: span - delta, -1.0: delta}
+    else:
+        reach = {1.0: (a0 - theta) % TWO_PI + span, -1.0: (theta - a0 - span) % TWO_PI + span}
+    if keep is not None:
+        turn = _wrap_half(_angle_at(seg, keep) - theta)
+        if abs(turn) * seg.radius <= eps:
+            raise ValueError(f"The point to keep on the {name} curve is right at the corner; give one along it.")
+        sigma = 1.0 if turn > 0 else -1.0
+    elif on_arc:
+        sigma = 1.0 if reach[1.0] >= reach[-1.0] else -1.0
+    else:
+        near_ccw, near_cw = (a0 - theta) % TWO_PI, (theta - a0 - span) % TWO_PI
+        sigma = 1.0 if near_ccw <= near_cw else -1.0
+    angle_reach = reach[sigma]
+    if angle_reach * seg.radius <= eps:
+        raise ValueError(f"Nothing of the {name} curve lies on that side of the corner.")
+    far_angle = theta + sigma * angle_reach
+    far_end = (seg.centre[0] + seg.radius * math.cos(far_angle), seg.centre[1] + seg.radius * math.sin(far_angle))
+    return {"seg": seg, "kind": "arc", "sigma": sigma, "theta": theta, "reach": angle_reach * seg.radius,
+            "angle_reach": angle_reach, "far": far_end}
+
+
+def _along(side: dict[str, Any], x: Point, p: Point) -> float:
+    """How far a point on the curve is from the corner, in the kept direction (behind it: negative)."""
+    seg = side["seg"]
+    if side["kind"] == "line":
+        return _dot(_sub(p, x), side["u"])
+    turn = (side["sigma"] * (_angle_at(seg, p) - side["theta"])) % TWO_PI
+    return (turn if turn <= math.pi else turn - TWO_PI) * seg.radius
+
+
+def _at(side: dict[str, Any], x: Point, t: float) -> Point:
+    """The point a distance ``t`` from the corner along the kept direction."""
+    seg = side["seg"]
+    if side["kind"] == "line":
+        return _add(x, side["u"], t)
+    a = side["theta"] + side["sigma"] * t / seg.radius
+    return (seg.centre[0] + seg.radius * math.cos(a), seg.centre[1] + seg.radius * math.sin(a))
+
+
+def _kept(side: dict[str, Any], x: Point, t: float) -> Path:
+    """The curve as it stays: from the point ``t`` along to the far end, drawn the way the curve was.
+
+    The end that moves is the one nearer the corner, so a line or arc keeps its own
+    direction (and which of its two ends is the free one).
+    """
+    seg = side["seg"]
+    near, far = _at(side, x, t), side["far"]
+    if side["kind"] == "line":
+        pair = [near, far]
+        bulge = 0.0
+    else:
+        left = side["angle_reach"] - t / seg.radius
+        bulge = math.tan(side["sigma"] * left / 4.0)
+        pair = [near, far]
+    kept = {"vertices": pair, "bulges": [bulge], "closed": False}
+    # drawn the way the curve was drawn: its first vertex is the end that was its start
+    start_is_far = (_dist(seg.start, far) <= _dist(seg.end, far)) if side["kind"] == "line" else \
+        ((side["sigma"] > 0) != (seg.sweep > 0))
+    if start_is_far:
+        return reverse(kept)
+    return kept
+
+
+def _circle_family(seg: Segment, radius: float) -> list[tuple[str, Any]]:
+    """The curves a circle of ``radius`` touching this one has its centre on: two parallels, or two circles."""
+    if seg.centre is None:
+        n = _unit((-(seg.end[1] - seg.start[1]), seg.end[0] - seg.start[0]))
+        return [("line", (_add(seg.start, n, k * radius), _add(seg.end, n, k * radius))) for k in (1.0, -1.0)]
+    out: list[tuple[str, Any]] = [("circle", (seg.centre, seg.radius + radius))]
+    out.append(("circle", (seg.centre, abs(seg.radius - radius))))
+    return out
+
+
+def _family_meetings(fa: tuple[str, Any], fb: tuple[str, Any], eps: float) -> list[Point]:
+    if fa[0] == "line" and fb[0] == "line":
+        found = _line_params(fa[1][0], fa[1][1], fb[1][0], fb[1][1])
+        return [] if found is None else [_add(fa[1][0], _sub(fa[1][1], fa[1][0]), found[0])]
+    if fa[0] == "line" or fb[0] == "line":
+        line, circ = (fa, fb) if fa[0] == "line" else (fb, fa)
+        return [_add(line[1][0], _sub(line[1][1], line[1][0]), t)
+                for t in _line_circle(line[1][0], line[1][1], circ[1][0], circ[1][1], eps)]
+    return _circle_circle(fa[1][0], fa[1][1], fb[1][0], fb[1][1], eps)
+
+
+def _foot(seg: Segment, c: Point) -> Point | None:
+    """The point of the curve's own line or circle that a circle centred on ``c`` touches."""
+    if seg.centre is None:
+        d = _unit(_sub(seg.end, seg.start))
+        return _add(seg.start, d, _dot(_sub(c, seg.start), d))
+    v = _sub(c, seg.centre)
+    n = _norm(v)
+    if n <= 0:
+        return None
+    return _add(seg.centre, v, seg.radius / n)
+
+
+def _pair_corners(c1: Path, c2: Path, keep1: Point | None, keep2: Point | None) -> tuple[list[dict[str, Any]], float]:
+    """Every corner the two curves make, each with the side kept on both, nearest the points to keep first."""
+    s1, s2 = _one_segment(c1, "first"), _one_segment(c2, "second")
+    eps = tolerance(c1, c2) * 10
+    hits = _meetings(s1, s2, eps)
+    if not hits:
+        raise ValueError("The two curves never meet, even run on, so there is no corner to make.")
+    corners: list[dict[str, Any]] = []
+    problem: ValueError | None = None
+    for x in hits:
+        try:
+            a = _side_of(s1, x, keep1, "first", eps)
+            b = _side_of(s2, x, keep2, "second", eps)
+        except ValueError as exc:
+            problem = exc
+            continue
+        if a["kind"] == "line" and b["kind"] == "line":
+            theta = math.acos(min(1.0, max(-1.0, _dot(a["u"], b["u"]))))
+            if theta <= 1e-9 or math.pi - theta <= 1e-9:
+                problem = ValueError("The two curves run in one straight line, so there is no corner to make.")
+                continue
+        corners.append({"x": x, "sides": (a, b)})
+    if not corners:
+        raise problem or ValueError("There is no corner to make.")
+    picks = [k for k in (keep1, keep2) if k is not None]
+    if picks:
+        corners.sort(key=lambda c: sum(_dist(c["x"], k) for k in picks))
+    return corners, eps
+
+
+def _more_than_one(corners: list[dict[str, Any]], chosen: dict[str, Any], keeps: bool) -> str | None:
+    if len(corners) < 2 or keeps:
+        return None
+    others = [c for c in corners if c is not chosen]
+    where = ", ".join(f"({c['x'][0]:.6g}, {c['x'][1]:.6g})" for c in others)
+    return f"The two curves meet in more than one place; this is the corner chosen. The other is at {where}: give keep_points to choose it."
+
+
+def fillet_curves(
+    c1: Path,
+    c2: Path,
+    radius: float,
+    keep1: Sequence[float] | None = None,
+    keep2: Sequence[float] | None = None,
+) -> dict[str, Any]:
+    """Round the corner between two curves (a line or an arc each) with an arc of ``radius``.
+
+    Each curve keeps the part on its kept side and is trimmed or extended to the
+    tangent point. Returns {"curve1": path, "curve2": path} (each as it stays, drawn
+    the way it was), "corner", "tangent_points" and "arc": {"centre", "radius",
+    "start_angle", "end_angle"} (anticlockwise, radians) or None when ``radius`` is 0
+    (a sharp corner), "score" (how far the tangent points are from the corner) and
+    "note" when the curves meet in more than one place.
+    """
+    if radius < 0:
+        raise ValueError("A fillet radius cannot be negative.")
+    k1 = _pt(keep1) if keep1 is not None else None
+    k2 = _pt(keep2) if keep2 is not None else None
+    corners, eps = _pair_corners(c1, c2, k1, k2)
+    best: dict[str, Any] | None = None
+    failures: list[str] = []
+    for corner in corners:
+        x = corner["x"]
+        a, b = corner["sides"]
+        if radius <= 0:
+            found = {"corner": corner, "t": (0.0, 0.0), "score": 0.0, "centre": None}
+        else:
+            found = None
+            for fa in _circle_family(a["seg"], radius):
+                for fb in _circle_family(b["seg"], radius):
+                    for centre in _family_meetings(fa, fb, eps):
+                        t_a, t_b = _foot(a["seg"], centre), _foot(b["seg"], centre)
+                        if t_a is None or t_b is None:
+                            continue
+                        da, db = _along(a, x, t_a), _along(b, x, t_b)
+                        if not (eps < da < a["reach"] - eps and eps < db < b["reach"] - eps):
+                            continue
+                        if a["kind"] == "arc" and da > math.pi * a["seg"].radius:
+                            continue
+                        if b["kind"] == "arc" and db > math.pi * b["seg"].radius:
+                            continue
+                        if found is None or da + db < found["score"]:
+                            found = {"corner": corner, "t": (da, db), "score": da + db, "centre": centre,
+                                     "feet": (t_a, t_b)}
+            if found is None:
+                failures.append(
+                    f"at ({x[0]:.6g}, {x[1]:.6g}) no arc of radius {radius:g} touches both curves on the "
+                    f"part kept: it is too big, or the curves bend away from each other"
+                )
+                continue
+        if best is None or (not (k1 or k2) and found["score"] < best["score"]):
+            best = found
+        if k1 or k2:
+            break  # the corner nearest the points to keep, if it takes the radius
+    if best is None:
+        raise ValueError("A radius of " + f"{radius:g} does not fit: " + "; ".join(failures) + ". Try a smaller radius.")
+    corner = best["corner"]
+    x = corner["x"]
+    a, b = corner["sides"]
+    da, db = best["t"]
+    out: dict[str, Any] = {
+        "curve1": _kept(a, x, da),
+        "curve2": _kept(b, x, db),
+        "corner": _r(x),
+        "score": best["score"],
+        "arc": None,
+    }
+    if best["centre"] is not None:
+        t_a, t_b = best["feet"]
+        centre = best["centre"]
+        a1 = math.atan2(t_a[1] - centre[1], t_a[0] - centre[0])
+        a2 = math.atan2(t_b[1] - centre[1], t_b[0] - centre[0])
+        start, end = (a1, a2) if (a2 - a1) % TWO_PI <= math.pi else (a2, a1)
+        out["tangent_points"] = [_r(t_a), _r(t_b)]
+        out["arc"] = {"centre": _r(centre), "radius": float(radius), "start_angle": start % TWO_PI,
+                      "end_angle": end % TWO_PI}
+    note = _more_than_one(corners, corner, k1 is not None or k2 is not None)
+    if note:
+        out["note"] = note
+    return out
+
+
+def chamfer_curves(
+    c1: Path,
+    c2: Path,
+    distance1: float,
+    distance2: float | None = None,
+    keep1: Sequence[float] | None = None,
+    keep2: Sequence[float] | None = None,
+) -> dict[str, Any]:
+    """Cut the corner between two curves: ``distance1`` back along the first, ``distance2`` along the second.
+
+    Distances are measured along each curve (round an arc, along its length) from the
+    corner. Both 0 makes a sharp corner. Returns {"curve1", "curve2", "corner",
+    "chamfer": [p, q] or None, "distances"} and "note" when the curves meet in more than
+    one place. AutoCAD's own CHAMFER takes straight objects only, so the angle method is
+    for two straight curves and is worked out by the caller.
+    """
+    d1 = float(distance1)
+    d2 = d1 if distance2 is None else float(distance2)
+    if d1 < 0 or d2 < 0:
+        raise ValueError("A chamfer distance cannot be negative.")
+    if (d1 <= 0) != (d2 <= 0):
+        raise ValueError("Give both chamfer distances above 0, or both 0 for a sharp corner.")
+    k1 = _pt(keep1) if keep1 is not None else None
+    k2 = _pt(keep2) if keep2 is not None else None
+    corners, eps = _pair_corners(c1, c2, k1, k2)
+    chosen = None
+    reasons: list[str] = []
+    for corner in corners:
+        a, b = corner["sides"]
+        if d1 > 0 and (d1 >= a["reach"] - eps or d2 >= b["reach"] - eps):
+            reasons.append(
+                f"at ({corner['x'][0]:.6g}, {corner['x'][1]:.6g}) a curve reaches only "
+                f"{min(a['reach'], b['reach']):.6g} from the corner, shorter than the chamfer"
+            )
+            continue
+        chosen = corner
+        break
+    if chosen is None:
+        raise ValueError("The chamfer does not fit: " + "; ".join(reasons) + ".")
+    x = chosen["x"]
+    a, b = chosen["sides"]
+    out: dict[str, Any] = {
+        "curve1": _kept(a, x, d1),
+        "curve2": _kept(b, x, d2),
+        "corner": _r(x),
+        "chamfer": None,
+        "distances": [round(d1, 9), round(d2, 9)],
+    }
+    if d1 > 0:
+        out["chamfer"] = [_r(_at(a, x, d1)), _r(_at(b, x, d2))]
+    note = _more_than_one(corners, chosen, k1 is not None or k2 is not None)
+    if note:
+        out["note"] = note
+    return out
+
+
+def end_segment(path: Path, at_end: bool) -> tuple[Path, Point]:
+    """The last (or first) segment of an open path as a one-segment curve, and the vertex to keep.
+
+    The segment is drawn from the vertex next to the end to the end itself, so a fillet or
+    chamfer that trims or extends it keeps that vertex and only moves the end.
+    """
+    if path["closed"]:
+        raise ValueError("A closed polyline has no end: fillet its corners with one polyline instead.")
+    work = path if at_end else reverse(path)
+    verts = work["vertices"]
+    curve = {"vertices": [verts[-2], verts[-1]], "bulges": [work["bulges"][-1]], "closed": False}
+    return curve, verts[-2]
+
+
+def with_end_segment(path: Path, at_end: bool, curve: Path) -> Path:
+    """The path with the curve (as ``end_segment`` made it, then trimmed or extended) put back as its end."""
+    work = path if at_end else reverse(path)
+    keep = work["vertices"][-2]
+    near_first = _dist(curve["vertices"][0], keep) <= _dist(curve["vertices"][-1], keep)
+    piece = curve if near_first else reverse(curve)
+    out = {
+        "vertices": list(work["vertices"][:-1]) + [piece["vertices"][-1]],
+        "bulges": list(work["bulges"][:-1]) + [piece["bulges"][0]],
+        "closed": False,
+    }
+    return out if at_end else reverse(out)
+
+
+def _curve_options(path: Path, polyline: bool, name: str) -> list[tuple[bool | None, Path, Point | None]]:
+    """What can meet the other object: the whole line or arc, or either end segment of a polyline."""
+    if not polyline:
+        return [(None, path, None)]
+    out = []
+    for at_end in (True, False):
+        curve, keep = end_segment(path, at_end)
+        if _dist(curve["vertices"][0], curve["vertices"][1]) <= tolerance(path) * 10:
+            continue
+        out.append((at_end, curve, keep))
+    if not out:
+        raise ValueError(f"The {name} polyline has no length at either end.")
+    return out
+
+
+def shape_pair(
+    path1: Path,
+    path2: Path,
+    *,
+    polyline1: bool = False,
+    polyline2: bool = False,
+    radius: float | None = None,
+    distance1: float | None = None,
+    distance2: float | None = None,
+    keep1: Sequence[float] | None = None,
+    keep2: Sequence[float] | None = None,
+) -> dict[str, Any]:
+    """Fillet (``radius``) or chamfer (``distance1`` ...) between two objects: lines, arcs or open polylines.
+
+    A line or arc is trimmed or extended whole. A polyline gives its end segment, the
+    one at whichever end makes the nearer corner (its other vertices stay), and is
+    still one polyline afterwards. ``keep1`` and ``keep2`` say which part of a line or arc
+    to keep; a polyline keeps all but its end. Returns {"path1", "path2" (the whole
+    new shapes), "corner", "arc" (fillet: or None) | "chamfer" ([p, q] or None),
+    "tangent_points"?, "distances"?, "ends": [for each, "start" | "end" of a polyline, else
+    None], "note"?}.
+    """
+    fillet = radius is not None
+    best: dict[str, Any] | None = None
+    errors: list[str] = []
+    for end1, curve1, vertex1 in _curve_options(path1, polyline1, "first"):
+        for end2, curve2, vertex2 in _curve_options(path2, polyline2, "second"):
+            try:
+                if fillet:
+                    shape = fillet_curves(curve1, curve2, float(radius), vertex1 or keep1, vertex2 or keep2)
+                else:
+                    shape = chamfer_curves(curve1, curve2, float(distance1), distance2, vertex1 or keep1,
+                                           vertex2 or keep2)
+            except ValueError as exc:
+                if str(exc) not in errors:
+                    errors.append(str(exc))
+                continue
+            x = shape["corner"]
+            near = sum(_dist(path["vertices"][-1 if at_end else 0], x)
+                       for path, at_end in ((path1, end1), (path2, end2)) if at_end is not None)
+            if best is None or near < best["near"] - 1e-12:
+                best = {"near": near, "shape": shape, "ends": (end1, end2)}
+    if best is None:
+        raise ValueError(errors[0] if len(errors) == 1 else " / ".join(errors))
+    shape, (end1, end2) = best["shape"], best["ends"]
+    out: dict[str, Any] = {
+        "path1": shape["curve1"] if end1 is None else with_end_segment(path1, end1, shape["curve1"]),
+        "path2": shape["curve2"] if end2 is None else with_end_segment(path2, end2, shape["curve2"]),
+        "corner": shape["corner"],
+        "ends": [None if e is None else ("end" if e else "start") for e in (end1, end2)],
+    }
+    for key in ("arc", "chamfer", "tangent_points", "distances", "note"):
+        if key in shape:
+            out[key] = shape[key]
+    return out
 
 
 # ---- fillet and chamfer at a polyline's corners ------------------------------------------

@@ -200,6 +200,7 @@ _LEVELS: dict[Risk, tuple[str, ...]] = {
         "break_curve",
         "join_curves",
         "edit_vertex",
+        "lengthen",  # a line, arc or open polyline longer or shorter at one end (D-143)
         "stretch",
         "explode",
         "draw_order",

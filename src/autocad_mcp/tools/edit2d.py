@@ -1,7 +1,7 @@
-"""The everyday 2D edits: trim, extend, fillet, chamfer, break, join, move a vertex,
-stretch, explode, draw order, match properties and groups.
+"""The everyday 2D edits: trim, extend, lengthen, fillet, chamfer, break, join, move a
+vertex, stretch, explode, draw order, match properties and groups.
 
-Issues #103, #49, #105, #111 and #110 (D-78, D-79). The new shape is worked out
+Issues #103, #49, #105, #111, #110 and #154 (D-78, D-79, D-143). The new shape is worked out
 in plain Python (acad/edit2d.py, tested without AutoCAD) and written back by
 setting each object's own points over COM. Nothing is typed on AutoCAD's command
 line, so no command is ever left waiting for a pick (known limit 21). Each call
@@ -40,6 +40,7 @@ from ._shared import (
 # The objects whose shape these tools change, and those they cut or reach to.
 TARGETS = {"AcDbLine": "line", "AcDbArc": "arc", "AcDbCircle": "circle", "AcDbPolyline": "polyline"}
 EDGES = {**TARGETS, "AcDb2dPolyline": "old-style 2D polyline"}
+FILLETABLE = {"AcDbLine": "line", "AcDbArc": "arc", "AcDbPolyline": "polyline"}
 
 LOCKED_HINT = (
     "An object usually refuses a change because its layer is locked. Unlock it with "
@@ -433,6 +434,125 @@ async def autocad_trim_extend(
     return dumps(await run(work))
 
 
+# ---- lengthen -----------------------------------------------------------------------------
+
+
+LENGTHENABLE = {"AcDbLine": "line", "AcDbArc": "arc", "AcDbPolyline": "polyline"}
+
+
+@mcp.tool(name="autocad_lengthen", **tool_meta("Lengthen"))
+@tool_errors
+async def autocad_lengthen(
+    handles: Annotated[
+        list[str],
+        Field(min_length=1, description="The lines, arcs or open polylines to make longer or shorter."),
+    ],
+    mode: Annotated[
+        str,
+        Field(
+            description=(
+                "'delta' adds 'value' to the length (a negative value shortens it); 'total' makes the "
+                "whole object 'value' long; 'percent' makes it 'value' percent of its length now "
+                "(100 changes nothing, 150 is half as long again)."
+            ),
+            pattern="^(delta|total|percent)$",
+        ),
+    ],
+    value: Annotated[float, Field(description="The distance, the total length or the percent, as 'mode' says.")],
+    end: Annotated[
+        str,
+        Field(
+            description="Which end changes: 'end' (the last point) or 'start' (the first). Ignored where 'points' is given.",
+            pattern="^(start|end)$",
+        ),
+    ] = "end",
+    points: Annotated[
+        list[list[float]] | None,
+        Field(
+            default=None,
+            description=(
+                "One [x, y] per handle, in the same order: a point near the end to change, as the pick in "
+                "AutoCAD's LENGTHEN. Leave out to use 'end'."
+            ),
+        ),
+    ] = None,
+    coords: Annotated[str, COORDS_OPT] = "world",
+) -> str:
+    """Make a line, an arc or an open polyline longer or shorter at one end: AutoCAD's LENGTHEN Delta, Total and Percent.
+
+    The end runs on along its own line (a straight end) or round its own circle
+    (an arc end, never to a full circle); a shorter object is cut back along its
+    own shape, over as many segments as it takes, arcs kept as arcs. The object
+    keeps its handle, layer and look. Works in plan on flat objects. An object on
+    a locked layer, a closed polyline, a circle and a change that would leave
+    nothing are refused. One undo step.
+
+    Returns:
+        JSON: {"mode", "done": n, "objects": [{"handle", "end", "was", "now", "changed_by"}],
+        "failed": [{"handle", "reason"}]}
+
+    Examples:
+        - Use when: "make that pipe 500 longer at the north end" -> mode='delta',
+          value=500, points=[a point near the north end].
+        - Use when: "cut that duct back by 150" -> mode='delta', value=-150.
+        - Use when: "make those branch lines exactly 2400 long" -> mode='total',
+          value=2400, the branch handles.
+        - Use when: "lengthen the arc by 25 percent" -> mode='percent', value=125.
+        - Don't use when: the end has to reach a wall or another line - use
+          autocad_trim_extend; or to a point - use autocad_edit_vertex.
+    """
+
+    def work() -> dict[str, Any]:
+        doc = get_doc()
+        require_idle(doc)
+        ucs = ucs_for(doc, coords)
+        if points is not None and len(points) != len(handles):
+            raise AutocadError(
+                f"Give one point per object: {len(handles)} handle(s) but {len(points)} point(s)."
+            )
+        _distinct(handles)
+        picks = [_flat_point(p, ucs, "points") for p in points] if points is not None else [None] * len(handles)
+        plans: list[tuple[str, Any, geo.Path, float, float, dict[str, Any]]] = []
+        failed: list[dict[str, str]] = []
+        for h, pick in zip(handles, picks, strict=True):
+            try:
+                entity = resolve_handle(doc, h)
+                z = _flat(entity)
+                path = _path(entity, LENGTHENABLE)
+                width = _width(entity)
+                _unlocked(doc, entity)
+                if pick is not None:
+                    first, last = path["vertices"][0], path["vertices"][-1]
+                    at_end = math.dist(pick, last) <= math.dist(pick, first)
+                else:
+                    at_end = end == "end"
+                new, now, change = geo.lengthen(path, at_end, mode, float(value))
+                if change == 0:
+                    raise AutocadError("That is its length already: nothing to change.")
+                report = {"end": "end" if at_end else "start", "was": round(geo.length(path), 6),
+                          "now": round(now, 6), "changed_by": round(change, 6)}
+                plans.append((str(entity.Handle), entity, new, z, width, report))
+            except BaseException as exc:  # noqa: BLE001 - report, carry on with the rest
+                raise_if_busy(exc)
+                failed.append(_failure(h, exc))
+        done: list[dict[str, Any]] = []
+        if plans:
+            with undo_mark(doc):
+                for own, entity, new, z, width, report in plans:
+                    try:
+                        _write(entity, new, z, width)
+                        done.append({"handle": own, **report})
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
+                        failed.append(_failure(own, exc))
+        result = {"mode": mode, "done": len(done), "objects": done}
+        if failed and not done:
+            result["hint"] = LOCKED_HINT
+        return _finish(result, failed)
+
+    return dumps(await run(work))
+
+
 # ---- fillet and chamfer ---------------------------------------------------------------------
 
 
@@ -450,7 +570,8 @@ async def autocad_fillet_chamfer(
             min_length=1,
             max_length=2,
             description=(
-                "Two lines that make a corner (they need not touch), or one polyline whose corners to do."
+                "Two objects that make a corner (they need not touch): lines, arcs, or open polylines "
+                "(a polyline gives its end), in any mix. Or one polyline whose corners to do."
             ),
         ),
     ],
@@ -480,7 +601,10 @@ async def autocad_fillet_chamfer(
             default=None,
             gt=0,
             lt=180,
-            description="Chamfer: the angle in degrees between the first line and the chamfer, instead of 'distance2'.",
+            description=(
+                "Chamfer: the angle in degrees between the first line and the chamfer, instead of "
+                "'distance2'. Two straight lines only."
+            ),
         ),
     ] = None,
     vertices: Annotated[
@@ -498,24 +622,32 @@ async def autocad_fillet_chamfer(
         Field(
             default=None,
             description=(
-                "Two lines that cross: a point on the part of each line to keep, [[x, y], [x, y]]. Left "
-                "out, each line keeps its end farther from the corner."
+                "Two lines or arcs: a point on the part of each to keep, [[x, y], [x, y]]. Left out, "
+                "each keeps its end farther from the corner. Also says which corner when a line and an "
+                "arc meet twice. A polyline always keeps all but its end."
             ),
         ),
     ] = None,
     coords: Annotated[str, COORDS_OPT] = "world",
 ) -> str:
-    """Round a corner with an arc (fillet) or cut it straight (chamfer): two lines, or a polyline's corners.
+    """Round a corner with an arc (fillet) or cut it straight (chamfer): two objects, or a polyline's corners.
 
     Two lines: each is trimmed or extended to the arc's tangent point (or the
     chamfer's end), and the new arc or line takes the first line's layer,
-    colour and linetype. A polyline stays one polyline: each corner between two
-    straight segments becomes an arc (bulge) or a short straight; a corner next
-    to an arc, or on a segment too short, is skipped and said. One undo step.
+    colour and linetype. A line and an arc, two arcs, or the ends of open
+    polylines are met the same way (the arc is run on round its circle where
+    it has to be; a polyline keeps all but its end segment and stays one
+    polyline). AutoCAD's own CHAMFER takes straight objects only, so a
+    chamfer to an arc is measured along the arc, from the corner (D-143). One
+    polyline: each corner between two straight segments becomes an arc
+    (bulge) or a short straight; a corner next to an arc, or on a segment too
+    short, is skipped and said. One undo step.
 
     Returns:
         JSON: two lines: {"operation", "lines": [h1, h2], "arc" | "chamfer_line": handle | null,
-        "corner", "tangent_points"?, "distances"?}; a polyline: {"operation", "handle",
+        "corner", "tangent_points"?, "distances"?}; any other two objects: the same with
+        "objects": [h1, h2] in place of "lines", "ends": [for a polyline "start" | "end", else
+        null], "note"? (two corners possible); one polyline: {"operation", "handle",
         "corners_done": [n], "skipped": [{"vertex", "reason"}], "vertex_count"}
 
     Examples:
@@ -527,6 +659,8 @@ async def autocad_fillet_chamfer(
           polyline, radius=25.
         - Use when: "chamfer that corner 50 by 30" -> operation='chamfer',
           distance=50, distance2=30.
+        - Use when: "round the corner where the branch meets the bend" -> a line
+          and an arc (or two arcs, or two open polylines), operation='fillet'.
         - Don't use when: the corner is a 3D solid's edge - use
           autocad_fillet_solid_edges or autocad_chamfer_solid_edges.
     """
@@ -549,14 +683,16 @@ async def autocad_fillet_chamfer(
         ucs = ucs_for(doc, coords)
         entities = [resolve_handle(doc, h) for h in handles]
         if len(entities) == 1 and keep_points is not None:
-            raise AutocadError("'keep_points' is for two lines; for one polyline give 'vertices'.")
+            raise AutocadError("'keep_points' is for two lines or arcs; for one polyline give 'vertices'.")
         if len(entities) == 2 and vertices is not None:
-            raise AutocadError("'vertices' is for one polyline; two lines make one corner.")
+            raise AutocadError("'vertices' is for one polyline; two objects make one corner.")
         for entity in entities:
             _unlocked(doc, entity)
         if len(entities) == 1:
             return _corners_of_polyline(doc, entities[0])
-        return _corner_of_lines(doc, entities, ucs)
+        if all(_name(e) == "AcDbLine" for e in entities):
+            return _corner_of_lines(doc, entities, ucs)
+        return _corner_of_curves(doc, entities, ucs)
 
     def _corners_of_polyline(doc: Any, entity: Any) -> dict[str, Any]:
         if _name(entity) != "AcDbPolyline":
@@ -643,6 +779,93 @@ async def autocad_fillet_chamfer(
                 for entity, key, change in zip(entities, ("line1", "line2"), moved, strict=True):
                     if change:
                         _write(entity, geo.make_path(shape[key]), z1, 0.0)
+            except BaseException:
+                if made is not None:  # no arc or chamfer line left behind on its own
+                    _try(made.Delete)
+                raise
+            if made is not None:
+                result["arc" if operation == "fillet" else "chamfer_line"] = str(made.Handle)
+        return result
+
+    def _corner_of_curves(doc: Any, entities: list[Any], ucs: Any) -> dict[str, Any]:
+        if str(entities[0].Handle).upper() == str(entities[1].Handle).upper():
+            raise AutocadError("Give two different objects (to round one polyline's corners, give just it).")
+        _same_owner(entities)
+        paths, polylines, widths = [], [], []
+        zs = [_flat(e) for e in entities]
+        for entity in entities:
+            if _name(entity) not in FILLETABLE:
+                raise AutocadError(
+                    f"{entity.Handle} is a {short_type(entity)}. Heron fillets and chamfers two lines, a line "
+                    "and an arc, two arcs or open polylines, or the corners of one polyline."
+                )
+            path = _path(entity, FILLETABLE)
+            if path["closed"]:
+                raise AutocadError(
+                    f"{entity.Handle} is a closed polyline. Give just it to round its corners; two objects "
+                    "need ends to meet."
+                )
+            paths.append(path)
+            polylines.append(_name(entity) == "AcDbPolyline")
+            widths.append(_width(entity))
+        z = zs[0]
+        if abs(zs[0] - zs[1]) > 1e-9 * max(1.0, abs(zs[0]), abs(zs[1])):
+            raise AutocadError("The two objects are at different heights, so they do not meet in a corner.")
+        keep = [None, None]
+        if keep_points is not None:
+            if len(keep_points) != 2:
+                raise AutocadError("'keep_points' takes two points, one on each object.")
+            if any(polylines):
+                raise AutocadError("A polyline keeps all but its end, so 'keep_points' is for lines and arcs only.")
+            keep = [_flat_point(p, ucs, "keep_points") for p in keep_points]
+        if operation == "chamfer" and angle is not None:
+            raise AutocadError(
+                "The angle method is for two straight lines. With an arc or a polyline, give 'distance' and "
+                "'distance2'."
+            )
+        if operation == "fillet":
+            shape = geo.shape_pair(paths[0], paths[1], polyline1=polylines[0], polyline2=polylines[1],
+                                   radius=float(radius), keep1=keep[0], keep2=keep[1])
+        else:
+            shape = geo.shape_pair(paths[0], paths[1], polyline1=polylines[0], polyline2=polylines[1],
+                                   distance1=float(distance), distance2=distance2, keep1=keep[0], keep2=keep[1])
+        result: dict[str, Any] = {"operation": operation, "objects": [str(e.Handle) for e in entities],
+                                  "corner": shape["corner"], "ends": shape["ends"]}
+        result["arc" if operation == "fillet" else "chamfer_line"] = None
+        if operation == "fillet" and shape["arc"]:
+            result["tangent_points"] = shape["tangent_points"]
+        if operation == "chamfer":
+            result["distances"] = shape["distances"]
+        if "note" in shape:
+            result["note"] = shape["note"]
+        new_piece = shape["arc"] if operation == "fillet" else shape["chamfer"]
+        eps = geo.tolerance(*paths, points=[v for p in (shape["path1"], shape["path2"]) for v in p["vertices"]])
+        new_paths = [shape["path1"], shape["path2"]]
+        moved = [
+            len(new["vertices"]) != len(old["vertices"])
+            or any(math.dist(a, b) > eps for a, b in zip(old["vertices"], new["vertices"], strict=True))
+            or any(abs(a - b) > 1e-9 for a, b in zip(old["bulges"], new["bulges"], strict=True))
+            for old, new in zip(paths, new_paths, strict=True)
+        ]
+        if not new_piece and not any(moved):
+            result["note"] = "NOTHING CHANGED: the two objects already meet in that corner."
+            return result
+        owner = _owner(doc, entities[0])
+        with undo_mark(doc):
+            made = None
+            if new_piece and operation == "fillet":
+                arc = new_piece
+                made = owner.AddArc(apoint(arc["centre"][0], arc["centre"][1], z), arc["radius"],
+                                    arc["start_angle"], arc["end_angle"])
+            elif new_piece:
+                (ax, ay), (bx, by) = new_piece
+                made = owner.AddLine(apoint(ax, ay, z), apoint(bx, by, z))
+            try:
+                if made is not None:
+                    _copy_style(entities[0], made)
+                for entity, new, change, width in zip(entities, new_paths, moved, widths, strict=True):
+                    if change:
+                        _write(entity, new, z, width)
             except BaseException:
                 if made is not None:  # no arc or chamfer line left behind on its own
                     _try(made.Delete)
