@@ -14,6 +14,8 @@ import hashlib
 import json
 import math
 import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -22,6 +24,7 @@ from pydantic import Field, StrictInt
 from ..acad import overkill as overkill_geometry
 from ..acad import transmittal
 from ..acad.entities import resolve_handle
+from ..core.bridge import OLD_PLUGIN, BridgeRefused
 from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
@@ -563,6 +566,55 @@ def gather(doc: Any, full: str, deps: dict[str, Any], plot_style_folders: list[s
     return needs, windows_fonts, sorted(set(unread), key=str.lower)
 
 
+NO_REWRITE = (
+    "The Heron plug-in in AutoCAD cannot rewrite the paths saved in the packed drawings (it is "
+    "older than this server): the pack relies on AutoCAD finding each xref, image and underlay by "
+    "its bare name beside the drawing, as before. Rebuild and reinstall the plug-in to have them rewritten."
+)
+
+
+def retarget_copies(found: dict[str, Any], staging: Path) -> tuple[dict[str, str], dict[str, Any]]:
+    """Each packed drawing copied into ``staging`` with its saved paths set to the files beside it (#160, D-147).
+
+    The plug-in opens each copy as a side database, never the drawing on
+    screen. Returns the copies to pack in place of the originals, by name in
+    the pack, and what was done. A plug-in without the operation leaves
+    every original as it is (the pack as before, D-114's fallback); a copy
+    the plug-in could not do, or whose answer never came, is packed from the
+    original, as it was. The modeller's stop or a padlock is raised: nothing
+    has been written yet.
+    """
+    names, clashing = transmittal.pack_names(found)
+    sources: dict[str, str] = {}
+    drawings: list[dict[str, Any]] = []
+    not_rewritten: list[dict[str, str]] = []
+    for row in transmittal.drawings_to_retarget(found):
+        copy = staging / row["to"]
+        shutil.copy2(row["from"], copy)
+        try:
+            answer = in_plugin(
+                "retarget_pack_paths",
+                {"file": str(copy), "names": names, "clashing": clashing},
+                "Rewriting the paths in the packed drawings",
+                changes=False,
+            )
+        except BridgeRefused as exc:
+            if OLD_PLUGIN in str(exc) or "does not have the operation" in str(exc):
+                return {}, {"rewritten": False, "why": NO_REWRITE}
+            raise
+        except AutocadError as exc:
+            # The copy is not used: the original goes in, with its paths as they were.
+            not_rewritten.append({"file": row["to"], "why": str(exc)})
+            continue
+        sources[row["to"]] = str(copy)
+        drawings.append({"file": row["to"], "changed": list(answer.get("changed") or []),
+                         "kept": list(answer.get("kept") or [])})
+    paths: dict[str, Any] = {"rewritten": bool(drawings), "drawings": drawings}
+    if not_rewritten:
+        paths["not_rewritten"] = not_rewritten
+    return sources, paths
+
+
 @mcp.tool(name="autocad_etransmit", **tool_meta("eTransmit: Pack A Drawing With Its Files"))
 @tool_errors
 async def autocad_etransmit(
@@ -583,6 +635,12 @@ async def autocad_etransmit(
     The drawing is packed as last saved, so an unsaved drawing is refused.
     Windows' own TrueType fonts are listed, not packed.
 
+    In the packed copies (the drawing and each xref drawing) the xref,
+    image and underlay paths are set to the bare file name of the file
+    beside them, as eTransmit does, by the plug-in opening each copy on its
+    own (never the drawing on screen): the original drawing is untouched.
+    An older plug-in leaves the paths as saved and says so ('paths').
+
     Writes files: needs the Publish padlock. Changes nothing in the drawing.
 
     Args:
@@ -594,7 +652,10 @@ async def autocad_etransmit(
     Returns:
         str: JSON: {"pack": str, "packed": [{"kind", "name", "from", "to",
              "used_by"}], "missing": [{"kind", "name", "used_by"}],
-             "clashes": [...], "system_fonts": [str], "written": [str]}
+             "clashes": [...], "system_fonts": [str], "written": [str],
+             "paths": {"rewritten": bool, "drawings": [{"file", "changed":
+             [{"kind", "name", "was", "now"}], "kept": [{"kind", "name",
+             "path", "why"}]}], "not_rewritten", "why"}}
 
     Examples:
         - Use when: "eTransmit this drawing to send to the consultant".
@@ -644,13 +705,23 @@ async def autocad_etransmit(
         result["pack"] = str(target)
         if list_only:
             result["written"] = []
+            result["paths_to_rewrite_in"] = [row["to"] for row in transmittal.drawings_to_retarget(found)]
             result["note"] = "Nothing was written (list_only)."
             return result
-        report = transmittal.report_text(full, _dt.datetime.now().strftime("%Y-%m-%d %H:%M"), found)
+        staging = Path(tempfile.mkdtemp(prefix="heron-etransmit-"))
         try:
-            result["written"] = transmittal.write(found, target, as_zip, report)
-        except OSError as exc:
-            raise AutocadError(f"Could not write the pack at {target} ({com_message(exc)}).") from exc
+            try:
+                sources, paths = retarget_copies(found, staging)
+            except OSError as exc:
+                raise AutocadError(f"Could not copy the drawings to pack ({com_message(exc)}). Nothing was written.") from exc
+            result["paths"] = paths
+            report = transmittal.report_text(full, _dt.datetime.now().strftime("%Y-%m-%d %H:%M"), found, paths)
+            try:
+                result["written"] = transmittal.write(found, target, as_zip, report, sources)
+            except OSError as exc:
+                raise AutocadError(f"Could not write the pack at {target} ({com_message(exc)}).") from exc
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
         if found["missing"]:
             result["warning"] = (
                 f"{len(found['missing'])} file(s) the drawing names were not found and are not in the "

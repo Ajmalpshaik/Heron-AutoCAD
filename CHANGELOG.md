@@ -4,6 +4,14 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **`autocad_etransmit` points the packed drawings at the files beside them (2026-11-23,
+  [#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160), [D-147](docs/DECISIONS.md)).** As eTransmit
+  does, the xref, image and PDF / DWF / DGN underlay paths saved in the packed drawing and each packed xref
+  drawing are set to the bare file name of the file in the pack. The new plug-in operation `retarget_pack_paths`
+  does it in a copy opened as a side database, never in the drawing on screen: the original stays untouched.
+  A name two files share, or a file that was missing, keeps its path; the answer (`paths`) and the report list
+  every path set and kept. A plug-in without the operation packs as before and says so. Tested offline only;
+  live rows AD14 and AD15 NOT RUN. Needs the new plug-in.
 - **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
   [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
   OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end

@@ -1281,7 +1281,7 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 
-Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md); AD14, AD15 for #160, [D-147](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
 [05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
 Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
 parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and
@@ -1302,6 +1302,8 @@ the server restarted. **Every row below is NOT RUN.**
 | AD11 | `autocad_etransmit` on an unsaved drawing; on a saved one with Publish off; with `list_only=true` | Unsaved: refused, "save it first". Publish off: refused naming Publish, no file. list_only: the list, no file written | NOT RUN |
 | AD12 | With the 1.7.0 plug-in still installed: attach a PDF, clip an xref, trace a boundary, eTransmit | Each says the plug-in does not have the operation and to update it; nothing changes in the drawing | NOT RUN |
 | AD13 | Draw a polyline 0,500 > 0,0 > 1000,0 > 400,0 (its tail goes back along the last segment) and one with a spike part way along (0,0 > 10,0 > 10,5 > 10,0 > 20,0). `autocad_overkill(tidy_polylines=true)`, then the same with `confirm=true` and its `plan_id`; then Ctrl+Z once. Also a polyline whose width changes along it, doubled the same way | Dry run: the first under `rebuild` with segment 2 going, the spike and the varying-width one under `left` with why; nothing changed. Confirm: the same handle now 0,500 > 0,0 > 1000,0 (3 vertices, length 1500), no erase question; the spike one unchanged. Ctrl+Z once brings back all 4 vertices | NOT RUN |
+| AD14 | With the new plug-in: a saved drawing with an xref saved as a full path in another folder (one with its own image), a JPG and a PDF underlay saved as full paths. `autocad_etransmit(as_zip=false)`. Open the packed drawing (from the pack folder) and its XREF palette; then the original's | `paths.rewritten` true; in the packed drawing the xref, image and PDF show their bare file name as saved path and load from the pack folder; the packed xref's own image too; the original drawing (and its file date) unchanged, its paths as before; no `heron-etransmit-` folder left in %TEMP%; the DWG version of the packed copy is the original's | NOT RUN |
+| AD15 | With the plug-in from before #160 installed: `autocad_etransmit` | The pack is made as before (paths as saved), `paths.rewritten` false with the reason (update the plug-in) | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
