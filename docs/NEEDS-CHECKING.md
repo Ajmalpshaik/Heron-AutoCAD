@@ -814,6 +814,7 @@ character by character. Work on a copy of the drawing for the writing rows. **Ev
 | BE7 | A block whose definition holds only constant attribute definitions, and one whose attribute definitions were deleted after it was inserted (no ATTSYNC): `autocad_extract_attributes()` with the plug-in | The tool reads over COM, the same answer as `--no-bridge`. Write down what COM's `HasAttributes` says for each: does it follow the definition or the attributes on the reference? | NOT RUN |
 | BE8 | A block with an invisible attribute: `autocad_extract_attributes()` and `autocad_export_attribute_sheet()` both ways | The invisible attribute is listed both ways, with its value | NOT RUN |
 | BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
+| BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
 
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 

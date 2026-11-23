@@ -15,7 +15,7 @@ Newest first. Dates are when the change was made.
   constant attribute, or attributes that do not match the block's definition, on a block the tool would
   read sends the whole read to COM. **Tested offline only** (`tests/test_plugin_attribute_reads.py` runs
   all four tools both ways over one fake drawing and compares the text; `BlockAttributeFactsTests.cs`
-  the plug-in side). Live rows BE1-BE9 NOT RUN.
+  the plug-in side). Live rows BE1-BE10 NOT RUN.
 - **Lengths and texts read by the plug-in in one go (2026-11-23, [#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195),
   [#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197), [D-134](docs/DECISIONS.md)).**
   `autocad_total_length` and `autocad_measure(layer=...)` ask the plug-in's new Read operation

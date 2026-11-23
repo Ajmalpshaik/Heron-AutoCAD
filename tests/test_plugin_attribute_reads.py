@@ -336,7 +336,7 @@ class TestExportTheSameEitherWay:
 SETS = [
     {"values": {"REV": "B"}},
     {"values": {"REV": "B"}, "block_name": "titleblock"},
-    {"values": {"rev": "A"}},  # nothing differs: no write
+    {"values": {"rev": "A"}, "block_name": "TITLEBLOCK"},  # nothing differs: no write
     {"values": {"TAG": "X-1", "NOPE": "1"}, "layer": "M-*"},
     {"rows": [{"SHEET": "E-102", "REV": "C"}, {"SHEET": "E-999", "REV": "D"}], "key": "SHEET"},
     {"rows": [{"layout": "E-101", "REV": "C"}, {"layout": "Model", "TYPE": "PTZ"}], "key": "layout"},
@@ -565,6 +565,64 @@ class TestFallsBackToCom:
         assert cad.calls[-1][0] == OPERATION and cad.doc.com_selections == 1
         cad.use(False)
         assert by_fallback == exported(cad, {"block_name": "NOTE"})
+
+
+class TestThroughTheRealGate:
+    """A Read inside a Change job: the gate's answer line, Keep or Discard and the plug-in calls stay the same."""
+
+    @pytest.fixture
+    def gated(self, cad, monkeypatch):
+        import test_gate
+
+        env = test_gate.env.__wrapped__(monkeypatch)  # the gate with the bridge and COM faked
+        test_gate.FakeBridge.ask_to_keep = True
+        runs: list[str] = []
+
+        def run(self, job, operation, args, timeout=None):
+            runs.append(operation)
+            if cad.answers:
+                return cad(operation, args)
+            raise BridgeRefused(
+                f"Heron in AutoCAD does not have the operation '{operation}'. Update Heron so both sides match. "
+                "Nothing was sent to AutoCAD."
+            )
+
+        monkeypatch.setattr(test_gate.FakeBridge, "run", run, raising=False)
+        monkeypatch.setattr(_shared, "plugin_runner", __import__("autocad_mcp.core.gate", fromlist=["gate"]).plugin_runner)
+        monkeypatch.setattr(_shared, "plugin_version", lambda: None)  # not known: the plug-in is asked
+        cad.runs, cad.bridge, cad.env = runs, test_gate.FakeBridge, env
+        return cad
+
+    @pytest.mark.parametrize("options", [
+        {"values": {"REV": "B"}},
+        {"values": {"rev": "A"}, "block_name": "TITLEBLOCK"},  # nothing differs
+        {"values": {"REV": "B"}, "dry_run": True},
+    ], ids=["write", "no-change", "dry_run"])
+    def test_set_attributes_answers_the_same_with_or_without_the_read(self, gated, options):
+        writes = not options.get("dry_run") and options["values"] != {"rev": "A"}
+        # What the plug-in counts for the job: the read itself adds nothing to it.
+        gated.bridge.counted = {"added": 0, "modified": 7 if writes else 0, "erased": 0}
+        found = {}
+        for answers in (True, False):
+            gated.reset()
+            gated.answers = answers
+            gated.bridge.calls = []
+            gated.runs.clear()
+            text = asyncio.run(text_tools.autocad_set_attributes(**options))
+            assert gated.runs == [OPERATION]
+            assert (gated.doc.com_selections == 0) == answers
+            found[answers] = (text, list(gated.bridge.calls), gated.values(), gated.doc.undo_marks)
+        assert found[True] == found[False]
+        text, calls, _, marks = found[True]
+        first = text.splitlines()[0]
+        assert calls[0][:3] == ("begin", "autocad_set_attributes", "change") and calls[-1][0] == "end"
+        if not writes:
+            # The read wrote nothing: no undo step, no Keep or Discard question, nothing "unknown".
+            assert marks == 0 and not first.startswith("OUTCOME UNKNOWN"), first
+            assert not any(c[0] == "ask_keep" for c in calls)
+        else:
+            assert first.startswith("DONE - ") and marks == 1, first
+            assert any(c[0] == "ask_keep" for c in calls)
 
 
 class TestBothSidesKnowTheRead:
