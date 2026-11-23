@@ -173,8 +173,8 @@ done looks like here.
   `autocad_flatten_views`, by the plug-in (D-95); live rows AH4-AH5 NOT RUN. ([#54](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/54))
 - [x] A section plane and a 2D section from a 3D model: `autocad_section_plane`, by the plug-in
   (D-95); live rows AH6-AH8 NOT RUN. ([#109](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/109))
-- [ ] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines: not in
-  D-95's first build (limit 32). ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
+- [x] Hidden (obscured) lines in a flat view, on their own layer, and jogged section lines:
+  `hidden_lines` and `jogged` (D-150); live rows AH17-AH21 NOT RUN. ([#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171))
 - [x] Multileader, table and dimension **style** creation from `autocad_create_styles`: the
   multileader and table styles by the plug-in since 2026-11-21 (D-104, live group AN NOT RUN).
   ([#68](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/68))
