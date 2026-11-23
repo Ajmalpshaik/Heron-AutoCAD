@@ -5,6 +5,48 @@
 
 ---
 
+## D-133 - Text typed with SendCommand refuses control characters; run_lisp asks for a named box once per job; a stopped job gets no expect_dialog
+
+**Decided:** 2026-11-23, by session S7 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BA). Issues [#242](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/242) and [#210](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/210).
+
+**Typed text (#242).** D-129 escapes control characters in text that goes into an AutoLISP string, but a
+few tools type text straight at the command line. Each path was read, not assumed:
+- `tools/views.py` `-VIEW _Save {clean}`: **a real hole.** `validate_name` strips the ends and refuses
+  `< > / \ " : ; ? * | , = ``, but lets a newline, an Esc or a tab inside the name through, and the view name
+  is typed. Fixed: `refuse_control(name, "view name")` before the name is cleaned (a trailing newline would
+  be stripped unseen), and again at the typing site `_save_screen`, before the old view is deleted.
+- `tools/drafting.py` (`wipeout_command`) and `tools/dimensions_edit.py` (`dimbreak_command`): **safe.**
+  Only `float()` numbers and handles that match `[0-9A-Fa-f]{1,16}` are typed; the rest is fixed words.
+  A boundary handle is looked up through COM, never typed. Tests prove it.
+- `tools/coordinates.py` `_send`: **safe.** The only lines are `_.UCS _World` and `_.UCS _View`, reached
+  only for two values of a closed `Literal`. A test runs the tool with hostile modes.
+- `tools/sheets.py` `mview_command`: **safe.** Four numbers, `:.4f`.
+- `tools/solids.py` `_.VSCURRENT {option}`: **safe.** The option comes from `VISUAL_STYLE_OPTIONS` by a
+  key checked against `VISUAL_STYLES`; a name that is not on the list is refused before AutoCAD is touched.
+One helper, not a copy: `acad/lisp.py` `refuse_control(text, what)` raises `AutocadError` for a control
+character and uses the very `is_control` and `_refused_character` that `escape_control` uses, so "control"
+means the same on both sides: below 0x20, DEL, NUL, U+0080 to U+009F, U+2028, U+2029, a lone surrogate.
+Nothing can be escaped on a command line, so it is refused in plain words ("holds a line break ... Nothing
+was typed."); accents, Arabic, Malayalam and the rest of Unicode pass. *Not done, noted for later:*
+`validate_name` itself (26 callers, `acad/tables.py`, outside this session's area) still lets control
+characters into layer, style and block names; those names go to COM, not to the command line
+([#249](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/249)).
+Also read, not changed: `autocad_purge` and `autocad_audit` type fixed words picked by a checked option.
+
+**run_lisp named box on a busy retry (#210, part 1).** `autocad_run_lisp` asked the plug-in for its one
+named button inside `work()`, and `work()` runs again on a busy retry in the same job, so the second ask was
+refused ("once per job") when AutoCAD was only busy. Chosen over moving the ask below the reads: `work()`
+now keeps a flag and asks once (a closure variable lives across the retries of one call, as the job does).
+Moving it would have put the plug-in's refusal after the writes of USERS1, USERS2 and OSMODE; letting
+`DialogWatch.Expect` take the same pair twice is plug-in code outside this session's area. A real refusal
+of the first ask still stops the call with nothing sent. `autocad_send_command` has no retryable step after
+its ask, so it was left alone.
+
+**HERONSTOP and `expect_dialog` (#210, part 2).** `BridgeProtocol` refused begin, send_quiet and run for a
+stopped job but still took `expect_dialog`, so a stopped job could arm the dialog watch. It is refused now,
+with the same "Stopped" answer (this adds `expect_dialog` to the list in D-51, which stays as written). A bridge test begins an Admin job, names a button (taken), stops Heron,
+names another (refused, `refusedBy` Stopped, nothing reached the host).
+
 ## D-128 - Every busy refusal in the block, table, light and copy tools is proven per tool; `save_view(replace=true)` never deletes a layout's view
 
 **Decided:** 2026-11-23, by session S2 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group AV). Issues [#189](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/189) and [#190](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/190).
