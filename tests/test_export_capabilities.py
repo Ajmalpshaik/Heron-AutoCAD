@@ -162,6 +162,12 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == [operation], name
         assert "faster_from" not in reads, name
+    # And the block attribute reads, the two writing tools' too: their writes stay COM's (D-138).
+    for name in ("autocad_extract_attributes", "autocad_export_attribute_sheet", "autocad_set_attributes",
+                 "autocad_apply_attribute_sheet"):
+        reads = by_name[name]["plugin"]
+        assert reads["role"] == "when_there" and reads["operations"] == ["block_attributes"], name
+        assert "faster_from" not in reads, name
     assert by_name["autocad_batch_draw"]["plugin"]["role"] == "when_there"  # quiet input when it is there
     assert by_name["autocad_sequence"]["plugin"]["runs_other_tools"] is True
     # A keyword's value is not an operation: saved commands have an action called "show".

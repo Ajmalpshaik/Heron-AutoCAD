@@ -94,6 +94,76 @@ namespace Heron.AutoCAD.Addin
         }
 
         /// <summary>
+        /// block_attributes (autocad_extract_attributes, autocad_export_attribute_sheet,
+        /// and the reads of autocad_set_attributes and autocad_apply_attribute_sheet,
+        /// #198, D-138): each selected block reference as the server's COM loop reads
+        /// it, every one sent; the server skips, names and matches them itself.
+        /// </summary>
+        public static RunResult Attributes(Document doc, Transaction tr, RunArgs args)
+        {
+            var list = new BlockAttributeList();
+            var names = new Dictionary<ObjectId, string>();
+            var layouts = new Dictionary<ObjectId, string?>();
+            var defines = new Dictionary<ObjectId, bool>();
+            foreach (var id in EntityReads.Select(doc, args))
+            {
+                if (!(tr.GetObject(id, OpenMode.ForRead, false) is BlockReference reference)) continue;
+                string? effective;
+                try
+                {
+                    effective = RealName(tr, reference, names);
+                }
+                catch (AcException)
+                {
+                    effective = null; // the server reads the drawing over COM
+                }
+                var read = EntityReads.TryAttributes(tr, reference, out var attributes);
+                var position = reference.Position;
+                list.Add(new BlockAttributeFact(
+                    reference.Handle.ToString(), reference.Name, effective, reference.Layer,
+                    new[] { position.X, position.Y, position.Z }, LayoutOf(tr, reference.OwnerId, layouts),
+                    Defines(tr, reference.BlockTableRecord, defines), read ? attributes : null));
+            }
+            return RunResult.Done(list.Write);
+        }
+
+        /// <summary>COM's owner.Layout.Name when the owner is a layout's block; null otherwise, or when it cannot be read.</summary>
+        private static string? LayoutOf(Transaction tr, ObjectId ownerId, Dictionary<ObjectId, string?> layouts)
+        {
+            if (layouts.TryGetValue(ownerId, out var known)) return known;
+            string? name = null;
+            try
+            {
+                if (tr.GetObject(ownerId, OpenMode.ForRead, false) is BlockTableRecord owner && owner.IsLayout && !owner.LayoutId.IsNull)
+                    name = ((Layout)tr.GetObject(owner.LayoutId, OpenMode.ForRead, false)).LayoutName;
+            }
+            catch (AcException)
+            {
+                name = null;
+            }
+            layouts[ownerId] = name;
+            return name;
+        }
+
+        /// <summary>Whether the block definition a reference points at holds attribute definitions (constant ones too).</summary>
+        private static bool Defines(Transaction tr, ObjectId definitionId, Dictionary<ObjectId, bool> defines)
+        {
+            if (defines.TryGetValue(definitionId, out var known)) return known;
+            var found = false;
+            try
+            {
+                if (!definitionId.IsNull)
+                    found = ((BlockTableRecord)tr.GetObject(definitionId, OpenMode.ForRead, false)).HasAttributeDefinitions;
+            }
+            catch (AcException)
+            {
+                found = false;
+            }
+            defines[definitionId] = found;
+            return found;
+        }
+
+        /// <summary>
         /// COM's EffectiveName: the dynamic block's own name for a *U copy, the
         /// block's name otherwise; the reference's name when that is empty, as
         /// the server's "EffectiveName or Name" takes it.
