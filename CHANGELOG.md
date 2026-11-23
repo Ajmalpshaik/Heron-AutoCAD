@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The layer merge is one transaction in the plug-in: all of it or none (2026-11-23,
+  [#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-147](docs/DECISIONS.md)).** `autocad_merge_layers` reads the objects on the old layers with the plug-in's new
+  Read operation `layer_objects` (in the COM read's order, so the preview and counts are the same), then makes the
+  merge with the new Change operation `merge_layers`: the planned objects moved and the empty old layers purged in
+  one transaction. One object that will not move now refuses the whole merge with "Nothing was changed", where COM
+  moved the rest and listed it as failed. COM stays the fallback for each half (an older plug-in, an answer it
+  cannot read as COM's). The padlock, `confirm=true`, the one undo step and Keep or Discard are unchanged. New
+  helper `_shared.faster_change`. Tested offline only (the merge run both ways over one fake drawing, answers and
+  drawings compared, and through the real gate); not tested in AutoCAD: live rows BJ1-BJ7 NOT RUN.
 - **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
   [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
   OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end

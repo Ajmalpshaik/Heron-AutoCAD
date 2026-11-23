@@ -12,6 +12,7 @@ import json
 
 import pytest
 
+from autocad_mcp.core.bridge import BridgeRefused
 from autocad_mcp.core.risk import Risk, risk_of
 from autocad_mcp.tools import _shared, layer_states, layers
 from autocad_mcp.tools.layer_states import (
@@ -309,6 +310,10 @@ class FakePlugin:
             if args["action"] == "delete":
                 del self.states[name]
                 return {"action": "delete", "name": name}
+        if operation in ("layer_objects", "merge_layers"):
+            # As a plug-in from before D-147: the merge goes over COM (test_plugin_merge_layers.py has the plug-in's).
+            raise BridgeRefused(f"Heron in AutoCAD does not have the operation '{operation}'. Update Heron so both "
+                                "sides match. Nothing was sent to AutoCAD.")
         raise AssertionError(operation)
 
 

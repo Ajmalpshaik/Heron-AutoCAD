@@ -223,7 +223,7 @@ step; an object on a locked layer is refused before anything is written. Not pro
 |---|---|---|
 | `autocad_layer_states` | Change | Save the layers as a named layer state (what it remembers is up to you), restore one (every layer it changed comes back in `before_after`), or delete one. Done by the plug-in ([D-81](DECISIONS.md)) |
 | `autocad_isolate_layers` | Change | LAYISO / LAYUNISO: keep the layers of picked objects (or named layers), every other layer `off`, `freeze` or `lock`. The layers before the first isolate are saved as the HERON-ISOLATE layer state; `unisolate` puts them back, current layer too |
-| `autocad_merge_layers` | Change | LAYMERGE: every object on the old layers moves to the new one (model, layouts, block definitions, attributes); an old layer is removed only when nothing is left on it. Needs `confirm=true`; without it, says what would move |
+| `autocad_merge_layers` | Change | LAYMERGE: every object on the old layers moves to the new one (model, layouts, block definitions, attributes); an old layer is removed only when nothing is left on it. Needs `confirm=true`; without it, says what would move. Through the plug-in, read in one go and made in one transaction: every object moves or nothing changes; COM for an older one ([D-147](DECISIONS.md)) |
 
 ## Escape hatches (Admin; regen is View)
 

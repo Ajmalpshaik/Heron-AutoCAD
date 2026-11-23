@@ -50,7 +50,7 @@ MANIFEST_VERSION = 1
 
 # What a tool reaches in its code, and what that says about the plug-in.
 DOES_WORK = frozenset({"in_plugin", "plugin_runner"})
-WHEN_THERE = frozenset({"faster_read", "plugin_read", "quiet_sender", "quiet_limit", "dialog_expecter", "plugin_version"})
+WHEN_THERE = frozenset({"faster_read", "faster_change", "plugin_read", "quiet_sender", "quiet_limit", "dialog_expecter", "plugin_version"})
 SIGNALS = DOES_WORK | WHEN_THERE
 # The gate and the pipe: every tool goes through them, so they say nothing about one tool.
 GATE_MODULES = frozenset({"autocad_mcp.core.gate", "autocad_mcp.core.bridge"})
