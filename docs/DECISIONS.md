@@ -26,7 +26,7 @@ these unchanged: `curve_length`, `_area`, `autocad_measure`'s loop, `count_text`
 So a spline or an ellipse is measured by `geometry.nurbs_length` / `ellipse_length` from the same
 numbers either way, and nothing about the answer is built twice.
 (2) **Only what COM gives.** .NET gives more than COM: an ellipse is `Closed`, a 3D polyline and a line
-have an `Area`. A stand-in has only the properties COM has for its class, from `takeoff.COM_FACTS`,
+have an `Area`, a helix is a `Spline` (the plug-in sends no definition for it, and the server would not use one). A stand-in has only the properties COM has for its class, from `takeoff.COM_FACTS`,
 read off AutoCAD's own type libraries (`axdb24enu.tlb`, `axdb25enu.tlb`, `axdb26enu.tlb` list the
 same: a 3D polyline has Length and Closed but no Area; an arc ArcLength and Area; a circle
 Circumference and Area, no Length; an ellipse Area only; a spline Area and Closed). Reading any other

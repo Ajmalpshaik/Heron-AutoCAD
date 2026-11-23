@@ -185,6 +185,8 @@ namespace Heron.AutoCAD.Addin
             {
                 switch (entity)
                 {
+                    case Helix _:
+                        break; // a Helix is a Spline in .NET; COM gives it no spline definition
                     case Spline spline:
                         var nurbs = spline.NurbsData;
                         var points = new List<double>();

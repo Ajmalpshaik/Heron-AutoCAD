@@ -411,6 +411,14 @@ class TestLengthsFallBackToCom:
         # Two lines, the open polyline, two 3D polylines, the arc and the surface (a line's length failed).
         assert json.loads(answer(query.autocad_measure(layer="M-PIPE")))["counted_length"] == 7
 
+    def test_a_helix_with_a_spline_definition_still_reads_as_com(self, cad):
+        # .NET's Helix is a Spline; COM's helix has only TotalLength. The plug-in's answer stands.
+        definition = ["spline", 3, False, CURVE, [0, 0, 0, 0, 1, 1, 1, 1], []]
+        cad.drawing = [*DRAWING, other("AcDbHelix", "M-COIL", {"TotalLength": 50.0}, [None, 3.0, False, definition])]
+        by_plugin, by_com = both(cad, lambda: query.autocad_measure(layer="M-COIL"))
+        assert by_plugin == by_com
+        assert json.loads(by_plugin)["counted_length"] == 0 and json.loads(by_plugin)["counted_area"] == 0
+
     def test_a_number_that_is_not_finite_is_read_over_com(self, cad):
         cad.drawing = [*DRAWING, line("M-PIPE", math.inf)]
         cad.use(True)

@@ -256,7 +256,8 @@ class PluginEntity:
             if not isinstance(closed, bool):
                 raise NotTheSame(f"a {kind} without its Closed flag")
             facts["Closed"] = closed
-        if shape is not None:
+        # .NET's Helix is a Spline, so a helix may come with a spline's definition: COM gives it none.
+        if shape is not None and kind in ("AcDbSpline", "AcDbEllipse"):
             facts.update(_shape(kind, shape))
         self.ObjectName = kind
         self.Layer = layer
