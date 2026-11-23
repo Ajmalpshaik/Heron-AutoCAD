@@ -8,7 +8,26 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (busy refusals proven per tool, #189; save_view keeps a sheet's view, #190, D-128)
+## Latest - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
+
+The owner's "Yes, next 10". Five nested sessions, run at most three at a time, all merged with `python`,
+`plugin` and `review` green, nothing run in AutoCAD:
+
+| Part | Issues | PR | Decision, live rows |
+|---|---|---|---|
+| S1 block counts read by the plug-in in one go | #192, #194 | #243 | D-127, AU1-AU8 |
+| S2 busy refusals proven per tool; save_view keeps a sheet's view | #189, #190 | #246 | D-128, AV1-AV7 |
+| S3 run_lisp: control characters made safe; a LISP error answers at once | #207, #157 | #241 | D-129, AW1-AW14 |
+| S4 palette Undo stops at the job's own mark; honest gate answers | #206, #209, #244 | #245 | D-130, AX1-AX8 |
+| S5 setup counts only this user's AutoCAD; LF checksums; no .pdb | #185, #232 | #240 | D-131, AY1-AY3 |
+
+**For the next release:** `src/` and the plug-in changed after v1.8.1, so bump both. Take
+`block_references` and `block_definitions` out of `bridge.NEWER_READS` and name that release (#222
+holds this). One run_lisp form is now at most 1,750 characters (D-129).
+**Next (on this PC, on the owner's word):** install the next release, restart the server, then live
+rows AU, AV (AV6 decides #190), AW (AW4 first), AX, AY. New issue for a later wave: #242.
+
+## Earlier - 2026-11-23 (busy refusals proven per tool, #189; save_view keeps a sheet's view, #190, D-128)
 
 Session S2. #189 turned out to be fixed in the source by D-100; the missing part, a test per tool, is
 `tests/test_busy_block_table_light_copy.py` (it fails 18 of 25 with `raise_if_busy` turned off). #190 was
