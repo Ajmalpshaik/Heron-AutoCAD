@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Attribute writes are one transaction in the plug-in: only the changed cells, all or none (2026-11-23,
+  [#200](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/200), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-148](docs/DECISIONS.md)).** After the plug-in has read the blocks (D-138), `autocad_set_attributes` and
+  `autocad_apply_attribute_sheet` write their planned cells with the plug-in's new Change operation
+  `write_attributes`: only the cells the modeller changed (D-69), every one in one transaction. A block gone, a tag
+  gone or a cell AutoCAD will not take (a locked layer) now refuses the whole write with "Nothing was changed",
+  where COM wrote the rest and listed the cell as failed. COM stays the fallback: a read over COM, an older plug-in,
+  or a multiline, constant or field attribute the plug-in does not write yet. Tested offline only (both tools run
+  both ways over one fake drawing, answers and attributes compared, and through the real gate); not tested in
+  AutoCAD: live rows BK1-BK7 NOT RUN.
 - **The layer merge is one transaction in the plug-in: all of it or none (2026-11-23,
   [#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
   [D-147](docs/DECISIONS.md)).** `autocad_merge_layers` reads the objects on the old layers with the plug-in's new

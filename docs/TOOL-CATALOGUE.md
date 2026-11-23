@@ -3122,10 +3122,10 @@ Each row is matched to its block by the Handle column. A cell is written only wh
 **Limits and versions.**
 - A file with no Handle column, a handle twice, or more than 10000 changes: refused, nothing written.
 - A row whose block is gone, or a value under a tag the block does not have: listed, the rest still applied.
-- A cell AutoCAD would not take (a locked layer): listed in 'failed'.
+- A cell AutoCAD would not take (a locked layer): listed in 'failed'. Through Heron's plug-in the writes are one transaction: such a cell refuses the whole sheet, and nothing is written.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y2, BE5, RV2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y2, BE5, BK3, BK6, RV2).
 
 ### `autocad_attach_underlay`
 
@@ -3364,7 +3364,7 @@ One row per block reference, one column per tag, with the block's handle, name a
 - No block with attributes: it says so and writes nothing.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y1, BE3, BE8, RV2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y1, BE3, BE8, BK3, RV2).
 
 ### `autocad_extract_attributes`
 
@@ -3652,7 +3652,7 @@ For device, pole and camera schedules, or setting-out points from a survey.
 ### `autocad_set_attributes`
 
 **What it does.** Fill block attributes: title blocks on every layout, equipment tags, schedules.
-Same values for all, or one row per block from a list or CSV, matched by a tag or the layout name. Pairs with autocad_extract_attributes (read, edit, write back).
+Same values for all, or one row per block from a list or CSV, matched by a tag or the layout name. Pairs with autocad_extract_attributes (read, edit, write back). Through Heron's plug-in every change is written in one transaction: all of it, or nothing if one block will not take it.
 
 **The problem it solves.**
 - "fill the title block on every sheet with this drawing number and date".
@@ -3677,7 +3677,7 @@ Same values for all, or one row per block from a list or CSV, matched by a tag o
 **Limits and versions.**
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BE4, BE10, AZ4).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BE4, BE10, BK1, BK5, BK7, AZ4).
 
 ### `autocad_set_dynamic_properties`
 

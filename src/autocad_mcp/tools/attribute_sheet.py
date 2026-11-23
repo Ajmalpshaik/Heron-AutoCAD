@@ -205,7 +205,7 @@ async def autocad_apply_attribute_sheet(
         if planned["changes"] and not dry_run:
             # Only the changed cells, all in one undo step; nothing to write opens no undo step.
             with undo_mark(doc):
-                # Through the plug-in every cell in one transaction, all or none (D-147); over COM cell by cell.
+                # Through the plug-in every cell in one transaction, all or none (D-148); over COM cell by cell.
                 if plugin_write_attributes(planned["changes"], objects):
                     written = list(planned["changes"])
                 else:

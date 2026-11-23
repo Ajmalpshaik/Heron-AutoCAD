@@ -6,7 +6,7 @@ using Heron.AutoCAD.Bridge;
 namespace Heron.AutoCAD.Bridge.Tests;
 
 /// <summary>
-/// The attribute cells the plug-in writes in one transaction (#200, D-147):
+/// The attribute cells the plug-in writes in one transaction (#200, D-148):
 /// what it reads from the server, its words for each refusal, and what it
 /// answers. tests/test_plugin_attribute_writes.py holds the server side to this.
 /// </summary>

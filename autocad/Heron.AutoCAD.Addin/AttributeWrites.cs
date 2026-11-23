@@ -7,7 +7,7 @@ namespace Heron.AutoCAD.Addin
 {
     /// <summary>
     /// write_attributes (autocad_set_attributes, autocad_apply_attribute_sheet,
-    /// #200, D-147). Main thread only, inside PluginRunner's transaction: every
+    /// #200, D-148). Main thread only, inside PluginRunner's transaction: every
     /// planned cell is written or none is, as one undo step with the job's mark.
     /// </summary>
     internal static class AttributeWrites
@@ -27,7 +27,7 @@ namespace Heron.AutoCAD.Addin
                     if (attributeId.IsErased) continue;
                     if (!(tr.GetObject(attributeId, OpenMode.ForRead, false) is AttributeReference attribute)) continue;
                     if (!AttributeWritePlan.SameTag(attribute.Tag, change.Tag)) continue;
-                    // Not trusted yet: the server writes these over COM, as before (D-147).
+                    // Not trusted yet: the server writes these over COM, as before (D-148).
                     if (attribute.IsMTextAttribute) throw new RunRefusal(AttributeWritePlan.NotSure(change.Handle, change.Tag, "a multiline attribute"));
                     if (attribute.IsConstant) throw new RunRefusal(AttributeWritePlan.NotSure(change.Handle, change.Tag, "a constant attribute"));
                     if (attribute.HasFields) throw new RunRefusal(AttributeWritePlan.NotSure(change.Handle, change.Tag, "a field"));

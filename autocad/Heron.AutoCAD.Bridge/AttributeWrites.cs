@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// write_attributes (#200, D-147): the attribute cells autocad_set_attributes
+    /// write_attributes (#200, D-148): the attribute cells autocad_set_attributes
     /// and autocad_apply_attribute_sheet planned to change, written in one
     /// transaction, all of them or none. The server plans which cells change
     /// (only the ones the modeller changed, D-69); the plug-in writes exactly

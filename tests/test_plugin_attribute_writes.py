@@ -1,4 +1,4 @@
-"""Attribute writes made by the plug-in in one transaction (#200, D-147), no AutoCAD.
+"""Attribute writes made by the plug-in in one transaction (#200, D-148), no AutoCAD.
 
 autocad_set_attributes and autocad_apply_attribute_sheet wrote each changed
 cell over COM: 3 round trips plus one per attribute, and a failure half way

@@ -66,7 +66,7 @@ namespace Heron.AutoCAD.Bridge
             // autocad_merge_layers' move and removal in one transaction: all or none (D-147).
             ["merge_layers"] = Risk.Change,
             // The attribute cells autocad_set_attributes and autocad_apply_attribute_sheet
-            // planned, written in one transaction: all or none (D-147).
+            // planned, written in one transaction: all or none (D-148).
             ["write_attributes"] = Risk.Change,
             // Setting a render up (D-86, D-87). None of them renders.
             ["current_view"] = Risk.Read,

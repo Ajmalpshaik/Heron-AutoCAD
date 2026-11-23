@@ -255,7 +255,7 @@ USE_COM = "Heron writes these over COM instead."
 
 
 def plugin_write_attributes(changes: list[dict[str, Any]], objects: Any) -> bool:
-    """The planned cells written by the plug-in in one transaction, all or none (#200, D-147); False: write them over COM.
+    """The planned cells written by the plug-in in one transaction, all or none (#200, D-148); False: write them over COM.
 
     Only after the plug-in read the blocks (``objects`` is then ComRefs): a
     read over COM means a block or attribute the plug-in is not trusted for.
@@ -536,7 +536,7 @@ async def autocad_set_attributes(
             # Nothing differs: no write, so no empty undo step (D-62).
             return {"changed": 0, "dry_run": False, "blocks_read": len(refs), **plan, **before_after([])}
         with undo_mark(doc):
-            # Through the plug-in every cell in one transaction (D-147); COM, a round trip per attribute, otherwise.
+            # Through the plug-in every cell in one transaction (D-148); COM, a round trip per attribute, otherwise.
             if not plugin_write_attributes(plan["changes"], objects):
                 for change in plan["changes"]:
                     ref = objects[change["handle"]]
