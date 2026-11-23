@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A layer, style, block, view or other table name with a line break, tab or Esc in it is refused
+  (2026-11-23, [#249](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/249), [D-139](docs/DECISIONS.md)).**
+  `validate_name` now refuses any control character, on the name as given (before the ends are
+  stripped), with the same plain sentence D-133 uses for a view name. Every caller was read; none
+  needed a change. Tested offline only; live rows BF1-BF2 NOT RUN.
 - **Block attributes read by the plug-in in one go (2026-11-23, [#198](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/198),
   [D-138](docs/DECISIONS.md)).** `autocad_extract_attributes`, `autocad_export_attribute_sheet` and the
   reads of `autocad_set_attributes` and `autocad_apply_attribute_sheet` ask the plug-in's new Read

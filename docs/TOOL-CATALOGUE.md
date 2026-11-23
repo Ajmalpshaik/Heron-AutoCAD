@@ -2562,7 +2562,7 @@ A dimension style is built the way AutoCAD's own API requires: the DIM variables
 - The drawing's own DIM variables are put back even if a style fails.
 - The plug-in does part of the work (`multileader_style`, `table_style`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, AN1, AN3, AN5, AN7, AN13, AZ1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, BF2, AN1, AN3, AN5, AN7, AN13, AZ1).
 
 ### `autocad_find_replace_text`
 
@@ -3354,7 +3354,7 @@ Use for "make a camera schedule", "list all equipment tags", or to check tag val
 **Limits and versions.**
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E19, BE1, BE2, BE6, BE7, BE8, BE9, S3).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E19, BE1, BE2, BE6, BE7, BE8, BE9, BE10, S3).
 
 ### `autocad_get_dynamic_properties`
 
@@ -3640,7 +3640,7 @@ Same values for all, or one row per block from a list or CSV, matched by a tag o
 **Limits and versions.**
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BE4, AZ4).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BE4, BE10, AZ4).
 
 ### `autocad_set_dynamic_properties`
 
@@ -3776,7 +3776,7 @@ Safe to call repeatedly: an existing layer is updated with whatever properties y
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q1, T2, T4, AL5).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q1, T2, T4, BF1, BF2, AL5).
 
 ### `autocad_create_linetype`
 
