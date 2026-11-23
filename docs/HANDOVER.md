@@ -8,7 +8,16 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (block counts read by the plug-in in one go, #192 and #194, D-127)
+## Latest - 2026-11-23 (busy refusals proven per tool, #189; save_view keeps a sheet's view, #190, D-128)
+
+Session S2. #189 turned out to be fixed in the source by D-100; the missing part, a test per tool, is
+`tests/test_busy_block_table_light_copy.py` (it fails 18 of 25 with `raise_if_busy` turned off). #190 was
+real: `autocad_save_view(replace=true)` now refuses a view whose `LayoutId` is not the Model layout's
+`ObjectID`, before anything is deleted (`tests/test_save_view_layout.py`). Offline only; no version bump.
+**Next (on this PC):** restart the server, live rows **AV1-AV7**; AV6 shows whether this AutoCAD gives
+`LayoutId` as assumed.
+
+## Earlier - 2026-11-23 (block counts read by the plug-in in one go, #192 and #194, D-127)
 
 `autocad_count_blocks` asks the new plug-in Read operation `block_references` and
 `autocad_list_blocks` asks `block_definitions`; COM stays the fallback with the same answer (plug-ins

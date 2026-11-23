@@ -5,6 +5,36 @@
 
 ---
 
+## D-128 - Every busy refusal in the block, table, light and copy tools is proven per tool; `save_view(replace=true)` never deletes a layout's view
+
+**Decided:** 2026-11-23, by session S2 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group AV). Issues [#189](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/189) and [#190](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/190).
+
+**Busy refusals (#189).** The issue listed `except` blocks in `blocks.py`, `tables.py`, `lighting.py` and
+`between_drawings.py` that took AutoCAD's busy refusal for "skip that insert", "this cell was not set",
+"this AutoCAD has no EXPVALUE", "no block called X" and "nothing with that handle". Reading the code on
+2026-11-23 found D-100 (#36, PR #205) had already put `raise_if_busy(exc)` first in every one of them,
+and `tests/test_busy_sweep.py` already fails when one is missing. What was still missing was the proof
+per tool, which the issue asked for. So no source change was needed there; `tests/test_busy_block_table_light_copy.py`
+runs each tool listed with a stand-in drawing that refuses, through the real retry loop
+(`connection._with_retry`):
+- `autocad_sync_attributes`: 4 inserts, 2 busy (the issue's stand-in) -> "AutoCAD stayed busy", the plug-in is sent nothing; the same for a nested insert, a holder block, a layer lock read and the block look-up ("no block called" is said only when it is really missing).
+- `autocad_table_from_excel` (`fill_table`): a busy cell, title, column width or text height -> OUTCOME UNKNOWN, never `not_set` with the table called done. `autocad_set_table_cells`: a busy cell -> OUTCOME UNKNOWN, never listed as refused.
+- `autocad_set_render_exposure` and `autocad_list_lights`: a busy read is "stayed busy", not "This AutoCAD did not answer for EXPVALUE ... Nothing was changed" or a null exposure; a busy read-back or write is OUTCOME UNKNOWN.
+- `autocad_copy_from_drawing`: a busy handle, owner, block definition or copy is "stayed busy" / OUTCOME UNKNOWN, never "has nothing with the handle(s)" or a shorter list.
+Each class has a control: an error that is NOT busy ("Key not found") keeps the old, harmless fallback.
+With `raise_if_busy` made a no-op in the four modules, 18 of the 25 tests fail (the other 7 are the controls).
+
+**`save_view` (#190).** The docstring said a layout's view of that name is refused even with
+`replace=true`; the code deleted it (`existing.Delete()`, both the window path and `from_screen`). Now
+`_refuse_a_layouts_view` runs before the undo mark: a view is the Model tab's only when its `LayoutId`
+equals the Model layout's `ObjectID` (or `ObjectID32`), the same test `RenderView.cs` makes for the
+camera view. Otherwise it is refused in plain words and nothing is deleted: "'DETAIL-A' is a view of a
+layout (a sheet), not of the model, so replace=true does not replace it and nothing was changed. Give
+the new view another name."
+- **Three cases.** The view is deleted only when its `LayoutId` equals the Model layout's `ObjectID` (or `ObjectID32`). A different, real id is "a view of a layout (a sheet)". A `LayoutId` of 0, missing or unreadable says "AutoCAD did not say which tab the view belongs to": nothing proves it is a model view, so it is not deleted. A busy refusal on those reads goes up as it is (D-100).
+- **What is known and what is not.** The type library of this install (`acax26enu.tlb`, read offline on 2026-11-23) has `IAcadView.LayoutId` and `IAcadLayout.ObjectID`, so the members exist. NOT known: what a Model-tab view reports (the Model layout's id, or 0). The issue's pointer to `RenderView.cs` is loose: that file tests `IsPaperspaceView`, not a layout id. If a model view reports 0, `replace=true` is refused for every view: the failure is a refusal, never a deletion. Live rows AV5-AV7 decide it; if AV6 is refused, the follow-up is a plug-in read of the view's paper-space flag (as `RenderView.cs` reads it), not deleting on a guess.
+- Without `replace`, the old "already has a view called" refusal is unchanged.
+
 ## D-130 - The palette's Undo takes the server's word on the UNDO mark; the gate's answers follow what the drawing holds
 
 **Decided:** 2026-11-23, by session S4 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force;

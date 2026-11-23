@@ -2778,7 +2778,7 @@ For a schedule on the sheet that needs a few values corrected or a row added, wi
 - A handle that is not a table, a cell given twice, or a cell outside the table without grow is refused before anything changes.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC11, AC12).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC11, AC12, AV2).
 
 ### `autocad_table_from_excel`
 
@@ -2813,7 +2813,7 @@ The Insert > Data Link job: a schedule kept in Excel (pumps, fans, a door schedu
 - A file, sheet or range that is not there, or a range bigger than 500 rows, 40 columns or 5,000 cells, is refused before anything is made.
 - The plug-in does part of the work (`excel_table`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC5b, AC7, AC9).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC5b, AC7, AC9, AV2).
 
 ### `autocad_text_clean`
 
@@ -3264,7 +3264,7 @@ The copies land in the active drawing, the one Heron checked with autocad_status
 - A source that is not open, is this drawing, or a handle that is not in it is refused before anything is copied.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC14).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC14, AV4).
 
 ### `autocad_count_blocks`
 
@@ -3707,7 +3707,7 @@ After a block's definition changed (an attribute added, removed, moved or resize
 - A new tag that the block already has is refused before anything changes.
 - The plug-in does part of the work (`sync_attributes`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC3, AC6, AC17).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC3, AC6, AC17, AV1).
 
 ### `autocad_xref_tree`
 
@@ -4233,7 +4233,7 @@ Use this to find a location someone already named — a detail area, a plotted r
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13, AV5).
 
 ### `autocad_manage_layouts`
 
@@ -4400,11 +4400,11 @@ Give two corners, or the objects the area should cover, and it is saved as an Au
 - Technical shape of the answer: `JSON: {"saved": str, "replaced": bool, "view": {"name", "centre", "width", "height", "corner1", "corner2"}, "from": str}`
 
 **Limits and versions.**
-- A name already saved is refused unless replace=true; a layout's (paper space) view of that name is refused even then.
+- A name already saved is refused unless replace=true; a layout's (paper space) view of that name is refused even then, in plain words, and is never deleted (also when AutoCAD does not say which layout the view belongs to).
 - Objects that report no extents are named rather than silently skipped.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D18, K13, AV5, AV6, AV7).
 
 ### `autocad_sheet_set`
 
@@ -5164,7 +5164,7 @@ Like AutoCAD's Lights in Model palette, from the chat: each light's handle, name
 - A variable this AutoCAD does not have reads as null.
 - The plug-in does part of the work (`list_lights`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE9, AE14).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE9, AE14, AV3).
 
 ### `autocad_list_materials`
 
@@ -5434,7 +5434,7 @@ Written to AutoCAD's EXPVALUE and EXPWHITEBALANCE variables, then read back. The
 - A variable this AutoCAD does not have refuses the call, naming the palette instead; nothing is changed.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE14).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AE14, AV3).
 
 ### `autocad_set_sun`
 
