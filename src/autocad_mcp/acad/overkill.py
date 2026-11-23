@@ -16,9 +16,12 @@ What it does, in the words of AutoCAD's OVERKILL:
 - A polyline that is an exact copy of another (either direction) is erased.
 - A loose line or arc lying wholly on a polyline's segments is erased.
 
-What it leaves, and lists under ``left``: polylines are never broken or
-changed, so a polyline overlapping another, doubling back on itself, or
-partly covered by a loose line stays as it is. Every curve must lie flat in
+What it leaves, and lists under ``left``: polylines are never broken, so a
+polyline overlapping another, or partly covered by a loose line, stays as it
+is. A polyline doubling back on itself stays too, unless ``tidy_polylines``
+is asked for (#159, OVERKILL's "optimize segments within polylines"): then
+one whose doubled stretch can go without breaking it is rebuilt from its own
+vertices (``rebuild``), see ``tidy_polyline``. Every curve must lie flat in
 plan (normal +Z); others are counted as skipped.
 
 Input dicts:
@@ -27,7 +30,8 @@ Input dicts:
      "start_angle", "end_angle"}                    # radians, counter-clockwise
     {"handle", "kind": "circle", "layer", "centre": [x, y, z], "radius"}
     {"handle", "kind": "polyline", "layer", "vertices": [[x, y], ...],
-     "bulges": [...], "closed": bool, "elevation": z}
+     "bulges": [...], "closed": bool, "elevation": z,
+     "old_style": bool, "width_varies": bool}      # the last two optional
 """
 
 from __future__ import annotations
@@ -85,11 +89,14 @@ class Piece:
 class Plan:
     erase: list[dict[str, Any]] = field(default_factory=list)
     change: list[dict[str, Any]] = field(default_factory=list)
+    rebuild: list[dict[str, Any]] = field(default_factory=list)
     left: list[dict[str, Any]] = field(default_factory=list)
     skipped: list[dict[str, Any]] = field(default_factory=list)
     looked_at: int = 0
     _erased: set[str] = field(default_factory=set)
     _left_keys: set[tuple[Any, ...]] = field(default_factory=set)
+    # Polylines whose going over themselves is already listed with its own reason.
+    _explained: set[str] = field(default_factory=set)
 
     def drop(self, handle: str, kind: str, reason: str, kept: str | None = None) -> None:
         if handle in self._erased:
@@ -113,6 +120,7 @@ class Plan:
             "looked_at": self.looked_at,
             "erase": self.erase,
             "change": self.change,
+            "rebuild": self.rebuild,
             "left": self.left,
             "skipped": self.skipped,
         }
@@ -166,7 +174,9 @@ def _flat(item: dict[str, Any], tol: float) -> bool:
     return abs(nx) <= 1e-9 and abs(ny) <= 1e-9 and nz > 0
 
 
-def _pieces(items: Sequence[dict[str, Any]], plan: Plan, tol: float, layer_key: Callable[[str], str]) -> list[Piece]:
+def _pieces(
+    items: Sequence[dict[str, Any]], plan: Plan, tol: float, layer_key: Callable[[str], str], tidy: bool = False
+) -> list[Piece]:
     """Every curve as pieces; zero-length ones erased, copies of a polyline erased, the rest skipped with why."""
     pieces: list[Piece] = []
     polylines: list[dict[str, Any]] = []
@@ -209,7 +219,9 @@ def _pieces(items: Sequence[dict[str, Any]], plan: Plan, tol: float, layer_key: 
     for item in kept_polylines:
         handle, layer = str(item["handle"]), str(item.get("layer", "0"))
         z = float(item.get("elevation", 0.0))
-        segs = geometry.segments(item["vertices"], item.get("bulges", []), bool(item.get("closed", False)))
+        shape = _tidied(item, plan, tol) if tidy else None
+        verts, bulges = (shape["vertices"], shape["bulges"]) if shape else (item["vertices"], item.get("bulges", []))
+        segs = geometry.segments(verts, bulges, bool(item.get("closed", False)))
         for index, seg in enumerate(segs):
             if seg.length <= tol:
                 continue
@@ -282,6 +294,205 @@ def _polyline_copies(polylines: list[dict[str, Any]], plan: Plan, tol: float, la
         else:
             kept.append(item)
     return kept
+
+
+# ---- polylines going back over themselves (#159) -----------------------------------
+
+
+def _on_carrier(ref: geometry.Segment, seg: geometry.Segment, tol: float) -> bool:
+    """seg lies on ref's straight line, or on ref's circle, within tol."""
+    if ref.centre is None or seg.centre is None:
+        if ref.centre is not None or seg.centre is not None:
+            return False
+        return all(_distance_to_line(pt, ref.start, ref.end) <= tol for pt in (seg.start, seg.end))
+    return math.dist(ref.centre, seg.centre) <= tol and abs(ref.radius - seg.radius) <= tol
+
+
+def _bulge(sweep: float) -> float:
+    return math.tan(sweep / 4.0)
+
+
+def tidy_polyline(item: dict[str, Any], tol: float) -> dict[str, Any] | None:
+    """The polyline rebuilt without the stretches it draws twice; None when it draws none.
+
+    Only ever from its own vertices: a vertex is dropped, never moved or
+    added, so the shape on paper is the same, drawn once. What goes:
+
+    - a zero-length segment (two vertices within tol of each other);
+    - in a run of segments one after another on one straight line (or one
+      circle) that goes back over itself, the vertices in between: the run
+      becomes one segment from where it comes in to where it goes on. That
+      is only possible where the run starts and ends at its two far ends;
+      at an open polyline's free end, the end moves to the run's far end.
+
+    A run that goes back over itself part way along (the polyline comes in
+    or goes on from the middle of the doubled stretch), or arcs going all
+    the way round their circle, cannot be drawn by one polyline without
+    the doubling: that is given as ``why`` with no new shape. Segments far
+    apart in the polyline lying over each other are not looked at here.
+
+    Returns {"vertices", "bulges", "going": [{"segment", "from", "to",
+    "why"}], "new_segments": [{"from", "to"}]}, or {"why"} when it cannot
+    be tidied.
+    """
+    verts, bulges, closed = _polyline_form(item)
+    n = len(verts)
+    count = n if closed else n - 1
+    going: list[dict[str, Any]] = []
+
+    def gone(index: int, why: str) -> None:
+        going.append({"segment": index, "from": list(verts[index]), "to": list(verts[(index + 1) % n]), "why": why})
+
+    # 1. Zero-length segments: the later vertex goes, the earlier one takes its bulge.
+    nodes = [0]
+    out_seg = {0: 0}  # a kept vertex -> the original segment starting there
+    for j in range(1, n):
+        if math.dist(verts[nodes[-1]], verts[j]) <= tol:
+            gone(out_seg[nodes[-1]], "zero length")
+            out_seg[nodes[-1]] = j
+            continue
+        nodes.append(j)
+        out_seg[j] = j
+    if closed and len(nodes) > 1 and math.dist(verts[nodes[-1]], verts[0]) <= tol:
+        gone(out_seg[nodes[-1]], "zero length")
+        nodes.pop()
+    if len(nodes) < 2:
+        return {"why": f"polyline {item['handle']} is all zero-length segments; erase it instead"}
+    m = len(nodes) if closed else len(nodes) - 1
+    seg_bulge = [bulges[out_seg[nodes[k]]] if out_seg[nodes[k]] < count else 0.0 for k in range(m)]
+    segs = geometry.segments([verts[i] for i in nodes], seg_bulge, closed)
+
+    # 2. Runs of segments one after another on one line or one circle.
+    order = list(range(m))
+    if closed:
+        breaks = [k for k in range(m) if not _on_carrier(segs[k - 1], segs[k], tol)]
+        if not breaks:
+            order = []  # the whole loop on one line or circle: looked at below
+        else:
+            order = order[breaks[0]:] + order[:breaks[0]]
+    runs: list[list[int]] = []
+    for k in order:
+        if runs and _on_carrier(segs[runs[-1][0]], segs[k], tol):
+            runs[-1].append(k)
+        else:
+            runs.append([k])
+    if closed and not order:
+        # A closed polyline all on one line encloses nothing: it always goes over itself.
+        # On one circle it is fine once round (a polyline circle), doubled past that.
+        ref = segs[0]
+        if ref.centre is None or sum(s.length for s in segs) > ref.radius * TAU + tol:
+            return {"why": f"closed polyline {item['handle']} lies all on one line or circle and goes over "
+                           "itself; draw it again as a line or circle"}
+        runs = []
+
+    units: list[tuple[int, int, float]] = []  # (from vertex, to vertex) as positions in nodes, bulge
+    new_segments: list[dict[str, Any]] = []
+    for run in runs:
+        plain = [(run_k, (run_k + 1) % len(nodes), seg_bulge[run_k]) for run_k in run]
+        if len(run) < 2:
+            units.extend(plain)
+            continue
+        first = segs[run[0]]
+        at = [run[0]] + [(k + 1) % len(nodes) for k in run]  # the run's vertices, as positions in nodes
+        if first.centre is None:
+            step = tol
+            t = [_along(segs[k].start, first.start, first.end) for k in run] + [
+                _along(segs[run[-1]].end, first.start, first.end)]
+        else:
+            step = tol / first.radius
+            t = [0.0]
+            for k in run:
+                t.append(t[-1] + segs[k].sweep)
+        travelled = sum(abs(b - a) for a, b in zip(t, t[1:], strict=False))
+        lo, hi = min(t), max(t)
+        if travelled - (hi - lo) <= step:
+            units.extend(plain)  # a run going one way: nothing drawn twice
+            continue
+        if first.centre is not None and hi - lo >= TAU - step:
+            return {"why": f"polyline {item['handle']} has arcs going all the way round one circle; "
+                           "one polyline arc cannot be a whole circle"}
+        entry_fixed = closed or run[0] > 0
+        exit_fixed = closed or run[-1] < m - 1
+        lo_i = next(i for i, v in enumerate(t) if v == lo)
+        hi_i = next(i for i, v in enumerate(t) if v == hi)
+
+        def at_lo(v: float, lo: float = lo, step: float = step) -> bool:
+            return abs(v - lo) <= step
+
+        def at_hi(v: float, hi: float = hi, step: float = step) -> bool:
+            return abs(v - hi) <= step
+
+        last = len(t) - 1
+        pick: tuple[int, int] | None = None
+        if entry_fixed and exit_fixed:
+            if (at_lo(t[0]) and at_hi(t[last])) or (at_hi(t[0]) and at_lo(t[last])):
+                pick = (0, last)
+        elif entry_fixed:
+            pick = (0, hi_i) if at_lo(t[0]) else (0, lo_i) if at_hi(t[0]) else None
+        elif exit_fixed:
+            pick = (hi_i, last) if at_lo(t[last]) else (lo_i, last) if at_hi(t[last]) else None
+        else:
+            pick = (lo_i, hi_i) if abs(t[0] - lo) <= abs(t[0] - hi) else (hi_i, lo_i)
+        if pick is None:
+            return {"why": f"polyline {item['handle']} goes back over itself part way along; one polyline "
+                           "cannot be drawn there without going over itself, so it is left as it is"}
+        a, b = pick
+        same = next((plain[a] for i in range(len(run)) if (a, b) == (i, i + 1)), None)
+        if same is not None:
+            unit = same
+        else:
+            bulge = 0.0 if first.centre is None else _bulge(t[b] - t[a])
+            unit = (at[a], at[b], bulge)
+            new_segments.append({"from": list(verts[nodes[at[a]]]), "to": list(verts[nodes[at[b]]])})
+        units.append(unit)
+        for i, k in enumerate(run):
+            if same is None or i != a:
+                gone(out_seg[nodes[k]], "drawn twice: the polyline goes back along it")
+    if not going:
+        return None
+    if closed:
+        # Start where the polyline started, or at the first vertex kept after it.
+        first_unit = min(range(len(units)), key=lambda u: nodes[units[u][0]])
+        units = units[first_unit:] + units[:first_unit]
+        new_verts = [list(verts[nodes[u[0]]]) for u in units]
+    else:
+        new_verts = [list(verts[nodes[units[0][0]]])] + [list(verts[nodes[u[1]]]) for u in units]
+    if len(new_verts) < 2:
+        return {"why": f"polyline {item['handle']} would have fewer than two vertices left; erase it instead"}
+    going.sort(key=lambda g: g["segment"])
+    return {"vertices": new_verts, "bulges": [u[2] for u in units], "going": going, "new_segments": new_segments}
+
+
+def _tidied(item: dict[str, Any], plan: Plan, tol: float) -> dict[str, Any] | None:
+    """The polyline's tidied shape for the rest of the plan, its rebuild row added; None to keep it as it is."""
+    handle = str(item["handle"])
+    found = tidy_polyline(item, tol)
+    if found is None:
+        return None
+    why = found.get("why")
+    if why is None and item.get("old_style"):
+        why = f"polyline {handle} has segments drawn twice or of zero length, but it is an old-style 2D polyline, which Heron does not rebuild"
+    if why is None and item.get("width_varies"):
+        why = f"polyline {handle} has segments drawn twice or of zero length, but its width changes along it and Heron would lose the widths"
+    if why is not None:
+        plan.leave([handle], why)
+        plan._explained.add(handle)
+        return None
+    plan.rebuild.append(
+        {
+            "handle": handle,
+            "type": "polyline",
+            "vertices": found["vertices"],
+            "bulges": found["bulges"],
+            "closed": bool(item.get("closed", False)),
+            "vertex_count_was": len(item["vertices"]),
+            "segments_going": found["going"],
+            "new_segments": found["new_segments"],
+            "why": f"{len(found['going'])} segment(s) drawn twice or of zero length go; "
+                   "the shape stays the same, drawn once",
+        }
+    )
+    return found
 
 
 # ---- straight pieces ---------------------------------------------------------------
@@ -399,6 +610,8 @@ def _straight(group: list[Piece], plan: Plan, tol: float, join: bool) -> None:
     fixed = [p for p in group if not p.free]
     for i, p in enumerate(fixed):
         for q in fixed[i + 1:]:
+            if p.handle == q.handle and p.handle in plan._explained:
+                continue
             if _collinear_overlap(p, q, tol, False):
                 why = (
                     f"polyline {p.handle} doubles back over itself"
@@ -514,6 +727,8 @@ def _round(group: list[Piece], plan: Plan, tol: float, join: bool) -> None:
     fixed = [p for p in group if not p.free]
     for i, p in enumerate(fixed):
         for q in fixed[i + 1:]:
+            if p.handle == q.handle and p.handle in plan._explained:
+                continue
             if _same_circle(p, q, tol) and _arc_overlaps(p, q, tol / max(p.radius, q.radius)):
                 why = (
                     f"polyline {p.handle} doubles back over itself"
@@ -600,8 +815,9 @@ def plan(
     tolerance: float = DEFAULT_TOLERANCE,
     ignore_layer: bool = False,
     join_end_to_end: bool = False,
+    tidy_polylines: bool = False,
 ) -> dict[str, Any]:
-    """What Overkill would erase, stretch and leave, for these curves. Changes nothing."""
+    """What Overkill would erase, stretch, rebuild and leave, for these curves. Changes nothing."""
     if tolerance <= 0:
         raise ValueError("tolerance must be above zero")
     tol = float(tolerance)
@@ -610,7 +826,7 @@ def plan(
     def layer_key(layer: str) -> str:
         return "" if ignore_layer else layer.strip().lower()
 
-    pieces = _pieces(items, out, tol, layer_key)
+    pieces = _pieces(items, out, tol, layer_key, tidy_polylines)
     straight = [p for p in pieces if p.straight]
     round_ = [p for p in pieces if not p.straight]
     for group in _straight_groups(straight, tol, join_end_to_end, layer_key):
@@ -621,4 +837,5 @@ def plan(
     out.change = [c for c in out.change if c["handle"] not in out._erased]
     out.erase.sort(key=lambda r: handle_order(r["handle"]))
     out.change.sort(key=lambda r: handle_order(r["handle"]))
+    out.rebuild.sort(key=lambda r: handle_order(r["handle"]))
     return out.as_dict()
