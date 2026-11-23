@@ -356,7 +356,7 @@ AH14 = {
 }
 AH14_BAD = {"autocad_get_entity": seq(WIPE, {**WIPE, "bounding_box": box(O14, (0, 0, 0), (300, 300, 0))})}
 
-# --- AH17: hidden lines (D-150) ---------------------------------------------------------------------
+# --- AH17: hidden lines (D-151) ---------------------------------------------------------------------
 
 O17 = lc.origin("AH17")
 SPOOL17, _ = spool_at(O17)
@@ -376,7 +376,7 @@ AH17 = {
 # An older plug-in: no hidden lines, and the server's warning.
 AH17_BAD = {"autocad_flatten_views": {**FLAT17, "views": [{**FLAT17["views"][0], "hidden_lines": 0}]}}
 
-# --- AH19, AH20, AH21: jogged section lines (D-150) ---------------------------------------------------
+# --- AH19, AH20, AH21: jogged section lines (D-151) ---------------------------------------------------
 
 
 def cubes(prefix: str) -> Sequence:

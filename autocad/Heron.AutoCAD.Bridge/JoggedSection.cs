@@ -5,7 +5,7 @@ using System.Linq;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// A jogged section line (#171, D-150): corners in plan, each leg a
+    /// A jogged section line (#171, D-151): corners in plan, each leg a
     /// vertical cut, as SECTIONPLANE's "Draw section" makes. How its 2D
     /// section is laid out is the drafting rule for a section on more than
     /// one plane (ISO 128-44): every leg is turned flat beside the one before,

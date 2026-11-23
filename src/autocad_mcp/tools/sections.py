@@ -10,7 +10,7 @@ plug-in does both of these with AutoCAD's own section object and its
   (FLATSHOT).
 * ``autocad_section_plane`` - a section plane through given points, kept in
   the model, and its 2D section (cut outlines, hatch, what is seen beyond) as
-  a block on the sheet. A section line may jog (D-150).
+  a block on the sheet. A section line may jog (D-151).
 
 Both run in one transaction inside AutoCAD: it all lands or none of it does.
 """

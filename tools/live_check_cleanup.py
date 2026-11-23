@@ -130,4 +130,6 @@ BY_EYE: dict[str, str] = {
     "AD9": "needs the big plan that hung -BOUNDARY, and AutoCAD finishing after Heron stops waiting",
     "AD10": "the pack is unzipped and opened on another PC",
     "AD12": "needs the 1.7.0 plug-in installed instead of the current one",
+    "AD14": "the packed drawing is opened from the pack and its saved paths read in the XREF palette, by eye",
+    "AD15": "needs the plug-in from before #160 installed instead of the current one",
 }

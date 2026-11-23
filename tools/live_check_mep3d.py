@@ -1,6 +1,6 @@
 """Live checks for 3D for MEP (group AH): duct runs, pipe spools, flat views, sections,
 surfaces, meshes and the new super hatch tiles (D-94, D-95), and a flat view's hidden lines
-and jogged section lines (D-150).
+and jogged section lines (D-151).
 
 Run by ``live_check.py``; see ``live_common.py`` for the rules every check keeps.
 Each row works at its own spot (``lc.origin``) and measures what came back with
@@ -74,7 +74,7 @@ SPOOL_PIECES = (
     ("flange", (2000 - 114.5, -114.5, 1476), (2000 + 114.5, 114.5, 1500), FLANGE_VOLUME),
 )
 
-# AH19-AH21: two 1000 cubes, by the centre of their base, and the jogged lines cut through them (D-150).
+# AH19-AH21: two 1000 cubes, by the centre of their base, and the jogged lines cut through them (D-151).
 CUBES = ((500, 500), (3500, 2500))
 OFFSET_LINE = ((-500, 500), (2000, 500), (2000, 2500), (4500, 2500))
 # The two squares cut side by side as one straight section: from x=0 to 1000 and 3000 to 4000, seen from -500.

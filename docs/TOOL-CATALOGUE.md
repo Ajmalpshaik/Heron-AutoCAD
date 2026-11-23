@@ -6079,15 +6079,15 @@ For issuing a drawing to a consultant: the saved drawing, its xrefs (nested ones
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - A save, an export, a command or AutoLISP cannot be tried with `dry_run`: a file written or a command run cannot be taken back.
-- Technical shape of the answer: `JSON: {"pack": str, "packed": [{"kind", "name", "from", "to", "used_by"}], "missing": [{"kind", "name", "used_by"}], "clashes": [...], "system_fonts": [str], "written": [str]}`
+- Technical shape of the answer: `JSON: {"pack": str, "packed": [{"kind", "name", "from", "to", "used_by"}], "missing": [{"kind", "name", "used_by"}], "clashes": [...], "system_fonts": [str], "written": [str], "paths": {"rewritten": bool, "drawings": [{"file", "changed" ...`
 
 **Limits and versions.**
 - An unsaved drawing, or one with unsaved changes, is refused: save it first.
 - A folder that does not exist is refused before anything is written.
 - Files not found are listed under 'missing', never guessed.
-- The plug-in does part of the work (`list_dependencies`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
+- The plug-in does part of the work (`list_dependencies`, `retarget_pack_paths`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD10, AD11).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD10, AD11, AD14, AD15).
 
 ### `autocad_export`
 

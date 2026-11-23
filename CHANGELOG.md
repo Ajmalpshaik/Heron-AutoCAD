@@ -5,7 +5,7 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **Flat views can show hidden lines; a section line can jog (2026-11-23,
-  [#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171), [D-150](docs/DECISIONS.md)).**
+  [#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171), [D-151](docs/DECISIONS.md)).**
   `autocad_flatten_views(hidden_lines=true)` also draws the hidden (obscured) lines, as FLATSHOT's "Obscured lines":
   the plug-in makes each view twice (hidden lines off, then on) and keeps what the second adds, dashed inside the
   view's block on their own layer (`hidden_layer`, default HIDDEN, made with the HIDDEN linetype if missing). A
@@ -17,6 +17,14 @@ Newest first. Dates are when the change was made.
   from this change; an older one refuses a jogged line, and ignores hidden lines with a warning. Tested offline
   only; not tested in AutoCAD: live rows AH17-AH21 NOT RUN (the runner measures AH17, AH19, AH20 and AH21).
 
+- **`autocad_etransmit` points the packed drawings at the files beside them (2026-11-23,
+  [#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160), [D-150](docs/DECISIONS.md)).** As eTransmit
+  does, the xref, image and PDF / DWF / DGN underlay paths saved in the packed drawing and each packed xref
+  drawing are set to the bare file name of the file in the pack. The new plug-in operation `retarget_pack_paths`
+  does it in a copy opened as a side database, never in the drawing on screen: the original stays untouched.
+  A name two files share, or a file that was missing, keeps its path; the answer (`paths`) and the report list
+  every path set and kept. A plug-in without the operation packs as before and says so. Tested offline only;
+  live rows AD14 and AD15 NOT RUN. Needs the new plug-in.
 - **A property AutoCAD will not set is answered at once, not as a busy AutoCAD (2026-11-23,
   [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-149](docs/DECISIONS.md)).** pywin32 gives
   "Property '...' can not be set." both when AutoCAD is busy and when the object has no such property or turns

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// Hidden (obscured) lines for a flat view (#171, D-150). AutoCAD's
+    /// Hidden (obscured) lines for a flat view (#171, D-151). AutoCAD's
     /// GenerateSectionGeometry gives visible and hidden background lines in
     /// one list, so the plug-in asks twice, hidden lines off and then on, and
     /// keeps the difference: a line of the second set that the first set does

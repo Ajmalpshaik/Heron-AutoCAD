@@ -6,7 +6,7 @@ using Heron.AutoCAD.Bridge;
 namespace Heron.AutoCAD.Bridge.Tests;
 
 /// <summary>
-/// Hidden lines as the difference of two line sets (#171, D-150): what AutoCAD
+/// Hidden lines as the difference of two line sets (#171, D-151): what AutoCAD
 /// gives with hidden lines on, less what it gives with them off. A line the
 /// visible set covers is not hidden, even split differently or curved; a line
 /// behind a visible one in the view is not drawn twice; a hidden edge whose

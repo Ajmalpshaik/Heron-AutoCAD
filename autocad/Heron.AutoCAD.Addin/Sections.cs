@@ -21,9 +21,9 @@ namespace Heron.AutoCAD.Addin
     /// * section_plane: a section plane through the modeller's points, kept in
     ///   the drawing, and its 2D section (cut outlines, hatch, what is seen
     ///   beyond) made as a block. A jogged section line (several legs) is laid
-    ///   out leg by leg (JoggedSection, D-150).
+    ///   out leg by leg (JoggedSection, D-151).
     ///
-    /// Hidden lines in a flat view (D-150): the view is generated twice, hidden
+    /// Hidden lines in a flat view (D-151): the view is generated twice, hidden
     /// lines off and then on, and what the second adds (ObscuredLines) goes on
     /// its own layer with the HIDDEN linetype.
     ///
@@ -213,7 +213,7 @@ namespace Heron.AutoCAD.Addin
             var plane = new SectionPlane();
             if (corners.Count > 0)
             {
-                // A jogged section line: corners in plan, each leg a vertical cut (D-150).
+                // A jogged section line: corners in plan, each leg a vertical cut (D-151).
                 var bad = JoggedSection.Build(corners, look.Length > 0 ? look : null, out jogged);
                 if (bad != null) throw new RunRefusal(bad);
                 var j = jogged!;
