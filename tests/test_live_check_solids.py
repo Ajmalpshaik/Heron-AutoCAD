@@ -40,7 +40,7 @@ AR4 = {
 }
 AR5 = {
     "autocad_add_polysolid": seq({"created": True, "handle": "L", "volume": 1_872_000_000.0}, {"created": True, "handle": "R", "volume": 1_968_000_000.0}),
-    "autocad_get_entity": seq(box("AR5", 0, 5000, 0, 3000, 0, 1200), box("AR5", 0, 5200, -200, 3000, 0, 1200, dy=10000)),
+    "autocad_get_entity": seq(box("AR5", 0, 5000, 0, 3000, 0, 1200), box("AR5", 0, 5200, -200, 3000, 0, 1200, dx=10000)),
 }
 AR6 = {
     "autocad_draw_polyline": seq({"created": True, "handle": "P1"}, {"created": True, "handle": "P2"}),

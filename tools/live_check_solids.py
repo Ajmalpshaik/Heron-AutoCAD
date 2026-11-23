@@ -106,8 +106,9 @@ async def ar3_a_hopper_and_a_turned_pyramid_on_a_turned_ucs(ctx: Context) -> str
     expect(near((lo[0] + hi[0]) / 2, spot[0], 0.5) and near((lo[1] + hi[1]) / 2, spot[1], 0.5),
            f"it is centred on {(lo[0] + hi[0]) / 2:.2f}, {(lo[1] + hi[1]) / 2:.2f}, not on the UCS point {spot}")
     return (f"hopper: 1200 x 1200 top at z=900 on a 300 base at z=0, sides along X and Y; with rotation 45 on a UCS turned 30 "
-            f"it spans {side:.1f} each way (a 1200 square turned 75 degrees) about the UCS point; back to the world UCS. "
-            "The bottom 300 square was not measured apart from the top")
+            f"it spans {side:.1f} each way, which a 1200 square turned 75 degrees does (and one turned 15 does too, so the "
+            "direction of the turn was not read), about the UCS point; back to the world UCS. The bottom 300 square was not "
+            "measured apart from the top")
 
 
 async def ar4_an_l_wall_has_the_volume_of_its_path(ctx: Context) -> str:
@@ -126,7 +127,7 @@ async def ar5_left_and_right_put_the_wall_on_either_side(ctx: Context) -> str:
     want = {"left": (1_872_000_000, 0, 5000), "right": (1_968_000_000, -200, 5200)}
     said = []
     for n, (side, (volume, low_y, high_x)) in enumerate(want.items()):
-        spot = (o[0], o[1] + 10000 * n)
+        spot = (o[0] + 10000 * n, o[1])
         made = parse(await primitives.autocad_add_polysolid(points=[_at(spot, 0, 0), _at(spot, 5000, 0), _at(spot, 5000, 3000)],
                                                             width=200, height=1200, side=side, layer="LC-AR5"))
         _volume_is(made.get("volume"), volume, f"the {side} wall's volume", volume * 1e-4)
@@ -155,7 +156,8 @@ async def ar6_inside_and_outside_a_closed_outline(ctx: Context) -> str:
 async def ar7_arcs_circles_open_rectangles_and_a_tight_arc(ctx: Context) -> str:
     o = lc.origin("AR7")
     arc = parse(await batch.autocad_batch_draw(operations=[
-        {"type": "polyline", "points": [_at(o, 0, 0), _at(o, 3000, 0), _at(o, 3000, 2000)], "bulges": [0, 0.4142, 0], "layer": "LC-AR7"}]))
+        {"type": "polyline", "points": [_at(o, 0, 0), _at(o, 3000, 0), _at(o, 4500, 1500), _at(o, 4500, 3500)],
+         "bulges": [0, 0.41421356, 0, 0], "layer": "LC-AR7"}]))
     wall = parse(await primitives.autocad_add_polysolid(path=arc["handles"][0], width=200, height=1000, layer="LC-AR7"))
     circle = parse(await draw.autocad_draw_circle(center=_at(o, 8000, 0), radius=1000, layer="LC-AR7"))
     ring = parse(await primitives.autocad_add_polysolid(path=circle["handle"], width=200, height=1000, layer="LC-AR7"))

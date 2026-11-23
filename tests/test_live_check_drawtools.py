@@ -98,7 +98,6 @@ AI6_ENT = {
     "D2": {"type": "dimension", "measurement": 3000.0, "text_override": "<> TYP"},
 }
 AI6 = {
-    "autocad_set_variable": {"name": "DIMSCALE", "value": 50},
     "autocad_batch_draw": {"created": 2, "failed": 0, "handles": ["D1", "D2"]},
     "autocad_get_entity": entities(AI6_ENT),
 }

@@ -20,7 +20,6 @@ from autocad_mcp.tools import (
     batch,
     blocks,
     coordinates,
-    document,
     drafting,
     draw,
     modify,
@@ -195,7 +194,6 @@ async def ai5_batch_mtext_holds_the_whole_note(ctx: Context) -> str:
 
 async def ai6_batch_dimensions_read_what_they_measure(ctx: Context) -> str:
     o = lc.origin("AI6")
-    parse(await document.autocad_set_variable(name="DIMSCALE", value="50"))
     made = parse(await batch.autocad_batch_draw(operations=[
         {"type": "dimension", "point1": _at(o, 0, 0), "point2": _at(o, 5000, 0), "text_position": _at(o, 2500, -800), "layer": "LC-AI6"},
         {"type": "dimension", "dimension_type": "vertical", "point1": _at(o, 0, 0), "point2": _at(o, 300, 3000),
@@ -206,9 +204,9 @@ async def ai6_batch_dimensions_read_what_they_measure(ctx: Context) -> str:
     expect(first["type"] == "dimension" and near(first["measurement"], 5000, 1e-3), f"the aligned dimension reads {first.get('measurement')}, not 5000")
     expect(second["type"] == "dimension" and near(second["measurement"], 3000, 1e-3) and second["text_override"] == "<> TYP",
            f"the vertical one reads {second.get('measurement')} with {second.get('text_override')!r}, not 3000 and '<> TYP'")
-    return ("with DIMSCALE 50: both dimensions made (so AutoCAD took a DIMENSION entmade with no block name); the aligned one "
-            "reads 5000, the vertical one 3000 with the text '<> TYP'. Their size on screen, DIMEDIT, grips, and the same on the "
-            "turned UCS with DIMTIH on were not looked at")
+    return ("both dimensions made (so AutoCAD took a DIMENSION entmade with no block name); the aligned one reads 5000, the "
+            "vertical one 3000 with the text '<> TYP'. DIMSCALE was left as it is (setting it is an Admin step), so their size "
+            "on screen, DIMEDIT, grips, and the same on the turned UCS with DIMTIH on were not looked at")
 
 
 async def ai8_a_closed_multiline_is_mitred(ctx: Context) -> str:
