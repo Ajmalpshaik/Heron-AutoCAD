@@ -25,7 +25,7 @@ session ran ten nested sessions, at most three at a time; each merged its own PR
 | S20 set_attributes reads a semicolon CSV; plug-in moves ranks 5, 8, 9 (check_standards facts, merge_layers, attribute writes) - all nine ranks of #74 done | #259, #196, #199, #200 | #271, #273, #275, #278 | D-145, D-147, D-148, BI, BJ, BK |
 | S21 dialog-watch rows V1, V4, V6, V7 open an AutoLISP alert; `.pdb` ignored in any case on Linux | #213, #262 | #268 | D-142 |
 | S22 a property AutoCAD will not set answers at once, not as busy; model extents preview uses fresh plug-in extents (410 filter) | #270, #269 | #276, #279 | D-149, D-151, AL8, AL9, AM8 |
-| S23 a missing member on a get answers at once; sheet previews use fresh extents | #280, #281 | #283, (S23b) | D-153, D-154, AL10, AL11 |
+| S23 a missing member on a get answers at once; sheet previews use fresh extents | #280, #281 | #283, #284 | D-153, D-154, AL10, AL11, AM9 |
 
 Also merged by the earlier parent while this wave started: #260 (S11, #218, #254) and #261 (S9 part 2,
 #222). #74 closed: all nine ranked moves are in; the unranked small-gain list is not worth moving.
@@ -37,7 +37,7 @@ reinstall the plug-in** (new operations: `entity_properties`, `layer_objects`, `
 **Next (on this PC, on the owner's word):** install the next release, restart the server, then live rows
 in this order: BG and BC (the whole-change box), D8 / D20 / D33 / AM7 (sheets), AQ15-AQ17 and T7 (undo
 steps; T7 decides #263), BI-BK (plug-in moves), BH, AD13-AD15, AH17-AH21, V1-V7 (Admin on), AL8-AL11,
-AM8. The runner (`tools/live_check.py`) measures most of them.
+AM8, AM9. The runner (`tools/live_check.py`) measures most of them.
 **Open question for the owner at BH10:** does AutoCAD's own FILLET join two open polylines into one?
 Heron keeps them separate (join afterwards with `autocad_join_curves`).
 **Still open, on hold:** #263 (needs live row T7), #216 (needs group AQ passed live), #70 (needs the
