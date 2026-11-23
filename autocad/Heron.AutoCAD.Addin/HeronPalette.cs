@@ -271,8 +271,7 @@ namespace Heron.AutoCAD.Addin
                     HeronPalette.Say(_status, verdict.Reason, S.WarnColour);
                     return;
                 }
-                var missing = new List<string>();
-                int found;
+                ShowOutcome shown;
                 if (zoom)
                 {
                     // The palette's zoom is for looking: it should leave no undo
@@ -282,7 +281,7 @@ namespace Heron.AutoCAD.Addin
                     if (paused) db.DisableUndoRecording(true);
                     try
                     {
-                        found = Showing.SelectAndZoom(doc, verdict.Handles, missing);
+                        shown = Showing.SelectAndZoom(doc, verdict.Handles);
                     }
                     finally
                     {
@@ -291,12 +290,12 @@ namespace Heron.AutoCAD.Addin
                 }
                 else
                 {
-                    found = Showing.SelectAndZoom(doc, verdict.Handles, missing, zoom: false);
+                    shown = Showing.SelectAndZoom(doc, verdict.Handles, zoom: false);
                 }
-                var text = found == 0
-                    ? "None of what this job made or changed is in the drawing any more."
-                    : (zoom ? "Zoomed to " : "Selected ") + found + " object(s)" + (missing.Count > 0 ? "; " + missing.Count + " are gone." : ".");
-                HeronPalette.Say(_status, text, found == 0 ? S.WarnColour : S.TextSecondary);
+                // Only drawing objects in the space in front are selected; the
+                // rest are counted, with why, in the line (#234, D-132).
+                var ok = shown.Count > 0 && shown.Picked.LeftOut == 0 && (!zoom || shown.Zoomed);
+                HeronPalette.Say(_status, shown.Line(zoom), shown.Count == 0 ? S.WarnColour : ok ? S.TextSecondary : S.WarnColour);
             }
             catch (Exception ex)
             {
