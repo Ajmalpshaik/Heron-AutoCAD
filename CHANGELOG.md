@@ -4,6 +4,11 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **`autocad_set_attributes(csv_path=...)` reads a semicolon CSV (2026-11-23,
+  [#259](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/259)).** A CSV saved by Excel on a PC whose list
+  separator is a semicolon was read as one column whose heading was the whole header line, so no row matched
+  a block and nothing was written. It is now read as `autocad_table_from_excel` reads one: comma, semicolon or
+  tab (`acad/attribute_sheet.csv_delimiter`), UTF-8 or else Excel's cp1252. Tested offline only.
 - **The dialog watch's live rows get a way in, and the bundle leaves `.pdb` out on Linux too (2026-11-23,
   [#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213), [#262](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/262),
   [D-142](docs/DECISIONS.md)).** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed OPEN, CLOSE and PURGE,
