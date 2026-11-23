@@ -6,14 +6,24 @@ Newest first. Dates are when the change was made.
 
 - **The standards check's objects are read by the plug-in in one go (2026-11-23,
   [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
-  [D-143](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and
+  [D-145](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and
   linetype, overlapping dimensions) ask the plug-in's new Read operation `entity_properties` for every object's
   handle, class, layer, colour, linetype and a dimension's box, instead of 5-6 COM round trips per object; the
   rules stay in Python and one loop reads COM objects and the plug-in's rows alike. COM stays the fallback: an
   older plug-in (1.8.0 and 1.8.1 do not have it), an answer it cannot read as COM's, or a true colour the colour
   rule needs. Over COM the check now reads colour and linetype only when a rule asks for them. Layers and the
   reference drawing compare stay COM's. Tested offline only (the check run both ways over one fake drawing and
-  compared as text); not tested in AutoCAD: live rows BH1-BH5 NOT RUN.
+  compared as text); not tested in AutoCAD: live rows BI1-BI5 NOT RUN.
+- **A plug-in job that changed nothing leaves no undo step; the geographic location stays inside the
+  job (2026-11-23, [#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80),
+  [#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258), [D-143](docs/DECISIONS.md)).** Every plug-in
+  operation's transaction is watched with AutoCAD's own events; one that opened, added or erased no object
+  and changed no variable is aborted like a read instead of committed. A new geographic location that
+  AutoCAD will not take into the job's transaction is taken off again and the job refused, instead of being
+  left in the drawing outside it; if it cannot be taken off, the answer says it may still be there.
+  `autocad_tiled_viewports` stays a View job (the reason is in D-143), with a test that its own undo step is
+  counted after a change. The server's empty undo group is still open, as issue #263 (live row T7). Tested
+  offline only; live rows AQ15-AQ17 NOT RUN. Needs the new plug-in.
 - **`autocad_set_attributes(csv_path=...)` reads a semicolon CSV (2026-11-23,
   [#259](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/259)).** A CSV saved by Excel on a PC whose list
   separator is a semicolon was read as one column whose heading was the whole header line, so no row matched

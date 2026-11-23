@@ -7,7 +7,7 @@ namespace Heron.AutoCAD.Bridge.Tests;
 
 /// <summary>
 /// The entity read autocad_check_standards' rules need, done by the plug-in in
-/// one go (#196, D-143): each selected object's handle, class, layer, colour,
+/// one go (#196, D-145): each selected object's handle, class, layer, colour,
 /// linetype and, for the classes asked, its box, in the order selected, up to
 /// the limit; the rules stay in the server. tests/test_plugin_standards_reads.py
 /// holds the server side to this.
@@ -156,7 +156,7 @@ public class PropertyFactsTests
     [Fact]
     public void A_plug_in_without_it_says_so_in_words_the_server_falls_back_on()
     {
-        // Plug-ins 1.8.0 and 1.8.1, and one built before D-143: tools/_shared.faster_read reads this as "use COM".
+        // Plug-ins 1.8.0 and 1.8.1, and one built before D-145: tools/_shared.faster_read reads this as "use COM".
         Assert.Contains("does not have the operation 'entity_properties'", Texts.UnknownOperation("entity_properties"));
     }
 }

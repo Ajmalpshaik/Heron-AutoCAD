@@ -44,9 +44,9 @@ There are three kinds of gain:
 | `autocad_total_length`, `autocad_measure(layer=...)` | `entity_lengths` (with `classes` for the curves `total_length` measures); a spline or an ellipse sent as its definition, measured by the server | about 7-10 per curve; splines and ellipses 4-5 more; `measure` 3-4 per object on the layer | the release after 1.8.1, [#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195), [D-134](DECISIONS.md) |
 | `autocad_count_text`, `autocad_find_text` | `entity_texts` (one filter per kind: text, mtext, block references); mtext with its formatting codes | 2 per text; 3 + 2 per attribute per block reference | the release after 1.8.1, [#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197), [D-134](DECISIONS.md) |
 | `autocad_extract_attributes`, `autocad_export_attribute_sheet`, the reads of `autocad_set_attributes` and `autocad_apply_attribute_sheet` | `block_attributes` (every block reference on the layer, the server skips and matches); the writes stay COM's, each changed block looked up by its handle | about 7-9 + 2 per attribute, per block reference | the release after 1.8.1, [#198](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/198), [D-138](DECISIONS.md) |
-| `autocad_check_standards` (the entity rules) | `entity_properties` (one past `max_entities`; a box only for dimensions, only for the overlap rule); the rules stay in Python, the layers and the reference COM's | 5 per object up to 20,000 (3 now over COM for a layer-0 check), +1 per dimension for the overlap rule | the release after 1.8.1, [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), [D-143](DECISIONS.md) |
+| `autocad_check_standards` (the entity rules) | `entity_properties` (one past `max_entities`; a box only for dimensions, only for the overlap rule); the rules stay in Python, the layers and the reference COM's | 5 per object up to 20,000 (3 now over COM for a layer-0 check), +1 per dimension for the overlap rule | the release after 1.8.1, [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), [D-145](DECISIONS.md) |
 
-Live checks: Groups AS, AU, BB, BE and BH in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
+Live checks: Groups AS, AU, BB, BE and BI in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
 
 ## Ranked: what to move next
 

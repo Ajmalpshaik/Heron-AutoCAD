@@ -1,4 +1,4 @@
-"""The facts autocad_check_standards' entity rules read, done by the plug-in in one go (#196, D-143), no AutoCAD.
+"""The facts autocad_check_standards' entity rules read, done by the plug-in in one go (#196, D-145), no AutoCAD.
 
 Over COM the check reads 3-6 properties per object, up to 20,000 objects. The
 plug-in reads them in one go (entity_properties); the rules stay in Python. The
@@ -81,7 +81,7 @@ class Com:
 
     @property
     def Color(self):  # noqa: N802 - COM's name
-        # What COM's Color gives for a true colour is not looked at yet (D-143): this fake says 5.
+        # What COM's Color gives for a true colour is not looked at yet (D-145): this fake says 5.
         return self._read(5 if self.spec.color == TRUE_COLOUR else self.spec.color)
 
     def GetBoundingBox(self):  # noqa: N802 - COM's name

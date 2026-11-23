@@ -28,7 +28,7 @@ namespace Heron.AutoCAD.Bridge
             // autocad_apply_attribute_sheet (D-138); asked inside a Change or Publish job too.
             ["block_attributes"] = Risk.Read,
             // Each object's layer, colour, linetype and a dimension's box for
-            // autocad_check_standards' entity rules (D-143); the rules stay in the server.
+            // autocad_check_standards' entity rules (D-145); the rules stay in the server.
             ["entity_properties"] = Risk.Read,
             ["solid_topology"] = Risk.Read,
             // Where dimension lines are, the drawing's and objects' annotation scales,

@@ -1,7 +1,7 @@
 """Tiled model viewports: split the Model tab into 2, 3 or 4 (VPORTS, D-111).
 
 Model space only. Viewports on a sheet (paper space) are autocad_add_viewport.
-The split changes what is on screen, not what is drawn, so it is a View job:
+The split changes what is on screen, not what is drawn, so it is a View job (D-143):
 no Changes padlock, nothing to keep or discard.
 """
 

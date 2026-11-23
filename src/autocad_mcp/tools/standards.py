@@ -269,7 +269,7 @@ def _reference_from_autocad(path: str) -> dict[str, Any]:
         del source
 
 
-# ---- the objects' facts: COM, or the plug-in in one go (#196, D-143) ------------------
+# ---- the objects' facts: COM, or the plug-in in one go (#196, D-145) ------------------
 
 DIMENSION = "Dimension"  # an object whose class name holds this is a dimension, to the overlap rule
 
@@ -304,7 +304,7 @@ class _NoBox(Exception):
 
 
 class PluginEntity:
-    """One object of the plug-in's entity_properties, as the COM object it stands for (D-143).
+    """One object of the plug-in's entity_properties, as the COM object it stands for (D-145).
 
     Handle, ObjectName, Layer, Color, Linetype and GetBoundingBox, so
     entity_rows reads it with the code it reads COM with. Color is the number
@@ -356,7 +356,7 @@ def plugin_entities(rules: dict, max_entities: int) -> list[PluginEntity] | None
     except (TypeError, ValueError, KeyError):  # NotTheSame, or an answer of the wrong shape
         return None
     if rules.get("require_bylayer_color") and any(entity.Color is None for entity in found[:max_entities]):
-        return None  # a true colour: what COM's Color gives for it is not looked at yet (D-143)
+        return None  # a true colour: what COM's Color gives for it is not looked at yet (D-145)
     return found
 
 
@@ -469,7 +469,7 @@ async def autocad_check_standards(
         entities: list[dict] = []
         capped = False
         if needs_entities:
-            # The plug-in reads every object's facts in one go (D-143); COM, a round
+            # The plug-in reads every object's facts in one go (D-145); COM, a round
             # trip per fact per object, only for an older one. One loop reads both.
             facts = plugin_entities(wanted, max_entities)
             if facts is not None:

@@ -54,6 +54,15 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>Ends every failed operation: the plug-in keeps nothing of one that failed.</summary>
         public const string NothingChanged = "Nothing was changed.";
 
+        /// <summary>A new object AutoCAD added itself would not join the job's transaction, and was taken off again (D-143).</summary>
+        public static string PostedTakenBack(string what) =>
+            "AutoCAD added " + what + " but would not take it into Heron's one-step change, so Heron took it off again. Try once more; if it says this again, use AutoCAD's own command.";
+
+        /// <summary>The same, but taking it off failed too: something may be left, so never "Nothing was changed".</summary>
+        public static string PostedLeftBehind(string what) =>
+            "AutoCAD added " + what + " but would not take it into Heron's one-step change, and Heron could not take it off again. "
+            + "It may still be in the drawing, outside Heron's undo step: check it in AutoCAD, and remove it there if it is not wanted.";
+
         public const string UnreadableResult =
             "Outcome unknown: Heron in AutoCAD did the operation but could not report what it did. Read the drawing back before trying again.";
 

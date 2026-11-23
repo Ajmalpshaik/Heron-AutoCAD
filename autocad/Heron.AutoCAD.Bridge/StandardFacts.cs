@@ -6,7 +6,7 @@ namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
     /// What autocad_check_standards' entity rules need of one object (#196,
-    /// D-143), as the server's COM loop reads it: COM's Handle, ObjectName,
+    /// D-145), as the server's COM loop reads it: COM's Handle, ObjectName,
     /// Layer, Color and Linetype, and for the classes asked, the box COM's
     /// GetBoundingBox gives (x and y of its two corners). Raw facts only: the
     /// rules stay in the server. Color null: the object's colour is not an
@@ -71,7 +71,7 @@ namespace Heron.AutoCAD.Bridge
     }
 
     /// <summary>
-    /// entity_properties (#196, D-143): the first "limit" selected objects, in
+    /// entity_properties (#196, D-145): the first "limit" selected objects, in
     /// the order selected, and how many were selected in all, so the server
     /// says "only the first n were read" as its COM loop does. A box is read
     /// only for a class whose name holds "box_classes" (the server sends

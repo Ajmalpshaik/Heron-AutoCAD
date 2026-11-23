@@ -229,7 +229,7 @@ def test_a_bad_answer_fails(monkeypatch, row):
 
 def test_every_aq_row_is_measured_or_excused_once():
     assert not set(CHECKS) & set(ribbon2.BY_EYE)
-    assert set(CHECKS) | set(ribbon2.BY_EYE) == {f"AQ{n}" for n in range(1, 15)}
+    assert set(CHECKS) | set(ribbon2.BY_EYE) == {f"AQ{n}" for n in range(1, 18)}
 
 
 def test_titles_and_reasons_are_plain_enough():

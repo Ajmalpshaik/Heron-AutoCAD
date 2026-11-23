@@ -168,7 +168,7 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == ["block_attributes"], name
         assert "faster_from" not in reads, name
-    # And the standards check's object facts; its layers and the reference stay COM's (D-143).
+    # And the standards check's object facts; its layers and the reference stay COM's (D-145).
     standards = by_name["autocad_check_standards"]["plugin"]
     assert standards["role"] == "when_there" and standards["operations"] == ["entity_properties"]
     assert "faster_from" not in standards

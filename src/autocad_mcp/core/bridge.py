@@ -105,7 +105,7 @@ OLD_EXPECT = (
 READS_SINCE = "1.8.0"
 # Reads in one go that came after 1.8.0, in a release whose number is not known
 # yet: the block counts (D-127), lengths and texts (D-134), block attributes
-# (D-138) and the standards check's object facts (D-143). Plug-ins 1.8.0 and 1.8.1
+# (D-138) and the standards check's object facts (D-145). Plug-ins 1.8.0 and 1.8.1
 # say they do not have them, and the tool reads over COM. Once released, they
 # leave this set and the release that carries them is named.
 NEWER_READS = frozenset({"block_references", "block_definitions", "entity_lengths", "entity_texts", "block_attributes",
