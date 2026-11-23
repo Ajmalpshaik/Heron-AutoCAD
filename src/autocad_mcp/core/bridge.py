@@ -108,6 +108,9 @@ READS_SINCE = "1.8.0"
 # (D-138) and the standards check's object facts (D-145). Plug-ins 1.8.0 and 1.8.1
 # say they do not have them, and the tool reads over COM. Once released, they
 # leave this set and the release that carries them is named.
+# The space filter (DXF 410) on these reads came later too (#269, D-148): 1.8.1 and older refuse
+# it as the operation's own refusal ("filters a read only by ..."), and _shared.faster_read then
+# answers None, so the tool reads over COM.
 NEWER_READS = frozenset({"block_references", "block_definitions", "entity_lengths", "entity_texts", "block_attributes",
                          "entity_properties"})
 RUN_UNKNOWN = (

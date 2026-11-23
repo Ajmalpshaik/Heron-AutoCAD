@@ -253,6 +253,13 @@ AM4 = {
 }
 
 
+AM8 = {
+    **SHEET,
+    "autocad_batch_draw": seq(drawn("F", "T1", "T2", "T3", "T4"), drawn("FAR")),
+    "autocad_preview": preview({**plotted("AM8", 841, 594), "extents_note": "EXTMIN/EXTMAX still reach ... ZOOM Extents."}),
+    "own.by_hand_erase": None,
+}
+
 def sized(width: int, height: int) -> Raw:
     return preview({"area": "window", "layout": "Model", "size": f"Sun Hi-Res ({width}.00 x {height}.00 Pixels)",
                     "pixels": [width, height]})
@@ -299,6 +306,7 @@ SAMPLES: dict[str, tuple[dict, dict]] = {
     "AM3": (AM3, {"own.page_setup": seq(SETUP, {**SETUP, "PlotRotation": 0})}),
     "AM4": (AM4, {"autocad_preview": seq(preview(plotted("AM4", 841, 594)), preview(plotted("AM4", 841, 594)))}),
     "AM5": (AM5, {"autocad_preview": seq(sized(640, 480), sized(3200, 2400))}),
+    "AM8": (AM8, {"autocad_preview": preview(plotted("AM8", 100010, 100000))}),
     "AM6": (AM6, {"autocad_preview": seq(
         sheet_preview("AM6", 2),
         AM6["autocad_preview"].items[1],
@@ -348,7 +356,7 @@ def test_every_check_has_a_recording():
 def test_every_row_is_scripted_or_by_eye_once():
     rows = [*CHECKS, *drawing.BY_EYE]
     assert len(rows) == len(set(rows))
-    want = {f"AP{n}" for n in range(1, 12)} | {f"AM{n}" for n in range(1, 8)}  # AM7: D-141
+    want = {f"AP{n}" for n in range(1, 12)} | {f"AM{n}" for n in range(1, 9)}  # AM7: D-141; AM8: D-148
     assert set(rows) == want
     assert all(len(why.split()) >= 4 for why in drawing.BY_EYE.values())
 

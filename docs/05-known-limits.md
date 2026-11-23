@@ -560,8 +560,11 @@ From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
   frame does. The answer's `smallest_clear_text` says what reads; use `detail=2` or `3`, or a
   window over one part. A bigger PNG needs a custom size added to `PublishToWeb PNG.pc3` by hand;
   COM cannot add one.
-- `plotted` comes from EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a layout), read after a regen. Whether a
-  regen shrinks them after an erase is not proven (AM4); a ZOOM Extents does.
+- `plotted` comes from EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a layout), read after a regen. AutoCAD
+  shrinks them only on ZOOM Extents. Since [D-148](DECISIONS.md) (#269), in model space, the plug-in
+  measures the objects themselves; when its box is well inside EXTMIN/EXTMAX, that box is plotted as a
+  window and `extents_note` says so. A sheet layout, no plug-in or an older one still uses the variables
+  (AM4, AM8 NOT RUN).
 - Close-ups need a plan view in the world UCS (or a window you give): in a 3D view the plan box does
   not match the picture, so they are skipped with the reason.
 
