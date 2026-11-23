@@ -35,11 +35,14 @@ confirmed it ("Yes, keep it").
 **Next (on this PC, on the owner's word):** install the next release, restart the server, then live rows:
 AZ with X3 and X25 first (the palette fault seen in 1.8.0), BC (the new box), then BA, BB, BD, BE, BF,
 and the earlier AU-AY. The runner (`tools/live_check.py`) measures 245 rows of them.
-**Open for a later wave:** #255 (a replace tool inside a sequence or saved command still gets the old
-box), #258 (group AQ: geo location outside the transaction, tiled viewports as a View job), #259
-(set_attributes reads a semicolon CSV as one column), the next plug-in moves #196, #199, #200 (#200 can
-build on `block_attributes`), and a runner note from S9: an older plug-in makes a plug-in row FAIL with
-its "update Heron" words instead of NOT RUN.
+**Being worked on elsewhere (cloud sessions started outside this parent, seen 2026-11-23 16:20):** [S14]
+#255 (a replace tool inside a sequence or saved command still gets the old box), [S15] #258 and #80 (group
+AQ geo location in the transaction; empty jobs leave no undo step, D-140, which split off #263), [S16]
+#39, #40, #41 (sheet-tab and preview bugs). Their own PRs record what they did. Also new: #262 (a `.PDB`
+copied into the bundle on Linux).
+**Open for a later wave:** #259 (set_attributes reads a semicolon CSV as one column), the next plug-in
+moves #196, #199, #200 (#200 can build on `block_attributes`), and a runner note from S9: an older
+plug-in makes a plug-in row FAIL with its "update Heron" words instead of NOT RUN.
 
 ## Earlier - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
 
