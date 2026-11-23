@@ -57,7 +57,7 @@ _G = {
         add_revision_cloud add_wipeout divide_curve super_hatch trace_boundary import_pdf
         create_hatch_pattern get_ucs set_ucs convert_points drawing_setup""",
     "editing": """move_entities copy_entities rotate_entities scale_entities mirror_entities offset_entities
-        array_entities associative_array stretch trim_extend fillet_chamfer break_curve join_curves explode
+        array_entities associative_array stretch lengthen trim_extend fillet_chamfer break_curve join_curves explode
         delete_entities modify_entity match_properties edit_vertex edit_spline group list_groups draw_order
         overkill tidy_entities hyperlinks list_hyperlinks list_entities get_entity polyline_info
         select_connected get_extents measure total_length""",
