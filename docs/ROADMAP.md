@@ -73,8 +73,9 @@ done looks like here.
   tall had to be deleted and drawn again, and a delete needs the modeller's yes each time. Done
   2026-11-21: `autocad_edit_vertex` and `autocad_stretch`, with the trim / extend / fillet / join
   tools ([D-78](DECISIONS.md)); live rows AA11-AA12 NOT RUN. ([#49](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/49))
-- [ ] Lengthen (by a distance, to a total, by a percent), and a fillet or chamfer between a line and an
-  arc: left over from the 2D edits. ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154))
+- [x] Lengthen (by a distance, to a total, by a percent), and a fillet or chamfer between a line and an
+  arc: done 2026-11-23, `autocad_lengthen` and `autocad_fillet_chamfer` on lines, arcs and polyline ends
+  ([D-143](DECISIONS.md)); live rows BH1-BH11 NOT RUN. ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154))
 - [ ] `autocad_preview` with `area='extents'` on an A1 schematic drawn at 1:1 showed only the two
   frame rectangles; `area='window'` over the same parts showed everything. Find out why before
   trusting an extents preview of a full sheet. ([#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41))

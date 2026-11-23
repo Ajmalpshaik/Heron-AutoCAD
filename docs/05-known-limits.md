@@ -472,7 +472,8 @@ From [D-78](DECISIONS.md) and [D-79](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
 - **Stretch** moves a dimension, hatch, arc or anything else only when it lies wholly inside the
   window, and lists the rest. AutoCAD's STRETCH would move a dimension's points; Heron does not.
 - **Draw order** works in one space at a time; the screen may need a regen to show it.
-- **Groups:** an unnamed group (*A1) is listed but not made. No Lengthen tool yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
+- **Groups:** an unnamed group (*A1) is listed but not made.
+- **Lengthen and a fillet with an arc** ([D-143](DECISIONS.md), group BH): AutoCAD's LENGTHEN DYnamic and Total-angle options are not built; a fillet takes a line, an arc or an open polyline's end, not a circle; a chamfer to an arc is measured along the arc (AutoCAD's CHAMFER takes no arc) and refuses the angle method; the fillet between two polylines is a separate arc, the polylines are not joined. None of it is proven in AutoCAD yet.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AA](NEEDS-CHECKING.md)).
 
 ## 30. Files read with AutoCAD closed, the reference standard, and shared check lists

@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Lengthen, and a fillet or chamfer between a line, an arc and a polyline's end (2026-11-23,
+  [#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154), [D-143](docs/DECISIONS.md)).** New tool
+  `autocad_lengthen` makes a line, an arc or an open polyline longer or shorter at one end: by a distance
+  (`delta`, negative shortens), to a `total` length or by a `percent`, at the end nearer `points` or `end`.
+  An arc end runs on round its own circle; a shorter polyline is cut back over its corners, arcs kept.
+  `autocad_fillet_chamfer` now takes a line and an arc, two arcs, or the ends of open polylines (each stays
+  one polyline), meeting them as if they ran on; with two meeting points it names the other corner and
+  `keep_points` choose. AutoCAD's CHAMFER takes no arc, so a chamfer to an arc is measured along the arc
+  (the angle method is refused). Two lines answer as before. Worked out in `acad/edit2d.py`, written over
+  COM, no plug-in change. 200 tools. Tested offline only; live rows BH1-BH11 NOT RUN (the runner measures
+  BH1-BH9 in `tools/live_check_lengthen.py`).
 - **The dialog watch's live rows get a way in, and the bundle leaves `.pdb` out on Linux too (2026-11-23,
   [#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213), [#262](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/262),
   [D-142](docs/DECISIONS.md)).** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed OPEN, CLOSE and PURGE,

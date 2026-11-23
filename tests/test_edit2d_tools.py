@@ -1,4 +1,4 @@
-"""The 2D edit tools against fake COM objects (issues #103, #49, #105, #111, #110; D-78, D-79).
+"""The 2D edit tools against fake COM objects (issues #103, #49, #105, #111, #110, #154; D-78, D-79, D-143).
 
 The geometry itself is checked in test_edit2d_geometry.py. Here: that each tool
 reads the right objects, writes the shape back through the object's own
@@ -351,6 +351,7 @@ def test_every_new_tool_has_its_level():
                  "explode", "draw_order", "match_properties", "group"):
         assert risk_of(f"autocad_{name}") is Risk.CHANGE
     assert risk_of("autocad_list_groups") is Risk.READ
+    assert risk_of("autocad_lengthen") is Risk.CHANGE
 
 
 # ---- trim and extend -------------------------------------------------------------------------
@@ -868,6 +869,10 @@ FIND = [
     ("fillet these two lines", "autocad_fillet_chamfer"),
     ("fillet those two lines with a 50 radius", "autocad_fillet_chamfer"),
     ("chamfer that corner 50 by 30", "autocad_fillet_chamfer"),
+    ("round the corner between that line and the bend", "autocad_fillet_chamfer"),
+    ("make that pipe 500 longer", "autocad_lengthen"),
+    ("lengthen the line by 200", "autocad_lengthen"),
+    ("make these lines exactly 2400 long", "autocad_lengthen"),
     ("split that pipe at the tee", "autocad_break_curve"),
     ("break this line at a point", "autocad_break_curve"),
     ("join these lines into one polyline", "autocad_join_curves"),
@@ -1022,3 +1027,184 @@ def test_infinity_is_not_a_lineweight_or_a_transparency(given):
         props.lineweight_value(given)
     with pytest.raises(ValueError, match="is not a transparency"):
         props.transparency_value(given)
+
+
+# ---- lengthen (#154, D-143) -----------------------------------------------------------------------
+
+
+def test_lengthen_grows_the_end_nearest_the_point_and_keeps_the_handle(doc):
+    pipe = Line(doc, (0, 0, 5), (1000, 0, 5), layer="M-PIPE")
+    out = answer(edit2d.autocad_lengthen([pipe.Handle], "delta", 500, points=[[900, 0]]))
+    assert out["done"] == 1 and out["objects"][0] == {
+        "handle": pipe.Handle, "end": "end", "was": 1000.0, "now": 1500.0, "changed_by": 500.0}
+    assert (xy(pipe.StartPoint), xy(pipe.EndPoint)) == ((0, 0), (1500, 0))
+    assert pipe.StartPoint[2] == 5 and pipe.Layer == "M-PIPE"  # its height and layer are kept
+    assert len(doc.objects) == 1 and doc.groups == 1
+
+
+def test_lengthen_the_start_with_a_negative_delta_cuts_it_back(doc):
+    pipe = Line(doc, (0, 0, 0), (1000, 0, 0))
+    out = answer(edit2d.autocad_lengthen([pipe.Handle], "delta", -200, end="start"))
+    assert out["objects"][0]["end"] == "start" and out["objects"][0]["changed_by"] == -200.0
+    assert (xy(pipe.StartPoint), xy(pipe.EndPoint)) == ((200, 0), (1000, 0))
+
+
+def test_lengthen_total_and_percent_on_several_objects_in_one_undo_step(doc):
+    a, b = Line(doc, (0, 0, 0), (1000, 0, 0)), Line(doc, (0, 50, 0), (500, 50, 0))
+    answer(edit2d.autocad_lengthen([a.Handle, b.Handle], "total", 2400))
+    assert xy(a.EndPoint) == (2400, 0) and xy(b.EndPoint) == (2400, 50)
+    assert doc.groups == 1
+    answer(edit2d.autocad_lengthen([a.Handle], "percent", 50))
+    assert xy(a.EndPoint) == (1200, 0)
+
+
+def test_lengthen_an_arc_runs_on_round_its_own_circle(doc):
+    arc = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2)
+    answer(edit2d.autocad_lengthen([arc.Handle], "delta", 500 * math.pi / 4))
+    assert arc.StartAngle == pytest.approx(0, abs=1e-9) and arc.EndAngle == pytest.approx(3 * math.pi / 4)
+    assert arc.Radius == 500 and arc.Center == (0, 0, 0)
+    answer(edit2d.autocad_lengthen([arc.Handle], "percent", 50, end="start"))
+    assert arc.EndAngle == pytest.approx(3 * math.pi / 4)
+    assert arc.StartAngle == pytest.approx(3 * math.pi / 8)
+
+
+def test_lengthen_a_polyline_cuts_back_over_a_corner_and_keeps_its_width(doc):
+    run = Poly(doc, [(0, 0), (1000, 0), (1000, 500)], width=4.0)
+    answer(edit2d.autocad_lengthen([run.Handle], "delta", -700))
+    assert run.points() == [(0, 0), (800, 0)] and run.ConstantWidth == 4.0
+
+
+def test_lengthen_says_what_it_refused_and_still_does_the_rest(doc):
+    good = Line(doc, (0, 0, 0), (100, 0, 0))
+    box = Poly(doc, [(0, 0), (10, 0), (10, 10)], closed=True)
+    circle = Circle(doc, (0, 0, 0), 5)
+    out = answer(edit2d.autocad_lengthen([good.Handle, box.Handle, circle.Handle], "delta", 50))
+    assert out["done"] == 1 and xy(good.EndPoint) == (150, 0)
+    reasons = {row["handle"]: row["reason"] for row in out["failed"]}
+    assert "closed" in reasons[box.Handle] and "circle" in reasons[circle.Handle]
+
+
+def test_lengthen_that_would_leave_nothing_or_change_nothing_writes_nothing(doc):
+    pipe = Line(doc, (0, 0, 0), (100, 0, 0))
+    out = answer(edit2d.autocad_lengthen([pipe.Handle], "delta", -100))
+    assert out["done"] == 0 and "vanish" in out["failed"][0]["reason"]
+    out = answer(edit2d.autocad_lengthen([pipe.Handle], "percent", 100))
+    assert out["done"] == 0 and "nothing to change" in out["failed"][0]["reason"]
+    assert (xy(pipe.StartPoint), xy(pipe.EndPoint)) == ((0, 0), (100, 0)) and doc.groups == 0
+
+
+def test_lengthen_checks_its_arguments(doc):
+    pipe = Line(doc, (0, 0, 0), (100, 0, 0))
+    assert "one point per object" in refusal(edit2d.autocad_lengthen([pipe.Handle], "delta", 5, points=[[0, 0], [1, 1]]))
+    assert "twice" in refusal(edit2d.autocad_lengthen([pipe.Handle, pipe.Handle.lower()], "delta", 5))
+
+
+# ---- fillet and chamfer between a line, an arc and a polyline's end (#154, D-143) --------------------
+
+
+def test_fillet_a_line_and_an_arc_trims_both_and_adds_a_tangent_arc(doc):
+    arc = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2, layer="M-BEND")
+    line = Line(doc, (100, 300, 0), (1500, 300, 0), layer="M-DUCT")
+    line.Lineweight = 35
+    out = answer(edit2d.autocad_fillet_chamfer("fillet", [line.Handle, arc.Handle], radius=50))
+    fillet = doc.objects[out["arc"]]
+    assert out["objects"] == [line.Handle, arc.Handle] and out["ends"] == [None, None]
+    assert fillet.Radius == 50 and fillet.Layer == "M-DUCT" and fillet.Lineweight == 35
+    assert math.hypot(fillet.Center[0], fillet.Center[1]) == pytest.approx(550)  # tangent from outside
+    assert fillet.Center[1] - 300 == pytest.approx(50)  # and 50 above the line
+    assert line.StartPoint[0] == pytest.approx(fillet.Center[0]) and xy(line.EndPoint) == (1500, 300)
+    assert arc.Radius == 500 and arc.EndAngle == pytest.approx(math.pi / 2)  # still ends at 90 degrees
+    assert arc.StartAngle > math.radians(36.87)  # cut back past the old meeting point
+    assert doc.groups == 1
+
+
+def test_fillet_two_arcs(doc):
+    a, b = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2), Arc(doc, (800, 0, 0), 500, math.pi / 2, math.pi)
+    out = answer(edit2d.autocad_fillet_chamfer("fillet", [a.Handle, b.Handle], radius=50))
+    fillet = doc.objects[out["arc"]]
+    assert math.dist(fillet.Center[:2], (0, 0)) == pytest.approx(550)
+    assert math.dist(fillet.Center[:2], (800, 0)) == pytest.approx(550)
+
+
+def test_fillet_the_ends_of_two_polylines_keeps_each_one_polyline(doc):
+    first = Poly(doc, [(0, 0), (1000, 0), (1000, 300)], layer="M-A")
+    second = Poly(doc, [(1500, 900), (1500, 600), (1300, 600)])
+    before = len(doc.objects)
+    out = answer(edit2d.autocad_fillet_chamfer("fillet", [first.Handle, second.Handle], radius=100))
+    assert out["ends"] == ["end", "end"]
+    assert first.points() == [(0, 0), (1000, 0), (1000, 500)]
+    assert second.points() == [(1500, 900), (1500, 600), (1100, 600)]
+    fillet = doc.objects[out["arc"]]
+    assert fillet.Radius == 100 and xy(fillet.Center) == (1100, 500) and fillet.Layer == "M-A"
+    assert len(doc.objects) == before + 1 and doc.groups == 1
+
+
+def test_chamfer_a_line_and_an_arc_measures_along_the_arc(doc):
+    arc = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2)
+    line = Line(doc, (100, 300, 0), (1500, 300, 0))
+    out = answer(edit2d.autocad_fillet_chamfer("chamfer", [line.Handle, arc.Handle], distance=40, distance2=40,
+                                               keep_points=[[1400, 300], [0, 490]]))
+    cut = doc.objects[out["chamfer_line"]]
+    assert xy(cut.StartPoint) == (440, 300)
+    end = cut.EndPoint
+    assert math.hypot(end[0], end[1]) == pytest.approx(500)
+    assert math.atan2(end[1], end[0]) - math.atan2(300, 400) == pytest.approx(40 / 500)
+    assert out["distances"] == [40.0, 40.0]
+
+
+def test_fillet_with_an_arc_says_where_the_other_corner_is(doc):
+    arc = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2)
+    line = Line(doc, (100, 300, 0), (1500, 300, 0))
+    out = answer(edit2d.autocad_fillet_chamfer("fillet", [line.Handle, arc.Handle], radius=50))
+    assert "more than one place" in out["note"]
+
+
+def test_what_a_fillet_with_an_arc_refuses_it_refuses_before_anything_changes(doc):
+    arc = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2)
+    line = Line(doc, (100, 300, 0), (1500, 300, 0))
+    box = Poly(doc, [(0, 0), (100, 0), (100, 50)], closed=True)
+    far = Line(doc, (0, 5000, 0), (50, 5000, 0))
+    before = (len(doc.objects), doc.groups)
+    assert "angle method" in refusal(
+        edit2d.autocad_fillet_chamfer("chamfer", [line.Handle, arc.Handle], distance=10, angle=30))
+    assert "closed polyline" in refusal(edit2d.autocad_fillet_chamfer("fillet", [box.Handle, line.Handle], radius=5))
+    assert "never meet" in refusal(edit2d.autocad_fillet_chamfer("fillet", [far.Handle, arc.Handle], radius=5))
+    assert "different objects" in refusal(
+        edit2d.autocad_fillet_chamfer("fillet", [arc.Handle, arc.Handle.lower()], radius=5))
+    assert "Try a smaller radius" in refusal(
+        edit2d.autocad_fillet_chamfer("fillet", [line.Handle, arc.Handle], radius=50000))
+    run = Poly(doc, [(0, 0), (10, 0), (10, 10)])
+    assert "all but its end" in refusal(edit2d.autocad_fillet_chamfer(
+        "fillet", [run.Handle, line.Handle], radius=5, keep_points=[[1, 0], [1500, 300]]))
+    assert (len(doc.objects) - 1, doc.groups) == before  # only the polyline made for the last call is new
+
+
+def test_a_fillet_with_an_arc_whose_write_fails_leaves_no_new_arc(doc, monkeypatch):
+    arc = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2)
+    line = Line(doc, (100, 300, 0), (1500, 300, 0))
+    before = set(doc.objects)
+
+    def refuse(*_args):
+        raise RuntimeError("AutoCAD said no")
+
+    monkeypatch.setattr(edit2d, "_write", refuse)
+    refusal(edit2d.autocad_fillet_chamfer("fillet", [line.Handle, arc.Handle], radius=50))
+    assert set(doc.objects) == before
+
+
+def test_two_lines_still_go_through_the_old_answer_shape(doc):
+    a, b = Line(doc, (100, 0, 0), (10, 0, 0)), Line(doc, (0, 100, 0), (0, 10, 0))
+    out = answer(edit2d.autocad_fillet_chamfer("fillet", [a.Handle, b.Handle], radius=20))
+    assert out["lines"] == [a.Handle, b.Handle] and "objects" not in out
+
+
+def test_lengthen_and_a_fillet_with_an_arc_refuse_a_locked_layer(doc):
+    doc.Layers = Layers({"M-LOCKED"})
+    pipe = Line(doc, (0, 0, 0), (100, 0, 0), layer="M-LOCKED")
+    out = answer(edit2d.autocad_lengthen([pipe.Handle], "delta", 50))
+    assert out["done"] == 0 and "locked layer 'M-LOCKED'" in out["failed"][0]["reason"]
+    assert xy(pipe.EndPoint) == (100, 0) and doc.groups == 0
+    arc = Arc(doc, (0, 0, 0), 500, 0, math.pi / 2)
+    before = len(doc.objects)
+    assert "locked layer" in refusal(edit2d.autocad_fillet_chamfer("fillet", [pipe.Handle, arc.Handle], radius=5))
+    assert len(doc.objects) == before and doc.groups == 0

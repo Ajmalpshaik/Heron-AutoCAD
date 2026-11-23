@@ -1055,13 +1055,37 @@ def _foot(seg: Segment, c: Point) -> Point | None:
     return _add(seg.centre, v, seg.radius / n)
 
 
-def _pair_corners(c1: Path, c2: Path, keep1: Point | None, keep2: Point | None) -> tuple[list[dict[str, Any]], float]:
-    """Every corner the two curves make, each with the side kept on both, nearest the points to keep first."""
+def _gap(seg: Segment, x: Point, eps: float) -> float:
+    """How far past the drawn curve the corner lies (0 when it is on the curve)."""
+    if seg.centre is None:
+        d = _unit(_sub(seg.end, seg.start))
+        t = _dot(_sub(x, seg.start), d)
+        return max(0.0, -t, t - seg.length)
+    a0, span = _arc_span(seg)
+    delta = (_angle_at(seg, x) - a0) % TWO_PI
+    if delta <= span + eps / seg.radius or delta >= TWO_PI - eps / seg.radius:
+        return 0.0
+    return min(delta - span, TWO_PI - delta) * seg.radius
+
+
+def _pair_corners(
+    c1: Path, c2: Path, keep1: Point | None, keep2: Point | None
+) -> tuple[list[dict[str, Any]], float, list[Point]]:
+    """The corner the two curves make (every one that ties, when there is no point to say which), with its sides.
+
+    The curves are met as if they ran on. When they meet twice the corner nearest the
+    points to keep is used; with no points, the one that needs the least running on.
+    """
     s1, s2 = _one_segment(c1, "first"), _one_segment(c2, "second")
     eps = tolerance(c1, c2) * 10
-    hits = _meetings(s1, s2, eps)
-    if not hits:
+    meetings = _meetings(s1, s2, eps)
+    if not meetings:
         raise ValueError("The two curves never meet, even run on, so there is no corner to make.")
+    hits = list(meetings)
+    picks = [k for k in (keep1, keep2) if k is not None]
+    if picks:
+        hits.sort(key=lambda x: sum(_dist(x, k) for k in picks))
+        hits = hits[:1]
     corners: list[dict[str, Any]] = []
     problem: ValueError | None = None
     for x in hits:
@@ -1076,21 +1100,20 @@ def _pair_corners(c1: Path, c2: Path, keep1: Point | None, keep2: Point | None) 
             if theta <= 1e-9 or math.pi - theta <= 1e-9:
                 problem = ValueError("The two curves run in one straight line, so there is no corner to make.")
                 continue
-        corners.append({"x": x, "sides": (a, b)})
+        corners.append({"x": x, "sides": (a, b), "gap": _gap(s1, x, eps) + _gap(s2, x, eps)})
     if not corners:
         raise problem or ValueError("There is no corner to make.")
-    picks = [k for k in (keep1, keep2) if k is not None]
-    if picks:
-        corners.sort(key=lambda c: sum(_dist(c["x"], k) for k in picks))
-    return corners, eps
+    least = min(c["gap"] for c in corners)
+    return [c for c in corners if c["gap"] <= least + eps], eps, ([] if picks else meetings)
 
 
-def _more_than_one(corners: list[dict[str, Any]], chosen: dict[str, Any], keeps: bool) -> str | None:
-    if len(corners) < 2 or keeps:
+def _other_corner_note(meetings: list[Point], chosen: Point) -> str | None:
+    others = [m for m in meetings if _dist(m, chosen) > 1e-9 * max(1.0, abs(chosen[0]), abs(chosen[1]))]
+    if not others:
         return None
-    others = [c for c in corners if c is not chosen]
-    where = ", ".join(f"({c['x'][0]:.6g}, {c['x'][1]:.6g})" for c in others)
-    return f"The two curves meet in more than one place; this is the corner chosen. The other is at {where}: give keep_points to choose it."
+    where = ", ".join(f"({m[0]:.6g}, {m[1]:.6g})" for m in others)
+    return (f"The two curves meet in more than one place; this is the corner that needs the least running on. "
+            f"The other is at {where}: give keep_points to choose it.")
 
 
 def fillet_curves(
@@ -1113,7 +1136,7 @@ def fillet_curves(
         raise ValueError("A fillet radius cannot be negative.")
     k1 = _pt(keep1) if keep1 is not None else None
     k2 = _pt(keep2) if keep2 is not None else None
-    corners, eps = _pair_corners(c1, c2, k1, k2)
+    corners, eps, meetings = _pair_corners(c1, c2, k1, k2)
     best: dict[str, Any] | None = None
     failures: list[str] = []
     for corner in corners:
@@ -1145,10 +1168,8 @@ def fillet_curves(
                     f"part kept: it is too big, or the curves bend away from each other"
                 )
                 continue
-        if best is None or (not (k1 or k2) and found["score"] < best["score"]):
+        if best is None or found["score"] < best["score"]:
             best = found
-        if k1 or k2:
-            break  # the corner nearest the points to keep, if it takes the radius
     if best is None:
         raise ValueError("A radius of " + f"{radius:g} does not fit: " + "; ".join(failures) + ". Try a smaller radius.")
     corner = best["corner"]
@@ -1171,7 +1192,7 @@ def fillet_curves(
         out["tangent_points"] = [_r(t_a), _r(t_b)]
         out["arc"] = {"centre": _r(centre), "radius": float(radius), "start_angle": start % TWO_PI,
                       "end_angle": end % TWO_PI}
-    note = _more_than_one(corners, corner, k1 is not None or k2 is not None)
+    note = _other_corner_note(meetings, x)
     if note:
         out["note"] = note
     return out
@@ -1201,7 +1222,7 @@ def chamfer_curves(
         raise ValueError("Give both chamfer distances above 0, or both 0 for a sharp corner.")
     k1 = _pt(keep1) if keep1 is not None else None
     k2 = _pt(keep2) if keep2 is not None else None
-    corners, eps = _pair_corners(c1, c2, k1, k2)
+    corners, eps, meetings = _pair_corners(c1, c2, k1, k2)
     chosen = None
     reasons: list[str] = []
     for corner in corners:
@@ -1227,7 +1248,7 @@ def chamfer_curves(
     }
     if d1 > 0:
         out["chamfer"] = [_r(_at(a, x, d1)), _r(_at(b, x, d2))]
-    note = _more_than_one(corners, chosen, k1 is not None or k2 is not None)
+    note = _other_corner_note(meetings, x)
     if note:
         out["note"] = note
     return out

@@ -2,9 +2,9 @@
 
 <!-- Made by tools/make_tool_catalogue.py from the live tool list. Do not edit by hand: run `python tools/make_tool_catalogue.py` instead. tests/test_tool_catalogue.py fails when this file is stale. -->
 
-Every one of Heron's **199** tools, in plain words, grouped by the job it does. For each tool: what it does, the problem it solves, where to find it, how to use it step by step, what it needs from you, the result to expect, its limits, and whether anyone has seen it work in a real AutoCAD.
+Every one of Heron's **200** tools, in plain words, grouped by the job it does. For each tool: what it does, the problem it solves, where to find it, how to use it step by step, what it needs from you, the result to expect, its limits, and whether anyone has seen it work in a real AutoCAD.
 
-> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **156** NOT RUN, **0** FAIL, **24** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
+> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **157** NOT RUN, **0** FAIL, **24** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
 
 ## How Heron's tools work (the same for every tool)
 
@@ -16,7 +16,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 |---|---|---|
 | Read (44 tools) | none: reads the drawing | looking, listing, measuring, checking |
 | View (9 tools) | none: changes only the screen | zoom, switch or open a drawing, 3D view direction |
-| Change (132 tools) | Changes | drawing, editing, text, blocks, layers, sheets, 3D |
+| Change (133 tools) | Changes | drawing, editing, text, blocks, layers, sheets, 3D |
 | Publish (9 tools) | Changes + Publish | saving, exporting, plotting, reports written to files |
 | Admin (5 tools) | Changes + Admin | commands, AutoLISP, system variables, purge, audit |
 
@@ -30,7 +30,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | Group | Tools | What is in it |
 |---|---|---|
 | [Drawing and coordinates](#drawing-and-coordinates) | 26 | Lines, circles, polylines, hatches, standard shapes, and the coordinate system they are drawn in. |
-| [Editing and reading objects](#editing-and-reading-objects) | 33 | Move, copy, trim, fillet, change properties, and the tools that find and measure what is drawn. |
+| [Editing and reading objects](#editing-and-reading-objects) | 34 | Move, copy, trim, fillet, change properties, and the tools that find and measure what is drawn. |
 | [Text, labels and tables](#text-labels-and-tables) | 21 | Text, leaders, labels, tags, schedules as tables, text styles and annotation scales. |
 | [Dimensions](#dimensions) | 5 | Dimensions, dimension runs, centre marks. |
 | [Blocks, attributes and references](#blocks-attributes-and-references) | 21 | Blocks and their attributes, dynamic blocks, xrefs, underlays, taking objects from another drawing. |
@@ -153,6 +153,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | [`autocad_label_segment_lengths`](#autocad_label_segment_lengths) | Text, labels and tables | Changes | NO ROW |
 | [`autocad_layer_standard`](#autocad_layer_standard) | Layers and linetypes | none: reads the drawing | NOT RUN |
 | [`autocad_layer_states`](#autocad_layer_states) | Layers and linetypes | Changes | NOT RUN |
+| [`autocad_lengthen`](#autocad_lengthen) | Editing and reading objects | Changes | NOT RUN |
 | [`autocad_list_annotation_scales`](#autocad_list_annotation_scales) | Text, labels and tables | none: reads the drawing | NOT RUN |
 | [`autocad_list_blocks`](#autocad_list_blocks) | Blocks, attributes and references | none: reads the drawing | PARTLY |
 | [`autocad_list_drawings`](#autocad_list_drawings) | Files and drawings | none: reads the drawing | NO ROW |
@@ -1433,8 +1434,8 @@ The pieces are new objects; the original is erased, so Heron asks the modeller "
 
 ### `autocad_fillet_chamfer`
 
-**What it does.** Round a corner with an arc (fillet) or cut it straight (chamfer): two lines, or a polyline's corners.
-Two lines: each is trimmed or extended to the arc's tangent point (or the chamfer's end), and the new arc or line takes the first line's layer, colour and linetype. A polyline stays one polyline: each corner between two straight segments becomes an arc (bulge) or a short straight; a corner next to an arc, or on a segment too short, is skipped and said. One undo step.
+**What it does.** Round a corner with an arc (fillet) or cut it straight (chamfer): two objects, or a polyline's corners.
+Two lines: each is trimmed or extended to the arc's tangent point (or the chamfer's end), and the new arc or line takes the first line's layer, colour and linetype. A line and an arc, two arcs, or the ends of open polylines are met the same way (the arc is run on round its circle where it has to be; a polyline keeps all but its end segment and stays one polyline). AutoCAD's own CHAMFER takes straight objects only, so a chamfer to an arc is measured along the arc, from the corner (D-143).
 
 **The problem it solves.**
 - "put a 150 radius on that duct corner" -> operation='fillet', the two lines, radius=150.
@@ -1453,18 +1454,18 @@ Two lines: each is trimmed or extended to the arc's tangent point (or the chamfe
 
 **What it needs from you.**
 - Needs `operation`: 'fillet' rounds the corner with an arc; 'chamfer' cuts it with a straight line.
-- Needs `handles`: Two lines that make a corner (they need not touch), or one polyline whose corners to do.
+- Needs `handles`: Two objects that make a corner (they need not touch): lines, arcs, or open polylines (a polyline gives its end), in any mix.
 - Optional: `radius`, `distance`, `distance2`, `angle`, `vertices`, `keep_points`, `coords`.
 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
-- Technical shape of the answer: `JSON: two lines: {"operation", "lines": [h1, h2], "arc" | "chamfer_line": handle | null, "corner", "tangent_points"?, "distances"?}; a polyline: {"operation", "handle", "corners_done": [n], "skipped": [{"vertex", "reason"}], "vertex_count"}`
+- Technical shape of the answer: `JSON: two lines: {"operation", "lines": [h1, h2], "arc" | "chamfer_line": handle | null, "corner", "tangent_points"?, "distances"?};`
 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA6).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA6, BH5).
 
 ### `autocad_get_entity`
 
@@ -1625,6 +1626,42 @@ Lines in one straight line become one line; arcs of one circle one arc; anything
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA10, BC1, BC6, BC8, BC9, BG1).
 
+### `autocad_lengthen`
+
+**What it does.** Make a line, an arc or an open polyline longer or shorter at one end: AutoCAD's LENGTHEN Delta, Total and Percent.
+The end runs on along its own line (a straight end) or round its own circle (an arc end, never to a full circle); a shorter object is cut back along its own shape, over as many segments as it takes, arcs kept as arcs. The object keeps its handle, layer and look. Works in plan on flat objects. An object on a locked layer, a closed polyline, a circle and a change that would leave nothing are refused. One undo step.
+
+**The problem it solves.**
+- "make that pipe 500 longer at the north end" -> mode='delta', value=500, points=[a point near the north end].
+- "cut that duct back by 150" -> mode='delta', value=-150.
+- "make those branch lines exactly 2400 long" -> mode='total', value=2400, the branch handles.
+- "lengthen the arc by 25 percent" -> mode='percent', value=125.
+- *Not for:* the end has to reach a wall or another line - use autocad_trim_extend; or to a point - use autocad_edit_vertex.
+
+**Where to find it.** There is no ribbon button for it. Ask Claude in the chat, in plain words. Needs the **Changes** padlock ON (Heron tab > Settings > Changes).
+
+**How to use it.**
+1. Open the drawing in AutoCAD and press **Heron** on the Heron tab (or type `HERON`), so the heron is orange.
+2. In **Settings**, turn **Changes** ON (each asks first). They are all OFF when AutoCAD starts.
+3. Ask Claude, for example: *"make that pipe 500 longer at the north end"*
+4. Read the first line of the answer: DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN. Ask for a preview to look at the result.
+
+**What it needs from you.**
+- Needs `handles`: The lines, arcs or open polylines to make longer or shorter.
+- Needs `mode`: 'delta' adds 'value' to the length (a negative value shortens it); 'total' makes the whole object 'value' long;
+- Needs `value`: The distance, the total length or the percent, as 'mode' says.
+- Optional: `end`, `points`, `coords`.
+
+**The result to expect.**
+- One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
+- It is one undo step. Add `dry_run=true` to try it first: it runs, reports, and Heron goes back to its UNDO mark.
+- Technical shape of the answer: `JSON: {"mode", "done": n, "objects": [{"handle", "end", "was", "now", "changed_by"}], "failed": [{"handle", "reason"}]}`
+
+**Limits and versions.**
+- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BH1, BH2, BH3, BH4).
+
 ### `autocad_list_entities`
 
 **What it does.** List entities in the active drawing, filtered by type, layer or colour.
@@ -1775,7 +1812,7 @@ Three modes, picked by which arguments you pass: - point1 + point2: straight-lin
 - Returns an error naming the three modes if no usable combination of arguments is given.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA7, BB4, BB5, AO9).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA7, BB4, BB5, AO9, BH3).
 
 ### `autocad_mirror_entities`
 
@@ -1969,7 +2006,7 @@ The centroid (closed shapes) is the place for a room or zone tag.
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows W7, AA8).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows W7, AA8, BH4).
 
 ### `autocad_rotate_entities`
 
