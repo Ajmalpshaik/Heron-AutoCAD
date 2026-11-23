@@ -298,6 +298,27 @@ def faster_read(operation: str, args: dict[str, Any]) -> dict[str, Any] | None:
         return None  # the plug-in could not read it (its words end "Nothing was changed."); COM can
 
 
+def faster_change(operation: str, args: dict[str, Any], what: str) -> dict[str, Any] | None:
+    """A change over many objects the plug-in makes in one transaction (D-144), or None: make it over COM.
+
+    On the worker thread, inside the tool's job and its UNDO mark. None, with
+    nothing changed, when the plug-in is not in this job (--no-bridge), is
+    older than READS_SINCE or does not have the operation. Anything else is
+    raised, never made again over COM: the plug-in's refusal ends "Nothing was
+    changed.", so the change it refused all or none of is not half made after it.
+    """
+    runner = plugin_runner()
+    if runner is None or older(plugin_version(), READS_SINCE):
+        return None
+    try:
+        return in_plugin(operation, args, what)
+    except BridgeRefused as exc:
+        text = str(exc)
+        if OLD_PLUGIN in text or "does not have the operation" in text:
+            return None
+        raise
+
+
 def plugin_created(doc: Any, report: dict[str, Any]) -> dict[str, Any]:
     """The payload for something the plug-in made, read back over COM.
 
