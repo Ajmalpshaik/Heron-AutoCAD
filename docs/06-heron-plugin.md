@@ -169,7 +169,7 @@ For each tool call the server ([`core/gate.py`](../src/autocad_mcp/core/gate.py)
 4. runs the tool over COM, as one undo group - or, for what COM has no call for, asks the plug-in
    to do it with `run` (section 6a);
 5. if `begin` said it will ask and the call wrote something, sends `ask_keep`; on Discard, UNDO back to the mark put down before step 4;
-6. sends `end`, and writes the audit line.
+6. sends `end` (with `marked`: whether its UNDO mark is really there, [D-130](DECISIONS.md)), and writes the audit line.
 
 Every refusal ends with **"Nothing was sent to AutoCAD."**: refusals happen before anything in the
 drawing is read or changed. The one thing Heron does first is look up which AutoCAD and which
@@ -344,7 +344,7 @@ job or a job that made and changed nothing has no buttons at all.
 |---|---|---|---|
 | **Select** | Selects what the job made or changed (up to 500) | the job left objects to show, and was not discarded or undone | a job is running; another drawing is in front |
 | **Zoom** | The same, and zooms to it. Leaves no undo step of its own | the same | the same |
-| **Undo** | Undoes the job: `UNDO Back` to its mark when Ask to Keep was on, else one `UNDO 1`; then checks that what it made is gone | Heron's newest job, a drawing change that ended done and changed something (see below) | see below |
+| **Undo** | Undoes the job: `UNDO Back` to its mark when the server says at `end` that it put one down ([D-130](DECISIONS.md)), else one `UNDO 1`; then checks that what it made is gone | Heron's newest job, a drawing change that ended done and changed something (see below) | see below |
 
 Select and Zoom work whichever chat holds this AutoCAD. **Undo is yours**, like Ctrl+Z: no padlock is
 needed and it works on any chat's job, but only by the D-54 rule, so your own work is never taken
@@ -353,8 +353,14 @@ with it. The button is not shown when:
 - it is not Heron's newest change here, or the job is still running;
 - it ran an AutoCAD command, AutoLISP or a save (Admin or Publish), was discarded, did not finish
   cleanly, changed nothing, or was itself an undo;
-- Ask to Keep was off for it and Heron zoomed or showed objects since (one step back would undo the
-  zoom).
+- Heron put no UNDO mark down before it and zoomed or showed objects since (one step back would undo
+  the zoom);
+- Heron put no UNDO mark down before it and the erase question brought erased objects back after it
+  (one step back would erase them again, [#244](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/244)).
+
+There is a mark only when the server says so at `end`. With Ask to Keep on, the server still puts no
+mark down when AutoCAD is in a command, and it never says "marked" for a job it did not mark; an older
+server that says nothing counts as no mark ([D-130](DECISIONS.md)).
 
 When it is shown, the press still refuses, and says why, when:
 

@@ -76,8 +76,8 @@ namespace Heron.AutoCAD.Bridge
                         Summary = string.IsNullOrWhiteSpace(job.Summary) ? job.Tool : job.Summary,
                         Drawing = job.Drawing,
                         Risk = job.Risk,
-                        // The server puts an UNDO mark down only for a Change job it will ask about.
-                        Marked = job.AskToKeep && job.Risk == Risk.Change && job.Tool != UndoTool,
+                        // Not known until end: the server says whether it really put a mark down (#206).
+                        Marked = false,
                         At = at,
                         Running = true,
                     });
@@ -104,6 +104,9 @@ namespace Heron.AutoCAD.Bridge
                 entry.Ok = end.Ok;
                 entry.Outcome = string.IsNullOrEmpty(end.Outcome) ? (end.Ok ? "done" : "failed") : end.Outcome;
                 entry.Ms = end.Ms;
+                // The server's own word, never a guess from Ask to Keep (#206): it skips the
+                // mark in a command or on a busy AutoCAD, and UNDO Back would then go past the job.
+                entry.Marked = end.Marked && entry.Risk == Risk.Change && entry.Tool != UndoTool;
                 if (counted != null)
                 {
                     entry.Counted = true;
@@ -156,6 +159,38 @@ namespace Heron.AutoCAD.Bridge
             Changed?.Invoke();
         }
 
+        /// <summary>
+        /// The Keep or Discard question selected and zoomed to this job (D-130).
+        /// That zoom is an undo step of its own after the job, as a Heron zoom
+        /// after it is: with no mark, one step back would undo the zoom.
+        /// </summary>
+        public void ShownForKeep(string job)
+        {
+            lock (_gate)
+            {
+                var entry = Find(job);
+                if (entry == null) return;
+                entry.ViewsSince++;
+            }
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// The erase question brought this job's erased objects back, or is about
+        /// to (#244). That restore is an undo step of its own after the job, so
+        /// one step back would erase them again instead of undoing the job.
+        /// </summary>
+        public void BroughtBack(string job)
+        {
+            lock (_gate)
+            {
+                var entry = Find(job);
+                if (entry == null) return;
+                entry.BroughtBack = true;
+            }
+            Changed?.Invoke();
+        }
+
         /// <summary>May the palette select or zoom to what this job made or changed?</summary>
         public ShowVerdict CanShow(string job, string activeDrawing)
         {
@@ -204,6 +239,7 @@ namespace Heron.AutoCAD.Bridge
                 if (facts.UndoControl < 0 || (facts.UndoControl & 1) == 0 || (facts.UndoControl & 2) != 0)
                     return UndoVerdict.No(PaletteTexts.UndoOff);
                 if (!entry.Marked && entry.ViewsSince > 0) return UndoVerdict.No(PaletteTexts.UndoViewsSince);
+                if (!entry.Marked && entry.BroughtBack) return UndoVerdict.No(PaletteTexts.UndoAfterRestore);
                 return new UndoVerdict
                 {
                     Allowed = true,
@@ -229,7 +265,7 @@ namespace Heron.AutoCAD.Bridge
         public string Summary { get; set; } = "";
         public string Drawing { get; set; } = "";
         public Risk Risk { get; set; }
-        /// <summary>The server put an UNDO mark down before it (Ask to Keep was on).</summary>
+        /// <summary>The server said at end that it put an UNDO mark down before it (#206); false when it did not say.</summary>
         public bool Marked { get; set; }
         public DateTime At { get; set; }
         public bool Running { get; set; }
@@ -246,8 +282,10 @@ namespace Heron.AutoCAD.Bridge
         public string[] AddedHandles { get; set; } = new string[0];
         /// <summary>What it made or changed, for Select and Zoom.</summary>
         public string[] ShownHandles { get; set; } = new string[0];
-        /// <summary>Zooms and shows by Heron since it ended: each is an undo step of its own.</summary>
+        /// <summary>Zooms and shows by Heron since it ended, and the Keep question's zoom: each is an undo step of its own.</summary>
         public int ViewsSince { get; set; }
+        /// <summary>The erase question brought its erased objects back: an undo step after the job (#244).</summary>
+        public bool BroughtBack { get; set; }
         public bool Undone { get; set; }
 
         /// <summary>One line, in plain words: "made 3, changed 1, erased 0".</summary>

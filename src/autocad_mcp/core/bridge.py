@@ -270,10 +270,14 @@ class Bridge:
         self.drawing_seq_at_begin = seq if isinstance(seq, int) and not isinstance(seq, bool) else None
         return job, reply.get("askToKeep") is True
 
-    def end(self, job: str, ok: bool, outcome: str, summary: str, ms: int) -> None:
-        """Tell the plug-in the job finished. Never raises: the work is already done."""
+    def end(self, job: str, ok: bool, outcome: str, summary: str, ms: int, marked: bool = False) -> None:
+        """Tell the plug-in the job finished. Never raises: the work is already done.
+
+        ``marked``: Heron really put an UNDO mark down before the job. The
+        palette's Undo goes back to it only then; it never guesses (#206).
+        """
         try:
-            self.call("end", job=job, ok=ok, outcome=outcome, summary=summary, ms=ms)
+            self.call("end", job=job, ok=ok, outcome=outcome, summary=summary, ms=ms, marked=marked)
         except AutocadError:
             pass
 

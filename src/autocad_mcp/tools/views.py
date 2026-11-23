@@ -57,14 +57,17 @@ def _views(doc: Any) -> dict[str, Any]:
 
 
 def _refuse_a_layouts_view(doc: Any, existing: Any, name: str) -> None:
-    """Refuse to replace a view that belongs to a layout (a sheet), plainly (#190, D-128).
+    """Refuse to replace a view that is not provably the Model tab's, plainly (#190, D-128).
 
     A sheet's saved view ("DETAIL-A") is not a model view: deleting it to
     make a model view of the same name would break whatever on the sheet uses
     it. A view is the Model tab's only when its LayoutId is the Model layout's
-    own ObjectID (as RenderView.cs checks the plug-in's camera view). When
-    that cannot be read, the view is not deleted either: nothing proves it is
-    a model view. A busy AutoCAD is not "cannot be read": it goes up as it is.
+    own ObjectID. Three cases, and the view is deleted only in the first:
+    - equal to the Model layout's id: replaced;
+    - a different, real id: "is a view of a layout (a sheet)";
+    - 0, missing or unreadable: AutoCAD did not say, so nothing proves it is a
+      model view and it is not deleted either.
+    A busy AutoCAD is not "cannot be read": it goes up as it is (D-100).
     """
     try:
         layout = doc.Layouts.Item("Model")
@@ -76,15 +79,19 @@ def _refuse_a_layouts_view(doc: Any, existing: Any, name: str) -> None:
     belongs = _read(existing, "LayoutId")
     try:
         ids = {int(v) for v in (model, model_32) if v is not None}
-        is_model = belongs is not None and int(belongs) in ids
+        which = int(belongs) if belongs is not None else 0
     except (TypeError, ValueError):
-        is_model = False
-    if is_model:
+        ids, which = set(), 0
+    if which and which in ids:
         return
+    if which and ids:
+        raise AutocadError(
+            f"'{name}' is a view of a layout (a sheet), not of the model, so replace=true does not replace it "
+            "and nothing was changed. Give the new view another name."
+        )
     raise AutocadError(
-        f"'{name}' is a view of a layout (a sheet), not of the model, so replace=true does not replace it "
+        f"AutoCAD did not say which tab the view '{name}' belongs to, so replace=true did not replace it "
         "and nothing was changed. Give the new view another name."
-        + ("" if belongs is not None else " (AutoCAD did not say which layout the view belongs to.)")
     )
 
 

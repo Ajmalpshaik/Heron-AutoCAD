@@ -314,3 +314,28 @@ def test_an_undo_that_did_not_take_says_outcome_unknown(undoable):
 
 def test_nothing_to_undo_says_so(fresh):
     assert "no change of its own to undo" in asyncio.run(activity.autocad_undo_last())
+
+
+def test_undo_last_after_the_keep_questions_zoom_without_a_mark_is_refused(undoable):
+    gate._remember("autocad_move_entities", Risk.CHANGE, r"C:\a.dwg", True, "done", 0.0,
+                   _job("autocad_move_entities"), '{"moved": 1}', None, True, False, zoomed=True)  # fmt: skip
+    result = asyncio.run(activity.autocad_undo_last())
+    assert "zoomed" in result and "Keep or Discard question" in result and undoable.sent == []
+
+
+def test_undo_last_after_an_empty_marked_job_says_nothing_to_undo(undoable):
+    # #209: a later Change job put a mark down and wrote nothing; UNDO Back would stop at its mark.
+    gate._last_change["marked"] = True
+    gate._remember("autocad_move_entities", Risk.CHANGE, r"C:\a.dwg", False, "failed", 0.0,
+                   _job("autocad_move_entities"), "Error: Invalid input - no handles", None, False, True)  # fmt: skip
+    assert "no change of its own to undo" in asyncio.run(activity.autocad_undo_last())
+    assert undoable.sent == []
+
+
+def test_undo_last_after_the_erase_question_brought_objects_back_says_nothing_to_undo(undoable):
+    # #209: one UNDO step back could be the plug-in's restore and erase them again.
+    gate._remember("autocad_trim_extend", Risk.CHANGE, r"C:\a.dwg", True, "done", 0.0,
+                   _job("autocad_trim_extend"), '{"created": true, "handle": "3B"}',
+                   {"added": 1, "modified": 0, "erased": 0}, True, False, brought_back=True)  # fmt: skip
+    assert "no change of its own to undo" in asyncio.run(activity.autocad_undo_last())
+    assert undoable.sent == []

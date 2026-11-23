@@ -118,8 +118,16 @@ class TestAWindowView:
         unknown = SavedView("DETAIL-A", layout_id=None)
         doc = drawing(unknown)
         text = asyncio.run(views.autocad_save_view(name="DETAIL-A", replace=True, **WINDOW))
-        assert refused(text) and "did not say which layout" in text
+        assert text.startswith("Error:") and "did not say which tab" in text and "another name" in text
         assert not unknown.deleted and doc.Views.added == []
+
+    def test_a_view_with_layout_id_zero_is_not_deleted(self, drawing):
+        # What a model view might report if AutoCAD keeps no layout for it: never deleted on a guess.
+        zero = SavedView("PUMP-AREA", layout_id=0)
+        doc = drawing(zero)
+        text = asyncio.run(views.autocad_save_view(name="PUMP-AREA", replace=True, **WINDOW))
+        assert text.startswith("Error:") and "did not say which tab" in text
+        assert not zero.deleted and doc.Views.added == []
 
     def test_a_busy_read_of_the_layout_goes_up_and_nothing_is_deleted(self, drawing, monkeypatch):
         monkeypatch.setattr(connection.time, "sleep", lambda seconds: None)

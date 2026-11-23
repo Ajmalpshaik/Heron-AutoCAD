@@ -73,7 +73,9 @@ namespace Heron.AutoCAD.Bridge
                 && job.Ok && job.Outcome == "done"
                 && job.Counted && job.Added + job.Modified + job.Erased > 0
                 // With no UNDO mark, one step back would undo Heron's zoom instead.
-                && (job.Marked || job.ViewsSince == 0);
+                && (job.Marked || job.ViewsSince == 0)
+                // With no UNDO mark, one step back would be the erase question's restore (#244).
+                && (job.Marked || !job.BroughtBack);
             return new JobButtons { Select = show, Zoom = show, Undo = undo };
         }
     }

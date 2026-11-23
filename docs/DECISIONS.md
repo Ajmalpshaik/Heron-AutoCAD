@@ -31,8 +31,61 @@ equals the Model layout's `ObjectID` (or `ObjectID32`), the same test `RenderVie
 camera view. Otherwise it is refused in plain words and nothing is deleted: "'DETAIL-A' is a view of a
 layout (a sheet), not of the model, so replace=true does not replace it and nothing was changed. Give
 the new view another name."
-- **Unreadable is refused too.** If AutoCAD does not give `LayoutId` (or the Model layout), nothing proves it is a model view, so it is not deleted and the message says AutoCAD did not say which layout. A busy refusal on those reads goes up as it is (D-100). The price: if this AutoCAD's views have no readable `LayoutId`, `replace=true` is refused for every view. Live rows AV5-AV7 check exactly that; if AV6 is refused, the fix is to read the layout another way, not to delete.
+- **Three cases.** The view is deleted only when its `LayoutId` equals the Model layout's `ObjectID` (or `ObjectID32`). A different, real id is "a view of a layout (a sheet)". A `LayoutId` of 0, missing or unreadable says "AutoCAD did not say which tab the view belongs to": nothing proves it is a model view, so it is not deleted. A busy refusal on those reads goes up as it is (D-100).
+- **What is known and what is not.** The type library of this install (`acax26enu.tlb`, read offline on 2026-11-23) has `IAcadView.LayoutId` and `IAcadLayout.ObjectID`, so the members exist. NOT known: what a Model-tab view reports (the Model layout's id, or 0). The issue's pointer to `RenderView.cs` is loose: that file tests `IsPaperspaceView`, not a layout id. If a model view reports 0, `replace=true` is refused for every view: the failure is a refusal, never a deletion. Live rows AV5-AV7 decide it; if AV6 is refused, the follow-up is a plug-in read of the view's paper-space flag (as `RenderView.cs` reads it), not deleting on a guess.
 - Without `replace`, the old "already has a view called" refusal is unchanged.
+
+## D-130 - The palette's Undo takes the server's word on the UNDO mark; the gate's answers follow what the drawing holds
+
+**Decided:** 2026-11-23, by session S4 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force;
+tested offline only (bridge tests in `PaletteTests.cs` and `BridgeTests.cs`; Python tests in
+`tests/test_gate.py`, `tests/test_busy_refusals.py`, `tests/test_memory_and_checks.py`,
+`tests/test_why_and_gaps.py`), live rows NOT RUN (NEEDS-CHECKING Group AX). Issues
+[#206](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/206),
+[#209](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/209) and
+[#244](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/244). Refines D-54, D-68 and D-124; they
+are not rewritten.
+
+- **The mark is the server's word (#206).** `end` carries `marked`: true only when the gate really
+  put its UNDO mark down before the job. `ActivityLog` sets `Marked` from it at `end`, and only for a
+  Change job that is not itself an undo. It no longer works it out from Ask to Keep at `begin`.
+  Ask to Keep on is not enough: the gate puts no mark down when AutoCAD is in a command
+  (`CMDACTIVE`), when UNDO is off or keeps one step, or when UNDOCTL cannot be read. `UNDO Back` with
+  no mark of the job's own goes back to an earlier mark, and the earlier Heron job and the modeller's
+  work go with it. A missing `marked` (an older server) or anything but a JSON `true` is no mark, so
+  the palette's Undo is `UNDO 1`. D-68's rule otherwise stands: with no mark, a Heron zoom or show
+  since refuses.
+- **The Keep question's zoom counts as a zoom since.** A job can now be asked Keep or Discard with no
+  mark (AutoCAD was in a command). Before, "asked" always meant Back, which took the question's own
+  select-and-zoom with it. That zoom (`Showing.SelectAndZoom`, COM `ZoomWindow`, undo recording on) is
+  an undo step after the job. So with no mark, `ActivityLog.ShownForKeep` counts it as a view since,
+  and the gate keeps `views_since` 1 for `autocad_undo_last`. Both then refuse one step, as for any
+  Heron zoom since.
+- **A busy AutoCAD is never "no mark".** `_mark()` lets every retryable error up
+  (`errors.is_retryable`, wider than the busy refusal it let up before). The retry loop asks again,
+  and an AutoCAD still busy ends the call before anything is sent (D-100). Why there is no mark is
+  kept, so a Discard that cannot run says the real reason (in a command, UNDOCTL not readable, UNDO
+  off) instead of always "UNDO is off (UNDOCTL)".
+- **After the erase question brought objects back (#209.1).** `_ask_erase` returns its answer. The
+  objects brought back are taken off the count: `heron_changes`, the activity list and the plain line
+  count only what is still erased. A Change job with everything back and nothing else counted is
+  NOTHING CHANGED, with a sentence saying so. An Admin job (a raw command) stays DONE with the
+  "not counted" wording, because a command can change settings that are not counted. This departs from
+  the issue's "NOTHING CHANGED" for that one case. In every other case the line ends with what came
+  back: all, some ("1 of the 4"), the plug-in's own message when it could only queue the restore (then
+  no count changes, because nothing is back yet), or "none came back: look at the drawing".
+- **No one-step undo after a restore (#209.1, #244).** The plug-in brings objects back in its own
+  transaction after the job, so the last undo step is the restore. `autocad_undo_last` is given
+  nothing to undo after any restore. The palette refuses and hides an unmarked Undo for that job
+  (`ActivityLog.BroughtBack`, told by the add-in's `AskErase`). With a real mark, `UNDO Back` goes past
+  the restore to the mark and is still offered.
+- **An empty mark ends the chat's undo (#209.2).** A Change job that put a mark down and wrote nothing
+  leaves `_last_change` empty. Its mark is now the newest, so `UNDO Back` for the older job would stop
+  there, undo nothing, and with no new handles to check say "undone".
+- **`gaps` advice (#209.3).** `outcome_unknown` and `discard_failed` are matched before
+  `autocad_busy`. Their messages often say AutoCAD was busy, and "Press Esc, then try again" is the one
+  thing not to do after them.
+- No protocol version bump: the new field is optional both ways.
 
 ## D-129 - Text sent to AutoLISP has every control character escaped; a LISP error is answered at once
 

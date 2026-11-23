@@ -44,7 +44,7 @@ from .bridge import (
 )
 from .connection import get_app, run
 from .drawing_events import Mark, Verdict, front_moved, judge
-from .errors import AutocadError, raise_if_busy
+from .errors import AutocadError, is_retryable, raise_if_busy
 from .risk import Risk, risk_of
 
 DISCARDED = "Discarded: nothing was kept."
@@ -101,6 +101,11 @@ _last_drawing: str | None = None
 # Where the plug-in's drawing log stood when Heron checked _last_drawing (#48), or None.
 _checked_mark: Mark | None = None
 _current: Job | None = None  # the job whose tool is running right now
+# Why the last _mark() put no mark down, for the words of a Discard that cannot run (#206).
+NO_MARK_UNDO_OFF = "undo_off"
+NO_MARK_IN_COMMAND = "in_command"
+NO_MARK_UNREAD = "unread"
+_no_mark: str = ""
 
 
 @dataclass
@@ -277,25 +282,51 @@ async def _mark() -> bool:
 
     In a command, "_.UNDO _Mark " would be typed into that command's prompt and
     no mark made; a later UNDO Back would then go past the job, into the
-    modeller's own work. So no mark, and nothing that needs one.
+    modeller's own work. So no mark, and nothing that needs one. Why there is
+    none is kept in ``_no_mark``, so a Discard says the real reason. A busy
+    AutoCAD (any retryable error) goes up, never "no mark": the retry asks
+    again, and a busy AutoCAD past it ends the call before anything is sent
+    (#206). The plug-in is told at ``end`` whether the mark is there.
     """
+    global _no_mark
+    _no_mark = ""
 
     def mark() -> bool:
+        global _no_mark
         doc = get_app().ActiveDocument
         try:
             control = int(doc.GetVariable("UNDOCTL"))
             if int(doc.GetVariable("CMDACTIVE")) != 0:
+                _no_mark = NO_MARK_IN_COMMAND
                 return False
-        except Exception as exc:  # noqa: BLE001 - cannot tell: treat as off, never guess
-            raise_if_busy(exc)
+        except Exception as exc:  # noqa: BLE001 - cannot tell: no mark, never guess
+            if is_retryable(exc):
+                raise
+            _no_mark = NO_MARK_UNREAD
             return False
         # Bit 1: undo on. Bit 2: only one step kept, so a mark means nothing.
         if not control & 1 or control & 2:
+            _no_mark = NO_MARK_UNDO_OFF
             return False
         doc.SendCommand("_.UNDO _Mark ")
         return True
 
     return await run(mark)
+
+
+def _no_mark_reason() -> tuple[str, str]:
+    """Why there was no UNDO mark for this job, in the words of a Discard that cannot run (#206)."""
+    if _no_mark == NO_MARK_IN_COMMAND:
+        return (
+            "AutoCAD was in a command when the job began, so Heron put no UNDO mark down",
+            "Press Esc in AutoCAD before the next job",
+        )
+    if _no_mark == NO_MARK_UNREAD:
+        return (
+            "Heron could not read UNDOCTL before the job, so it put no UNDO mark down",
+            "Look at the drawing",
+        )
+    return "UNDO is off in this drawing (UNDOCTL)", "Turn UNDO on (UNDO > All)"
 
 
 async def _discard() -> None:
@@ -520,7 +551,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
 
         ok, outcome, result = False, "failed", None
         counted: dict[str, Any] | None = None
-        wrote = marked = False
+        wrote = marked = brought_back = asked_keep = False
         # Status reads the drawing found above: where the drawing log stood
         # then is its mark, so a close during the call is not swallowed (#48).
         mark_before = await _mark_now(job, pid) if tool == STATUS_TOOL else None
@@ -596,8 +627,8 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 if boxes:
                     result = _with_dialogs(result, boxes)
 
-            asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES
-            said: tuple[str, str] | None = None
+            asked_keep = bool(ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES)
+            said: tuple[str | None, str] | None = None
             if dry_run:
                 # No question: whatever it did is taken back now (D-63).
                 result, outcome, said = await _roll_back(result, text, ok, counted, wrote)
@@ -613,7 +644,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 # Anything erased gets a human yes, whatever Ask to Keep says (D-50),
                 # unless the modeller turned the erase question off in Settings:
                 # the plug-in decides that and says so, never the server.
-                result = await _ask_erase(job, result, counted["erased"])
+                result, counted, said, brought_back = await _ask_erase(job, result, counted, risk)
 
             if job and risk in WATCHED:
                 # One plain line first: DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN (D-62).
@@ -637,11 +668,15 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
             return result
         finally:
             if job and job.bridge:
-                await asyncio.to_thread(job.bridge.end, job.id, ok, outcome, job.title, _ms(started))
+                # Whether Heron's UNDO mark is really there: the palette's Undo goes back to it only then (#206).
+                await asyncio.to_thread(job.bridge.end, job.id, ok, outcome, job.title, _ms(started), marked)
             # The audit keeps the tool's own words, without the plain line (D-62).
             message = "" if ok or not isinstance(result, str) else answers.body(result)
             _record(tool, risk, drawing, ok, outcome, started, message)
-            _remember(tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked, dry_run)
+            _remember(
+                tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked, dry_run,
+                brought_back=brought_back, zoomed=asked_keep,
+            )
             if companion.enabled():
                 companion.write(companion_state())  # the Companion page, once the chat asked for it (D-71)
 
@@ -711,11 +746,11 @@ async def _keep_or_discard(job: Job, text: str, marked: bool) -> tuple[str, str,
     if answer != "discard":
         return _with_note(text, COULD_NOT_ASK), "done", None
     if not marked:
+        why, fix = _no_mark_reason()
         return (
-            "Error: Discard not possible: UNDO is off in this drawing (UNDOCTL), so the change "
-            "is still there. Remove it by hand, or turn UNDO on (UNDO > All).",
+            f"Error: Discard not possible: {why}, so the change is still there. Remove it by hand. {fix}.",
             "failed",
-            (answers.DONE, "the change is still in the drawing: Discard was not possible, because UNDO is off."),
+            (answers.DONE, f"the change is still in the drawing: Discard was not possible, because {why}."),
         )
     try:
         await _discard()
@@ -788,13 +823,40 @@ def _with_dialogs(result: Any, boxes: list[dict[str, Any]]) -> Any:
     return result + "".join(f"\n\nheron_dialog: {line}" for line in said)
 
 
-async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
+def _restate_changes(result: Any, before: dict[str, Any], now: dict[str, Any]) -> Any:
+    """The heron_changes _with_changes added, said again with the counts as they are now."""
+    if not isinstance(result, str):
+        return result
+    keys = ("added", "modified", "erased")
+    payload = _payload(result)
+    if isinstance(payload, dict):
+        if "heron_changes" in payload:
+            payload["heron_changes"] = {key: now[key] for key in keys}
+            return json.dumps(payload, indent=2, default=str)
+        return result
+    old = f"heron_changes: {json.dumps({key: before[key] for key in keys})}"
+    return result.replace(old, f"heron_changes: {json.dumps({key: now[key] for key in keys})}", 1)
+
+
+async def _ask_erase(
+    job: Job, result: Any, counted: dict[str, Any], risk: Risk
+) -> tuple[Any, dict[str, Any], tuple[str | None, str] | None, bool]:
+    """The erase question (D-50), and what the drawing holds after its answer (#209).
+
+    Returns (result, the counts as they are now, the plain line's word and
+    reason when the gate knows better than the counts, and whether anything
+    was or is being brought back). Objects the modeller had brought back are
+    no longer erased: the line, heron_changes and the activity list say so.
+    """
+    erased = int(counted["erased"])
     beat = progress.start(lambda seconds: ERASE_WAITING.format(count=erased, seconds=int(seconds)))
     try:
         answer = await asyncio.to_thread(job.bridge.ask_erase, job.id, job.title)
     finally:
         progress.stop(beat)
     said = answer.get("answer")
+    now, brought_back = counted, False
+    line: tuple[str | None, str] | None = None
     if said == "keep_erased" and answer.get("asked") is False:
         # Never "the modeller chose": nobody was asked (D-50, D-62).
         where = (
@@ -816,21 +878,50 @@ async def _ask_erase(job: Job, result: Any, erased: int) -> Any:
         )
         if answer.get("message"):
             note += " " + answer["message"]
+        # The plug-in un-erased them after the job: one UNDO step back may be that, not the job.
+        brought_back = True
+        restored = min(max(int(answer.get("restored", 0) or 0), 0), erased)
+        if restored:
+            now = {**counted, "erased": erased - restored}
+            result = _restate_changes(result, counted, now)
+        others = int(now.get("added", 0)) + int(now.get("modified", 0))
+        if restored == erased and not others and risk is Risk.CHANGE:
+            line = (
+                answers.NOTHING_CHANGED,
+                f"the job erased {erased} object(s) and the modeller had all of them brought back, "
+                "so no drawing object is added, changed or erased now.",
+            )
+        elif restored == erased:
+            line = (None, f"The modeller had all {erased} erased object(s) brought back.")
+        elif restored:
+            line = (None, f"The modeller had {restored} of the {erased} erased object(s) brought back.")
+        elif answer.get("message"):
+            # Not back yet (or never): the count is what the drawing held when Heron asked.
+            line = (None, str(answer["message"]))
+        else:
+            line = (None, f"The modeller asked for the {erased} erased object(s) back, but none came back: look at the drawing.")
     elif said == "nothing_erased":
-        return result
+        return result, counted, None, False
     else:
         note = (
             f"The job erased {erased} object(s) and Heron could not ask the modeller about it. "
             "Tell the modeller, and look at the drawing."
         )
-    return _with_note(result, note) if isinstance(result, str) else result
+    return (_with_note(result, note) if isinstance(result, str) else result), now, line, brought_back
 
 
 def _remember(
     tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float, job: Job | None,
     result: Any, counted: dict[str, Any] | None, wrote: bool, marked: bool, dry_run: bool = False,
+    brought_back: bool = False, zoomed: bool = False,
 ) -> None:
-    """The activity list, and what "undo Heron's last change" may undo (D-54)."""
+    """The activity list, and what "undo Heron's last change" may undo (D-54).
+
+    brought_back: the erase question put erased objects back after the job, so
+    the last UNDO step may be that restore and not the job (#209).
+    zoomed: the Keep or Discard question zoomed to the job, an undo step of its
+    own: with no mark, one step back would be that zoom (D-130).
+    """
     global _last_change
     text = result if isinstance(result, str) else ""
     created = _created(text) if ok else []
@@ -857,13 +948,21 @@ def _remember(
         if ok:
             _last_change = None
         return
+    if brought_back:
+        # One UNDO step back could erase again what the modeller had brought back: undo nothing on a guess.
+        _last_change = None
+        return
     if risk is Risk.VIEW and _last_change is not None:
         _last_change["views_since"] += 1
     elif risk is Risk.CHANGE and wrote:
         _last_change = (
-            {**entry, "created": created, "marked": marked, "views_since": 0}
+            {**entry, "created": created, "marked": marked, "views_since": 1 if zoomed else 0}
             if ok and outcome == "done" else None
         )  # fmt: skip
+    elif risk is Risk.CHANGE and marked:
+        # A mark with nothing after it (#209): it is now the newest UNDO mark, so UNDO Back for an
+        # older job would stop at it and undo nothing, and with no new handles to check say "undone".
+        _last_change = None
     elif risk in (Risk.ADMIN, Risk.PUBLISH) and wrote:
         _last_change = None  # a raw command or a save in between: no safe undo of what came before
 

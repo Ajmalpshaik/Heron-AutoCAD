@@ -51,7 +51,10 @@ namespace Heron.AutoCAD.Bridge
             "UNDO is off in this drawing, or keeps only one step (UNDOCTL), so Heron cannot undo this job exactly. Turn UNDO on (UNDO > All) for next time.";
 
         public const string UndoViewsSince =
-            "Heron zoomed or showed objects after this job, and with Ask to Keep off there is no UNDO mark to go back to, so one step back would undo the zoom instead. Use Ctrl+Z until it is gone.";
+            "Heron zoomed or showed objects after this job, and Heron put no UNDO mark down before it, so one step back would undo the zoom instead. Use Ctrl+Z until it is gone.";
+
+        public const string UndoAfterRestore =
+            "Heron brought objects this job erased back after it, and put no UNDO mark down before it, so one step back would erase them again instead of undoing the job. Use Ctrl+Z if you want it gone.";
 
         public static string Undone(string summary) => "Undone: " + summary + ".";
 
