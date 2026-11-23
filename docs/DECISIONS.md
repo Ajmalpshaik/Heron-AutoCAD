@@ -5,6 +5,43 @@
 
 ---
 
+## D-145 - The standards check's object facts are read by the plug-in in one go; the rules stay in Python
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #196 (rank 5 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BI).
+`autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour, ByLayer linetype,
+overlapping dimensions) ask the plug-in's new Read operation `entity_properties`; COM stays the
+fallback, as D-114 sets out. The rules:
+(1) **Raw facts, one loop.** The plug-in selects all of the drawing as the COM selection does
+(`Editor.SelectAll`, no filter) and sends, per object in the order selected: handle, class (COM's
+ObjectName), layer, colour as COM's Color number, linetype (COM's Linetype: `ByLayer`, `ByBlock` or the
+name) and, only for a class whose name holds the text the server sends in `box_classes`
+(`Dimension`, only when `forbid_overlapping_dimensions` is asked), the x and y of its
+`GeometricExtents` corners (COM's GetBoundingBox, as D-114's `entity_extents`; null when it has none).
+The server turns each row into a stand-in with COM's property names (`standards.PluginEntity`), and
+one loop (`standards.entity_rows`) reads COM objects and stand-ins alike. The rules (`standards.check`)
+are not touched.
+(2) **The cut-off from the same loop.** The server asks for `max_entities + 1` objects: the loop sees
+the one past the cut-off and says "Only the first n objects were read" (and `passed: null`) itself,
+either way. The plug-in counts the rest without opening them and sends `total`; an answer whose rows
+are not `min(total, limit)` is not used.
+(3) **Read over COM when not sure.** A colour that is not an AutoCAD Color Index number (a true
+colour, a colour book; .NET's `ColorMethod` other than ByLayer, ByBlock or ByAci) is sent as null:
+what COM's Color gives for one is not looked at yet (BI2). With `require_bylayer_color` asked, such an
+object among the ones read sends the whole read to COM; without it, the colour is not read at all, so
+the plug-in's answer stands. Also to COM: a box corner that is not finite, a row of the wrong shape,
+an object that is not an entity (the plug-in refuses the read).
+(4) **COM reads only what a rule needs.** The COM loop read colour and linetype of every object for
+every check; it now reads them only when `require_bylayer_color` / `require_bylayer_linetype` is asked
+(3 round trips per object instead of 5 for a layer-0 check). The answer is unchanged: `check` reads a
+row's colour and linetype only for those two rules.
+(5) **An older plug-in.** As D-127: `entity_properties` joins `bridge.NEWER_READS`; 1.8.0 and 1.8.1 say
+they do not have it, and the check reads over COM; the capability manifest names no "faster from"
+version for it until the release is named.
+(6) **Layers and the reference stay COM's.** The 9 reads per layer and the reference drawing compare
+are left: a drawing rarely has more than a few hundred layers, and `describe_layer` is shared with
+other tools. Rejected: moving the rules into the plug-in (two copies of them to keep the same), and a
+box for every object (`GeometricExtents` on 20,000 objects to use a handful).
 ## D-144 - Lengthen is its own tool; a fillet or chamfer takes a line, an arc or a polyline's end
 
 **Decided:** 2026-11-23, by session S17 of the 2026-11-23 wave, building issue
