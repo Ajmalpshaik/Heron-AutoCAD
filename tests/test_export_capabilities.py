@@ -163,11 +163,15 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
         assert reads["role"] == "when_there" and reads["operations"] == [operation], name
         assert "faster_from" not in reads, name
     # And the block attribute reads, the two writing tools' too: their writes stay COM's (D-138).
-    for name in ("autocad_extract_attributes", "autocad_export_attribute_sheet", "autocad_set_attributes",
-                 "autocad_apply_attribute_sheet"):
+    for name in ("autocad_extract_attributes", "autocad_export_attribute_sheet"):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == ["block_attributes"], name
         assert "faster_from" not in reads, name
+    # The two writing tools write through the plug-in too, in one transaction, when it is there (D-148).
+    for name in ("autocad_set_attributes", "autocad_apply_attribute_sheet"):
+        writes = by_name[name]["plugin"]
+        assert writes["role"] == "when_there" and writes["operations"] == ["block_attributes", "write_attributes"], name
+        assert writes["version_needed"] is None and "faster_from" not in writes, name
     # And the standards check's object facts; its layers and the reference stay COM's (D-145).
     standards = by_name["autocad_check_standards"]["plugin"]
     assert standards["role"] == "when_there" and standards["operations"] == ["entity_properties"]
