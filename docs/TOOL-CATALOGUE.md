@@ -4,7 +4,7 @@
 
 Every one of Heron's **199** tools, in plain words, grouped by the job it does. For each tool: what it does, the problem it solves, where to find it, how to use it step by step, what it needs from you, the result to expect, its limits, and whether anyone has seen it work in a real AutoCAD.
 
-> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **5** tools PASS, **14** PARTLY, **150** NOT RUN, **1** FAIL, **29** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
+> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **5** tools PASS, **14** PARTLY, **151** NOT RUN, **1** FAIL, **28** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
 
 ## How Heron's tools work (the same for every tool)
 
@@ -45,7 +45,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 
 | Tool | Group | Padlocks | Live proof |
 |---|---|---|---|
-| [`autocad_activity`](#autocad_activity) | Heron itself, looking, commands and settings | none: reads the drawing | NO ROW |
+| [`autocad_activity`](#autocad_activity) | Heron itself, looking, commands and settings | none: reads the drawing | NOT RUN |
 | [`autocad_add_camera_view`](#autocad_add_camera_view) | 3D, lights and rendering set-up | Changes | NOT RUN |
 | [`autocad_add_centre_marks`](#autocad_add_centre_marks) | Dimensions | Changes | NOT RUN |
 | [`autocad_add_construction_line`](#autocad_add_construction_line) | Drawing and coordinates | Changes | NOT RUN |
@@ -1293,7 +1293,7 @@ This removes geometry. The whole call lands as one undo step, so the user can re
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N6, N11).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N6, N11, AX4).
 
 ### `autocad_draw_order`
 
@@ -6268,7 +6268,7 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity** lists the sam
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NO ROW**: no row of the register names this tool, so nothing about it was checked in AutoCAD.
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AX4).
 
 ### `autocad_companion`
 
@@ -6327,7 +6327,7 @@ Works with AutoCAD closed. Reads Heron's audit log on this PC (one line per call
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows W2, W5, W6).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows W2, W5, W6, AX7).
 
 ### `autocad_get_selection`
 
@@ -6780,7 +6780,7 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**, the Undo but
 - Refused when Heron made no change in this chat, when the drawing is another one, when anything changed since, when Heron zoomed or ran a command since (with Ask to Keep off), or with a plug-in older than 1.5.0.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1, AX4, AX5, AX6, AX8).
 
 ### `autocad_use_autocad`
 
