@@ -195,7 +195,8 @@ and never downloads it; for another place, set `HERON_ODA_CONVERTER` to its
 | Claude Code (all projects) and Claude Desktop | one `autocad` entry each, written by `Install.ps1 -Connect` ([INSTALL section 5](INSTALL.md#5-connect-claude) says where it looks); each file it changes is kept first as `.heron-backup`, and an `autocad` entry already there is kept |
 | Start menu | **Heron AI for AutoCAD** > *Check for a newer Heron* and *Remove Heron AI for AutoCAD* |
 
-- **It stops, and changes nothing, while AutoCAD is open**, or while Claude is using Heron's
+- **It stops, and changes nothing, while your AutoCAD is open** (any of your Windows sessions; a
+  colleague's AutoCAD on a shared server does not count), or while Claude is using Heron's
   installed server. It checks again just before copying, in case AutoCAD was started meanwhile.
 - **Update:** close AutoCAD, run the newer setup. It replaces the whole plug-in folder. It works
   over a zip install too.

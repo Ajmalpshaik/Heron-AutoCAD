@@ -130,6 +130,27 @@ Gap: `send_command` / `run_lisp` paths that manage their own undo do not mark th
 An unreadable `heron-autocad.config` turns every padlock off (fail closed) but keeps the activity
 banner on, because the banner is what shows the modeller that Heron is working.
 
+## D-131 - Only this Windows user's AutoCAD stops the setup; checksums use LF; the bundle has no .pdb
+
+**Decided:** 2026-11-23, Ajmal's "Yes, next 10"; closes
+[#185](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/185) and
+[#232](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/232). **Status:** in force; offline tests
+(`tests/test_installer_polish.py`, `tests/test_installer.py`) and `Check-Setup.ps1` in `release.yml`;
+the live row on a shared server (AY1) NOT RUN.
+
+- **#185.** The "is AutoCAD running" check in `Install.ps1` and in the Inno setup counts an `acad.exe`
+  only when its owner (Windows' `Win32_Process.GetOwner`) is the user running the install. It does not
+  filter by session: your own AutoCAD left in a disconnected session of yours still holds your plug-in
+  files, so it still stops the install. An owner Windows will not say is treated as ours (the setup),
+  or as ours only from our own session (`Install.ps1`); a process list that cannot be read at all falls
+  back to "any acad.exe", so the check refuses too often rather than too rarely. The server check
+  (`autocad-mcp.exe` in Heron's folder) is unchanged.
+- **#232.** `checksums.txt` is written with LF line endings, so `sha256sum -c` works off Windows. The
+  `.pdb` debug files are left out of the plug-in bundle (`build_plugin.make_bundle`); `make_release.py`
+  stops the build if one is in the release folder, and `Check-Setup.ps1` fails if one is in the release
+  folder or the installed plug-in, or if `checksums.txt` has a carriage return.
+- No version bump: this ships with the next release.
+
 ## D-126 - The setup finds the Claude app's own Claude Code and settings, and never replaces an entry
 
 **Decided:** 2026-11-22, after AK13 failed with setup 1.8.0 on a PC where Claude is only the
