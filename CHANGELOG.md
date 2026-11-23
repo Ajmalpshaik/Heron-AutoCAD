@@ -19,6 +19,19 @@ Newest first. Dates are when the change was made.
   error at once naming it ("AutoCAD has no property or method 'Radius' on this object ... AutoCAD was not
   busy"); a busy AutoCAD is still asked again. `hasattr` and `getattr` defaults read it as "not there", as
   before. Server only. Tested offline only; live rows AL10 (the runner measures it) and AL11 NOT RUN.
+- **Flat views can show hidden lines; a section line can jog (2026-11-23,
+  [#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171), [D-152](docs/DECISIONS.md)).**
+  `autocad_flatten_views(hidden_lines=true)` also draws the hidden (obscured) lines, as FLATSHOT's "Obscured lines":
+  the plug-in makes each view twice (hidden lines off, then on) and keeps what the second adds, dashed inside the
+  view's block on their own layer (`hidden_layer`, default HIDDEN, made with the HIDDEN linetype if missing). A
+  hidden edge right behind a visible one is not drawn twice. `autocad_section_plane(jogged=true)` takes the corners of
+  a section line in plan (SECTIONPLANE's "Draw section"): each leg a vertical cut, laid beside the last at true size;
+  a jog (a leg along the view) is not drawn, so an offset section reads as one straight section. A line that walks
+  back across the view is refused. Both options are off by default, and then each tool asks the plug-in exactly
+  what it asked before. The pure parts are in the bridge (`ObscuredLines`, `JoggedSection`). Needs the plug-in built
+  from this change; an older one refuses a jogged line, and ignores hidden lines with a warning. Tested offline
+  only; not tested in AutoCAD: live rows AH17-AH21 NOT RUN (the runner measures AH17, AH19, AH20 and AH21).
+
 - **An extents preview no longer frames an object that was erased (2026-11-23,
   [#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269), [D-151](docs/DECISIONS.md)).** AutoCAD shrinks
   EXTMIN/EXTMAX only on ZOOM Extents, so after an erase `autocad_preview()` could still reach the erased object

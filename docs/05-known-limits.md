@@ -535,7 +535,7 @@ From [D-98](DECISIONS.md) (#48); all NOT RUN live (NEEDS-CHECKING group AJ).
 
 ## 32. 3D for MEP: duct runs, spools, flat views, sections, surfaces, meshes have their own limits
 
-From [D-94](DECISIONS.md) and [D-95](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AH).
+From [D-94](DECISIONS.md), [D-95](DECISIONS.md) and [D-152](DECISIONS.md); all NOT RUN live (NEEDS-CHECKING group AH).
 - **A duct run or a spool is its centreline through corner points**, with one bend per corner. A
   leg too short for the bends at its ends (radius x tan(angle / 2) each) or for a flange is refused
   with the numbers; a corner turning more than 179 degrees is refused. Fittings are plain: no
@@ -546,16 +546,25 @@ From [D-94](DECISIONS.md) and [D-95](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
   `up` says otherwise.
 - **Whether AutoCAD revolves a bend forwards** is not in its reference: Heron checks and makes it
   again the other way, and says so (`revolved_the_other_way`, row AH3).
-- **Flat views show visible lines only**: hidden lines are not drawn (there is no way to tell them
-  from visible ones in what AutoCAD gives back). Several solids are flattened each on its own, so
-  one does not hide another unless `join=true`, which also loses the line between flush faces.
-  Views are square on (front, top, right, left, back, bottom), not isometric.
-- **A section plane is straight**: two points (a vertical cut) or three (any plane), no jogs. By
-  default it cuts every solid in model space, at most 1,000; it does not cut surfaces, meshes or
-  blocks.
+- **Flat views show visible lines only unless `hidden_lines=true`.** Then each view is made twice
+  (hidden lines off, then on) and what the second adds is drawn dashed on its own layer (HIDDEN by
+  default). A line counts as hidden when most of it is off every visible line in the view, so a
+  hidden edge exactly behind a visible one is not drawn, and one partly hidden and partly visible
+  but not split by AutoCAD goes by its larger part. It takes about twice as long. The dashes follow
+  LTSCALE (and PSLTSCALE in a viewport). Several solids are flattened each on its own, so one does
+  not hide another unless `join=true`, which also loses the line between flush faces. Views are
+  square on (front, top, right, left, back, bottom), not isometric.
+- **A section plane is straight unless `jogged=true`**: two points (a vertical cut) or three (any
+  plane). A jogged line's legs are all vertical cuts, taken at the first corner's level; each leg is
+  laid beside the last at true size and a jog (a leg within 1 degree of the viewing direction) is
+  not drawn. A line that walks back across the view is refused: make two sections. Something seen
+  beyond an angled leg is put on the leg it is seen through at its middle, so a long line behind two
+  legs may land a little off. By default it cuts every solid in model space, at most 1,000; it does
+  not cut surfaces, meshes or blocks.
 - **Where AutoCAD puts a 2D section's lines** is not documented, so Heron lays them flat by what it
   finds and says which (`laid_flat_from`); a curve that has to be projected and cannot be, or a
-  hatch in that case, is dropped and counted (`dropped`). Rows AH4 and AH6 settle it.
+  hatch in that case, is dropped and counted (`dropped`). Rows AH4 and AH6 settle it; AH19 for a
+  jogged line.
 - **Surfaces and meshes**: a planar surface fills closed, flat outlines; a network surface needs
   each curve one way to cross every curve the other way. Mesh smoothness is 0 to 4. A mesh made
   from a solid uses the drawing's FACETER settings and keeps the solid.

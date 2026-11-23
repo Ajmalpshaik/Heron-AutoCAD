@@ -82,6 +82,60 @@ way. Read in the code and pywin32's `dynamic.py`; no AutoCAD here. Tested offlin
 
 ---
 
+## D-152 - Hidden lines in a flat view are the difference of two passes; a jogged section is laid out leg by leg
+
+**Decided:** 2026-11-23, by session S19 of the 2026-11-23 wave, for issue
+[#171](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/171) (left out of D-95 on purpose). **Status:** in
+force; extends D-95. Every new .NET call compiles for all three AutoCAD builds; none is tried in AutoCAD yet.
+Tested offline only (`ObscuredLinesTests.cs`, `JoggedSectionTests.cs`, `tests/test_model_views.py`); live rows
+AH17-AH20 NOT RUN.
+
+- **Hidden lines: two passes and the difference.** `GenerateSectionGeometry` gives visible and hidden
+  background lines in one list. With `hidden_lines=true`, `flat_views` generates each view twice from a
+  temporary section plane, hidden lines off (`SetHiddenLine(..., false)`, today's view) and then on; a line of
+  the second pass that the first does not cover is a hidden line (`Bridge/ObscuredLines.cs`). "Covers" is
+  measured in the view's own 2D (right, up), so a hidden edge straight behind a visible one is not drawn twice,
+  as a draftsman draws it: nine probes along each line, never at its ends (a hidden edge usually runs from one
+  visible edge to another), and the line is hidden when more than half are farther than a ten-thousandth of
+  the view's size (0.2 mm on a 2 m spool, so a pipe's bore stays apart from its wall) from every visible line.
+  Visible curves are measured against 256 points along them (a straight line by its ends, a polyline by its
+  corners), in a grid of cells so a big view stays quick. A line split differently in the two passes is still
+  covered.
+- **Where they go.** Inside each view's block, on their own layer (`hidden_layer`, default `HIDDEN`), colour
+  ByLayer, so the layer can be frozen or plotted lighter. A layer made for them gets the HIDDEN linetype,
+  loaded from acadiso.lin (metric drawing) or acad.lin if missing. A layer already there keeps its settings;
+  if its linetype is Continuous the hidden lines carry HIDDEN themselves, so they still show dashed. The
+  visible lines stay on layer 0, ByBlock, as before. Off by default: then the plug-in is asked exactly what it
+  was asked before and answers the same. An older plug-in ignores the option, so the server warns when the
+  answer has no `hidden_layer`.
+- **A jogged section line.** `section_plane` with `jogged=true` takes the corners of a section line in plan
+  (three to fifty), each leg a vertical cut, and sends them as `section_line` - never as `points`, so an
+  older plug-in refuses it (no points) instead of cutting a plane through the first three corners. AutoCAD's
+  `Section` takes every corner; the viewing direction is square to the first leg (left of it, or
+  `look_towards`). How the 2D section is laid out is the drafting rule for a section on more than one plane
+  (ISO 128-44): every leg is turned flat beside the one before, at true size, in the order walked; a **jog**
+  (a leg within 1 degree of the viewing direction) is not drawn and takes no width. So parallel legs read as
+  one straight section, exactly where a projection puts them, and a leg at an angle is turned into the
+  drawing plane round its corner. Each leg's move is rigid, so circles stay circles and hatches move with
+  them. The first and last legs reach on past their end corners, as a section plane's cut does.
+- **Where AutoCAD puts a jogged section's lines** is not documented either, so, as in D-95, they are laid out
+  by what they are found on (`Bridge/JoggedSection.cs`, `Where`): all on legs (`plane`), each turned flat by
+  its leg; all flat at one level (`flat`: AutoCAD laid them out itself), only moved; neither (`spread`), each
+  put on the leg it lies on or is seen beyond (the nearest drawn leg in front of it, along that leg's view)
+  and projected onto it there. A line on a jog is left out and counted (`left_out_on_jogs`); one behind no
+  leg is dropped and counted (`dropped`).
+- **Refused.** A line that walks back across the view (seen from the side it looks at), which would draw
+  over itself: make it two sections. A leg straight back on itself, two corners the same in plan, and a
+  `look_towards` on the first leg's line.
+
+Rejected: telling hidden lines apart by their linetype or layer in the section settings (the settings have
+one linetype and layer for all background lines, hidden or not); comparing the two passes' lines by exact
+end points (a line can come back split differently); projecting every leg of a jogged section onto one plane
+(an angled leg would be foreshortened, and a hatch cannot be projected); drawing the jogs as a narrow strip
+(a drawing office does not show the jog in an offset section).
+
+---
+
 ## D-151 - An extents preview in model space measures the objects through the plug-in when EXTMIN/EXTMAX are stale
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
@@ -112,6 +166,9 @@ RUN. **Needs the plug-in built from this change**; an older one previews as befo
 - **Not chosen:** a ZOOM Extents before the preview (it changes the modeller's view, and the zoom is an
   undo step), and trusting the plug-in's box always (a frozen layer's object would stretch the picture
   the way #41 did).
+
+---
+
 ## D-150 - eTransmit's packed copies point at the files beside them, rewritten by the plug-in in a side database
 
 **Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue

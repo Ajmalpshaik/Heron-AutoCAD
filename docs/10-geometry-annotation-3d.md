@@ -227,6 +227,11 @@ way each looks is Heron's arithmetic, tested offline ([D-95](DECISIONS.md)).
 Two points cut vertically and **look to the left of the line** from the first
 point to the second (walk along it, look left); three points at one level make
 a plan cut that looks down, north up. `look_towards` names the other side.
+With `jogged=true` the points are a section line's corners in plan, each leg a
+vertical cut; on the sheet each leg sits beside the last at true size and the
+jogs are not drawn, so an offset section reads as one. A flat view with
+`hidden_lines=true` is made twice, hidden lines off and on, and what the second
+adds is drawn dashed on layer HIDDEN inside the view ([D-152](DECISIONS.md)).
 
 ```
 autocad_flatten_views(handles=["<the spool's pieces>"], insert_at=[4000, 0],
