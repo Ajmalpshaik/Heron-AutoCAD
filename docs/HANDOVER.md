@@ -8,7 +8,17 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-22 (the setup connects the Claude app, #233, D-126; v1.8.1)
+## Latest - 2026-11-23 (block counts read by the plug-in in one go, #192 and #194, D-127)
+
+`autocad_count_blocks` asks the new plug-in Read operation `block_references` and
+`autocad_list_blocks` asks `block_definitions`; COM stays the fallback with the same answer (plug-ins
+1.8.0 and 1.8.1 do not have them). Each dynamic property value goes with its type, so a whole-number
+size stays `50.0`. Tests: `tests/test_plugin_block_reads.py` (both tools both ways over one fake
+drawing), `BlockTallyTests.cs`. The Addin compiles; nothing has run in AutoCAD. No version bump.
+**Next (on this PC):** build and install the plug-in, restart the server, live rows **AU1-AU8**.
+Next move in #74: rank 4, #195 (total_length and measure).
+
+## Earlier - 2026-11-22 (the setup connects the Claude app, #233, D-126; v1.8.1)
 
 `Install.ps1 -Connect` (the setup and `Install.bat`) now finds the Claude desktop app's own
 `claude.exe` and its `%LOCALAPPDATA%\Claude-Data\<package>\claude_desktop_config.json`, adds the

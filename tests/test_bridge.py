@@ -304,3 +304,19 @@ def test_stopped_reads_the_ping(home):
         write_address(home, os.getpid(), plugin.name)
         assert Bridge(os.getpid()).stopped() is True
     assert Bridge(os.getpid()).stopped() is False  # cannot tell: not stopped
+
+
+@needs_pipes
+def test_a_reply_of_many_megabytes_comes_through_whole(home):
+    # block_references sends one row per placed block (#192, D-127): a big MEP plan is a reply of
+    # several megabytes, read 64 KB at a time until its newline.
+    refs = [
+        [f"VALVE-{n % 40}", "M-PIPE", [["Size", False, "real", 50], ["Visibility1", False, "text", "Open"]]]
+        for n in range(60_000)
+    ]
+    with FakePlugin({"ok": True, "result": {"refs": refs}}) as plugin:
+        write_address(home, os.getpid(), plugin.name)
+        result = Bridge(os.getpid()).run("j1", "block_references", {"filter": [[0, "INSERT"]]})
+    assert len(json.dumps(refs)) > 5_000_000
+    assert result["refs"] == refs
+    assert plugin.requests[0]["operation"] == "block_references"

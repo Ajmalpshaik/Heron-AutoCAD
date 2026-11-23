@@ -55,6 +55,16 @@ Newest first. Dates are when the change was made.
   [D-131](docs/DECISIONS.md)).** `checksums.txt` has LF line endings, so `sha256sum -c` works on Linux
   and macOS. The plug-in bundle no longer carries `.pdb` debug files; the release build and the
   setup check fail if one appears.
+- **Block counts read by the plug-in in one go (2026-11-23, [#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192),
+  [#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194), [D-127](docs/DECISIONS.md)).**
+  `autocad_count_blocks` (with `include_nested` too) and `autocad_list_blocks` ask the plug-in's new
+  Read operations `block_references` and `block_definitions` instead of a COM round trip per block,
+  per dynamic property and per item inside each definition. COM stays the fallback, with the same
+  answer: plug-ins 1.8.0 and 1.8.1 do not have these operations, so the tools read over COM there.
+  Each dynamic property value goes with its type, so a whole-number distance is still `50.0`, not
+  `50`, and a count by size does not split in two. **Tested offline only**
+  (`tests/test_plugin_block_reads.py` runs both tools both ways over one fake drawing and compares
+  the text; `BlockTallyTests.cs` the plug-in side). Live rows AU1-AU8 NOT RUN.
 
 ## 1.8.1 - 2026-11-22 - The setup connects the Claude app (#233)
 

@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Annotated, Any
 
 from pydantic import Field, StrictInt
 
-from ..acad.selection import discard_selection_set, iter_selection, select_filtered
+from ..acad.selection import (
+    discard_selection_set,
+    filter_pairs,
+    iter_selection,
+    select_filtered,
+)
 from ..acad.tables import describe_layer, ensure_layer, ensure_linetype, validate_name
 from ..core.connection import get_doc, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta, undo_mark
-from ._shared import before_after, same_value
+from ._shared import before_after, faster_read, same_value
 from .layer_states import layer_state_list
 
 
@@ -581,6 +587,94 @@ def _count_by_effective_name(doc: Any) -> dict[str, int]:
     return counts
 
 
+def listed_block(name: str, is_layout: bool) -> bool:
+    """A definition the listing shows: not blank, not anonymous (*U12, *Model_Space), not a layout."""
+    return bool(name.strip()) and not name.startswith("*") and not is_layout
+
+
+def block_info(
+    name: str,
+    entity_count: int | None,
+    is_xref: bool,
+    path: str | None,
+    dynamic: bool,
+    tags: list[str],
+    instances: dict[str, int] | None,
+    include_unused: bool,
+) -> dict[str, Any] | None:
+    """One definition as autocad_list_blocks shows it, read over COM or by the plug-in (D-127).
+
+    None when it is left out: not placed anywhere and include_unused is off.
+    instances is None when the counts were not asked for.
+    """
+    info: dict[str, Any] = {"name": name, "entity_count": entity_count, "is_xref": is_xref}
+    if is_xref:
+        info["path"] = path
+    info["dynamic"] = dynamic
+    if tags:
+        info["attribute_tags"] = tags
+    if instances is not None:
+        info["instances"] = instances.get(name.lower(), 0)
+        if not include_unused and info["instances"] == 0:
+            return None
+    return info
+
+
+def listed_blocks(blocks: Iterable[dict[str, Any] | None]) -> dict[str, Any]:
+    kept = [info for info in blocks if info is not None]
+    return {"count": len(kept), "blocks": sorted(kept, key=lambda item: item["name"].lower())}
+
+
+def blocks_from_plugin(read: dict[str, Any], include_counts: bool, include_unused: bool) -> dict[str, Any]:
+    """The listing from the plug-in's block_definitions (#194), built as the COM path builds it.
+
+    ValueError when the answer is not one this server reads the same way as
+    COM (a plug-in that ignored "counts", say): the tool then reads over COM.
+    """
+    definitions = read.get("definitions")
+    if not isinstance(definitions, list) or (include_counts and not isinstance(read.get("instances"), list)):
+        raise ValueError("an answer without its definitions, or without the counts asked for")
+    instances: dict[str, int] | None = None
+    if include_counts:
+        instances = {}
+        for name, count in read["instances"]:
+            key = str(name).lower()
+            instances[key] = instances.get(key, 0) + int(count)
+    blocks = []
+    for item in definitions:
+        name = str(item["name"])
+        if not listed_block(name, bool(item.get("layout", False))):
+            continue
+        is_xref = bool(item["xref"])
+        blocks.append(
+            block_info(
+                name,
+                int(item["count"]),
+                is_xref,
+                str(item["path"]) if is_xref else None,
+                bool(item["dynamic"]),
+                [str(tag) for tag in item["tags"]],
+                instances,
+                include_unused,
+            )
+        )
+    return listed_blocks(blocks)
+
+
+def _plugin_blocks(include_counts: bool, include_unused: bool) -> dict[str, Any] | None:
+    """The listing read by the plug-in in one go (#194); None: read it over COM."""
+    args: dict[str, Any] = {"filter": [[code, value] for code, value in filter_pairs("block")]}
+    if include_counts:
+        args["counts"] = True
+    read = faster_read("block_definitions", args)
+    if read is None:
+        return None
+    try:
+        return blocks_from_plugin(read, include_counts, include_unused)
+    except (TypeError, ValueError, KeyError):  # not an answer this server reads the same way as COM
+        return None
+
+
 @mcp.tool(
     name="autocad_list_blocks",
     **tool_meta("List Block Definitions", read_only=True, idempotent=True),
@@ -629,39 +723,46 @@ async def autocad_list_blocks(
     """
 
     def work() -> dict[str, Any]:
+        # Every placed block and every definition's items are looked at: the
+        # plug-in reads them in one go; COM, a round trip each, only for an older one.
+        listed = _plugin_blocks(include_counts, include_unused)
+        if listed is not None:
+            return listed
         doc = get_doc()
-        instances = _count_by_effective_name(doc) if include_counts else {}
+        instances = _count_by_effective_name(doc) if include_counts else None
         blocks = []
         for i in range(doc.Blocks.Count):
             block = doc.Blocks.Item(i)
             name = str(block.Name)
             # Blank names come in with some library drawings; nothing can insert them.
-            if not name.strip() or name.startswith("*"):
+            is_layout = False
+            if listed_block(name, False):
+                try:
+                    is_layout = bool(block.IsLayout)
+                except BaseException as exc:  # noqa: BLE001
+                    raise_if_busy(exc)
+            if not listed_block(name, is_layout):
                 continue
-            try:
-                if bool(block.IsLayout):
-                    continue
-            except BaseException as exc:  # noqa: BLE001
-                raise_if_busy(exc)
 
-            info: dict[str, Any] = {"name": name}
+            entity_count: int | None
             try:
-                info["entity_count"] = int(block.Count)
+                entity_count = int(block.Count)
             except BaseException as exc:  # noqa: BLE001
                 raise_if_busy(exc)
-                info["entity_count"] = None
+                entity_count = None
+            path = None
             try:
-                info["is_xref"] = bool(block.IsXRef)
-                if info["is_xref"]:
-                    info["path"] = str(block.Path)
+                is_xref = bool(block.IsXRef)
+                if is_xref:
+                    path = str(block.Path)
             except BaseException as exc:  # noqa: BLE001
                 raise_if_busy(exc)
-                info["is_xref"] = False
+                is_xref = False
             try:
-                info["dynamic"] = bool(block.IsDynamicBlock)
+                dynamic = bool(block.IsDynamicBlock)
             except BaseException as exc:  # noqa: BLE001
                 raise_if_busy(exc)
-                info["dynamic"] = False
+                dynamic = False
 
             # Attribute definitions inside the block tell the caller which tags
             # autocad_insert_block can fill in.
@@ -673,20 +774,10 @@ async def autocad_list_blocks(
                         tags.append(str(item.TagString))
             except BaseException as exc:  # noqa: BLE001
                 raise_if_busy(exc)
-            if tags:
-                info["attribute_tags"] = tags
 
-            if include_counts:
-                info["instances"] = instances.get(name.lower(), 0)
-                if not include_unused and info["instances"] == 0:
-                    continue
+            blocks.append(block_info(name, entity_count, is_xref, path, dynamic, tags, instances, include_unused))
 
-            blocks.append(info)
-
-        return {
-            "count": len(blocks),
-            "blocks": sorted(blocks, key=lambda item: item["name"].lower()),
-        }
+        return listed_blocks(blocks)
 
     return dumps(await run(work))
 

@@ -214,7 +214,8 @@ step; an object on a locked layer is refused before anything is written. Not pro
 ## Layers and blocks (lists Read, the rest Change)
 
 `autocad_list_layers` (and the saved layer states), `autocad_create_layer`, `autocad_set_layer_state`,
-`autocad_set_current_layer`, `autocad_delete_layer` (needs `confirm=true`), `autocad_list_blocks`,
+`autocad_set_current_layer`, `autocad_delete_layer` (needs `confirm=true`), `autocad_list_blocks`
+(its counts and definitions read by the plug-in in one go, COM for an older one, [D-127](DECISIONS.md)),
 `autocad_list_styles`
 
 | Tool | Level | Purpose |
@@ -240,7 +241,7 @@ alternative, because a dialog blocks COM until a person closes it.
 
 | Tool | Level | Purpose |
 |---|---|---|
-| `autocad_count_blocks` | Read | Count blocks by real name (dynamic too); group by name, layer, visibility or properties; `include_nested` |
+| `autocad_count_blocks` | Read | Count blocks by real name (dynamic too); group by name, layer, visibility or properties; `include_nested` (read by the plug-in in one go, COM for an older one, [D-127](DECISIONS.md)) |
 | `autocad_total_length` | Read | Total length per layer or type, area of closed shapes; splines and ellipses measured |
 | `autocad_get_dynamic_properties` | Read | A dynamic block's properties: value, allowed choices, read-only |
 | `autocad_count_text` | Read | Count text / tag values (`source`, `tag`, `pattern`), optional `sum_numeric` |
