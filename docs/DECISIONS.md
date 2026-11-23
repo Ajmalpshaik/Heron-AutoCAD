@@ -173,6 +173,7 @@ doubled."*
   ("Turn UNDO on (UNDO > All)"). Undoing the whole change needs the mark, and bringing back only the
   erased objects is exactly the doubling. This refuses a trim or break of a plain line too in a drawing
   with UNDO off, and a replace job with the erase question switched off; it is rare and says why.
+  **Confirmed by the owner, Ajmal PS, on 2026-11-23 ("Yes, keep it").**
 - **The question.** The server sends `ask_erase` with `"whole": true` only for these tools and only with
   the mark down; every other request is byte for byte as before. The box (`EraseWords`, in the bridge,
   tested) reads "Keep the change, or undo the whole change?", the first and default choice "Undo the

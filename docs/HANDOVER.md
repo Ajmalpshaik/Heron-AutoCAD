@@ -8,7 +8,40 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
+## Latest - 2026-11-23 (wave 2: S6-S13, D-132 to D-139)
+
+The owner's second "Yes, next 10". Eight nested sessions, run at most three at a time, all merged with
+`python`, `plugin` and `review` green, nothing run in AutoCAD. The Claude app restarted once during the
+wave; S9 and S11 were resumed from their worktrees and lost nothing.
+
+| Part | Issues | PR | Decision, live rows |
+|---|---|---|---|
+| S6 palette Select and Zoom pick only selectable objects | #234 | #248 | D-132, AZ1-AZ6 (X25 re-opened) |
+| S7 typed command text refuses control characters; run_lisp expect on a busy retry; expect_dialog after HERONSTOP | #242, #210 | #250 | D-133, BA1-BA4 |
+| S8 plug-in reads: total_length, measure, count_text, find_text | #195, #197 | #251 | D-134, BB1-BB10 |
+| S9 live-check runner covers groups AF to BF (245 measured rows) | #222 | #257, #261 | D-118 (no new rule) |
+| S10 replace edits undo the whole change; xref isolate; destructive flags; busy width; Keep zoom | #208, #212 | #256 | D-136, BC1-BC13 |
+| S11 tool bugs found by the runner (4 fixed, 3 not real); gate test order; super hatch layer name | #218, #254 | #260 | D-137, BD1-BD6 |
+| S12 plug-in reads: block attributes | #198 | #253 | D-138, BE1-BE10 |
+| S13 names refuse control characters | #249 | #252 | D-139, BF1-BF2 |
+
+**The owner's decisions:** for #208 he chose "Undo the whole change": for join, explode, trim and break the
+erase box asks "Keep the change, or undo the whole change?", and any other answer undoes the whole job
+(D-136). S10's own rule that these four tools are refused when no UNDO mark can be put down: he
+confirmed it ("Yes, keep it").
+**For the next release:** `src/` and the plug-in changed after v1.8.1, so bump both. Take
+`block_references`, `block_definitions`, `entity_lengths`, `entity_texts` and `block_attributes` out of
+`bridge.NEWER_READS` and name the release that carries them.
+**Next (on this PC, on the owner's word):** install the next release, restart the server, then live rows:
+AZ with X3 and X25 first (the palette fault seen in 1.8.0), BC (the new box), then BA, BB, BD, BE, BF,
+and the earlier AU-AY. The runner (`tools/live_check.py`) measures 245 rows of them.
+**Open for a later wave:** #255 (a replace tool inside a sequence or saved command still gets the old
+box), #258 (group AQ: geo location outside the transaction, tiled viewports as a View job), #259
+(set_attributes reads a semicolon CSV as one column), the next plug-in moves #196, #199, #200 (#200 can
+build on `block_attributes`), and a runner note from S9: an older plug-in makes a plug-in row FAIL with
+its "update Heron" words instead of NOT RUN.
+
+## Earlier - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
 
 The owner's "Yes, next 10". Five nested sessions, run at most three at a time, all merged with `python`,
 `plugin` and `review` green, nothing run in AutoCAD:

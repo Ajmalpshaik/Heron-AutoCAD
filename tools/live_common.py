@@ -4,7 +4,11 @@ a row needs, and the few things the runner does in AutoCAD itself.
 The checks themselves live in ``live_check.py`` (groups D, E, F) and in one file
 per later area: ``live_check_edits.py`` (AA), ``live_check_layers.py`` (AB),
 ``live_check_blocks.py`` (AC, Y), ``live_check_render.py`` (AE), ``live_check_drawing.py`` (AP, AM),
-``live_check_mep3d.py`` (AH), ``live_check_styles.py`` (AN, AL), ``live_check_ribbon2.py`` (AQ), ``live_check_cleanup.py`` (AD), ``live_check_reads.py`` (AS, AO) and ``live_check_heron.py`` (M to Z, AG, AJ, RV:
+``live_check_mep3d.py`` (AH), ``live_check_styles.py`` (AN, AL), ``live_check_ribbon2.py`` (AQ), ``live_check_cleanup.py`` (AD), ``live_check_reads.py`` (AS, AO),
+``live_check_sheets.py`` (AF), ``live_check_drawtools.py`` (AI), ``live_check_solids.py`` (AR),
+``live_check_standards.py`` (AT), ``live_check_setup.py`` (AK, AY), ``live_check_plugin_reads.py`` (AU, BB, BE),
+``live_check_keepbox.py`` (AV, AX, AZ, BC), ``live_check_textsafety.py`` (AW, BA, BF),
+``live_check_bugfixes.py`` (BD) and ``live_check_heron.py`` (M to Z, AG, AJ, RV:
 Heron's own behaviour). Every check calls Heron's
 tools the way a chat does, through the gate, and **measures** the answer: a
 count, a size, a refusal's words, a value read back.
