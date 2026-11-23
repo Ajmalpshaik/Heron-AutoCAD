@@ -4,6 +4,22 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A view name with a line break or Esc in it is refused, and run_lisp's named box answers "busy" when
+  AutoCAD was only busy (2026-11-23, [#242](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/242),
+  [#210](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/210), [D-133](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group BA) are NOT RUN.
+  - #242: every tool that types text at the command line was read. Only `autocad_save_view` with
+    `from_screen=true` typed a caller's string (the view name) with no check; a newline, Esc or tab in it
+    is now refused in plain words before anything is typed or any old view is deleted (the same refusal
+    applies to the corners and handles path, where a control character was never a valid name). The other paths
+    (wipeout, dimension break, UCS, viewport by MVIEW, visual style) type only numbers, hex handles or
+    fixed words; tests prove it. The check is one shared helper in `acad/lisp.py`, the same definition of
+    "control character" as the AutoLISP side (D-129).
+  - #210: a busy retry of `autocad_run_lisp` with `expect_box` no longer asks the plug-in for the named
+    button a second time, so the chat gets the busy answer instead of "once per job". After HERONSTOP the
+    plug-in now refuses `expect_dialog` too, as it does begin, send_quiet and run. The plug-in changed:
+    rebuild and reinstall it for the second part.
+
 - **The palette's Select and Zoom work again when a job made styles or layers (2026-11-23,
   [#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), [D-132](docs/DECISIONS.md)).**
   Tested offline only: the live rows (NEEDS-CHECKING Group AZ, and X25) are NOT RUN. The plug-in changed.

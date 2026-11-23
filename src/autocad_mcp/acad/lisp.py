@@ -126,6 +126,34 @@ def escape_control(text: str, what: str = "text") -> str:
     return "".join(out)
 
 
+def _control_name(char: str) -> str:
+    """A control character in the words of the person reading the refusal."""
+    code = ord(char)
+    named = {0x0A: "a line break", 0x0D: "a carriage return", 0x09: "a tab", 0x1B: "an Esc character", 0x00: "a NUL character"}
+    return named.get(code) or f"the control character U+{code:04X}"
+
+
+def refuse_control(text: str, what: str = "text") -> str:
+    """``text`` unchanged when it can be typed into AutoCAD's command line, else AutocadError, nothing typed (#242).
+
+    The twin of ``escape_control`` for text that is typed as it is, not put in a
+    string literal: a name after ``-VIEW _Save``, a command's option. A raw
+    newline there is Enter and a raw Esc cancels the command, so whatever
+    follows would be read as new input. Nothing can be escaped on the command
+    line, so a control character (below 0x20, DEL, the C1 controls, U+2028 and
+    U+2029) is refused in plain words. Accents, Arabic, Malayalam and the rest
+    of Unicode pass. One definition of "control": ``is_control`` and
+    ``_refused_character`` above, the same as the LISP side.
+    """
+    for char in text:
+        if is_control(char) or _refused_character(char):
+            raise AutocadError(
+                f"The {what} holds {_control_name(char)}, which cannot be typed into AutoCAD's "
+                "command line. Take it out and try again. Nothing was typed."
+            )
+    return text
+
+
 def lisp_string(value: str) -> str:
     """Quote a Python string as an AutoLISP string literal.
 

@@ -1218,3 +1218,18 @@ AssemblyResolve fallback), so a missing-DLL error would show there, in the add-i
 | S9 | Same sheet; `autocad_add_viewport(scale='1:25', centre=[...], paper_centre=[338,300], paper_width=560, paper_height=420)` | A viewport is made through MVIEW, aimed and scaled 1:25 and locked, and its handle comes back | NOT RUN |
 | S10 | `autocad_run_lisp` with a 2,100-character expression that is one form | Refused at once with "split it", nothing sent to AutoCAD (several forms are cut and sent since D-76: Z2) | NOT RUN |
 | S7 | On a UCS turned 23 degrees, with `coords="ucs"`: `autocad_transform_3d` move `[1000,0,0]`, `autocad_slice_solid` `plane="vertical_x"`, `autocad_extrude_profile` revolve about `[1,0,0]`, `autocad_dimension_run` horizontal, `autocad_add_solid` box 1000 x 600 | Each follows the **UCS** X axis (the box's 1000 side runs along it), not the world one. Before 2026-10-28 the points were turned into the world but the directions and the dimension angle were not | NOT RUN |
+
+## Group BA - Typed text refuses control characters; run_lisp's named box on a busy retry; a stopped job and expect_dialog (D-133) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-133](DECISIONS.md); issues #242 and #210). Built and tested offline only
+(`tests/test_typed_text.py`, `tests/test_run_lisp_expect_retry.py`, the bridge test
+`A_stopped_job_is_refused_a_named_button_for_a_box`). **Nothing here has run in AutoCAD.** BA1 and BA2 are
+server only (restart the server). BA4 needs the plug-in built from this change installed. Changes on for
+BA1 and BA2, Admin on for BA3 and BA4. Use a scratch drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BA1 | `autocad_save_view(name="A\nB", from_screen=true)` (a real line break in the name), then the same with a real Esc (`"A\u001bB"`) and a tab | Each is refused at once: "The view name holds a line break (an Esc character, a tab), which cannot be typed into AutoCAD's command line. ... Nothing was typed."; no view is made, no old view is deleted, `Command:` is free | NOT RUN |
+| BA2 | `autocad_save_view(name="LIVING-3D", from_screen=true)`, then again with `replace=true` | Saved as before (the name is typed through `-VIEW _Save`); the second call replaces it; Arabic or accented names without spaces also save | NOT RUN |
+| BA3 | Make AutoCAD busy (orbit a heavy 3D drawing, or start a long REGEN) and run `autocad_run_lisp('(+ 1 2)', expect_box='AutoCAD Message', press='OK')` several times | Either the result `3`, or "AutoCAD stayed busy ..."; **never** "give the box's exact title and one button, once per job" | NOT RUN |
+| BA4 | Run a `autocad_send_command` with `expect_box` on a box that really opens (`_-PURGE _A * _N`, `expect_box='Purge - Confirm Purge'`, `press='Yes'`) and, in the middle of it, type HERONSTOP in AutoCAD; then, with Heron stopped, call anything with `expect_box` | The stopped call is refused with the HERONSTOP sentence, nothing sent; after typing HERONSTOP again, the same call works. If the timing cannot be hit, the plain case (call with `expect_box` while stopped) still must be refused | NOT RUN |

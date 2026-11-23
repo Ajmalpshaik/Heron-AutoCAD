@@ -530,11 +530,18 @@ async def autocad_run_lisp(
         raise AutocadError(PUBLISH_REFUSED.format(what=named))
     wanted = expectation(expect_box, press)
     total = len(chunks)
+    # A busy AutoCAD makes the retry run work() again inside the same job, and the plug-in
+    # takes one named button per job: asking twice would be refused and the chat told "once
+    # per job" when AutoCAD was only busy (#210). So the answer is asked once, kept here.
+    asked = False
 
     def work() -> dict[str, Any]:
+        nonlocal asked
         doc = get_doc()
         require_idle(doc)
-        expect(wanted)
+        if not asked:
+            expect(wanted)
+            asked = True
         runs, not_put_back = send_lisp_pieces(doc, chunks)
 
         restore_note = (
