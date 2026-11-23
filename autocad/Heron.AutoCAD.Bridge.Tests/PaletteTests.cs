@@ -12,13 +12,15 @@ public class ActivityLogTests
 
     private static UndoFacts Clean() => new() { ActiveDrawing = Dwg, ChangedSince = false, UndoControl = 1 };
 
+    /// <param name="ask">What begin said (Ask to Keep on).</param>
+    /// <param name="marked">What the server said at end; by default it marked exactly when it asked.</param>
     private void Job(string job, Risk risk = Risk.Change, bool ask = false, string outcome = "done", bool ok = true,
-        int added = 1, string tool = "autocad_draw_line", string drawing = Dwg)
+        int added = 1, string tool = "autocad_draw_line", string drawing = Dwg, bool? marked = null)
     {
         _log.Begin(new JobInfo { Job = job, Tool = tool, Risk = risk, Summary = "Job " + job, Drawing = drawing, AskToKeep = ask }, At);
         var handles = Enumerable.Range(0, added).Select(i => job + "-" + i).ToArray();
         var report = JobChanges.Watches(risk) ? new ChangeReport { Added = added, AddedHandles = handles } : null;
-        _log.End(new JobEnd { Job = job, Ok = ok, Outcome = outcome, Summary = "Job " + job, Ms = 400 }, report);
+        _log.End(new JobEnd { Job = job, Ok = ok, Outcome = outcome, Summary = "Job " + job, Ms = 400, Marked = marked ?? ask }, report);
     }
 
     [Fact]
@@ -80,6 +82,51 @@ public class ActivityLogTests
         var verdict = _log.CanUndo("j1", Clean());
         Assert.True(verdict.Allowed, verdict.Reason);
         Assert.Equal("_.UNDO _Back ", verdict.Command);
+    }
+
+    [Fact]
+    public void Ask_to_keep_on_but_no_mark_from_the_server_is_one_step_never_back_past_the_job()
+    {
+        // #206: the server skipped the mark (AutoCAD in a command, or busy), or is older and did not say.
+        Job("j1", ask: true, marked: false);
+        var verdict = _log.CanUndo("j1", Clean());
+        Assert.True(verdict.Allowed, verdict.Reason);
+        Assert.False(verdict.Back);
+        Assert.Equal("_.UNDO 1 ", verdict.Command);
+        Assert.False(_log.Entries[0].Marked);
+    }
+
+    [Fact]
+    public void Ask_to_keep_on_but_no_mark_and_a_zoom_since_refuses_and_hides_undo()
+    {
+        Job("j1", ask: true, marked: false);
+        Job("v1", Risk.View);
+        Assert.Equal(PaletteTexts.UndoViewsSince, _log.CanUndo("j1", Clean()).Reason);
+        Assert.False(PaletteRows.Buttons(_log.Entries[0], newest: true).Undo);
+    }
+
+    [Fact]
+    public void A_mark_the_server_reports_is_back_even_with_ask_to_keep_off_at_begin()
+    {
+        // The plug-in takes the server's word for the mark; begin's answer does not decide it.
+        Job("j1", ask: false, marked: true);
+        Assert.Equal("_.UNDO _Back ", _log.CanUndo("j1", Clean()).Command);
+    }
+
+    [Fact]
+    public void A_mark_said_for_a_raw_command_or_the_undo_tool_is_never_taken()
+    {
+        Job("a1", Risk.Admin, marked: true);
+        Assert.False(_log.Entries[0].Marked);
+        Job("u1", tool: ActivityLog.UndoTool, marked: true);
+        Assert.False(_log.Entries[0].Marked);
+    }
+
+    [Fact]
+    public void While_a_job_runs_it_is_not_taken_as_marked()
+    {
+        _log.Begin(new JobInfo { Job = "j1", Tool = "autocad_draw_line", Risk = Risk.Change, Drawing = Dwg, AskToKeep = true }, At);
+        Assert.False(_log.Entries[0].Marked);
     }
 
     [Fact]
@@ -347,6 +394,7 @@ public class ActivityLogTests
     [InlineData("made nothing")]
     [InlineData("marked, view since")]
     [InlineData("unmarked, view since")]
+    [InlineData("asked, not marked, view since")]
     [InlineData("erase only")]
     [InlineData("undone here")]
     [InlineData("not newest")]
@@ -367,6 +415,7 @@ public class ActivityLogTests
             case "undo tool": Job(id, tool: ActivityLog.UndoTool); break;
             case "made nothing": Job(id, added: 0); break;
             case "marked, view since": Job(id, ask: true); Job("v1", Risk.View); break;
+            case "asked, not marked, view since": Job(id, ask: true, marked: false); Job("v1", Risk.View); break;
             case "unmarked, view since": Job(id); Job("v1", Risk.View); break;
             case "erase only":
                 _log.Begin(new JobInfo { Job = id, Tool = "t", Risk = Risk.Change, Drawing = Dwg }, At);

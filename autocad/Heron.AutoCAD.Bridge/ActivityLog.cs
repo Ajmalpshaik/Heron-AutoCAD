@@ -76,8 +76,8 @@ namespace Heron.AutoCAD.Bridge
                         Summary = string.IsNullOrWhiteSpace(job.Summary) ? job.Tool : job.Summary,
                         Drawing = job.Drawing,
                         Risk = job.Risk,
-                        // The server puts an UNDO mark down only for a Change job it will ask about.
-                        Marked = job.AskToKeep && job.Risk == Risk.Change && job.Tool != UndoTool,
+                        // Not known until end: the server says whether it really put a mark down (#206).
+                        Marked = false,
                         At = at,
                         Running = true,
                     });
@@ -104,6 +104,9 @@ namespace Heron.AutoCAD.Bridge
                 entry.Ok = end.Ok;
                 entry.Outcome = string.IsNullOrEmpty(end.Outcome) ? (end.Ok ? "done" : "failed") : end.Outcome;
                 entry.Ms = end.Ms;
+                // The server's own word, never a guess from Ask to Keep (#206): it skips the
+                // mark in a command or on a busy AutoCAD, and UNDO Back would then go past the job.
+                entry.Marked = end.Marked && entry.Risk == Risk.Change && entry.Tool != UndoTool;
                 if (counted != null)
                 {
                     entry.Counted = true;
@@ -229,7 +232,7 @@ namespace Heron.AutoCAD.Bridge
         public string Summary { get; set; } = "";
         public string Drawing { get; set; } = "";
         public Risk Risk { get; set; }
-        /// <summary>The server put an UNDO mark down before it (Ask to Keep was on).</summary>
+        /// <summary>The server said at end that it put an UNDO mark down before it (#206); false when it did not say.</summary>
         public bool Marked { get; set; }
         public DateTime At { get; set; }
         public bool Running { get; set; }

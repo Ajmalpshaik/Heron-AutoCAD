@@ -35,8 +35,11 @@ class FakeBridge:
     def find(self):
         return None if FakeBridge.refuse == NOT_CONNECTED else {"pipeName": "p", "token": "t"}
 
-    def end(self, job, ok, outcome, summary, ms):
+    marked_at_end: list = []
+
+    def end(self, job, ok, outcome, summary, ms, marked=False):
         FakeBridge.calls.append(("end", job, ok, outcome))
+        FakeBridge.marked_at_end.append(marked)
 
     def ask_keep(self, job, summary, handles):
         FakeBridge.calls.append(("ask_keep", job, tuple(handles)))
@@ -72,6 +75,7 @@ def env(monkeypatch):
     FakeBridge.erase_answer = {"answer": "restored", "restored": 0}
     FakeBridge.boxes = []
     FakeBridge.dialogs_asked = []
+    FakeBridge.marked_at_end = []
     state = {"drawing": r"C:\a.dwg", "marks": 0, "discards": 0, "undo_on": True, "left": []}
 
     async def probe():
@@ -330,6 +334,56 @@ def test_discard_with_undo_off_says_so(env):
     assert "UNDO is off" in result
 
 
+def test_discard_when_autocad_was_in_a_command_says_so_not_undo_off(env, monkeypatch):
+    # #206: the mark was skipped because AutoCAD was in a command; UNDOCTL was never the reason.
+    FakeBridge.ask_to_keep = True
+    FakeBridge.answer = "discard"
+    monkeypatch.setattr(gate, "_no_mark", "")  # put back after the test
+
+    async def in_command():
+        env["marks"] += 1
+        gate._no_mark = gate.NO_MARK_IN_COMMAND
+        return False
+
+    monkeypatch.setattr(gate, "_mark", in_command)
+    tool, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
+    result = call(tool)
+    assert env["discards"] == 0
+    assert "AutoCAD was in a command" in result and "UNDOCTL" not in result
+    assert FakeBridge.marked_at_end == [False]
+
+
+@pytest.mark.parametrize("ask,undo_on,marked", [(True, True, True), (True, False, False), (False, True, False)])
+def test_end_tells_the_plug_in_whether_the_mark_is_really_there(env, ask, undo_on, marked):
+    # #206: the palette's Undo goes back to a mark only on the server's word, never on Ask to Keep.
+    FakeBridge.ask_to_keep = ask
+    env["undo_on"] = undo_on
+    tool, _ = make_tool("autocad_draw_line")
+    call(tool)
+    assert FakeBridge.marked_at_end == [marked]
+
+
+def test_a_marked_job_that_wrote_nothing_leaves_nothing_to_undo(env):
+    # #209: its empty mark is the newest one now, so UNDO Back for the older job would stop there.
+    FakeBridge.ask_to_keep = True
+    draw, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
+    call(draw)
+    assert gate.last_change() is not None and gate.last_change()["marked"] is True
+    refused, _ = make_tool("autocad_move_entities", "Error: Invalid input - no handles", writes=False)
+    call(refused)
+    assert env["marks"] == 2
+    assert gate.last_change() is None
+
+
+def test_an_unmarked_job_that_wrote_nothing_keeps_the_last_change(env):
+    draw, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
+    call(draw)
+    refused, _ = make_tool("autocad_move_entities", "Error: Invalid input - no handles", writes=False)
+    call(refused)
+    assert env["marks"] == 0
+    assert gate.last_change() is not None
+
+
 def test_discard_error_is_reported_and_end_still_sent(env, monkeypatch):
     FakeBridge.ask_to_keep = True
     FakeBridge.answer = "discard"
@@ -544,9 +598,89 @@ def test_an_erase_is_asked_even_with_ask_to_keep_off(env):
     FakeBridge.counted = {"added": 0, "modified": 0, "erased": 4, "erased_handles": ["A", "B", "C", "D"]}
     FakeBridge.erase_answer = {"answer": "restored", "restored": 4}
     send, _ = make_tool("autocad_send_command", '{"sent": "_ERASE"}')
-    result = json.loads(answered(call(send), "DONE"))
+    whole = call(send)
+    result = json.loads(answered(whole, "DONE"))
     assert [c[1] for c in FakeBridge.calls if c[0] == "ask_erase"] == ["job1"]
     assert "brought back (4 restored)" in result["heron_note"]
+    # #209: all 4 came back, so neither the line nor the count says "erased". A raw command may
+    # still have changed a setting, so it stays DONE with the not-counted note.
+    first = answers.split(whole)[0]
+    assert "4 erased" not in first and "no drawing object was added, changed or erased" in first
+    assert result["heron_changes"] == {"added": 0, "modified": 0, "erased": 0}
+
+
+ERASED_4 = {"added": 0, "modified": 0, "erased": 4, "erased_handles": ["A", "B", "C", "D"]}
+
+
+def test_a_change_whose_erase_was_all_brought_back_is_nothing_changed(env):
+    # #209: it used to say "DONE - 0 added, 0 changed, 4 erased." after all 4 were restored.
+    FakeBridge.counted = dict(ERASED_4)
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 4, "asked": True, "erased": 4}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 4}')
+    whole = call(erase)
+    first = answers.split(whole)[0]
+    assert first.startswith("NOTHING CHANGED - the job erased 4 object(s)"), first
+    assert "all of them brought back" in first
+    result = json.loads(answered(whole, "NOTHING CHANGED"))
+    assert result["heron_changes"] == {"added": 0, "modified": 0, "erased": 0}
+    assert "brought back (4 restored)" in result["heron_note"]
+    assert gate.activity()[0]["changes"] == {"added": 0, "modified": 0, "erased": 0}
+
+
+def test_all_brought_back_but_something_was_also_made_is_done_with_none_erased(env):
+    FakeBridge.counted = {"added": 2, "modified": 0, "erased": 3, "erased_handles": ["A", "B", "C"]}
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 3}
+    tool, _ = make_tool("autocad_trim_extend", '{"done": true}')
+    assert answers.split(call(tool))[0] == "DONE - 2 added, 0 changed, 0 erased."
+
+
+def test_some_brought_back_counts_only_those_still_erased(env):
+    FakeBridge.counted = dict(ERASED_4)
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 1}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 4}')
+    whole = call(erase)
+    assert answers.split(whole)[0] == "DONE - 0 added, 0 changed, 3 erased."
+    assert json.loads(answers.body(whole))["heron_changes"]["erased"] == 3
+
+
+def test_a_restore_heron_could_only_queue_still_counts_them_erased(env):
+    # The plug-in could not ask in time and brings them back later: none restored yet.
+    FakeBridge.counted = dict(ERASED_4)
+    FakeBridge.erase_answer = {
+        "answer": "restored", "restored": 0,
+        "message": "Heron could not show the question in time, so it is bringing them back.",
+    }  # fmt: skip
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 4}')
+    whole = call(erase)
+    assert answers.split(whole)[0] == "DONE - 0 added, 0 changed, 4 erased."
+    assert "bringing them back" in json.loads(answers.body(whole))["heron_note"]
+
+
+def test_a_text_answer_gets_its_count_restated_after_a_restore(env):
+    FakeBridge.counted = dict(ERASED_4)
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 4}
+    erase, _ = make_tool("autocad_delete_entities", "Deleted 4 objects.")
+    rest = answered(call(erase), "NOTHING CHANGED")
+    assert 'heron_changes: {"added": 0, "modified": 0, "erased": 0}' in rest
+    assert '"erased": 4' not in rest
+
+
+@pytest.mark.parametrize("restored", [4, 0])
+def test_after_any_restore_undo_last_has_nothing_to_undo(env, restored):
+    # One UNDO step back could be the plug-in's restore, and erase them again (#209).
+    FakeBridge.counted = {"added": 1, "modified": 0, "erased": 4, "erased_handles": ["A", "B", "C", "D"]}
+    FakeBridge.erase_answer = {"answer": "restored", "restored": restored}
+    tool, _ = make_tool("autocad_trim_extend", '{"created": true, "handle": "2A"}')
+    call(tool)
+    assert gate.last_change() is None
+
+
+def test_an_erase_kept_erased_stays_undoable(env):
+    FakeBridge.counted = dict(ERASED_4)
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 4}')
+    call(erase)
+    assert gate.last_change() is not None
 
 
 def test_keeping_them_erased_is_said(env):

@@ -302,6 +302,27 @@ class TestReasonWords:
     def test_each_message_gets_its_word(self, message, word):
         assert audit.reason_of(message) == word
 
+    def test_an_unknown_outcome_or_a_failed_discard_is_never_told_to_try_again(self):
+        # #209: these messages say AutoCAD was busy, and a retry is what can do the job twice.
+        from autocad_mcp.core import answers, gate
+
+        busy_line = answers.line(answers.Facts(
+            "Error: Outcome unknown: AutoCAD went busy part-way through", ok=False, outcome="unknown",
+            busy=True, where="it is still in the LINE command",
+        ))  # fmt: skip
+        said = {
+            gate.BACK_UNKNOWN: "outcome_unknown",
+            busy_line: "outcome_unknown",
+            "Error: Discard failed, the change may still be in the drawing: AutoCAD stayed busy for 10s "
+            "and never accepted the request. Press Esc.": "discard_failed",
+            "Error: Discard not possible: AutoCAD was in a command when the job began, so Heron put no UNDO "
+            "mark down, so the change is still there. Remove it by hand. Press Esc in AutoCAD before the "
+            "next job.": "discard_failed",
+        }
+        for message, word in said.items():
+            assert audit.reason_of(message) == word, message
+            assert "try again" not in audit.REASONS[word][1]
+
     def test_every_word_has_plain_words_and_a_fix(self):
         for word, (says, do) in audit.REASONS.items():
             assert says and do, word
