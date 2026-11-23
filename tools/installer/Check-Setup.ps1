@@ -119,6 +119,10 @@ Set-Content (Join-Path $logs 'zip-install.txt') $out
 Check ($LASTEXITCODE -eq 0) "zip Install.ps1 finished (exit $LASTEXITCODE)"
 Check (Test-Path (Join-Path $bundle 'PackageContents.xml')) 'zip: the plug-in is in ApplicationPlugins'
 Check (Test-Path $server) 'zip: the server is in %LOCALAPPDATA%\Heron\autocad'
+Check (-not (Get-ChildItem $zip.FullName -Recurse -Filter '*.pdb' -File)) 'zip: no .pdb debug file in the release folder (#232)'
+Check (-not (Get-ChildItem $bundle -Recurse -Filter '*.pdb' -File)) 'zip: no .pdb debug file in the installed plug-in (#232)'
+$sums = Join-Path $Dist 'checksums.txt'
+Check ((Test-Path $sums) -and -not ([IO.File]::ReadAllText($sums).Contains("`r"))) 'checksums.txt has LF line endings (#232)'
 Check ((Desktop-Entry 'autocad') -eq $server) 'zip: Claude Desktop points at the server'
 Check ((Code-Entry) -eq $server) 'zip: Claude Code points at the server'
 Check ($out -match 'Claude Code:\s+connected \(all projects\)') 'zip: it says Claude Code is connected'

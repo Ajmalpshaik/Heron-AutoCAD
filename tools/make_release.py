@@ -71,12 +71,20 @@ def main() -> int:
         for f in FILES.iterdir():
             shutil.copy2(f, folder / f.name)
         add_capabilities(folder)
+        check_no_debug_files(folder)
         signing.sign([folder / "Install.ps1"])
     archive = shutil.make_archive(str(build_plugin.DIST / name), "zip", build_plugin.DIST, name)
     sums = write_checksums(Path(archive))
     print(f"Release: {archive}")
     print(f"Checksums: {sums}")
     return 0
+
+
+def check_no_debug_files(folder: Path) -> None:
+    """The release ships no .pdb debug file (#232): stop the build if one got in."""
+    found = sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.suffix.lower() == ".pdb")
+    if found:
+        raise SystemExit("The release must carry no .pdb debug files, but has: " + ", ".join(found))
 
 
 def add_capabilities(folder: Path) -> Path:
@@ -90,7 +98,9 @@ def write_checksums(archive: Path, *more: Path) -> Path:
 
     lines = [f"{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}\n" for f in (archive, *more)]
     sums = archive.parent / "checksums.txt"
-    sums.write_text("".join(lines), encoding="ascii")
+    # LF, not Windows line endings, so `sha256sum -c` works on Linux and macOS too (#232).
+    with sums.open("w", encoding="ascii", newline="\n") as out:
+        out.write("".join(lines))
     return sums
 
 

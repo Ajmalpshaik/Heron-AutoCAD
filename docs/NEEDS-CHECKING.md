@@ -1039,6 +1039,14 @@ scratch metric drawing. **Every row below is NOT RUN.**
 | AN12 | AN1 with a plug-in built before this change | Refused: "Heron in AutoCAD does not have the operation 'multileader_style'. Update Heron ..."; nothing changed. With a text style in the same call: the text style is made and the multileader row carries that message | NOT RUN |
 | AN13 | `autocad_add_table(position=[0,0], rows=[["A"]], style="NOPE")`, then `autocad_add_multileader(landing=[500,500], arrows=[[0,0]], text="X", style="NOPE")` | Each refused: "no ... style called 'NOPE' ... Make it with autocad_create_styles ... Nothing was left in the drawing." No empty table or bare leader in model space (`autocad_list_entities`), #191 | NOT RUN |
 
+## Group AY - Installer and release polish (D-131) (a shared Windows server, not this PC)
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AY1 | On a shared Windows server (Remote Desktop or Citrix) where a colleague has AutoCAD open in their own session and you have none: run `HeronAutoCAD-<version>-setup.exe`, then `Install.bat` from the zip, then Uninstall | Neither stops with "AutoCAD is open". Both finish. | NOT RUN |
+| AY2 | Same server, now open your own AutoCAD, disconnect your Remote Desktop session without closing AutoCAD, sign in again and run the setup and `Install.bat` | Both stop with "AutoCAD is open. Close AutoCAD... Nothing was changed." | NOT RUN |
+| AY3 | Download a release's `checksums.txt` and files onto Linux or macOS and run `sha256sum -c checksums.txt` | Each file says `OK` | NOT RUN |
+
 ## Group RV - Fixes from the review of the 2026-11-21 merges (D-116) (AutoCAD 2027, this PC)
 
 | Row | Do | Pass looks like | Result |
