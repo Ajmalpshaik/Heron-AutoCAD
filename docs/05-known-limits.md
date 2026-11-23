@@ -342,7 +342,7 @@ variables back, pressing Esc on the way to the real error, a redraw after the wo
 waits. Each is named with its reason in `tests/test_busy_sweep.py`. NOT RUN live (NEEDS-CHECKING
 group AL).
 
-**A property AutoCAD will not set ([D-145](DECISIONS.md), #270).** pywin32 says "can not be set" for a
+**A property AutoCAD will not set ([D-146](DECISIONS.md), #270).** pywin32 says "can not be set" for a
 busy AutoCAD and for a real refusal alike. The server asks the object again itself: no such property, or
 a value turned down, is answered at once as an error naming the property; busy is asked again. If AutoCAD
 is busy at the first try and free for the second ask, the set is simply done. A *read* of a property the

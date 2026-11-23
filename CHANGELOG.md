@@ -5,13 +5,23 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **A property AutoCAD will not set is answered at once, not as a busy AutoCAD (2026-11-23,
-  [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-145](docs/DECISIONS.md)).** pywin32 gives
+  [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-146](docs/DECISIONS.md)).** pywin32 gives
   "Property '...' can not be set." both when AutoCAD is busy and when the object has no such property or turns
   the value down, so a real refusal was asked again for ten seconds and came out as "Outcome unknown: AutoCAD
   went busy" (that was #40). The server now asks the object itself: a property it does not have, or a value it
   refuses, is a plain error at once naming the property ("AutoCAD has no property 'CustomScale' on this
   object ... AutoCAD was not busy"); a busy AutoCAD is still asked again as before. Server only. Tested offline
   only; live rows AL8 (the runner measures it) and AL9 NOT RUN.
+- **The standards check's objects are read by the plug-in in one go (2026-11-23,
+  [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-145](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and
+  linetype, overlapping dimensions) ask the plug-in's new Read operation `entity_properties` for every object's
+  handle, class, layer, colour, linetype and a dimension's box, instead of 5-6 COM round trips per object; the
+  rules stay in Python and one loop reads COM objects and the plug-in's rows alike. COM stays the fallback: an
+  older plug-in (1.8.0 and 1.8.1 do not have it), an answer it cannot read as COM's, or a true colour the colour
+  rule needs. Over COM the check now reads colour and linetype only when a rule asks for them. Layers and the
+  reference drawing compare stay COM's. Tested offline only (the check run both ways over one fake drawing and
+  compared as text); not tested in AutoCAD: live rows BI1-BI5 NOT RUN.
 - **Lengthen, and a fillet or chamfer between a line, an arc and a polyline's end (2026-11-23,
   [#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154), [D-144](docs/DECISIONS.md)).** New tool
   `autocad_lengthen` makes a line, an arc or an open polyline longer or shorter at one end: by a distance

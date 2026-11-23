@@ -1,4 +1,4 @@
-"""A property AutoCAD will not set answers at once; a busy AutoCAD is still asked again (#270, D-145).
+"""A property AutoCAD will not set answers at once; a busy AutoCAD is still asked again (#270, D-146).
 
 pywin32 answers every late-bound property it cannot set with "Property
 'Item.CustomScale' can not be set.", busy or not, so a layout's CustomScale
