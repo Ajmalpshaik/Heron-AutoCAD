@@ -83,7 +83,8 @@ def make_bundle(built: dict[str, Path], out: Path) -> Path:
         source = built[tfm]
         if not (source / MODULE).is_file():
             raise SystemExit(f"{MODULE} is missing for {tfm} in {source}. Build first.")
-        shutil.copytree(source, bundle / "Contents" / folder)
+        # No .pdb debug files: a modeller does not need them (#232).
+        shutil.copytree(source, bundle / "Contents" / folder, ignore=shutil.ignore_patterns("*.pdb"))
     (bundle / "PackageContents.xml").write_text(package_contents(), encoding="utf-8")
     return bundle
 

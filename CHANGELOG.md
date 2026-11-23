@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Only your own AutoCAD stops the setup and `Install.bat` (2026-11-23,
+  [#185](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/185), [D-131](docs/DECISIONS.md)).** On a
+  shared server, a colleague's AutoCAD in their own Windows session no longer blocks your install,
+  update or uninstall. Your own AutoCAD still does, in any of your sessions, connected or not. When
+  Windows will not say who owns an `acad.exe`, Heron still refuses. Tested offline with made-up
+  process lists; the live row on a real shared server (AY1) is NOT RUN.
+- **Release polish (2026-11-23, [#232](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/232),
+  [D-131](docs/DECISIONS.md)).** `checksums.txt` has LF line endings, so `sha256sum -c` works on Linux
+  and macOS. The plug-in bundle no longer carries `.pdb` debug files; the release build and the
+  setup check fail if one appears.
 - **Block counts read by the plug-in in one go (2026-11-23, [#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192),
   [#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194), [D-127](docs/DECISIONS.md)).**
   `autocad_count_blocks` (with `include_nested` too) and `autocad_list_blocks` ask the plug-in's new

@@ -197,12 +197,24 @@ def _function(name: str) -> str:
 
 
 def test_setup_and_uninstall_refuse_while_autocad_runs():
-    assert "IsRunning('acad.exe', '')" in _function("InTheWay")
-    assert "IsRunning('autocad-mcp.exe', ServerDir)" in _function("InTheWay")
+    assert "IsRunning('acad.exe', '', True)" in _function("InTheWay"), "this user's AutoCAD only (#185)"
+    assert "IsRunning('autocad-mcp.exe', ServerDir, False)" in _function("InTheWay")
     for name in ("InitializeSetup", "PrepareToInstall", "InitializeUninstall"):
         assert "InTheWay(" in _function(name), f"{name} must refuse while AutoCAD runs"
     assert "Nothing was changed." in _function("InitializeSetup")
     assert "Nothing was removed." in _function("InitializeUninstall")
+
+
+def test_only_this_users_autocad_stops_the_setup():
+    # #185: another user's acad.exe on a shared server is skipped by its owner, never by its session,
+    # so this user's own AutoCAD in a disconnected session still stops the setup.
+    running = _function("IsRunning")
+    assert "IsOwnProcess(Item)" in running and "OwnOnly" in running
+    assert "SessionId" not in running
+    owner = _function("IsOwnProcess")
+    assert "ExecMethod_('GetOwner')" in owner and "ThisUser" in owner
+    assert "Result := True;" in owner.split("try")[0], "an owner Windows will not say counts as ours"
+    assert 'USERNAME eq' in _function("UserFilter"), "the tasklist fallback keeps this user's processes too"
 
 
 def test_the_setup_sets_claude_up_with_install_ps1():
@@ -217,7 +229,7 @@ def test_install_ps1_has_one_way_to_set_claude_up():
     ps1 = _install_ps1()
     assert ps1.count("'mcp', 'add'") == 1, "the setup and Install.bat must share one Connect-Claude"
     assert ps1.count("Connect-Claude |") == 2 and ps1.count("Disconnect-Claude |") == 2
-    acad = ps1.index("Get-Process acad")
+    acad = ps1.index("if (Test-OwnAutocad")
     for mode in ("if ($Connect) { Connect-Claude |", "if ($Disconnect) { Disconnect-Claude |"):
         assert acad < ps1.index(mode) < ps1.index("if ($Uninstall)"), f"{mode} must come after the AutoCAD check"
     # Only a dry run comes before the AutoCAD check, and it stops there.
