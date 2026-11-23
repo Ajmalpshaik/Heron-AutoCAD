@@ -30,6 +30,8 @@ namespace Heron.AutoCAD.Bridge
             // Each object's layer, colour, linetype and a dimension's box for
             // autocad_check_standards' entity rules (D-145); the rules stay in the server.
             ["entity_properties"] = Risk.Read,
+            // The objects on the layers autocad_merge_layers merges away (D-147).
+            ["layer_objects"] = Risk.Read,
             ["solid_topology"] = Risk.Read,
             // Where dimension lines are, the drawing's and objects' annotation scales,
             // and the drawing's layer states (D-80, D-81).
@@ -61,6 +63,8 @@ namespace Heron.AutoCAD.Bridge
             ["move_dimension_lines"] = Risk.Change,
             ["set_annotation_scales"] = Risk.Change,
             ["layer_state"] = Risk.Change,
+            // autocad_merge_layers' move and removal in one transaction: all or none (D-147).
+            ["merge_layers"] = Risk.Change,
             // Setting a render up (D-86, D-87). None of them renders.
             ["current_view"] = Risk.Read,
             ["list_lights"] = Risk.Read,
@@ -103,7 +107,7 @@ namespace Heron.AutoCAD.Bridge
             ["publish_pdf"] = Risk.Publish,
             // eTransmit's packed copy, opened as a side database (never the drawing on
             // screen), its xref, image and underlay paths set to the files beside it
-            // (#160, D-147): it writes a file, so Publish.
+            // (#160, D-148): it writes a file, so Publish.
             ["retarget_pack_paths"] = Risk.Publish,
         };
 

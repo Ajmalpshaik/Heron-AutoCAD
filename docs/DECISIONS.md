@@ -5,7 +5,7 @@
 
 ---
 
-## D-147 - eTransmit's packed copies point at the files beside them, rewritten by the plug-in in a side database
+## D-148 - eTransmit's packed copies point at the files beside them, rewritten by the plug-in in a side database
 
 **Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue
 [#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160). **Status:** in force; changes D-85's "the
@@ -32,6 +32,49 @@ saved paths are not rewritten"; tested offline only, live rows AD14 and AD15 NOT
 
 Rejected: rewriting the paths in the modeller's own drawing (its file is the one thing never to change), and
 AutoCAD's transmittal COM library (still never tried here, D-85).
+## D-147 - The layer merge is read and made by the plug-in: one read, one transaction, all of it or none
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #199 (rank 8 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BJ).
+`autocad_merge_layers` asks the plug-in's new Read operation `layer_objects` for the objects on the old
+layers, and its new Change operation `merge_layers` to make the merge; COM stays the fallback for each,
+as D-114 sets out. The rules:
+(1) **The read: raw facts in COM's order.** The plug-in finds the objects the COM read finds, in its
+order: each old layer's selection (the server sends the filters it selects with, the name's wildcards
+escaped), then every item of every block definition but layouts and xrefs (`IsLayout`,
+`IsFromExternalReference`, as COM's IsLayout and IsXRef), then every attribute of every block reference;
+each as [handle, layer, where]. The server plans from these with the code it plans the COM read with
+(`merge_targets`, `merge_counts`), so the preview (`confirm=false`) and the counts are the same either way.
+As D-138, a block reference with an attribute on an old layer whose definition holds no attribute
+definitions is not trusted (`unsure`): whether COM's HasAttributes lets the COM read see it is not looked
+at yet, so the whole read goes to COM.
+(2) **The change: one transaction, the server's plan.** The server sends the old layers, the new one and
+the handles it planned; the plug-in moves exactly those. In one transaction: an old current layer gives
+way to the new one, a locked old layer is unlocked, every planned object moves, then each old layer is
+removed when AutoCAD's own purge (`Database.Purge`) says nothing uses it any more, or kept and locked
+again. **One object that will not move refuses the whole merge**: the transaction is aborted and the
+answer is the plug-in's refusal, ending "Nothing was changed." Over COM such an object is listed under
+`failed` and its layer kept, with the rest moved; that half-done merge is what this move takes away. A
+refused merge is never made again over COM.
+(3) **The same answer.** The server builds the answer from the plan and the plug-in's report (which
+layers it removed, which it kept and why, the old current layer) with COM's own rows and order:
+the CLAYER row, one row per moved object, one per removed layer. A kept layer's reason is AutoCAD's own
+words in the brackets of "AutoCAD would not remove it (...)": COM's error over COM, "it is still
+referenced" from the plug-in's purge; only those words differ. A report that does not account for every
+old layer, or moves another count, is "Outcome unknown" (the change is committed: it is said, not
+redone).
+(4) **The padlock, `confirm=true` and Keep or Discard are the tool's, unchanged.** The tool is still
+a Change job, the merge still needs `confirm=true`, and it still runs inside one UNDO mark; the plug-in's
+operation is at Change, so the Changes padlock holds it as it holds the COM writes (a Bridge test). Keep
+or Discard counts what AutoCAD's own database events say the job changed (D-50), which a plug-in
+transaction raises as COM's writes do (BJ2 checks the number live).
+(5) **Fallbacks.** `layer_objects` joins `bridge.NEWER_READS`. A plug-in without `layer_objects`
+(1.8.0, 1.8.1, or one built before this) reads over COM; one without `merge_layers` merges over COM,
+each object looked up by its handle after a plug-in read. New helper `_shared.faster_change`: a change the
+plug-in makes in one transaction, or None (no plug-in, older, no such operation) for the COM path;
+the capability manifest calls it "when there", as `faster_read`. Rejected: a merge that moves
+"everything on the layers" itself (two copies of the rules for what moves, and a plan the preview did
+not show), and falling back to COM after a refused merge (the half-done drawing again).
 
 ## D-146 - Overkill may rebuild a polyline that goes back over itself, from its own vertices, when asked
 

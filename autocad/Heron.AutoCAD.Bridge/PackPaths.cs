@@ -5,7 +5,7 @@ using System.IO;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// eTransmit's packed copy points at the files beside it (#160, D-147).
+    /// eTransmit's packed copy points at the files beside it (#160, D-148).
     ///
     /// The server copies each drawing it packs into a folder of its own
     /// (<see cref="StagingPrefix"/>...) and the plug-in opens that copy as a

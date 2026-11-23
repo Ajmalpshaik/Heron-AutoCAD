@@ -210,6 +210,8 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `super_hatch` | `autocad_super_hatch` | a block of tiles, one reference, a spatial filter (XCLIP) |
 | `layer_state_names` (Read) | `autocad_list_layers`, `autocad_isolate_layers` | `LayerStateManager.GetLayerStateNames`, its mask and description ([D-81](DECISIONS.md)) |
 | `layer_state` | `autocad_layer_states`, `autocad_isolate_layers` | `LayerStateManager.SaveLayerState` / `RestoreLayerState` / `DeleteLayerState` |
+| `layer_objects` (Read) | `autocad_merge_layers` (#199) | `Editor.SelectAll` with each old layer's filter, every `BlockTableRecord` but layouts and xrefs, every block reference's `AttributeCollection`: each object on an old layer as handle, layer and place; `unsure` for an attribute whose definition defines none ([D-147](DECISIONS.md)) |
+| `merge_layers` | `autocad_merge_layers` (#199) | One transaction: `Database.Clayer` to the new layer if an old one was current, old layers unlocked, each planned object's `LayerId`, then `Database.Purge` and `Erase` for each old layer nothing uses, the rest locked again. One object that will not move aborts all of it ([D-147](DECISIONS.md)) |
 | `dimension_lines` (Read) | `autocad_space_dimensions` | `RotatedDimension` / `AlignedDimension`: direction and `DimLinePoint` ([D-80](DECISIONS.md)) |
 | `move_dimension_lines` | `autocad_space_dimensions` | `DimLinePoint`, then `RecomputeDimensionBlock` |
 | `annotation_scales` (Read) | `autocad_list_annotation_scales` | the `ACDB_ANNOTATIONSCALES` collection, `Database.Cannoscale`, `DBObject.HasContext` |
@@ -234,7 +236,7 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `clip_reference` | `autocad_clip_reference` (xref, block, underlay) | an XCLIP spatial filter in the block's own coordinates, or `UnderlayReference.SetClipBoundary` in the underlay's own |
 | `trace_boundary` | `autocad_trace_boundary` | `Editor.TraceBoundary` after a zoom to the window and a count of the objects in it; never -BOUNDARY or BPOLY typed ([D-84](DECISIONS.md)) |
 | `list_dependencies` (Read) | `autocad_etransmit` | images, underlays and fonts of the drawing and each loaded xref, each layout's plot style, found with `HostApplicationServices.FindFile` ([D-85](DECISIONS.md)) |
-| `retarget_pack_paths` (Publish) | `autocad_etransmit` | a packed copy (only a .dwg in a `heron-etransmit-` folder, never a drawing open in AutoCAD) read as a side `Database` (`ReadDwgFile`, `CloseInput`); each xref `PathName`, `RasterImageDef` and `UnderlayDefinition.SourceFileName` set to the bare name of a file in the pack, saved in its own version; the rule in `Bridge/PackPaths.cs` ([D-147](DECISIONS.md)) |
+| `retarget_pack_paths` (Publish) | `autocad_etransmit` | a packed copy (only a .dwg in a `heron-etransmit-` folder, never a drawing open in AutoCAD) read as a side `Database` (`ReadDwgFile`, `CloseInput`); each xref `PathName`, `RasterImageDef` and `UnderlayDefinition.SourceFileName` set to the bare name of a file in the pack, saved in its own version; the rule in `Bridge/PackPaths.cs` ([D-148](DECISIONS.md)) |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.

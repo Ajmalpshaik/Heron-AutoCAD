@@ -851,6 +851,26 @@ character by character. Work on a copy of the drawing for the writing rows. **Ev
 | BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
 | BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
 
+## Group BJ - The layer merge read and made by the plug-in: one transaction, all or none (D-147) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-147](DECISIONS.md), issue #199). Built and tested offline only
+(`tests/test_plugin_merge_layers.py` runs the merge both ways over one fake drawing and compares the
+answers and the drawings left; `LayerMergeTests.cs` what the plug-in reads and writes). The plug-in
+operations `layer_objects` and `merge_layers` have never run. Needs the plug-in rebuilt and reinstalled
+from code that has them (plug-ins 1.8.0 and 1.8.1 do not: the merge goes over COM), and the server
+restarted. "Both ways" means the same call on a second copy of the drawing to a second server started
+with `--no-bridge`; the plug-in's log shows `operation layer_objects` and `operation merge_layers`. Work
+on copies of a real drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BJ1 | A real drawing with two layers to merge, holding objects in model space, on a sheet, inside block definitions and as block attributes, one of them locked and current: `autocad_merge_layers(layers=[...], into=...)` (no `confirm`) both ways | The log shows `operation layer_objects`; the same text both ways, the same counts per layer and place | NOT RUN |
+| BJ2 | The same with `confirm=true`, Ask to Keep on, both ways | The log shows `operation merge_layers`; the same text both ways; every object on the new layer, the old layers gone, the new layer current. Keep or Discard asks once and counts the same number of changed objects both ways (write both); Discard takes all of it back, the layers too | NOT RUN |
+| BJ3 | Merge again on a fresh copy and press Ctrl+Z once | One Ctrl+Z puts every object back on its old layer, the old layers back (the locked one locked) and the old current layer current | NOT RUN |
+| BJ4 | An old layer frozen in a sheet's viewport only (VP Freeze), and one named in a layer filter: merge both ways | Write down which layers each way removes and which it keeps: the plug-in asks AutoCAD's purge, COM tries Delete; a kept one is locked again if it was | NOT RUN |
+| BJ5 | An object AutoCAD will not move (a proxy object from another application on an old layer, if one can be had): merge with the plug-in, then `--no-bridge` | With the plug-in: the answer says that object would not move and "Nothing was changed"; nothing in the drawing moved, no undo step. Over COM: the object is under `failed`, its layer kept, the rest moved | NOT RUN |
+| BJ6 | A block whose attribute definitions were deleted after it was inserted (no ATTSYNC), an attribute on an old layer: merge (no `confirm`) with the plug-in | The read goes to COM (the log shows `layer_objects`, the answer matches `--no-bridge`); write down whether COM's read listed that attribute | NOT RUN |
+| BJ7 | Plug-in 1.8.1 installed (no `layer_objects` or `merge_layers`): BJ1 and BJ2; then on a plan with 50 block definitions and 20,000 objects on the old layers, time BJ2 with the new plug-in and over COM | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times) | NOT RUN |
 ## Group BI - The standards check's object facts the plug-in reads in one go (D-145) (AutoCAD 2027, this PC)
 
 Added on 2026-11-23 ([D-145](DECISIONS.md), issue #196). Built and tested offline only
@@ -1281,7 +1301,7 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 
-Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md); AD14, AD15 for #160, [D-147](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md); AD14, AD15 for #160, [D-148](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
 [05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
 Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
 parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and

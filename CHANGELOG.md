@@ -5,13 +5,23 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **`autocad_etransmit` points the packed drawings at the files beside them (2026-11-23,
-  [#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160), [D-147](docs/DECISIONS.md)).** As eTransmit
+  [#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160), [D-148](docs/DECISIONS.md)).** As eTransmit
   does, the xref, image and PDF / DWF / DGN underlay paths saved in the packed drawing and each packed xref
   drawing are set to the bare file name of the file in the pack. The new plug-in operation `retarget_pack_paths`
   does it in a copy opened as a side database, never in the drawing on screen: the original stays untouched.
   A name two files share, or a file that was missing, keeps its path; the answer (`paths`) and the report list
   every path set and kept. A plug-in without the operation packs as before and says so. Tested offline only;
   live rows AD14 and AD15 NOT RUN. Needs the new plug-in.
+- **The layer merge is one transaction in the plug-in: all of it or none (2026-11-23,
+  [#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-147](docs/DECISIONS.md)).** `autocad_merge_layers` reads the objects on the old layers with the plug-in's new
+  Read operation `layer_objects` (in the COM read's order, so the preview and counts are the same), then makes the
+  merge with the new Change operation `merge_layers`: the planned objects moved and the empty old layers purged in
+  one transaction. One object that will not move now refuses the whole merge with "Nothing was changed", where COM
+  moved the rest and listed it as failed. COM stays the fallback for each half (an older plug-in, an answer it
+  cannot read as COM's). The padlock, `confirm=true`, the one undo step and Keep or Discard are unchanged. New
+  helper `_shared.faster_change`. Tested offline only (the merge run both ways over one fake drawing, answers and
+  drawings compared, and through the real gate); not tested in AutoCAD: live rows BJ1-BJ7 NOT RUN.
 - **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
   [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
   OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end

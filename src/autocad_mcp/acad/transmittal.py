@@ -9,7 +9,7 @@ Everything is put in one folder beside the drawing, as eTransmit's "Put all
 files in one folder": AutoCAD looks for an xref, an image or a font by its
 bare name in the drawing's own folder when the saved path leads nowhere, so
 the pack opens on another PC even without its paths being rewritten. A
-plug-in that can (#160, D-147) also rewrites the xref, image and underlay
+plug-in that can (#160, D-148) also rewrites the xref, image and underlay
 paths saved in each packed drawing to the bare file name: ``pack_names``
 says which names those are, ``drawings_to_retarget`` which copies. Two
 different files with one name cannot both go in one folder: the second is
