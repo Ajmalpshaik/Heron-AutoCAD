@@ -307,13 +307,52 @@ def _plan_view(doc: Any) -> bool:
 STALE_SHARE = 0.01
 
 
+# The characters AutoCAD's wildcards give a meaning to; a backquote makes each one plain.
+_WILDCARDS = frozenset("#@.*?~[],`")
+
+# What a plug-in that left each sheet's own overall viewport out says it did (#281, D-154).
+LAYOUT_VIEWPORTS_LEFT_OUT = "left out"
+
+
+def _plain_name(name: str) -> str:
+    """A layout name as a selection filter value that matches only that name.
+
+    A filter value is a wildcard pattern: a comma would split "Sheet 1, rev A" in
+    two and a dot would match any punctuation. Each such character is escaped.
+    """
+    return "".join("`" + c if c in _WILDCARDS else c for c in name)
+
+
 def _measured_model_box() -> Box | None:
     """Model space's own extents, measured object by object by the plug-in (#269, D-151), or None.
 
     None, so EXTMIN/EXTMAX are used as before, when the plug-in is not in this
     job, is older than its space filter (DXF 410), or found nothing with extents.
     """
-    measured = faster_read("entity_extents", {"filter": [[410, "Model"]]})
+    return _measured_box(faster_read("entity_extents", {"filter": [[410, "Model"]]}))
+
+
+def _measured_sheet_box(layout_name: str) -> Box | None:
+    """A sheet's own extents, measured by the plug-in, its overall viewport left out (#281, D-154), or None.
+
+    Every sheet has one viewport of its own, the paper-space view the modeller
+    zooms and pans; its box is the screen, not the sheet, and PEXTMIN/PEXTMAX
+    leave it out too. The floating viewports (the ones that show model space)
+    stay in: they are on the sheet. None, so PEXTMIN/PEXTMAX are used as before,
+    when the plug-in is not in this job, refuses 410, or does not say it left the
+    overall viewport out (built before this change: its box would hold the screen).
+    """
+    measured = faster_read(
+        "entity_extents",
+        {"filter": [[410, _plain_name(layout_name)]], "leave_out_layout_viewports": True},
+    )
+    if not measured or measured.get("layout_viewports") != LAYOUT_VIEWPORTS_LEFT_OUT:
+        return None
+    return _measured_box(measured)
+
+
+def _measured_box(measured: dict[str, Any] | None) -> Box | None:
+    """The box of an entity_extents answer, or None when it has none."""
     if not measured:
         return None
     low, high = measured.get("min"), measured.get("max")
@@ -348,6 +387,8 @@ def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None, str | N
     note (third value) says so: the picture is then a window over it. A plug-in
     box that is bigger (an object on a frozen layer, which a plot leaves out)
     is not used. No plug-in, or an older one: EXTMIN/EXTMAX as before (D-114).
+    A sheet is the same with PEXTMIN/PEXTMAX and the sheet's own name, its
+    overall viewport left out (#281, D-154).
     """
     try:
         doc.Regen(AC_ALL_VIEWPORTS)
@@ -364,12 +405,14 @@ def _extents_box(doc: Any, layout: Any) -> tuple[Box | None, str | None, str | N
         raise_if_busy(exc)
         box = None
     note = None
-    if model and box:
-        fresh = _measured_model_box()
+    if box:
+        fresh = _measured_model_box() if model else _measured_sheet_box(str(layout.Name))
         if fresh and _shrunk_inside(fresh, box):
+            names, where = ("EXTMIN/EXTMAX", "in model space") if model else (
+                "PEXTMIN/PEXTMAX", f"on the sheet '{layout.Name}' (its own overall viewport left out)")
             note = (
-                f"EXTMIN/EXTMAX still reach {_round_point(box[0])} to {_round_point(box[1])}: AutoCAD "
-                "shrinks them only on ZOOM Extents. The picture covers the objects in model space as "
+                f"{names} still reach {_round_point(box[0])} to {_round_point(box[1])}: AutoCAD "
+                f"shrinks them only on ZOOM Extents. The picture covers the objects {where} as "
                 f"Heron in AutoCAD measured them, {_round_point(fresh[0])} to {_round_point(fresh[1])}."
             )
             box = fresh

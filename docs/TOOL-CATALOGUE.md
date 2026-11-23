@@ -4216,7 +4216,7 @@ Returns the sheet's arithmetic worked out — paper size, frame, the corner a ti
 - copy_from naming a layout that is not there lists the ones that are.
 - The plug-in does part of the work (`create_layout`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22, AM9).
 
 ### `autocad_list_layouts`
 
@@ -6454,7 +6454,7 @@ Use after drawing something, to check it looks right before reporting it done. P
 **Limits and versions.**
 - Uses the plug-in for speed when it can (from plug-in 1.8.0); otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AM7, AM8, AH1, AR1).
+**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AM7, AM8, AM9, AH1, AR1).
 
 ### `autocad_project_notes`
 
