@@ -5847,9 +5847,9 @@ Rules: a layer name pattern, required layers with colour and linetype, nothing o
 - Technical shape of the answer: `JSON: {"checked", "passed", "source", "pass_means", "summary" {rule: count}, "findings" [...], "truncated", "reference" {"file", "read_by", "compared", "left_out"}, "layer_standard" {"source", "file", "example", "layers", "compared" ...`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D31, U10, AG5, AT4, AT8, S2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D31, U10, BI1, BI2, BI3, BI4, AG5, AT4, AT8, S2).
 
 ### `autocad_checklist`
 

@@ -27,7 +27,10 @@ namespace Heron.AutoCAD.Bridge
             // autocad_export_attribute_sheet and the reads of autocad_set_attributes and
             // autocad_apply_attribute_sheet (D-138); asked inside a Change or Publish job too.
             ["block_attributes"] = Risk.Read,
-            // The objects on the layers autocad_merge_layers merges away (D-144).
+            // Each object's layer, colour, linetype and a dimension's box for
+            // autocad_check_standards' entity rules (D-145); the rules stay in the server.
+            ["entity_properties"] = Risk.Read,
+            // The objects on the layers autocad_merge_layers merges away (D-146).
             ["layer_objects"] = Risk.Read,
             ["solid_topology"] = Risk.Read,
             // Where dimension lines are, the drawing's and objects' annotation scales,
@@ -60,7 +63,7 @@ namespace Heron.AutoCAD.Bridge
             ["move_dimension_lines"] = Risk.Change,
             ["set_annotation_scales"] = Risk.Change,
             ["layer_state"] = Risk.Change,
-            // autocad_merge_layers' move and removal in one transaction: all or none (D-144).
+            // autocad_merge_layers' move and removal in one transaction: all or none (D-146).
             ["merge_layers"] = Risk.Change,
             // Setting a render up (D-86, D-87). None of them renders.
             ["current_view"] = Risk.Read,

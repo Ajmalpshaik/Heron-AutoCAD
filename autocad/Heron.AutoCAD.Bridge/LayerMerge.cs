@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Heron.AutoCAD.Bridge
 {
     /// <summary>
-    /// layer_objects (#199, D-144): the objects on the old layers of
+    /// layer_objects (#199, D-146): the objects on the old layers of
     /// autocad_merge_layers, in the order the server's COM read finds them
     /// (each old layer's selection, then every block definition but layouts
     /// and xrefs, then the attributes of every block reference), each as
@@ -82,7 +82,7 @@ namespace Heron.AutoCAD.Bridge
     }
 
     /// <summary>
-    /// merge_layers (#199, D-144): what autocad_merge_layers asks the plug-in
+    /// merge_layers (#199, D-146): what autocad_merge_layers asks the plug-in
     /// to do in one transaction, and what it did. The old layers, the layer
     /// they merge into, and the handles the server planned to move (it plans
     /// them; the plug-in moves exactly those). Every object moves, or none

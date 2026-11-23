@@ -871,6 +871,24 @@ on copies of a real drawing. **Every row below is NOT RUN.**
 | BJ5 | An object AutoCAD will not move (a proxy object from another application on an old layer, if one can be had): merge with the plug-in, then `--no-bridge` | With the plug-in: the answer says that object would not move and "Nothing was changed"; nothing in the drawing moved, no undo step. Over COM: the object is under `failed`, its layer kept, the rest moved | NOT RUN |
 | BJ6 | A block whose attribute definitions were deleted after it was inserted (no ATTSYNC), an attribute on an old layer: merge (no `confirm`) with the plug-in | The read goes to COM (the log shows `layer_objects`, the answer matches `--no-bridge`); write down whether COM's read listed that attribute | NOT RUN |
 | BJ7 | Plug-in 1.8.1 installed (no `layer_objects` or `merge_layers`): BJ1 and BJ2; then on a plan with 50 block definitions and 20,000 objects on the old layers, time BJ2 with the new plug-in and over COM | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times) | NOT RUN |
+## Group BI - The standards check's object facts the plug-in reads in one go (D-145) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-145](DECISIONS.md), issue #196). Built and tested offline only
+(`tests/test_plugin_standards_reads.py` compares the plug-in and COM answers on one fake drawing;
+`PropertyFactsTests.cs` what the plug-in writes). The plug-in operation `entity_properties` has never
+run. Needs the plug-in rebuilt and reinstalled from code that has it (plug-ins 1.8.0 and 1.8.1 do not:
+they are read over COM), and the server restarted. "Both ways" means the same call to a second server
+started with `--no-bridge`, as in Groups AS, AU, BB and BE; the plug-in's log shows
+`operation entity_properties` when the plug-in read it. "The same text" means the two answers compared
+character by character. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BI1 | A real MEP plan with objects on layer 0, colour and linetype overrides, objects on a sheet and in model space: `autocad_check_standards(rules={'forbid_entities_on_layer_0': true, 'require_bylayer_color': true, 'require_bylayer_linetype': true})` both ways | The log shows `operation entity_properties`; the same text both ways, findings in the same order with the same colour numbers and linetype names | NOT RUN |
+| BI2 | One line with a true colour (RGB) and one with a colour-book colour: `autocad_check_standards(rules={'require_bylayer_color': true})`, then `rules={'forbid_entities_on_layer_0': true}`, with the plug-in | First: the check reads over COM (the log shows the call, the answer matches `--no-bridge`). Second: the plug-in's answer is used. Write down what COM's `Color` gives for each of the two lines | NOT RUN |
+| BI3 | One of each dimension kind (rotated, aligned, angular, radial, diameter, arc length, ordinate), some drawn on top of each other: `autocad_check_standards(rules={'forbid_overlapping_dimensions': true})` both ways | The same overlaps both ways: .NET's `GeometricExtents` gives each dimension the box COM's `GetBoundingBox` gives | NOT RUN |
+| BI4 | The plan of BI1 with more than 50 objects: `autocad_check_standards(rules=..., max_entities=50)` both ways | The same text: "Only the first 50 objects were read", `passed` null, the same 50 objects checked | NOT RUN |
+| BI5 | Plug-in 1.8.1 installed (no `entity_properties`): BI1; then on a plan of 20,000 objects time BI1 with the new plug-in and over COM; then draw a line yourself, run BI1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
 
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 

@@ -1,4 +1,4 @@
-"""Reads the plug-in does in one go: block counts, lengths and texts, block attributes (groups AU, BB, BE).
+"""Reads and a merge the plug-in does in one go: blocks, lengths, texts, attributes, standards, layer merge (AU-BJ).
 
 Run by ``live_check.py``; see ``live_common.py`` for the rules every check keeps.
 Nothing here is measured. Every row's pass is that the plug-in's answer is the same
@@ -53,6 +53,11 @@ BY_EYE: dict[str, str] = {
     "BE8": "needs a block with an invisible attribute, and " + _OVER_COM,
     "BE9": _OLD + "; then a plan with 2,000 tagged blocks timed both ways, and Ctrl+Z pressed by hand",
     "BE10": "needs a title block whose attributes hold fields, and " + _OVER_COM,
+    "BI1": "needs a real MEP plan with colour and linetype overrides, and " + _OVER_COM,
+    "BI2": "needs a true-colour line and a colour-book line drawn by hand, and what COM's Color gives is written down",
+    "BI3": "needs one of each dimension kind drawn by hand, some on top of each other, and " + _OVER_COM,
+    "BI4": "needs the same plan, and " + _OVER_COM,
+    "BI5": _OLD + "; then a plan of 20,000 objects timed both ways, and Ctrl+Z pressed by hand",
     "BJ1": "needs a real drawing with layers to merge in every place an object can be, and " + _OVER_COM,
     "BJ2": "needs Keep or Discard answered by hand, a second copy of the drawing, and " + _OVER_COM,
     "BJ3": "needs Ctrl+Z pressed by hand and the layers looked at in the layer manager",
