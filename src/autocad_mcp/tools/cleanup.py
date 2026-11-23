@@ -574,7 +574,7 @@ NO_REWRITE = (
 
 
 def retarget_copies(found: dict[str, Any], staging: Path) -> tuple[dict[str, str], dict[str, Any]]:
-    """Each packed drawing copied into ``staging`` with its saved paths set to the files beside it (#160, D-148).
+    """Each packed drawing copied into ``staging`` with its saved paths set to the files beside it (#160, D-149).
 
     The plug-in opens each copy as a side database, never the drawing on
     screen. Returns the copies to pack in place of the originals, by name in

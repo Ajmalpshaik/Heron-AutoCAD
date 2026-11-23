@@ -10,7 +10,7 @@ using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
 namespace Heron.AutoCAD.Addin
 {
     /// <summary>
-    /// eTransmit's packed copy pointed at the files beside it (#160, D-148).
+    /// eTransmit's packed copy pointed at the files beside it (#160, D-149).
     ///
     /// The server copies each drawing it packs into a folder of its own and
     /// asks for that copy here. It is opened as a side database (never as a
