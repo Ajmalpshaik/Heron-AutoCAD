@@ -110,7 +110,7 @@ namespace Heron.AutoCAD.Bridge
             ["publish_pdf"] = Risk.Publish,
             // eTransmit's packed copy, opened as a side database (never the drawing on
             // screen), its xref, image and underlay paths set to the files beside it
-            // (#160, D-149): it writes a file, so Publish.
+            // (#160, D-150): it writes a file, so Publish.
             ["retarget_pack_paths"] = Risk.Publish,
         };
 

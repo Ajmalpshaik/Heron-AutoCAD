@@ -342,6 +342,12 @@ variables back, pressing Esc on the way to the real error, a redraw after the wo
 waits. Each is named with its reason in `tests/test_busy_sweep.py`. NOT RUN live (NEEDS-CHECKING
 group AL).
 
+**A property AutoCAD will not set ([D-149](DECISIONS.md), #270).** pywin32 says "can not be set" for a
+busy AutoCAD and for a real refusal alike. The server asks the object again itself: no such property, or
+a value turned down, is answered at once as an error naming the property; busy is asked again. If AutoCAD
+is busy at the first try and free for the second ask, the set is simply done. A *read* of a property the
+object does not have is not changed. NOT RUN live (NEEDS-CHECKING AL8, AL9).
+
 **Which command AutoCAD is in ([D-77](DECISIONS.md), #47).** A busy answer's first line now names
 it ("it is still in the HATCH command"), from the plug-in's command tracker, with what the plug-in
 counted so far. It needs the plug-in built from that change; an older one says no command. The
@@ -590,7 +596,7 @@ From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NE
 
 ## 35. Overkill, boundary, eTransmit, underlays and clips have their own limits
 
-From issues #112, #104, #118, #114, #159 and #160 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-146](DECISIONS.md), [D-149](DECISIONS.md)); all NOT RUN
+From issues #112, #104, #118, #114, #159 and #160 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-146](DECISIONS.md), [D-150](DECISIONS.md)); all NOT RUN
 live (NEEDS-CHECKING group AD). The plug-in parts (underlays, xref and underlay clips, boundary,
 eTransmit's file list) need the plug-in **newer than 1.7.0**; an older one answers that it does not
 have the operation, and nothing is sent.
@@ -631,7 +637,7 @@ have the operation, and nothing is sent.
   be stopped: AutoCAD may still finish it and make the outline. Whether `TraceBoundary` looks only at
   what is in view, as BOUNDARY's "current viewport" set does, is the reason for row AD7.
 - **eTransmit packs the drawing as last saved** and refuses one with unsaved changes. Everything goes
-  in one folder (or zip) beside the drawing. With the new plug-in ([D-149](DECISIONS.md), row AD14)
+  in one folder (or zip) beside the drawing. With the new plug-in ([D-150](DECISIONS.md), row AD14)
   the xref, image and underlay paths saved in each packed drawing are set to the bare file name; the
   plug-in does it in a copy opened on its own, never the drawing on screen. An older plug-in leaves
   them as saved (`paths.rewritten` false, row AD15): AutoCAD still finds an xref, image or font by its

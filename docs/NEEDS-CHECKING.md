@@ -1319,10 +1319,12 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 | AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
 | AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
 | AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
+| AL8 | D-149 (#270, 2026-11-23). Restart the server. The runner draws a line straight into model space, then sets `Radius` on it over COM (a property a line does not have) | Within a second or two: `PropertyRefused`, naming `'Radius'` and saying AutoCAD was not busy; never "Outcome unknown", "stayed busy" or "Lost the COM connection" after ten seconds | NOT RUN |
+| AL9 | D-149 (#270). Options dialog open. `autocad_modify_entity` on a line, `layer='0'` | As AL1: "AutoCAD stayed busy ... press Esc" (or the change made once the dialog is closed); never "AutoCAD has no property" or "would not set" | NOT RUN |
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 
-Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md); AD14, AD15 for #160, [D-149](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md); AD14, AD15 for #160, [D-150](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
 [05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
 Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
 parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and

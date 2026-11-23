@@ -237,7 +237,7 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `clip_reference` | `autocad_clip_reference` (xref, block, underlay) | an XCLIP spatial filter in the block's own coordinates, or `UnderlayReference.SetClipBoundary` in the underlay's own |
 | `trace_boundary` | `autocad_trace_boundary` | `Editor.TraceBoundary` after a zoom to the window and a count of the objects in it; never -BOUNDARY or BPOLY typed ([D-84](DECISIONS.md)) |
 | `list_dependencies` (Read) | `autocad_etransmit` | images, underlays and fonts of the drawing and each loaded xref, each layout's plot style, found with `HostApplicationServices.FindFile` ([D-85](DECISIONS.md)) |
-| `retarget_pack_paths` (Publish) | `autocad_etransmit` | a packed copy (only a .dwg in a `heron-etransmit-` folder, never a drawing open in AutoCAD) read as a side `Database` (`ReadDwgFile`, `CloseInput`); each xref `PathName`, `RasterImageDef` and `UnderlayDefinition.SourceFileName` set to the bare name of a file in the pack, saved in its own version; the rule in `Bridge/PackPaths.cs` ([D-149](DECISIONS.md)) |
+| `retarget_pack_paths` (Publish) | `autocad_etransmit` | a packed copy (only a .dwg in a `heron-etransmit-` folder, never a drawing open in AutoCAD) read as a side `Database` (`ReadDwgFile`, `CloseInput`); each xref `PathName`, `RasterImageDef` and `UnderlayDefinition.SourceFileName` set to the bare name of a file in the pack, saved in its own version; the rule in `Bridge/PackPaths.cs` ([D-150](DECISIONS.md)) |
 
 An older plug-in answers that it does not know `run`; the tool then says to update the plug-in.
 If no answer comes within 300 s the result is "Outcome unknown": the operation may still have run.
