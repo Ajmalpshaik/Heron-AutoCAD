@@ -48,6 +48,45 @@ public class JobChangesTests
     }
 
     [Fact]
+    public void A_table_record_made_and_erased_in_the_job_is_no_erase()
+    {
+        // #218: a refused super hatch detaches the xref it attached (block record X1, its layer L1);
+        // the probe reference P1 is made and erased too. Nothing is left to ask about.
+        _changes.Begin("j1", Risk.Change);
+        _changes.RecordMade("X1");
+        _changes.RecordMade("L1");
+        _changes.Appended("P1");
+        _changes.Erased("P1", true);
+        _changes.Erased("L1", true);
+        _changes.Erased("X1", true);
+        var report = _changes.Read("j1")!;
+        Assert.Equal(0, report.Added);
+        Assert.Equal(0, report.Erased);
+        Assert.Empty(report.AllErasedHandles);
+    }
+
+    [Fact]
+    public void A_table_record_that_was_there_before_the_job_is_still_an_erase()
+    {
+        _changes.Begin("j1", Risk.Change);
+        _changes.RecordMade("X1");
+        _changes.Erased("X1", true);
+        _changes.Erased("LAYER-OLD", true); // a purge or a merge of the modeller's own layer
+        Assert.Equal(new[] { "LAYER-OLD" }, _changes.Read("j1")!.AllErasedHandles);
+    }
+
+    [Fact]
+    public void A_table_record_made_in_an_earlier_job_is_an_erase_in_this_one()
+    {
+        _changes.Begin("j1", Risk.Change);
+        _changes.RecordMade("X1");
+        _changes.End("j1");
+        _changes.Begin("j2", Risk.Change);
+        _changes.Erased("X1", true);
+        Assert.Equal(1, _changes.Read("j2")!.Erased);
+    }
+
+    [Fact]
     public void An_object_brought_back_is_no_longer_erased()
     {
         _changes.Begin("j1", Risk.Change);

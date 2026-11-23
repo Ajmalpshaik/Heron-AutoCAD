@@ -29,6 +29,8 @@ TEXT_TYPES = {"AcDbText", "AcDbMText", "AcDbAttributeDefinition"}
 INSERT_TYPES = {"AcDbBlockReference", "AcDbMInsertBlock"}
 _COLLECTIONS = {"layers": "Layers", "linetypes": "Linetypes", "text_styles": "TextStyles", "dim_styles": "DimStyles", "blocks": "Blocks"}
 MOST_HANDLES = 5000
+# Source objects named one by one in the answer; the rest are counted.
+MOST_LISTED = 50
 # Objects read inside block definitions to find what they need; a library block is rarely near this.
 MOST_SCANNED = 20000
 
@@ -141,9 +143,15 @@ async def autocad_copy_from_drawing(
     VALVE in both shows this drawing's VALVE (listed in "already_here"). One
     undo step.
 
+    Handles are unique only inside one drawing, so a handle read in this
+    drawing names whatever has it in the source. The answer (and the dry run)
+    names each source object's type and layer in "source_objects": check they
+    are the ones meant.
+
     Returns:
         JSON: {"copied": int, "handles": [new handles], "from", "into", "moved_by": [dx, dy, dz],
-        "brought_in": {layers, blocks, ...}, "already_here": {...}}
+        "source_objects": [{handle, type, layer}] (the first 50; "source_objects_left_out" counts
+        the rest), "brought_in": {layers, blocks, ...}, "already_here": {...}}
 
     Examples:
         - Use when: "copy the pump skid from pump-room.dwg into this plan at
@@ -158,7 +166,8 @@ async def autocad_copy_from_drawing(
 
     Error Handling:
         - A source that is not open, is this drawing, or a handle that is not in
-          it is refused before anything is copied.
+          it is refused before anything is copied; so is a handle that names a
+          layer, a style or anything else that is not a drawn object there.
     """
     if len(base_point) < 2:
         raise AutocadError("base_point must be [x, y].")
@@ -195,6 +204,20 @@ async def autocad_copy_from_drawing(
                 f"{from_doc.Name} has nothing with the handle(s) {', '.join(missing[:20])}. Handles belong to one "
                 "drawing: read them there (autocad_list_entities while it is active). Nothing was copied."
             )
+        # A handle is unique only inside one drawing: one read in this drawing names whatever
+        # has it in the source, so each object is named in the answer, never copied unseen (#218).
+        found = [
+            (handle, _read(obj, "ObjectName") or "?", _read(obj, "Layer"))
+            for handle, obj in zip(wanted, objects, strict=True)  # one object per handle: a missing one stopped above
+        ]
+        not_drawn = [f"{handle} ({kind})" for handle, kind, layer in found if not layer]
+        if not_drawn:
+            raise AutocadError(
+                f"In {from_doc.Name}, {', '.join(not_drawn[:20])} {'is' if len(not_drawn) == 1 else 'are'} not a "
+                "drawn object (a layer, a style, a block definition or the like), so there is nothing to copy. "
+                f"A handle read in another drawing names whatever has it in {from_doc.Name}: read the handles "
+                "there (autocad_list_entities while it is active). Nothing was copied."
+            )
         uses = empty_uses()
         top_blocks: set[str] = set()
         groups: dict[Any, list[Any]] = defaultdict(list)
@@ -215,9 +238,12 @@ async def autocad_copy_from_drawing(
             "from": str(from_doc.Name),
             "into": str(target.Name),
             "objects": len(objects),
+            "source_objects": [{"handle": h, "type": kind, "layer": layer} for h, kind, layer in found[:MOST_LISTED]],
             "moved_by": move,
             **along,
         }
+        if len(found) > MOST_LISTED:
+            result["source_objects_left_out"] = len(found) - MOST_LISTED
         if along["already_here"]:
             result["already_here_note"] = (
                 "These names are already in this drawing, so the copies use this drawing's own: a block of the "

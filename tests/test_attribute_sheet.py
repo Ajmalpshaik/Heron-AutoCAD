@@ -137,6 +137,25 @@ def test_a_semicolon_csv_from_a_european_excel_is_read():
     assert attribute_sheet.plan(rows, None, REFS)["changes"][0]["new"] == "CAM-07"
 
 
+@pytest.mark.parametrize(
+    ("text", "mark"),
+    [
+        ("Handle,TAG\n2A,CAM-07\n", ","),
+        ("Handle;TAG\n2A;CAM-07\n", ";"),
+        ("Handle\tTAG\n2A\tCAM-07\n", "\t"),
+        # Decimal commas below the header outnumber its semicolons: the header decides.
+        ("H;W\n1,5;2,5\n3,5;4,5\n5,5;6,5\n", ";"),
+        # A separator inside quotes is text, not a column.
+        ('"Size; flow",TAG\nDN50,V-1\n', ","),
+        # A title with no separator is passed over; nothing at all is a comma.
+        ("Pump schedule\nTAG;FLOW\n", ";"),
+        ("one\ntwo\n", ","),
+    ],
+)
+def test_the_csv_separator_is_read_from_the_first_line_that_has_one(text, mark):
+    assert attribute_sheet.csv_delimiter(text) == mark
+
+
 # --- the tools -----------------------------------------------------------------------------
 
 

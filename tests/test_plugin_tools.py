@@ -298,6 +298,16 @@ class TestSuperHatch:
         assert args["origin"] == pytest.approx([1000.0, 0.0])
         assert args["angle"] == pytest.approx(math.pi / 2)
 
+    @pytest.mark.parametrize("layer", ["L-PAVING\nX", "L|PAVING", "L-PAV\tING", "   "])
+    def test_a_bad_layer_name_is_refused_before_anything_is_sent(self, plugin, layer):
+        # S13's follow-up to D-139: the layer was passed to the plug-in unchecked.
+        assert "layer name" in error(superhatch.autocad_super_hatch(boundary="2A", block="PAVER", layer=layer))
+        assert plugin.calls == []
+
+    def test_the_layer_name_is_sent_trimmed(self, plugin):
+        call(superhatch.autocad_super_hatch(boundary="2A", block="PAVER", layer="  L-PAVING "))
+        assert plugin.calls[0][1]["layer"] == "L-PAVING"
+
     @pytest.mark.parametrize("spacing", [[600], [600, 0], [-1, 300]])
     def test_a_spacing_needs_two_sizes_above_zero(self, plugin, spacing):
         assert "spacing" in error(superhatch.autocad_super_hatch(boundary="2A", block="PAVER", spacing=spacing))

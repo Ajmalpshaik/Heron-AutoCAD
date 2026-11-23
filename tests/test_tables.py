@@ -438,6 +438,16 @@ class TestTableFromExcel:
         assert sent == [] and result["linked"] is False and ".csv" in result["not_linked_because"]
         assert doc.ModelSpace.table.texts[(1, 0)] == "F-01"
 
+    def test_a_semicolon_csv_from_a_european_excel_keeps_its_columns(self, env, tmp_path, monkeypatch):
+        # #218 item 6: a comma-only reader made this one column, "TAG;FLOW" in one cell.
+        doc = env()
+        path = tmp_path / "fans.csv"
+        path.write_text("TAG;FLOW;NOTE\nF-01;2,5;\"kitchen; roof\"\nF-02;1,25;\n", encoding="utf-8")
+        monkeypatch.setattr(tables, "in_plugin", lambda *a, **k: None)
+        answer(tables.autocad_table_from_excel(path=str(path), position=[0, 0]))
+        texts = doc.ModelSpace.table.texts
+        assert texts[(1, 0)] == "F-01" and texts[(1, 1)] == "2,5" and texts[(1, 2)] == "kitchen; roof"
+
     def test_a_missing_sheet_names_the_ones_there(self, env, workbook):
         env()
         text = asyncio.run(tables.autocad_table_from_excel(path=str(workbook), position=[0, 0], sheet="Fans"))

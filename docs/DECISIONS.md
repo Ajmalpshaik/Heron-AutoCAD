@@ -73,6 +73,73 @@ C# pieces are reused instead: `EntityReads.TryAttributes` (which `entity_texts` 
 answer unchanged), `TextAttribute` (with `Invisible`, which `entity_texts` does not write) and
 `BlockReads.RealName`.
 
+## D-137 - The runner's seven suspected tool bugs, each settled: four fixed, three not bugs; a table record made and erased in one job is no erase
+
+**Decided:** 2026-11-23, by session S11 of the 2026-11-23 wave ("Yes, next 10"), on issues
+[#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218) (found by reading the code while the
+live-check runner was written) and [#254](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/254), and
+S13's follow-up in D-139. **Status:** in force; tested offline only (each fix has a test that failed
+before it), live rows NOT RUN (NEEDS-CHECKING Group BD). Refines D-50's count; D-83 and D-102 stand.
+
+**Fixed:**
+1. **A table record made and erased in one job is no erase** (the super hatch xref). `ChangeWatch` counts
+   only drawn objects as added, but any table record as erased. So a super hatch refused after it had
+   attached its xref (it detaches it again, `SuperHatch.Tile.Fail`) reported the xref's block record, and
+   any layers the xref brought, as erased, and the gate raised the keep-erased box for a job that failed;
+   "bring them back" would have un-erased a detached xref. Now `ChangeWatch` tells `JobChanges` of a table
+   record appended in the job (`RecordMade`); it is still not counted as added, but its erase in the same
+   job is "never made", as D-50 already said of a scratch object. A record made in an **earlier** job, or
+   one that was there before (a merge, a purge), is an erase exactly as before. The rule is in the Bridge
+   and tested; whether AutoCAD sends `ObjectAppended` for `AttachXref`'s record is BD1.
+4. **Preview close-ups of a window out of plan are skipped**, as D-102 said they are: `_plot_png` checked
+   the plan view only for `area='extents'`. A model-space window with `detail` 2 or 3 in a 3D view, a
+   turned UCS or a twisted view now gives the one picture and `detail_skipped` with the reason. A paper
+   layout's window is always flat and still splits.
+6. **A CSV's separator is read, not assumed.** `autocad_table_from_excel` read a semicolon CSV (a European
+   Excel) as one column. One helper, `acad/attribute_sheet.csv_delimiter`, now serves it and the attribute
+   sheet: comma, semicolon or tab, whichever the first line holding any has most of, outside quotes. The
+   attribute sheet used to count over the first 4 KB, where decimal commas below a semicolon header could
+   outvote it ("1,5;2,5"); Excel pads every row, a title too, with the same separators, so one line is
+   enough. A tie is a comma. Not changed: `layer_standard._delimiter` (it reads the header line already)
+   and `text_tools._read_rows` (labels from CSV, comma only), noted for the parent.
+7. **`autocad_copy_from_drawing` no longer copies by handle unseen.** A handle is unique only inside one
+   drawing, and low handles overlap in nearly every pair of drawings, so a handle read in the active
+   drawing cannot be told from one read in the source: it is **not** refused or warned on by guessing.
+   Instead (a) a handle that names no drawn object in the source (a layer, a style, a block definition:
+   no `Layer` of its own) is refused before anything is copied, and (b) the answer and the dry run name each
+   source object's type and layer (`source_objects`, the first 50, `source_objects_left_out` for the rest),
+   so the chat can see a wrong object before or after the copy.
+- **S13's follow-up (D-139):** `autocad_super_hatch` validates `layer` with `validate_name` before anything
+  is sent, and sends the trimmed name.
+
+**Not bugs, with the reason (said on #218 too):**
+2. **`autocad_dimension_run(dim_style=...)` deleting a dimension that will not take the style** raises no
+   box: the dimension was appended in the same job, so its erase is "made and erased in the same job"
+   (`JobChanges.Erased`, test `A_scratch_object_made_and_erased_in_the_job_is_neither`). The only record
+   that could still have counted, its anonymous `*D` block, is covered by fix 1.
+3. **`autocad_update_table_links`' answer** was put right on 2026-11-22 (#191): the docstring now lists
+   `updated: [{handle, source}]` and `not_linked`, which is what `ExcelTables.Update` writes. One unreadable
+   workbook refusing the whole update is D-83's rule (one transaction, nothing half-updated), and the
+   docstring says so.
+5. **`draw_extra._flat_z` reading a line's ends, not its normal**, is right. A line is its two ends: equal
+   Z means level in world plan, whatever UCS drew it; its normal only sets the direction of a thickness.
+   Points and blocks are placed at world points along it. A line drawn up a tilted UCS's Y axis climbs and
+   is refused (AP10 tries that one). A pinning test marks a level line with a tilted normal.
+
+**#254, gate state between tests.** `gate._no_mark` (why the last `_mark()` put no mark down, for a
+Discard's words, #206) is set by the real `_mark()`; `test_answers` and `test_busy_refusals` call it, and
+the `env` fixture's fake `_mark` never clears it, so a later Discard said "AutoCAD was in a command". The
+fix is in the gate: `gate.reset()` (the fresh start the fixture and a server start use) forgets it too,
+and the test that set it puts it back.
+
+**Register rows reworded (#218):** AB5 (a restore lists on / frozen / locked only), AB7 and AC3 (the merge
+and the sync raise the erase box first), AH6 (looking -X the bend and riser are behind the plane; give
+the duct's `handles`), AH7 (3200 cuts the bend up, 600 x 565.7; the level legs' top face is AutoCAD's
+call; `handles`), AE2 (perspective may stay off after a switch from 2D Wireframe; the runner now restores
+the view by hand when PERSPECTIVE reads 0). The two AQ items added to #218 later (`GeoLocation.Change`,
+`autocad_tiled_viewports`) were not among the seven and moved to their own issue,
+[#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258).
+
 ## D-136 - A replace edit's erase question undoes the whole change; xref layers are never made current
 
 **Decided:** 2026-11-23, the erase question by Ajmal PS, the rest by session S10 of the 2026-11-23 wave

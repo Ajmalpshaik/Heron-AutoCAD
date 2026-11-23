@@ -328,4 +328,5 @@ def test_no_mark_is_put_down_while_autocad_is_in_a_command(monkeypatch):
 
     monkeypatch.setattr(gate, "get_app", App)
     monkeypatch.setattr(gate, "run", now)
+    monkeypatch.setattr(gate, "_no_mark", "")  # the real _mark() sets it: put back after the test (#254)
     assert asyncio.run(gate._mark()) is False and Doc.sent == []

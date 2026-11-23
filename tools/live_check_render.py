@@ -219,10 +219,17 @@ async def ae2_a_camera_view_is_saved_in_perspective_at_24mm(ctx: Context) -> str
     expect(name.lower() not in await _views(), f"one undo step did not remove {name}")
     await add()
     parse(await solids.autocad_set_3d_view(visual_style="realistic", zoom_extents=False))
-    seen = await _camera_on_screen(eye, target, 24.0, "after visual_style='realistic'")
+    # AutoCAD may keep PERSPECTIVE 0 from 2D Wireframe: the style alone may not bring it back (#218).
+    if int(await lc.variable("PERSPECTIVE") or 0) == 1:
+        seen = await _camera_on_screen(eye, target, 24.0, "after visual_style='realistic'")
+        how = "switched to Realistic, perspective came on by itself"
+    else:
+        await by_hand_command(f"_.-VIEW _Restore {name}\n")
+        seen = await _camera_on_screen(eye, target, 24.0, f"after Realistic, then VIEW Restore {name}")
+        how = f"switched to Realistic, PERSPECTIVE stayed 0 until VIEW Restore {name} typed by hand"
     return (f"{name} saved and listed as a view looking from the corner to the far wall, field_of_view_degrees "
             f"{field}; in 2D Wireframe the answer warned; one undo step removed it, and once made again and "
-            f"switched to Realistic the screen reads {seen}. AutoCAD's own Field of view and the room on "
+            f"{how}: the screen reads {seen}. AutoCAD's own Field of view and the room on "
             "screen were not looked at (no room is drawn)")
 
 
