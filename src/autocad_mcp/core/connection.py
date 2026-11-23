@@ -55,7 +55,7 @@ PAPER_SPACE = "paper"
 
 
 def check_property_sets(cls: Any) -> None:
-    """Make a refused property set say why, instead of reading as a busy AutoCAD (#270, D-147).
+    """Make a refused property set say why, instead of reading as a busy AutoCAD (#270, D-148).
 
     pywin32's late-bound object answers every property it cannot set with
     "Property '<x>' can not be set.", busy or not. Wrapped here, that one error
