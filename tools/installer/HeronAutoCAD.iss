@@ -12,7 +12,8 @@
 ; and Claude Desktop where the server is. Its uninstaller runs Install.ps1 -Disconnect,
 ; then removes only the files it installed: saved commands, check lists, logs and the
 ; audit in %LOCALAPPDATA%\Heron\autocad are the modeller's and stay.
-; Setup and its uninstaller both refuse while AutoCAD is open.
+; Setup and its uninstaller both refuse while this user's AutoCAD is open (another user's, on a
+; shared server, does not count).
 ; Keep this file plain ASCII.
 
 #ifndef AppVersion
@@ -115,15 +116,45 @@ begin
   Result := '-NoProfile -ExecutionPolicy Bypass -File "' + ServerDir + '\Install.ps1" ' + Mode;
 end;
 
+// DOMAIN\user running this setup (#185), as Win32_Process.GetOwner reports other processes' owners.
+function ThisUser: String;
+begin
+  Result := GetEnv('USERDOMAIN') + '\' + GetUserNameString;
+end;
+
+// The tasklist filter that keeps only this user's processes, or '' for every user's.
+function UserFilter(const OwnOnly: Boolean): String;
+begin
+  Result := '';
+  if OwnOnly then
+    Result := ' /FI "USERNAME eq ' + ThisUser + '"';
+end;
+
+// False only when Windows names another user as the owner of this process. When it will not
+// say, the process counts as ours: refusing too often is safe, refusing too rarely is not.
+function IsOwnProcess(const Item: Variant): Boolean;
+var
+  Answer: Variant;
+begin
+  Result := True;
+  try
+    Answer := Item.ExecMethod_('GetOwner');
+    if (Answer.ReturnValue = 0) and not VarIsNull(Answer.User) then
+      Result := SameText(Answer.Domain + '\' + Answer.User, ThisUser);
+  except
+    Log('Could not read a process owner, counting it as ours: ' + GetExceptionMessage);
+  end;
+end;
+
 // tasklist, when Windows' process list (WMI) cannot be read: by name only.
-function RunningByName(const ExeName: String): Boolean;
+function RunningByName(const ExeName: String; const OwnOnly: Boolean): Boolean;
 var
   ResultCode, I: Integer;
   Output: TExecOutput;
 begin
   Result := False;
   try
-    if ExecAndCaptureOutput(ExpandConstant('{sys}\tasklist.exe'), '/FI "IMAGENAME eq ' + ExeName + '" /NH', '',
+    if ExecAndCaptureOutput(ExpandConstant('{sys}\tasklist.exe'), '/FI "IMAGENAME eq ' + ExeName + '"' + UserFilter(OwnOnly) + ' /NH', '',
         SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode, Output) then
       for I := 0 to GetArrayLength(Output.StdOut) - 1 do
         if Pos(LowerCase(ExeName), LowerCase(Output.StdOut[I])) > 0 then
@@ -134,8 +165,10 @@ begin
 end;
 
 // True when ExeName runs. With InFolder, only a copy that runs from that folder counts, so a
-// developer's own server somewhere else does not stop Setup.
-function IsRunning(const ExeName, InFolder: String): Boolean;
+// developer's own server somewhere else does not stop Setup. With OwnOnly, only a copy run by
+// this Windows user counts, in any of their sessions (#185): on a shared server another user's
+// AutoCAD cannot touch these files.
+function IsRunning(const ExeName, InFolder: String; const OwnOnly: Boolean): Boolean;
 var
   Locator, Service, Found, Item, ExePath: Variant;
   Count, I: Integer;
@@ -148,23 +181,26 @@ begin
     Count := Found.Count;
     for I := 0 to Count - 1 do
     begin
-      if InFolder = '' then
-      begin
-        Result := True;
-        Exit;
-      end;
       Item := Found.ItemIndex(I);
-      ExePath := Item.ExecutablePath;
-      if not VarIsNull(ExePath) then
-        if PathSame(ExtractFileDir(ExePath), InFolder) then
+      if (not OwnOnly) or IsOwnProcess(Item) then
+      begin
+        if InFolder = '' then
         begin
           Result := True;
           Exit;
         end;
+        ExePath := Item.ExecutablePath;
+        if not VarIsNull(ExePath) then
+          if PathSame(ExtractFileDir(ExePath), InFolder) then
+          begin
+            Result := True;
+            Exit;
+          end;
+      end;
     end;
   except
     Log('Could not read the process list, using tasklist: ' + GetExceptionMessage);
-    Result := RunningByName(ExeName);
+    Result := RunningByName(ExeName, OwnOnly);
   end;
 end;
 
@@ -172,9 +208,9 @@ end;
 function InTheWay(const Again, Nothing: String): String;
 begin
   Result := '';
-  if IsRunning('acad.exe', '') then
+  if IsRunning('acad.exe', '', True) then
     Result := 'AutoCAD is open. Close AutoCAD, then ' + Again + '.' + #13#10#13#10 + Nothing
-  else if IsRunning('autocad-mcp.exe', ServerDir) then
+  else if IsRunning('autocad-mcp.exe', ServerDir, False) then
     Result := 'Claude is using Heron''s server. Quit Claude Desktop (right-click its icon by the clock, Quit) '
       + 'and close Claude Code, then ' + Again + '.' + #13#10#13#10 + Nothing;
 end;

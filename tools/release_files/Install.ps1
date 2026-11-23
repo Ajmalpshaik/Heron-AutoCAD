@@ -379,6 +379,39 @@ function Test-HeronInClaude {
     return $false
 }
 
+# Does one of these acad.exe belong to this Windows user (#185)? Each item has Owner (DOMAIN\user, or ''
+# when Windows would not say) and SessionId. Another user's AutoCAD on a shared server cannot touch our
+# files, so it does not count; our own AutoCAD in any session of ours does. An owner Windows will not
+# say counts only from our own session, which errs on the side of refusing.
+function Test-OwnAutocad($processes, [string]$me, [int]$mySession) {
+    foreach ($p in @($processes)) {
+        if ($p.Owner) {
+            if ($p.Owner -ieq $me) { return $true }
+        } elseif ([int]$p.SessionId -eq $mySession) { return $true }
+    }
+    return $false
+}
+
+# Every acad.exe with its owner. When the process list cannot be read, one stand-in per acad.exe
+# with no owner, in our own session, so the check still refuses (never a missed AutoCAD).
+function Get-AutocadProcesses {
+    $mine = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    try {
+        foreach ($c in @(Get-CimInstance Win32_Process -Filter "Name = 'acad.exe'" -ErrorAction Stop)) {
+            $who = ''
+            try {
+                $o = Invoke-CimMethod -InputObject $c -MethodName GetOwner -ErrorAction Stop
+                if ($o.ReturnValue -eq 0 -and $o.User) { $who = $o.Domain + '\' + $o.User }
+            } catch { }
+            [pscustomobject]@{ Owner = $who; SessionId = [int]$c.SessionId }
+        }
+    } catch {
+        foreach ($g in @(Get-Process acad -ErrorAction SilentlyContinue)) {
+            [pscustomobject]@{ Owner = ''; SessionId = $mine }
+        }
+    }
+}
+
 # A dry run only says what -Connect or -Disconnect would change, so AutoCAD may stay open for it.
 if ($DryRun) {
     [Console]::Out.WriteLine('Dry run: nothing is changed.')
@@ -389,7 +422,7 @@ if ($DryRun) {
     exit 0
 }
 
-if (Get-Process acad -ErrorAction SilentlyContinue) {
+if (Test-OwnAutocad @(Get-AutocadProcesses) "$env:USERDOMAIN\$env:USERNAME" ([Diagnostics.Process]::GetCurrentProcess().SessionId)) {
     Write-Host 'AutoCAD is open. Close AutoCAD, then run this again. Nothing was changed.' -ForegroundColor Yellow
     exit 1
 }

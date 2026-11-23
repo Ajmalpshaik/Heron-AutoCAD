@@ -23,6 +23,17 @@ Newest first. Dates are when the change was made.
   - Not proven in AutoCAD: a `(command ...)` inside the new wrapper (AW4), and a routine's own `*error*`
     handler, which the catch bypasses (AW8).
 
+- **Only your own AutoCAD stops the setup and `Install.bat` (2026-11-23,
+  [#185](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/185), [D-131](docs/DECISIONS.md)).** On a
+  shared server, a colleague's AutoCAD in their own Windows session no longer blocks your install,
+  update or uninstall. Your own AutoCAD still does, in any of your sessions, connected or not. When
+  Windows will not say who owns an `acad.exe`, Heron still refuses. Tested offline with made-up
+  process lists; the live row on a real shared server (AY1) is NOT RUN.
+- **Release polish (2026-11-23, [#232](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/232),
+  [D-131](docs/DECISIONS.md)).** `checksums.txt` has LF line endings, so `sha256sum -c` works on Linux
+  and macOS. The plug-in bundle no longer carries `.pdb` debug files; the release build and the
+  setup check fail if one appears.
+
 ## 1.8.1 - 2026-11-22 - The setup connects the Claude app (#233)
 
 **Heron AI for AutoCAD plug-in 1.8.1, with server 1.10.2 inside.** Tag `v1.8.1`, a full release
