@@ -303,12 +303,12 @@ def _plan_view(doc: Any) -> bool:
 
 
 # How far in an edge of the plug-in's model-space box must lie from EXTMIN/EXTMAX, as a
-# share of the bigger side, before EXTMIN/EXTMAX are taken to be stale (#269, D-150).
+# share of the bigger side, before EXTMIN/EXTMAX are taken to be stale (#269, D-151).
 STALE_SHARE = 0.01
 
 
 def _measured_model_box() -> Box | None:
-    """Model space's own extents, measured object by object by the plug-in (#269, D-150), or None.
+    """Model space's own extents, measured object by object by the plug-in (#269, D-151), or None.
 
     None, so EXTMIN/EXTMAX are used as before, when the plug-in is not in this
     job, is older than its space filter (DXF 410), or found nothing with extents.

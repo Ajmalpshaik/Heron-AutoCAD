@@ -5,12 +5,15 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import os
 import zipfile
+from pathlib import Path
 
 import pytest
 
 from autocad_mcp.acad import clip, transmittal
 from autocad_mcp.core import gate
+from autocad_mcp.core.bridge import BridgeRefused
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.core.risk import Risk, risk_of
 from autocad_mcp.tools import _shared, cleanup, xrefs
@@ -767,3 +770,124 @@ class TestETransmitTool:
 
     def test_a_folder_that_is_not_there_is_refused(self, tmp_path):
         assert "does not exist" in refused(cleanup.autocad_etransmit(folder=str(tmp_path / "nope")))
+
+
+# ---- eTransmit: the packed copy's paths (#160) ---------------------------------------
+
+
+class PackPlugin:
+    """list_dependencies as given; retarget_pack_paths marks the copy it was given, or fails as asked."""
+
+    def __init__(self, deps, missing_operation=False, fail_on=(), stop=False):
+        self.deps, self.calls = deps, []
+        self.missing_operation, self.fail_on, self.stop = missing_operation, set(fail_on), stop
+
+    def __call__(self, operation, args, timeout=None):
+        self.calls.append((operation, dict(args)))
+        if operation == "list_dependencies":
+            return dict(self.deps)
+        if self.missing_operation:
+            raise BridgeRefused("Heron in AutoCAD does not have the operation 'retarget_pack_paths'. Update Heron so both sides match.")
+        if self.stop:
+            raise BridgeRefused("The modeller pressed Stop in AutoCAD. Nothing more was sent.")
+        copy = Path(args["file"])
+        if copy.name in self.fail_on:
+            raise AutocadError("AutoCAD could not read that drawing (eInvalidDwgVersion).")
+        copy.write_bytes(copy.read_bytes() + b" retargeted")
+        return {"file": str(copy), "saved": True,
+                "changed": [{"kind": "xref", "name": "ARCH", "was": "Arch\\A-101.dwg", "now": "A-101.dwg"}],
+                "kept": [{"kind": "image", "name": "site", "path": "D:\\Photos\\site.jpg", "why": "site.jpg is not in the pack"}]}
+
+
+class TestETransmitPaths:
+    def setup(self, monkeypatch, tmp_path, **options):
+        doc, deps = TestETransmitTool().project(tmp_path)
+        monkeypatch.setattr(cleanup, "run", _now)
+        monkeypatch.setattr(cleanup, "get_doc", lambda: doc)
+        return with_plugin(monkeypatch, PackPlugin(deps, **options))
+
+    def zipped(self, out):
+        with zipfile.ZipFile(out["pack"]) as pack:
+            return {name: pack.read(name) for name in pack.namelist()}
+
+    def test_the_packed_drawings_point_at_the_files_beside_them(self, monkeypatch, tmp_path):
+        plugin = self.setup(monkeypatch, tmp_path)
+        out = call(cleanup.autocad_etransmit(name="Issue 1"))
+        asked = [args for op, args in plugin.calls if op == "retarget_pack_paths"]
+        assert [os.path.basename(a["file"]) for a in asked] == ["M-101.dwg", "A-101.dwg"]
+        assert all(os.path.basename(os.path.dirname(a["file"])).startswith("heron-etransmit-") for a in asked)
+        assert asked[0]["names"] == ["A-101.dwg"] and asked[0]["clashing"] == []
+        files = self.zipped(out)
+        assert files["M-101.dwg"] == b"AC1032 host retargeted" and files["A-101.dwg"] == b"AC1032 arch retargeted"
+        assert out["paths"]["rewritten"] is True and out["paths"]["drawings"][0]["changed"][0]["now"] == "A-101.dwg"
+        assert b"Paths in the packed drawings" in files["transmittal report.txt"]
+
+    def test_the_original_drawing_and_its_xref_are_untouched(self, monkeypatch, tmp_path):
+        self.setup(monkeypatch, tmp_path)
+        call(cleanup.autocad_etransmit(as_zip=False))
+        assert (tmp_path / "M-101.dwg").read_bytes() == b"AC1032 host"
+        assert (tmp_path / "Arch" / "A-101.dwg").read_bytes() == b"AC1032 arch"
+
+    def test_the_copies_made_to_rewrite_are_cleared_away(self, monkeypatch, tmp_path):
+        plugin = self.setup(monkeypatch, tmp_path)
+        call(cleanup.autocad_etransmit())
+        staging = {os.path.dirname(a["file"]) for op, a in plugin.calls if op == "retarget_pack_paths"}
+        assert staging and not any(os.path.exists(folder) for folder in staging)
+
+    def test_a_folder_pack_holds_the_rewritten_copies(self, monkeypatch, tmp_path):
+        self.setup(monkeypatch, tmp_path)
+        out = call(cleanup.autocad_etransmit(as_zip=False))
+        pack = tmp_path / os.path.basename(out["pack"])
+        assert (pack / "M-101.dwg").read_bytes() == b"AC1032 host retargeted"
+
+    def test_an_older_plugin_packs_as_before_and_says_so(self, monkeypatch, tmp_path):
+        self.setup(monkeypatch, tmp_path, missing_operation=True)
+        out = call(cleanup.autocad_etransmit())
+        files = self.zipped(out)
+        assert files["M-101.dwg"] == b"AC1032 host" and files["A-101.dwg"] == b"AC1032 arch"
+        assert out["paths"]["rewritten"] is False and "older" in out["paths"]["why"]
+
+    def test_a_copy_the_plugin_cannot_do_goes_in_as_it_was(self, monkeypatch, tmp_path):
+        self.setup(monkeypatch, tmp_path, fail_on={"A-101.dwg"})
+        out = call(cleanup.autocad_etransmit())
+        files = self.zipped(out)
+        assert files["M-101.dwg"] == b"AC1032 host retargeted" and files["A-101.dwg"] == b"AC1032 arch"
+        assert out["paths"]["not_rewritten"][0]["file"] == "A-101.dwg"
+
+    def test_a_stop_writes_no_pack(self, monkeypatch, tmp_path):
+        self.setup(monkeypatch, tmp_path, stop=True)
+        assert "Stop" in refused(cleanup.autocad_etransmit())
+        assert not any(p.name.startswith("M-101 - Transmittal") for p in tmp_path.iterdir())
+
+    def test_list_only_names_the_drawings_and_asks_nothing(self, monkeypatch, tmp_path):
+        plugin = self.setup(monkeypatch, tmp_path)
+        out = call(cleanup.autocad_etransmit(list_only=True))
+        assert out["paths_to_rewrite_in"] == ["M-101.dwg", "A-101.dwg"]
+        assert [op for op, _ in plugin.calls] == ["list_dependencies"]
+
+
+class TestPackNames:
+    def found(self, tmp_path):
+        files = {}
+        for rel in ("a/X.dwg", "b/X.dwg", "site.jpg", "plan.pdf", "romans.shx", "M.dwg", "H.ctb"):
+            path = tmp_path / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(rel.encode())
+            files[rel] = str(path)
+        return transmittal.plan([
+            transmittal.Need("drawing", "M.dwg", files["M.dwg"]),
+            transmittal.Need("xref", "a\\X.dwg", files["a/X.dwg"], "X1"),
+            transmittal.Need("xref", "b\\X.dwg", files["b/X.dwg"], "X2"),
+            transmittal.Need("image", "site.jpg", files["site.jpg"]),
+            transmittal.Need("underlay", "plan.pdf", files["plan.pdf"]),
+            transmittal.Need("font", "romans.shx", files["romans.shx"]),
+            transmittal.Need("plot style", "H.ctb", files["H.ctb"]),
+        ])
+
+    def test_xrefs_images_and_underlays_by_their_bare_names(self, tmp_path):
+        names, clashing = transmittal.pack_names(self.found(tmp_path))
+        assert names == ["plan.pdf", "site.jpg"] and clashing == ["X.dwg"]
+
+    def test_the_drawing_and_its_xref_drawings_are_the_ones_rewritten(self, tmp_path):
+        rows = transmittal.drawings_to_retarget(self.found(tmp_path))
+        assert [r["to"] for r in rows] == ["M.dwg", "X.dwg"]

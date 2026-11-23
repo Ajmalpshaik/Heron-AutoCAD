@@ -27,9 +27,11 @@ namespace Heron.AutoCAD.Addin
             if (!DrawingNames.Same(doc.Name, request.Drawing)) return RunResult.Failed(Texts.WrongDrawing(doc.Name, request.Drawing));
             PluginOperations.TryLevel(request.Operation, out var level);
             HeronLog.Write("operation " + request.Operation + " on " + doc.Name);
-            // Publishing opens the sheets itself, and showing only selects and
-            // zooms: no lock, no transaction around either.
-            if (request.Operation == "publish_pdf" || request.Operation == "show") return Outside(request, doc);
+            // Publishing opens the sheets itself, showing only selects and zooms, and a
+            // packed copy is a side database, never this drawing: no lock, no
+            // transaction around any of them.
+            if (request.Operation == "publish_pdf" || request.Operation == "show" || request.Operation == "retarget_pack_paths")
+                return Outside(request, doc);
             try
             {
                 using (var args = RunArgs.Parse(request.Args))
@@ -147,7 +149,12 @@ namespace Heron.AutoCAD.Addin
             try
             {
                 using (var args = RunArgs.Parse(request.Args))
-                    return request.Operation == "show" ? Showing.Show(doc, args) : PublishPdf.Run(doc, args);
+                    switch (request.Operation)
+                    {
+                        case "show": return Showing.Show(doc, args);
+                        case "retarget_pack_paths": return PackedCopies.Retarget(args);
+                        default: return PublishPdf.Run(doc, args);
+                    }
             }
             catch (RunRefusal refusal)
             {

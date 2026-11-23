@@ -189,6 +189,8 @@ public class RunTests
         }
         Assert.True(PluginOperations.TryLevel("publish_pdf", out var publish));
         Assert.Equal(Risk.Publish, publish);
+        Assert.True(PluginOperations.TryLevel("retarget_pack_paths", out var pack));
+        Assert.Equal(Risk.Publish, pack);
         Assert.False(PluginOperations.TryLevel("explode", out _));
     }
 
@@ -255,6 +257,15 @@ public class RunTests
         Begin("change");
         var reply = Run("publish_pdf");
         Assert.False(reply.GetProperty("ok").GetBoolean());
+        Assert.Empty(_host.Runs);
+    }
+
+    [Fact]
+    public void A_packed_copys_paths_are_rewritten_only_in_a_publish_job_with_Publish_on()
+    {
+        _config.PublishEnabled = true;
+        Begin("change");
+        Assert.False(Run("retarget_pack_paths").GetProperty("ok").GetBoolean());
         Assert.Empty(_host.Runs);
     }
 }

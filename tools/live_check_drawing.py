@@ -460,7 +460,7 @@ async def am4_a_far_off_line_stretches_the_picture(ctx: Context) -> str:
 
 
 async def am8_an_erased_far_off_line_no_longer_stretches_the_picture(ctx: Context) -> str:
-    """D-150 (#269): with the plug-in, the preview measures model space itself, so stale EXTMIN/EXTMAX do not count."""
+    """D-151 (#269): with the plug-in, the preview measures model space itself, so stale EXTMIN/EXTMAX do not count."""
     name, o = await _sheet(ctx, "AM8")
     try:
         (far,) = await _draw({"type": "line", "start": _at(o, 100000, 100000), "end": _at(o, 100010, 100000),

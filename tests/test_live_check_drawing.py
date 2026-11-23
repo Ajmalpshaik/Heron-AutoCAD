@@ -356,7 +356,7 @@ def test_every_check_has_a_recording():
 def test_every_row_is_scripted_or_by_eye_once():
     rows = [*CHECKS, *drawing.BY_EYE]
     assert len(rows) == len(set(rows))
-    want = {f"AP{n}" for n in range(1, 12)} | {f"AM{n}" for n in range(1, 9)}  # AM7: D-141; AM8: D-150
+    want = {f"AP{n}" for n in range(1, 12)} | {f"AM{n}" for n in range(1, 9)}  # AM7: D-141; AM8: D-151
     assert set(rows) == want
     assert all(len(why.split()) >= 4 for why in drawing.BY_EYE.values())
 

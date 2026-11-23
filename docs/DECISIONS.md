@@ -5,7 +5,7 @@
 
 ---
 
-## D-150 - An extents preview in model space measures the objects through the plug-in when EXTMIN/EXTMAX are stale
+## D-151 - An extents preview in model space measures the objects through the plug-in when EXTMIN/EXTMAX are stale
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
 [#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269) (found by S16 under D-141). **Status:** in
@@ -35,6 +35,36 @@ RUN. **Needs the plug-in built from this change**; an older one previews as befo
 - **Not chosen:** a ZOOM Extents before the preview (it changes the modeller's view, and the zoom is an
   undo step), and trusting the plug-in's box always (a frozen layer's object would stretch the picture
   the way #41 did).
+## D-150 - eTransmit's packed copies point at the files beside them, rewritten by the plug-in in a side database
+
+**Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue
+[#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160). **Status:** in force; changes D-85's "the
+saved paths are not rewritten"; tested offline only, live rows AD14 and AD15 NOT RUN. Needs the new plug-in.
+
+- **Where.** The server copies each drawing it packs (the drawing and every xref drawing) into a new folder
+  of its own (`heron-etransmit-...` in the user's temp folder) and asks the plug-in's new operation
+  `retarget_pack_paths` (Publish, as `publish_pdf`) for each copy. The plug-in opens the copy as a side
+  database (`Database.ReadDwgFile`, then `CloseInput`), never as a drawing on screen and never inside the
+  modeller's drawing's lock or transaction, so the drawing on screen and its file are never touched. It
+  refuses a file that is not a .dwg in such a folder, or one open in AutoCAD (`Bridge/PackPaths.cs`, tested
+  offline). The pack is then written from the rewritten copies; the copies are deleted after.
+- **What.** Each xref's `PathName`, raster image's and PDF / DWF / DGN underlay's `SourceFileName` becomes the
+  bare file name when that file is in the pack, as eTransmit's "put all files in one folder". A name two
+  different files share (a clash, D-85) keeps its path: which of the two it meant cannot be told from the name.
+  One that was missing keeps its path too. Fonts (found by name already) and plot styles are not touched.
+  A copy with something to change is saved in its own DWG version (`OriginalFileVersion`), through a new file
+  put in its place; one with nothing to change is not saved. The answer and the report list every path set
+  and every path kept, with why.
+- **Fallback (D-114).** A plug-in without the operation: the pack is made as before, from the originals, and
+  `paths.rewritten` is false with the reason. A copy the plug-in could not do, or whose answer never came, is
+  packed from its original, as before, and named under `not_rewritten`. The modeller's stop or a padlock
+  stops the whole pack before anything is written.
+
+Rejected: rewriting the paths in the modeller's own drawing (its file is the one thing never to change), and
+AutoCAD's transmittal COM library (still never tried here, D-85).
+
+---
+
 ## D-149 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue

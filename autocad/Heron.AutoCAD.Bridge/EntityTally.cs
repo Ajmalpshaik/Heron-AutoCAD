@@ -29,7 +29,7 @@ namespace Heron.AutoCAD.Bridge
     /// server's COM selection filters on is taken (type, layer, block name,
     /// colour), so the plug-in selects exactly the objects COM would, and the
     /// space (DXF 410: "Model" or a sheet's name), so a preview can measure
-    /// model space alone (#269, D-150). Plug-ins 1.8.1 and older refuse 410.
+    /// model space alone (#269, D-151). Plug-ins 1.8.1 and older refuse 410.
     /// </summary>
     public static class EntityFilter
     {

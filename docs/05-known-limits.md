@@ -567,7 +567,7 @@ From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
   window over one part. A bigger PNG needs a custom size added to `PublishToWeb PNG.pc3` by hand;
   COM cannot add one.
 - `plotted` comes from EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a layout), read after a regen. AutoCAD
-  shrinks them only on ZOOM Extents. Since [D-150](DECISIONS.md) (#269), in model space, the plug-in
+  shrinks them only on ZOOM Extents. Since [D-151](DECISIONS.md) (#269), in model space, the plug-in
   measures the objects themselves; when its box is well inside EXTMIN/EXTMAX, that box is plotted as a
   window and `extents_note` says so. A sheet layout, no plug-in or an older one still uses the variables
   (AM4, AM8 NOT RUN).
@@ -599,7 +599,7 @@ From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NE
 
 ## 35. Overkill, boundary, eTransmit, underlays and clips have their own limits
 
-From issues #112, #104, #118, #114 and #159 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-146](DECISIONS.md)); all NOT RUN
+From issues #112, #104, #118, #114, #159 and #160 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-146](DECISIONS.md), [D-150](DECISIONS.md)); all NOT RUN
 live (NEEDS-CHECKING group AD). The plug-in parts (underlays, xref and underlay clips, boundary,
 eTransmit's file list) need the plug-in **newer than 1.7.0**; an older one answers that it does not
 have the operation, and nothing is sent.
@@ -640,9 +640,13 @@ have the operation, and nothing is sent.
   be stopped: AutoCAD may still finish it and make the outline. Whether `TraceBoundary` looks only at
   what is in view, as BOUNDARY's "current viewport" set does, is the reason for row AD7.
 - **eTransmit packs the drawing as last saved** and refuses one with unsaved changes. Everything goes
-  in one folder (or zip) beside the drawing, without rewriting the paths saved in it: AutoCAD finds
-  an xref, image or font by its bare name in the drawing's folder (row AD10 proves it on another PC).
-  Two different files with one name cannot both go in: the second is listed under `clashes`. Plot
+  in one folder (or zip) beside the drawing. With the new plug-in ([D-150](DECISIONS.md), row AD14)
+  the xref, image and underlay paths saved in each packed drawing are set to the bare file name; the
+  plug-in does it in a copy opened on its own, never the drawing on screen. An older plug-in leaves
+  them as saved (`paths.rewritten` false, row AD15): AutoCAD still finds an xref, image or font by its
+  bare name in the drawing's folder (row AD10 proves it on another PC). Fonts and plot styles are
+  never rewritten. Two different files with one name cannot both go in: the second is listed under
+  `clashes`, and a path to that name is kept as saved. Plot
   styles go in `PlotStyles` for the receiver to copy into their own plot styles folder. Images and
   underlays inside a loaded xref are packed; an unloaded xref is packed but not looked inside, and
   the answer names it (`not_looked_inside`): reload it and pack again. Fonts in Windows' own Fonts

@@ -8,10 +8,14 @@ as ``Need`` rows, and this module decides what goes where and writes it.
 Everything is put in one folder beside the drawing, as eTransmit's "Put all
 files in one folder": AutoCAD looks for an xref, an image or a font by its
 bare name in the drawing's own folder when the saved path leads nowhere, so
-the pack opens on another PC without its paths being rewritten. Two
+the pack opens on another PC even without its paths being rewritten. A
+plug-in that can (#160, D-150) also rewrites the xref, image and underlay
+paths saved in each packed drawing to the bare file name: ``pack_names``
+says which names those are, ``drawings_to_retarget`` which copies. Two
 different files with one name cannot both go in one folder: the second is
-listed as a clash, not packed. Plot styles go in a ``PlotStyles`` folder for
-the receiver to copy into their own plot styles folder.
+listed as a clash, not packed, and a path to that name is kept as it was.
+Plot styles go in a ``PlotStyles`` folder for the receiver to copy into
+their own plot styles folder.
 """
 
 from __future__ import annotations
@@ -105,6 +109,32 @@ def plan(needs: Iterable[Need]) -> dict[str, Any]:
     return {"packed": packed, "missing": missing, "clashes": clashes}
 
 
+REFERENCED = ("xref", "image", "underlay")
+
+
+def pack_names(result: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """The file names a packed drawing may point at bare (each in the pack once), and those two files share.
+
+    Only xrefs, images and underlays: a font is found by its name already,
+    and a plot style lives in the receiver's own folder. A name that two
+    different files have is left out of the first list: which of the two a
+    path in a packed drawing meant cannot be told from its name, so that
+    path is kept.
+    """
+    clashing = sorted({os.path.basename(row["file"]) for row in result["clashes"] if row["kind"] in REFERENCED}, key=str.lower)
+    shared = {name.lower() for name in clashing}
+    names = sorted(
+        {row["to"] for row in result["packed"] if row["kind"] in REFERENCED and row["to"].lower() not in shared},
+        key=str.lower,
+    )
+    return names, clashing
+
+
+def drawings_to_retarget(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """The packed drawings whose saved paths are rewritten: the drawing itself and each xref drawing."""
+    return [row for row in result["packed"] if row["kind"] in ("drawing", "xref") and row["to"].lower().endswith(".dwg")]
+
+
 def free_target(folder: Path, stem: str, as_zip: bool) -> Path:
     """A folder (or .zip) name beside the drawing that is not taken: never written over."""
     suffix = ".zip" if as_zip else ""
@@ -118,8 +148,8 @@ def free_target(folder: Path, stem: str, as_zip: bool) -> Path:
     raise FileExistsError(f"Too many earlier transmittals called '{stem}' in {folder}.")
 
 
-def report_text(drawing: str, when: str, result: dict[str, Any]) -> str:
-    """The plain-text list packed with the files, as eTransmit's report is."""
+def report_text(drawing: str, when: str, result: dict[str, Any], paths: dict[str, Any] | None = None) -> str:
+    """The plain-text list packed with the files, as eTransmit's report is; with the paths rewritten when given."""
     lines = [f"Transmittal of {drawing}", f"Made {when} by Heron AI for AutoCAD.", ""]
     lines.append(f"Packed ({len(result['packed'])}):")
     for row in result["packed"]:
@@ -134,6 +164,16 @@ def report_text(drawing: str, when: str, result: dict[str, Any]) -> str:
         lines.append(f"Not packed, same file name as another ({len(result['clashes'])}):")
         for row in result["clashes"]:
             lines.append(f"  {row['kind']:<10} {row['file']}")
+    if paths and paths.get("rewritten"):
+        lines.append("")
+        lines.append("Paths in the packed drawings set to the file beside them:")
+        for drawing_row in paths.get("drawings", []):
+            for row in drawing_row.get("changed", []):
+                lines.append(f"  {drawing_row['file']}: {row['kind']} {row['name']}  {row['was']} -> {row['now']}")
+            for row in drawing_row.get("kept", []):
+                lines.append(f"  {drawing_row['file']}: {row['kind']} {row['name']} kept as {row['path']} ({row['why']})")
+        for row in paths.get("not_rewritten", []):
+            lines.append(f"  {row['file']}: paths not rewritten ({row['why']})")
     lines.append("")
     lines.append(
         "Xrefs, images and fonts are found by AutoCAD in the drawing's own folder. Copy the "
@@ -145,8 +185,15 @@ def report_text(drawing: str, when: str, result: dict[str, Any]) -> str:
 REPORT_NAME = "transmittal report.txt"
 
 
-def write(result: dict[str, Any], target: Path, as_zip: bool, report: str) -> list[str]:
-    """Copy (or zip) every packed file and the report into a new target. Returns what was written, in the pack."""
+def write(
+    result: dict[str, Any], target: Path, as_zip: bool, report: str, sources: dict[str, str] | None = None
+) -> list[str]:
+    """Copy (or zip) every packed file and the report into a new target. Returns what was written, in the pack.
+
+    ``sources`` gives, by name in the pack, a file to take in place of the
+    original: a packed drawing whose paths were rewritten in its copy.
+    """
+    sources = sources or {}
     if target.exists():
         raise FileExistsError(f"{target} is already there; Heron never writes over an earlier transmittal.")
     written: list[str] = []
@@ -158,7 +205,7 @@ def write(result: dict[str, Any], target: Path, as_zip: bool, report: str) -> li
         try:
             with pack:
                 for row in result["packed"]:
-                    pack.write(row["from"], row["to"])
+                    pack.write(sources.get(row["to"], row["from"]), row["to"])
                     written.append(row["to"])
                 pack.writestr(REPORT_NAME, report)
         except BaseException:
@@ -169,7 +216,7 @@ def write(result: dict[str, Any], target: Path, as_zip: bool, report: str) -> li
         for row in result["packed"]:
             destination = target / row["to"]
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(row["from"], destination)
+            shutil.copy2(sources.get(row["to"], row["from"]), destination)
             written.append(row["to"])
         (target / REPORT_NAME).write_text(report, encoding="utf-8")
     written.append(REPORT_NAME)
