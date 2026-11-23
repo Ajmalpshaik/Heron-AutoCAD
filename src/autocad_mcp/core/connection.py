@@ -32,6 +32,7 @@ from .errors import (
     OutcomeUnknown,
     StaleDispatchError,
     com_message,
+    explain_set_failure,
     is_dispatch_failure,
     is_retryable,
     raise_if_busy,
@@ -51,6 +52,33 @@ RETRY_WINDOW = 10.0
 MODEL_SPACE = "model"
 PAPER_SPACE = "paper"
 
+
+
+def check_property_sets(cls: Any) -> None:
+    """Make a refused property set say why, instead of reading as a busy AutoCAD (#270, D-145).
+
+    pywin32's late-bound object answers every property it cannot set with
+    "Property '<x>' can not be set.", busy or not. Wrapped here, that one error
+    is looked into by ``errors.explain_set_failure``: a property the object does
+    not have, or a value it turns down, becomes PropertyRefused at once; a busy
+    AutoCAD still goes up as before and is asked again. Every other set is
+    untouched. Safe to call twice.
+    """
+    plain = cls.__setattr__
+    if getattr(plain, "heron_checked", False):
+        return
+
+    def __setattr__(self: Any, name: str, value: Any) -> None:  # noqa: N807 - it is the method
+        try:
+            plain(self, name, value)
+        except AttributeError as failure:
+            explain_set_failure(self, name, value, failure)
+
+    __setattr__.heron_checked = True  # type: ignore[attr-defined]
+    cls.__setattr__ = __setattr__
+
+
+check_property_sets(win32com.client.CDispatch)
 
 class _ComWorker:
     """Runs every COM call on one dedicated apartment thread.
