@@ -150,18 +150,116 @@ namespace Heron.AutoCAD.Bridge
     /// <summary>One attribute on a block reference: COM's TagString and TextString, and the two kinds the server reads over COM.</summary>
     public sealed class TextAttribute
     {
-        public TextAttribute(string tag, string text, bool multiline, bool constant)
+        public TextAttribute(string tag, string text, bool multiline, bool constant, bool invisible = false)
         {
             Tag = tag ?? "";
             Text = text ?? "";
             Multiline = multiline;
             Constant = constant;
+            Invisible = invisible;
         }
 
         public string Tag { get; }
         public string Text { get; }
         public bool Multiline { get; }
         public bool Constant { get; }
+        /// <summary>COM's Invisible. Sent by block_attributes only; entity_texts leaves it out.</summary>
+        public bool Invisible { get; }
+    }
+
+    /// <summary>
+    /// One block reference of block_attributes (#198, D-138), as the server's
+    /// COM loop reads it: COM's Handle, Name (the *U name of a changed dynamic
+    /// block), EffectiveName (the block's real name), Layer, InsertionPoint,
+    /// the layout its owner is (null when the owner is not a layout or could
+    /// not be read), whether the block definition it points at holds attribute
+    /// definitions, and its attributes in the reference's own order. Effective
+    /// name null: it could not be read, and the server reads over COM. Attributes
+    /// null: they could not all be read, and the server reads over COM.
+    /// </summary>
+    public sealed class BlockAttributeFact
+    {
+        public BlockAttributeFact(string handle, string name, string? effectiveName, string layer, double[] point,
+            string? layout, bool definesAttributes, IReadOnlyList<TextAttribute>? attributes)
+        {
+            Handle = handle ?? "";
+            Name = name ?? "";
+            EffectiveName = effectiveName;
+            Layer = layer ?? "";
+            Point = point ?? new double[0];
+            Layout = layout;
+            DefinesAttributes = definesAttributes;
+            Attributes = attributes;
+        }
+
+        public string Handle { get; }
+        public string Name { get; }
+        public string? EffectiveName { get; }
+        public string Layer { get; }
+        public double[] Point { get; }
+        public string? Layout { get; }
+        public bool DefinesAttributes { get; }
+        public IReadOnlyList<TextAttribute>? Attributes { get; }
+
+        /// <summary>
+        /// [handle, name, effective name, layer, [x, y, z], layout, defines attributes,
+        /// [[tag, text, invisible, constant, multiline]...]].
+        /// </summary>
+        public void Write(Utf8JsonWriter w)
+        {
+            w.WriteStartArray();
+            w.WriteStringValue(Handle);
+            w.WriteStringValue(Name);
+            if (EffectiveName == null) w.WriteNullValue();
+            else w.WriteStringValue(EffectiveName);
+            w.WriteStringValue(Layer);
+            FactNumber.WriteAll(w, Point);
+            if (Layout == null) w.WriteNullValue();
+            else w.WriteStringValue(Layout);
+            w.WriteBooleanValue(DefinesAttributes);
+            if (Attributes == null) w.WriteNullValue();
+            else
+            {
+                w.WriteStartArray();
+                foreach (var attribute in Attributes)
+                {
+                    w.WriteStartArray();
+                    w.WriteStringValue(attribute.Tag);
+                    w.WriteStringValue(attribute.Text);
+                    w.WriteBooleanValue(attribute.Invisible);
+                    w.WriteBooleanValue(attribute.Constant);
+                    w.WriteBooleanValue(attribute.Multiline);
+                    w.WriteEndArray();
+                }
+                w.WriteEndArray();
+            }
+            w.WriteEndArray();
+        }
+    }
+
+    /// <summary>
+    /// block_attributes (#198, D-138): every selected block reference, in the
+    /// order selected, with or without attributes. The server skips, names and
+    /// matches them with the loop it reads COM with; the plug-in leaves nothing out.
+    /// </summary>
+    public sealed class BlockAttributeList
+    {
+        private readonly List<BlockAttributeFact> _blocks = new List<BlockAttributeFact>();
+
+        public int Count => _blocks.Count;
+
+        public void Add(BlockAttributeFact fact)
+        {
+            if (fact != null) _blocks.Add(fact);
+        }
+
+        /// <summary>{"blocks": [row...]}.</summary>
+        public void Write(Utf8JsonWriter w)
+        {
+            w.WriteStartArray("blocks");
+            foreach (var block in _blocks) block.Write(w);
+            w.WriteEndArray();
+        }
     }
 
     /// <summary>

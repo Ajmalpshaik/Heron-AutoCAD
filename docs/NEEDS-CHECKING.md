@@ -803,6 +803,30 @@ means the two answers compared character by character. **Every row below is NOT 
 | BB9 | A block whose attribute definitions were deleted from the block after insert (the attributes stay on the reference): `autocad_count_text(source='attributes')` both ways | The same text: COM's `HasAttributes` agrees with the attributes the plug-in found | NOT RUN |
 | BB10 | Plug-in 1.8.1 installed (no length or text reads): BB1, BB4, BB6 and BB7, then on a plan with 20,000 texts and 20,000 curves time `autocad_find_text(query='zzz')` and `autocad_total_length()` with the new plug-in and over COM; then draw a line yourself, run them all, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line** | NOT RUN |
 
+## Group BE - Block attributes the plug-in reads in one go: extract, export sheet, set, apply sheet (D-138) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-138](DECISIONS.md), issue #198). Built and tested offline only
+(`tests/test_plugin_attribute_reads.py` compares the plug-in and COM answers on one fake drawing;
+`BlockAttributeFactsTests.cs` what the plug-in writes). The plug-in operation `block_attributes` has
+never run. Needs the plug-in rebuilt and reinstalled from code that has it (plug-ins 1.8.0 and 1.8.1
+do not: they are read over COM), and the server restarted. "Both ways" means the same call to a second
+server started with `--no-bridge`, as in Groups AS, AU and BB; the plug-in's log shows
+`operation block_attributes` when the plug-in read it. "The same text" means the two answers compared
+character by character. Work on a copy of the drawing for the writing rows. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BE1 | A real drawing with title blocks on several layouts and tagged equipment in model space: `autocad_extract_attributes()`, then `output='csv'`, both ways | The log shows `operation block_attributes`; the same text both ways, rows in the same order, insertion points to the last digit | NOT RUN |
+| BE2 | Same drawing, with a changed dynamic block (a `*U` copy) and a block whose name has lower-case letters: `autocad_extract_attributes(block_name=...)` with the name in another case, and `layer='E-*'`, both ways | The same text; the dynamic block listed under its real name in both | NOT RUN |
+| BE3 | The drawing saved: `autocad_export_attribute_sheet()` both ways | Two workbooks with the same rows on 'Attributes' and 'As exported'; each title block's Layout column names its own sheet, model space blocks say `Model` | NOT RUN |
+| BE4 | `autocad_set_attributes(values={'REV': 'B'}, block_name=<the title block>, dry_run=true)`, then without `dry_run`, with the plug-in; the same on a second copy with `--no-bridge` | The log shows `operation block_attributes`; the same text both ways; the dry run changes nothing; the write lands on every sheet and one Ctrl+Z takes all of it back | NOT RUN |
+| BE5 | Edit two cells of BE3's workbook in Excel and save: `autocad_apply_attribute_sheet(path=..., dry_run=true)`, then without, both ways (each on its own copy) | The same text both ways; only the two edited cells written, one undo step | NOT RUN |
+| BE6 | A block with a multiline attribute and one with a constant attribute: `autocad_extract_attributes()` with the plug-in, then `block_name=` a third block | First: the tool reads over COM (the log shows the call, the answer matches `--no-bridge`). Second: the plug-in's answer is used. Write down whether COM's `GetAttributes` lists the constant attribute and what its `TextString` gives for the multiline one | NOT RUN |
+| BE7 | A block whose definition holds only constant attribute definitions, and one whose attribute definitions were deleted after it was inserted (no ATTSYNC): `autocad_extract_attributes()` with the plug-in | The tool reads over COM, the same answer as `--no-bridge`. Write down what COM's `HasAttributes` says for each: does it follow the definition or the attributes on the reference? | NOT RUN |
+| BE8 | A block with an invisible attribute: `autocad_extract_attributes()` and `autocad_export_attribute_sheet()` both ways | The invisible attribute is listed both ways, with its value | NOT RUN |
+| BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
+| BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
+
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only

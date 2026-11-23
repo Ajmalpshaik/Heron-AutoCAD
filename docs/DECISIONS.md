@@ -28,6 +28,51 @@ to decide.
 
 ---
 
+## D-138 - Block attributes are read by the plug-in in one go; the writes stay COM's, each block looked up by handle
+
+**Decided:** 2026-11-23, by session S12 of the 2026-11-23 wave ("Yes, next 10"), on issue #198 (rank 7
+of #74), under D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING
+Group BE). `autocad_extract_attributes`, `autocad_export_attribute_sheet` and the reads of
+`autocad_set_attributes` and `autocad_apply_attribute_sheet` ask the plug-in's new Read operation
+`block_attributes`; COM stays the fallback, as D-114 sets out. The rules:
+(1) **Raw facts, one loop.** The plug-in selects with COM's INSERT filter (and the layer) and sends
+every block reference in the order selected, none left out: handle, `Name` (the `*U` name, as COM's
+Name), real name (the dynamic block's own name, as COM's EffectiveName; D-127's `RealName`), layer,
+insertion point (`Position`), the layout its owner is (`Layout.LayoutName`, null when the owner is not
+a layout or cannot be read, as `_layout_of` gives over COM), whether its block definition holds
+attribute definitions, and its attributes in the reference's own order with tag, text and the
+invisible, constant and multiline flags. The server turns each row into a stand-in with COM's property
+names (`text_tools.PluginBlock`), and one loop (`text_tools.attribute_blocks`) reads COM objects and
+stand-ins alike: the `HasAttributes` skip, "EffectiveName or Name", the block name matched without
+case, the `{tag: value}` dict (a tag twice keeps its first place and its last value). The block name
+is never sent: it is matched by the same Python either way.
+(2) **The writes stay COM's** (moving them is #200). After a plug-in read, `_attribute_refs` hands
+the writing tools a `ComRefs` map in place of the COM objects it read: each changed block is looked
+up by its handle (`resolve_handle`) only when a change needs it, so a dry run looks nothing up.
+`objects.get(handle)` gives None for a block erased since the read, and `autocad_apply_attribute_sheet`
+lists that cell as failed, as before. A Read operation inside a Change or Publish job is allowed by
+the bridge (a job's level covers every level under it; a Bridge test runs it in all three jobs), and
+the plug-in aborts a read's transaction, so it should leave no undo step (BE9 checks that live).
+(3) **Read over COM when not sure.** As D-134, a multiline or constant attribute is not trusted yet;
+new here, nor is a reference whose attributes and definition disagree: none on it while the
+definition defines some (a block of constant attribute definitions only), or some on it while the
+definition defines none (attribute definitions deleted after the insert). COM's `HasAttributes` may
+follow either, which no one has looked at (BE7). Either sends the whole read to COM, but only when the
+tool would read that reference: with `block_name`, a reference of another block is skipped by the loop
+before anything about its attributes is read, so it cannot differ, and the plug-in's answer stands.
+Also to COM: a real name the plug-in could not read, attributes it could not all read, a number that
+is not finite, or a row of the wrong shape. The invisible flag is carried (COM's `Invisible` on the
+stand-in) and filters nothing, as over COM.
+(4) **An older plug-in.** As D-127: `block_attributes` joins `bridge.NEWER_READS`; 1.8.0 and 1.8.1
+(and a plug-in built before this) say they do not have it, and the tools read over COM; the
+capability manifest names no "faster from" version for the four tools until the release is named.
+Rejected: extending `entity_texts` (#197) instead of a new operation. It lacks the real name, the
+layout, the invisible flag and the definition's attribute definitions; adding them under an option
+would give one operation two row shapes, with S8's tests and parser pinned to the first. The shared
+C# pieces are reused instead: `EntityReads.TryAttributes` (which `entity_texts` now calls too, its
+answer unchanged), `TextAttribute` (with `Invisible`, which `entity_texts` does not write) and
+`BlockReads.RealName`.
+
 ## D-134 - Lengths and texts are read by the plug-in in one go, dressed as the COM objects they stand for
 
 **Decided:** 2026-11-23, by session S8 of the 2026-11-23 wave ("Yes, next 10"), on issues #195 and

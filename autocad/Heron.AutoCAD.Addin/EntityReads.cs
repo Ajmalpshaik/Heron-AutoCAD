@@ -218,21 +218,33 @@ namespace Heron.AutoCAD.Addin
         /// <summary>The attributes on a block reference in its own order (COM's GetAttributes); erased ones left out.</summary>
         private static List<TextAttribute> Attributes(Transaction tr, BlockReference reference)
         {
-            var found = new List<TextAttribute>();
+            // As over COM: the attributes read so far stay, the rest of this block is not read.
+            TryAttributes(tr, reference, out var found);
+            return found;
+        }
+
+        /// <summary>
+        /// The attributes on a block reference in its own order, each with its
+        /// invisible, constant and multiline flags; erased ones left out. False
+        /// when AutoCAD would not give one: found then holds those read before it.
+        /// </summary>
+        internal static bool TryAttributes(Transaction tr, BlockReference reference, out List<TextAttribute> found)
+        {
+            found = new List<TextAttribute>();
             try
             {
                 foreach (ObjectId id in reference.AttributeCollection)
                 {
                     if (id.IsErased) continue;
                     if (tr.GetObject(id, OpenMode.ForRead, false) is AttributeReference attribute)
-                        found.Add(new TextAttribute(attribute.Tag, attribute.TextString, attribute.IsMTextAttribute, attribute.IsConstant));
+                        found.Add(new TextAttribute(attribute.Tag, attribute.TextString, attribute.IsMTextAttribute, attribute.IsConstant, attribute.Invisible));
                 }
+                return true;
             }
             catch (AcException)
             {
-                // As over COM: the attributes read so far stay, the rest of this block is not read.
+                return false;
             }
-            return found;
         }
 
         private static double[] Point(Point3d point) => new[] { point.X, point.Y, point.Z };

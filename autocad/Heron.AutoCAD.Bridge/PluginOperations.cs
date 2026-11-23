@@ -23,6 +23,10 @@ namespace Heron.AutoCAD.Bridge
             // attributes for autocad_count_text and autocad_find_text (D-134).
             ["entity_lengths"] = Risk.Read,
             ["entity_texts"] = Risk.Read,
+            // Every block reference's attributes for autocad_extract_attributes,
+            // autocad_export_attribute_sheet and the reads of autocad_set_attributes and
+            // autocad_apply_attribute_sheet (D-138); asked inside a Change or Publish job too.
+            ["block_attributes"] = Risk.Read,
             ["solid_topology"] = Risk.Read,
             // Where dimension lines are, the drawing's and objects' annotation scales,
             // and the drawing's layer states (D-80, D-81).

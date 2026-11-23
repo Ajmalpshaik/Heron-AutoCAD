@@ -249,9 +249,9 @@ alternative, because a dialog blocks COM until a person closes it.
 | `autocad_select_connected` | Read | A whole run joined end to end: handles, total length, open ends |
 | `autocad_list_layouts` | Read | Layouts in tab order with plotter, paper, object count |
 | `autocad_set_dynamic_properties` | Change | Set visibility, size, distance, flip; typed and checked; failures listed |
-| `autocad_set_attributes` | Change | Attributes from `values`, `rows` or `csv_path`, matched by `key` (a tag or `layout`); `dry_run` |
-| `autocad_export_attribute_sheet` | Publish | Every block's attributes in a new `.xlsx` next to the drawing (one row per block, one column per tag, handle first), with an "As exported" copy; never over an earlier one ([D-69](DECISIONS.md)) |
-| `autocad_apply_attribute_sheet` | Change | Reads the edited `.xlsx` (or a `.csv` with a Handle column) and writes only the cells that changed, in one undo step; blanks change nothing; a value the drawing changed since the export is kept; a cell changed in both is a conflict, listed; `dry_run` ([D-69](DECISIONS.md)) |
+| `autocad_set_attributes` | Change | Attributes from `values`, `rows` or `csv_path`, matched by `key` (a tag or `layout`); `dry_run` (the blocks read by the plug-in in one go, COM for an older one, [D-138](DECISIONS.md); the writes over COM) |
+| `autocad_export_attribute_sheet` | Publish | Every block's attributes in a new `.xlsx` next to the drawing (one row per block, one column per tag, handle first), with an "As exported" copy; never over an earlier one ([D-69](DECISIONS.md); the blocks read by the plug-in in one go, COM for an older one, [D-138](DECISIONS.md)) |
+| `autocad_apply_attribute_sheet` | Change | Reads the edited `.xlsx` (or a `.csv` with a Handle column) and writes only the cells that changed, in one undo step; blanks change nothing; a value the drawing changed since the export is kept; a cell changed in both is a conflict, listed; `dry_run` ([D-69](DECISIONS.md); the blocks read by the plug-in in one go, COM for an older one, [D-138](DECISIONS.md); the writes over COM) |
 | `autocad_number_tags` | Change | Prefix + padded number + suffix on blocks (`tag`), texts or new text; sort rows / columns / path |
 | `autocad_text_clean` | Change | Strip MText formatting codes; `dry_run` |
 | `autocad_find_replace_text` | Change | Find / replace (plain or regex) in text, mtext, attributes, mleaders, dim overrides, tables; `dry_run` |
@@ -479,7 +479,7 @@ which COM has no call for; the rest is COM. Not proven in AutoCAD yet:
 |---|---|
 | `autocad_preview` | Plot the extents, the current view or a window to PNG and return the **picture** to the AI. Use after drawing, before saying it is done. Says the area plotted and the smallest text that reads; `detail=2` or `3` adds close-ups of the same area, for a full sheet whose small text one picture cannot show (D-102). Page setup put back |
 | `autocad_check_standards` | Check layers and objects against rules: `layer_name_pattern`, `layers {name: {color, linetype}}`, `forbid_entities_on_layer_0`, `require_bylayer_color`, `require_bylayer_linetype`, `max_findings`. Inline or a JSON file. Or against a `reference` drawing (`.dws`, `.dwt`, `.dwg`, `.dxf`): layers, text styles, dimension styles (name only) and linetypes (name only) missing, different, or not in the standard (`flag_extra`); the answer says what read the reference ([D-92](DECISIONS.md)). Or a `layer_standard` (`office`, `example`, or a `.csv` / `.json` file): each listed layer, or one a pattern row covers, by colour, linetype, lineweight, plot and description; an unlisted layer against its name pattern; its required layers; `office` with none loaded is checked against the example and not decided ([D-120](DECISIONS.md)). `passed` means the rules given were met against the named `source`, never that the drawing complies; `null` when only part of the objects was read ([D-64](DECISIONS.md)) |
-| `autocad_extract_attributes` | Every block reference with attributes as rows (block, handle, layer, insertion, tags), JSON or CSV - for schedules |
+| `autocad_extract_attributes` | Every block reference with attributes as rows (block, handle, layer, insertion, tags), JSON or CSV - for schedules (read by the plug-in in one go, COM for an older one, [D-138](DECISIONS.md)) |
 
 ## Resources and prompts
 
