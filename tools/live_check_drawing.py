@@ -341,7 +341,7 @@ DRAWING_AP: tuple[Check, ...] = (
 )
 
 EYE_AP: dict[str, str] = {
-    "AP3": "erase_outlines erases the lines and the circle, so Heron asks you to keep them erased (D-50) "
+    "AP3": "erase_outlines erases the lines and the circle, so Heron asks you to keep the change or undo the whole change (D-140) "
            "and the runner cannot answer",
     "AP11": "needs AutoCAD 2025 / 2026 and 2021-2024 machines, which are not here",
 }

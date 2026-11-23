@@ -23,7 +23,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Admin** | Allows any command, AutoLISP, system variables, purge, audit (needs Changes) | `HERONADMIN` |
 | **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
 | **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
-| **Ask before keeping erased objects** | The erase question ([D-50](DECISIONS.md), [D-123](DECISIONS.md)): after a job erases anything, ask **Bring them back** or **Keep them erased** (for join, explode, trim and break: **Undo the whole change** or **Keep the change**, [D-136](DECISIONS.md)). **ON at every AutoCAD start.** Off, what a job erases stays erased with no box, and the chat's answer says it was kept without asking | `HERONASKERASE` |
+| **Ask before keeping erased objects** | The erase question ([D-50](DECISIONS.md), [D-123](DECISIONS.md)): after a job erases anything, ask **Bring them back** or **Keep them erased** (for join, explode, trim, break and the other tools that replace objects, and a sequence holding one: **Undo the whole change** or **Keep the change**, [D-136](DECISIONS.md), [D-140](DECISIONS.md)). **ON at every AutoCAD start.** Off, what a job erases stays erased with no box, and the chat's answer says it was kept without asking | `HERONASKERASE` |
 
 - AutoCAD starts **disconnected** every time; only your press of **Heron** connects it
   ([D-73](DECISIONS.md)). Until you
@@ -307,6 +307,11 @@ the box or no answer) or *Keep the change* ([D-136](DECISIONS.md)): bringing bac
 object would leave the old and the new shape on top of each other, so anything but Keep goes back to
 Heron's UNDO mark and the drawing is exactly as it was before the tool ran. These four always get
 the mark, and are refused before anything is sent when AutoCAD cannot take one (UNDO off).
+
+Since [D-140](DECISIONS.md) the same goes for a solid boolean (union, subtract, intersect), an
+associative array, a block made in place of its objects, and regions made with `erase_outlines`; and
+for `autocad_sequence` or a saved command with any of these among its steps, where Undo the whole
+change takes back the whole sequence.
 
 ## The plain line a change job answers with ([D-62](DECISIONS.md))
 

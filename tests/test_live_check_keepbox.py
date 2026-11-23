@@ -85,9 +85,9 @@ def test_az6_needs_admin_for_the_layers_handle():
     assert "admin" in CHECKS["AZ6"].needs
 
 
-def test_every_row_of_the_four_groups_is_measured_or_excused_once():
+def test_every_row_of_the_five_groups_is_measured_or_excused_once():
     assert not set(CHECKS) & set(keepbox.BY_EYE)
     rows = set(CHECKS) | set(keepbox.BY_EYE)
     want = ({f"AV{n}" for n in range(1, 8)} | {f"AX{n}" for n in range(1, 9)} | {f"AZ{n}" for n in range(1, 7)}
-            | {f"BC{n}" for n in range(1, 14)})
+            | {f"BC{n}" for n in range(1, 14)} | {f"BG{n}" for n in range(1, 9)})
     assert rows == want

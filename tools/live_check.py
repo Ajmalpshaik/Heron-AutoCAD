@@ -1337,6 +1337,7 @@ RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
     "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "AS", "RV",
     "AF", "AI", "AK", "AR", "AT", "AY", "AU", "AV", "AW", "AX", "AZ", "BA", "BB", "BC", "BD", "BE", "BF",
+    "BG",
 )
 
 CHANGES_OFF = (
@@ -1349,8 +1350,9 @@ ASK_TO_KEEP_ON = (
     "Keep or Discard, and the runner cannot answer. Nothing was run and nothing was written."
 )
 ERASE_NOTE = (
-    "A few rows of D, E and F erase objects (a boolean, a slice). Heron then asks whether to keep them "
-    "erased: answer Keep them erased, so the row can measure what is left."
+    "A few rows of D, E and F erase objects (a boolean, a slice, a block made in place). Heron then asks "
+    "whether to keep them erased (for a boolean or a block made in place: Keep the change, or undo the "
+    "whole change, D-140): answer Keep them erased, or Keep the change, so the row can measure what is left."
 )
 PADLOCKS_UNKNOWN = (
     "Heron cannot read this AutoCAD's padlocks (a plug-in older than 1.6.0, or two AutoCADs "

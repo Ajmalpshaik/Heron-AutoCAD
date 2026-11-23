@@ -306,3 +306,30 @@ class TestDrawingSwitch:
         monkeypatch.setattr(sequence.gate, "front_changed_in_job", lambda: (r"C:\a.dwg", ""))
         out = _run(steps=TestRunning.STEPS[:2])
         assert "HERONSTOP" in out["hint"]
+
+
+class TestReplaceSteps:
+    """The gate is told a sequence's steps, so a replace step makes it a replace job (D-140, #255)."""
+
+    JOIN = {"tool": "join_curves", "args": {"handles": ["1A", "1B"]}}
+    BLOCK = {"tool": "autocad_make_block", "args": {"name": "PLATE", "handles": ["1A"], "base_point": [0, 0]}}
+
+    def test_the_steps_come_with_their_tools_defaults(self):
+        steps = sequence.steps_of({"steps": [LINE, self.BLOCK]})
+        assert [name for name, _ in steps] == ["autocad_draw_line", "autocad_make_block"]
+        assert steps[1][1]["keep_originals"] is False and steps[1][1]["name"] == "PLATE"
+
+    def test_a_join_step_makes_the_sequence_a_replace_job(self):
+        assert sequence.gate.replacing(SELF, {"steps": [LINE, self.JOIN], "dry_run": False}) == "autocad_join_curves"
+
+    def test_a_block_made_in_place_is_a_replace_step_and_one_that_keeps_its_objects_is_not(self):
+        assert sequence.gate.replacing(SELF, {"steps": [self.BLOCK]}) == "autocad_make_block"
+        kept = {**self.BLOCK, "args": {**self.BLOCK["args"], "keep_originals": True}}
+        assert sequence.gate.replacing(SELF, {"steps": [kept]}) is None
+
+    def test_plain_steps_and_a_check_only_run_are_no_replace_job(self):
+        assert sequence.gate.replacing(SELF, {"steps": [LINE, LINE]}) is None
+        assert sequence.gate.replacing(SELF, {"steps": [self.JOIN], "dry_run": True}) is None
+
+    def test_steps_the_sequence_will_refuse_are_left_to_it(self):
+        assert sequence.gate.replacing(SELF, {"steps": [{"tool": "autocad_draw_lion", "args": {}}, self.JOIN]}) is None

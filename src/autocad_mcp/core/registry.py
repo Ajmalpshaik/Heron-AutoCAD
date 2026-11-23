@@ -274,6 +274,16 @@ def _gate_dry_run(func: Callable) -> inspect.Signature | None:
     return signature.replace(parameters=[*signature.parameters.values(), extra])
 
 
+def _arguments(signature: inspect.Signature, args: tuple, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """A call's arguments by name, with the defaults it left out: what the gate reads (D-140)."""
+    try:
+        bound = signature.bind_partial(*args, **kwargs)
+    except TypeError:  # the tool itself says what is wrong with the call
+        return dict(kwargs)
+    bound.apply_defaults()
+    return dict(bound.arguments)
+
+
 def tool_errors(func: Callable) -> Callable:
     """Turn COM and connection failures into actionable text.
 
@@ -283,6 +293,7 @@ def tool_errors(func: Callable) -> Callable:
     (D-63): the extra argument goes to the gate, never to the tool.
     """
     given = _gate_dry_run(func)
+    own = inspect.signature(func)
 
     @functools.wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> str:
@@ -291,7 +302,9 @@ def tool_errors(func: Callable) -> Callable:
         from .gate import guarded
 
         rehearse = bool(kwargs.pop("dry_run", False)) if given is not None else False
-        return await guarded(func.__name__, lambda: _run(*args, **kwargs), dry_run=rehearse)
+        return await guarded(
+            func.__name__, lambda: _run(*args, **kwargs), dry_run=rehearse, args=_arguments(own, args, kwargs)
+        )
 
     if given is not None:
         wrapper.__signature__ = given  # type: ignore[attr-defined]

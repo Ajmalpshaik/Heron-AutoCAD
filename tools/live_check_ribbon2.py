@@ -368,7 +368,7 @@ CHECKS: tuple[Check, ...] = (
 )
 
 _ARRAY_ERASES = ("making the array takes the source objects into it, which erases them, so Heron asks you to keep "
-                 "them erased (D-50) and the runner cannot answer")
+                 "the change or undo the whole change (D-140) and the runner cannot answer")
 
 BY_EYE: dict[str, str] = {
     "AQ1": _ARRAY_ERASES + "; the ARRAY tab and a stretched path are seen on screen too",
