@@ -23,7 +23,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Admin** | Allows any command, AutoLISP, system variables, purge, audit (needs Changes) | `HERONADMIN` |
 | **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
 | **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
-| **Ask before keeping erased objects** | The erase question ([D-50](DECISIONS.md), [D-123](DECISIONS.md)): after a job erases anything, ask **Bring them back** or **Keep them erased**. **ON at every AutoCAD start.** Off, what a job erases stays erased with no box, and the chat's answer says it was kept without asking | `HERONASKERASE` |
+| **Ask before keeping erased objects** | The erase question ([D-50](DECISIONS.md), [D-123](DECISIONS.md)): after a job erases anything, ask **Bring them back** or **Keep them erased** (for join, explode, trim and break: **Undo the whole change** or **Keep the change**, [D-136](DECISIONS.md)). **ON at every AutoCAD start.** Off, what a job erases stays erased with no box, and the chat's answer says it was kept without asking | `HERONASKERASE` |
 
 - AutoCAD starts **disconnected** every time; only your press of **Heron** connects it
   ([D-73](DECISIONS.md)). Until you
@@ -298,6 +298,13 @@ in a Heron box, **whether Ask to Keep is on or off**: *Bring them back* (Enter, 
 or no answer in 9 minutes) or *Keep them erased*. When Ask to Keep is on, its Keep or Discard
 question already covers the erase, so it is not asked twice. A chat can set `confirm=true` by
 itself; it cannot answer this box.
+
+Four tools replace objects: join, explode, and a circle trimmed or broken into an arc write the new
+shape, then erase the old one. For them the box asks *Undo the whole change* (Enter, Esc, closing
+the box or no answer) or *Keep the change* ([D-136](DECISIONS.md)): bringing back only the erased
+object would leave the old and the new shape on top of each other, so anything but Keep goes back to
+Heron's UNDO mark and the drawing is exactly as it was before the tool ran. These four always get
+the mark, and are refused before anything is sent when AutoCAD cannot take one (UNDO off).
 
 ## The plain line a change job answers with ([D-62](DECISIONS.md))
 

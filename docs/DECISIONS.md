@@ -5,6 +5,87 @@
 
 ---
 
+## D-136 - A replace edit's erase question undoes the whole change; xref layers are never made current
+
+**Decided:** 2026-11-23, the erase question by Ajmal PS, the rest by session S10 of the 2026-11-23 wave
+("Yes, next 10"). **Status:** in force; tested offline only (Python tests in `tests/test_gate.py`,
+`tests/test_layer_states.py`, `tests/test_edit2d_tools.py`, `tests/test_offline.py`; bridge tests in
+`EraseWordsTests.cs`, `JobChangesTests.cs`, `BridgeTests.cs`, `PaletteTests.cs`), live rows NOT RUN
+(NEEDS-CHECKING Group BC). Issues [#208](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/208) and
+[#212](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/212), and the follow-up S6 found in D-132.
+Amends D-50's erase question for four tools only, and refines D-130.
+
+**The fault (#208).** Four tools replace objects: they write the new shape, then erase the old one.
+`autocad_join_curves` (the kept piece already holds the joined shape), `autocad_explode` (the pieces are
+made, then the original goes), and `autocad_trim_extend` / `autocad_break_curve` on a circle (a new arc,
+then the circle goes). D-50's default, "Bring them back ... the rest of the job stays", brought back only
+the erased object, so Enter left the old and the new shape on top of each other: B on a longer A, the
+block under its own pieces, the circle under its arc.
+
+**Ajmal's choice.** Asked on 2026-11-23, he chose **"Undo the whole change (Recommended)"**, put to him as:
+*"The box asks 'Keep the change, or undo the whole change?'. Enter or Esc puts the drawing back exactly
+as it was before the tool ran, like Ctrl+Z on a whole Join Geometry in Revit. Nothing is ever left
+doubled."*
+
+**The rule now, for those four tools (`gate.REPLACES`):**
+- **The mark always.** The gate puts its UNDO mark down before the job whether Ask to Keep is on or off
+  (before, only with Ask to Keep on). The plug-in is told at `end` that the job is marked (D-130), so
+  the palette's Undo and `autocad_undo_last` also go back to that mark after a Keep.
+- **No mark, no job.** When the mark cannot be put down (UNDO off or one step, AutoCAD in a command,
+  UNDOCTL unreadable), the tool is **refused before anything is sent**, with the reason and the fix
+  ("Turn UNDO on (UNDO > All)"). Undoing the whole change needs the mark, and bringing back only the
+  erased objects is exactly the doubling. This refuses a trim or break of a plain line too in a drawing
+  with UNDO off, and a replace job with the erase question switched off; it is rare and says why.
+- **The question.** The server sends `ask_erase` with `"whole": true` only for these tools and only with
+  the mark down; every other request is byte for byte as before. The box (`EraseWords`, in the bridge,
+  tested) reads "Keep the change, or undo the whole change?", the first and default choice "Undo the
+  whole change", the second "Keep the change". It brings nothing back itself and answers `undo_whole`
+  for anything but a clear keep, including a box it could not show in time (no restore is queued, which
+  could double the shapes after a failed undo).
+- **Every non-keep answer undoes the whole job** back to its mark with UNDO Back, the same path as
+  Discard, the palette's Undo and `autocad_undo_last`: `undo_whole`, `restored` (a plug-in older than
+  this, which ignores `whole` and brings the objects back; UNDO Back goes past its restore, D-130), and
+  `unknown` (the plug-in could not be heard: only a clear keep keeps, and back at the mark nothing is
+  lost). Then the gate checks that what the job made (`created`, `new_handles`, `replaced_by`) is gone
+  and what it erased is back; if not, or if UNDO Back fails, OUTCOME UNKNOWN with the handles.
+- **What the chat is told.** "NOTHING CHANGED - the modeller did not choose Keep the change, so Heron
+  undid the whole change: the drawing is back exactly as it was before the job.", and the body says
+  "Undone: ... Nothing was kept." The job ends `discarded`, so the palette card shows discarded with no
+  buttons, and `autocad_undo_last` has nothing to undo. A tool that had failed part-way keeps its own
+  error, with the undo said after it.
+- **Keep the change** keeps all of it (DONE, "the modeller chose Keep the change"). With the erase
+  question off in Settings (D-123) nothing is asked and the change stays, said as before. With Ask to
+  Keep on, Keep or Discard covers it as before; a dry run is only rolled back, as before.
+- **A side effect, kept on purpose.** A replace job that puts its mark down and writes nothing (a
+  refused trim) now clears the chat's last change, by D-130's #209.2 rule: its mark is the newest, so
+  UNDO Back for the older job would stop at it.
+- **Unchanged:** every other tool's erase question, word for word (tested), its default and its restore.
+
+**#212, the other follow-ups of PRs #151 and #153.**
+1. **Isolating an xref layer.** `isolate_plan` picks the first kept layer **of this drawing's own** (no
+   `|`) to make current. With only xref layers kept, `others='off'` leaves the current layer as it is
+   (turned off with the rest; AutoCAD allows that), and `others='freeze'` is refused before
+   `HERON-ISOLATE` is saved or anything changes, since AutoCAD will neither make an xref's layer current
+   nor freeze the current layer.
+2. `autocad_trim_extend`, `autocad_break_curve` and `autocad_join_curves` are flagged destructive, as
+   `autocad_explode` was; all four are in `test_destructive_tools_are_flagged`.
+3. `edit2d._width`: PR #205 had put `raise_if_busy` in; it now lets **any** retryable error up
+   (`is_retryable`: a dispatch failure or RPC_E_SERVERFAULT too), so a stuck AutoCAD is never "width
+   changes along it". A real failure of the width read still is.
+4. `autocad_layer_states`: "which layer states does this drawing have?" is a "Don't use when", naming
+   autocad_list_layers.
+
+**The Keep question's zoom (refines D-130).** D-130 counted the Keep question's select-and-zoom as an
+undo step after the job whenever a drawing was open. With nothing selectable, or a zoom that did not run,
+there is no such step, and the palette's Undo and `autocad_undo_last` refused, blaming a zoom that never
+happened. Now `AskKeep` counts it (`ActivityLog.ShownForKeep(job, zoomed)`) only when
+`ShowOutcome.Zoomed` is true, a throw inside the select-and-zoom counting as zoomed (it cannot tell), and
+the `ask_keep` answer carries `"zoomed"` so the gate's own `views_since` follows the same word. A plug-in
+that does not say is taken as having zoomed, the safe side. No protocol version bump: both new fields are
+optional.
+
+---
+
 ## D-134 - Lengths and texts are read by the plug-in in one go, dressed as the COM objects they stand for
 
 **Decided:** 2026-11-23, by session S8 of the 2026-11-23 wave ("Yes, next 10"), on issues #195 and
@@ -2430,7 +2511,9 @@ input queue runs to its end; Esc in AutoCAD is the only way to cut it.
 **Decided:** 2026-11-15, from Heron AI for Revit's changed-set report and delete question (its
 D-142). **Status:** in force; amended by [D-123](#d-123---the-erase-question-can-be-switched-off-in-settings-it-is-on-at-every-autocad-start)
 (2026-11-22, Ajmal asked): the modeller may switch the erase question off in Settings until AutoCAD
-restarts. The server only knew what a tool said it did, and the delete check
+restarts; and by [D-136](#d-136---a-replace-edits-erase-question-undoes-the-whole-change-xref-layers-are-never-made-current)
+(2026-11-23, Ajmal chose): for join, explode, trim and break the question is "Keep the change, or undo
+the whole change?", and anything but Keep undoes the whole job. The server only knew what a tool said it did, and the delete check
 was the chat setting its own `confirm=true`. Now the add-in hooks `ObjectAppended`,
 `ObjectModified` and `ObjectErased` on every drawing and counts (`JobChanges`) while a Change, Admin
 or Publish job runs: entities added and modified; entities and table records (layers, blocks,

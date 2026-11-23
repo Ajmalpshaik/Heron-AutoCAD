@@ -1201,7 +1201,7 @@ The array stays associative: in AutoCAD the modeller clicks it and edits the cou
 ### `autocad_break_curve`
 
 **What it does.** Break a line, arc, circle or polyline at a point (two pieces, no gap), or take out the part between two points.
-A closed polyline broken at one point opens there; a circle needs two points and becomes an arc (the circle is erased, so Heron asks the modeller first, D-50). Pieces are the object itself plus copies of it, so layer, colour and data stay. One undo step.
+A closed polyline broken at one point opens there; a circle needs two points and becomes an arc (the circle is erased, so Heron asks the modeller "Keep the change, or undo the whole change?": anything but Keep puts the drawing back as it was, D-136). Pieces are the object itself plus copies of it, so layer, colour and data stay. One undo step.
 
 **The problem it solves.**
 - "split that pipe at the tee so I can put it on another layer" -> point at the tee.
@@ -1230,7 +1230,7 @@ A closed polyline broken at one point opens there; a circle needs two points and
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA9).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA9, BC5).
 
 ### `autocad_copy_entities`
 
@@ -1293,7 +1293,7 @@ This removes geometry. The whole call lands as one undo step, so the user can re
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N6, N11, AX4).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows N6, N11, AX4, BC7).
 
 ### `autocad_draw_order`
 
@@ -1402,7 +1402,7 @@ An arc next to a moved vertex stays an arc (its bulge is kept, as when you drag 
 ### `autocad_explode`
 
 **What it does.** Explode blocks, polylines and other compound objects into the pieces they are made of.
-The pieces are new objects; the original is erased, so Heron asks the modeller to keep it erased (D-50). A block with attributes is skipped unless allow_attribute_loss is true (exploded, AutoCAD shows each attribute's tag, not its value). One undo step.
+The pieces are new objects; the original is erased, so Heron asks the modeller "Keep the change, or undo the whole change?": anything but Keep puts the drawing back as it was (D-136). A block with attributes is skipped unless allow_attribute_loss is true (exploded, AutoCAD shows each attribute's tag, not its value). One undo step.
 
 **The problem it solves.**
 - "explode that imported block so I can fix one line in it".
@@ -1429,7 +1429,7 @@ The pieces are new objects; the original is erased, so Heron asks the modeller t
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA13).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA13, BC4).
 
 ### `autocad_fillet_chamfer`
 
@@ -1595,7 +1595,7 @@ In AutoCAD, Ctrl+click on the object opens the link: a supplier's data sheet on 
 ### `autocad_join_curves`
 
 **What it does.** Join lines, arcs and polylines that meet end to end into one object: AutoCAD's JOIN.
-Lines in one straight line become one line; arcs of one circle one arc; anything else one polyline, closed when the run comes back to its start. Vertices inside a polyline are kept. The others are erased, so Heron asks the modeller to keep them erased (D-50). A branch, a gap or a closed piece is refused, saying where. One undo step.
+Lines in one straight line become one line; arcs of one circle one arc; anything else one polyline, closed when the run comes back to its start. Vertices inside a polyline are kept. The others are erased, so Heron asks the modeller "Keep the change, or undo the whole change?": anything but Keep puts the drawing back as it was (D-136). A branch, a gap or a closed piece is refused, saying where. One undo step.
 
 **The problem it solves.**
 - "make that pipe run one polyline so I can measure it" -> all its lines and arcs.
@@ -1623,7 +1623,7 @@ Lines in one straight line become one line; arcs of one circle one arc; anything
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA10).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA10, BC1, BC6, BC8, BC9).
 
 ### `autocad_list_entities`
 
@@ -2162,7 +2162,7 @@ Lengths are in drawing units (check autocad_status). Splines and ellipses are me
 ### `autocad_trim_extend`
 
 **What it does.** Trim objects back to cutting edges, or extend them to boundaries: AutoCAD's TRIM and EXTEND.
-Works in plan on lines, arcs and polylines (a polyline arc is cut on its arc; a closed polyline cut twice opens there; a circle becomes an arc, and the circle is erased, so Heron asks the modeller first, D-50). Edges count as drawn, not as if they ran on (EDGEMODE 0). Pieces left after a trim are the object itself plus copies of it, so layer, colour and data stay. An object on a locked layer is refused before anything is written. One undo step.
+Works in plan on lines, arcs and polylines (a polyline arc is cut on its arc; a closed polyline cut twice opens there; a circle becomes an arc, and the circle is erased, so Heron asks the modeller "Keep the change, or undo the whole change?": anything but Keep puts the drawing back as it was, D-136). Edges count as drawn, not as if they ran on (EDGEMODE 0). Pieces left after a trim are the object itself plus copies of it, so layer, colour and data stay.
 
 **The problem it solves.**
 - "trim the pipe back to the wall" -> operation='trim', edges=[the wall line], handles=[the pipe], points=[a point on the bit past the wall].
@@ -2192,7 +2192,7 @@ Works in plan on lines, arcs and polylines (a polyline arc is cut on its arc; a 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA1, AA4).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA1, AA4, BC5).
 
 
 ## Text, labels and tables
@@ -3846,7 +3846,7 @@ AutoCAD will not delete layer 0, the current layer, or a layer that still holds 
 ### `autocad_isolate_layers`
 
 **What it does.** Isolate the layers of some objects (or named layers): every other layer off, frozen or locked.
-AutoCAD's LAYISO and LAYUNISO. Before the first isolate, Heron saves the layers as they are in a layer state called HERON-ISOLATE; 'unisolate' puts that back, current layer included, and removes it. Isolating again before un-isolating keeps the first one, so un-isolating always returns to where you started. The kept layers are turned on and thawed (and unlocked with others='lock'). If the current layer would be hidden, the first kept layer becomes current. One undo step.
+AutoCAD's LAYISO and LAYUNISO. Before the first isolate, Heron saves the layers as they are in a layer state called HERON-ISOLATE; 'unisolate' puts that back, current layer included, and removes it. Isolating again before un-isolating keeps the first one, so un-isolating always returns to where you started. The kept layers are turned on and thawed (and unlocked with others='lock').
 
 **The problem it solves.**
 - "show me only the duct layers" — handles of a duct, or layers=['M-DUCT-SUPPLY','M-DUCT-RETURN'].
@@ -3873,9 +3873,10 @@ AutoCAD's LAYISO and LAYUNISO. Before the first isolate, Heron saves the layers 
 **Limits and versions.**
 - 'unisolate' with nothing isolated by Heron says so and changes nothing.
 - A layer name the drawing has not got is refused before anything changes.
+- others='freeze' with only xref layers kept, and the current layer among the ones to hide, is refused before anything is saved or changed: AutoCAD can neither make an xref layer current nor freeze the current layer.
 - The plug-in does part of the work (`layer_state`, `layer_state_names`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB6).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB6, BC10, BC11).
 
 ### `autocad_layer_standard`
 
@@ -3917,7 +3918,7 @@ A layer state remembers which layers are on, frozen and locked (and, unless you 
 **The problem it solves.**
 - "save the layers as they are now as COORDINATION".
 - "put the layers back to the ISSUE-PLOT state".
-- "which layer states does this drawing have?" — that is autocad_list_layers.
+- *Not for:* "which layer states does this drawing have?" — that is autocad_list_layers, which lists them.
 - *Not for:* you only want to hide a few layers for a moment — autocad_isolate_layers, or autocad_set_layer_state for one layer.
 
 **Where to find it.** There is no ribbon button for it. Ask Claude in the chat, in plain words. Needs the **Changes** padlock ON (Heron tab > Settings > Changes).
@@ -3972,7 +3973,7 @@ Reading the layer list first is the reliable way to use the drawing's own naming
 **Limits and versions.**
 - The plug-in does part of the work (`layer_state_names`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q3, V2, AB5, AZ6, AL1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q3, V2, AB5, AZ6, AL1, BC11).
 
 ### `autocad_merge_layers`
 
@@ -6616,7 +6617,7 @@ This is AutoLISP's ``progn``: the steps that only make sense together, sent toge
 - A step that fails while running is reported with its own error text; the steps after it are marked skipped unless stop_on_error=false.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D27, D28, D29, D30, F23, N7, X24, Z5, AJ8, AZ1, AZ5, RV3).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D27, D28, D29, D30, F23, N7, X24, Z5, AJ8, AX5, AZ1, AZ5, RV3).
 
 ### `autocad_set_variable`
 
@@ -6782,7 +6783,7 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**, the Undo but
 - Refused when Heron made no change in this chat, when the drawing is another one, when anything changed since, when Heron zoomed or ran a command since (with Ask to Keep off), or with a plug-in older than 1.5.0.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1, AX4, AX5, AX6, AX8).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1, AX4, AX5, AX6, AX8, BC1, BC3, BC12).
 
 ### `autocad_use_autocad`
 

@@ -4,6 +4,24 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Join, explode, and a trimmed or broken circle undo the whole change unless kept; isolating an xref
+  layer; destructive flags; a busy width read (2026-11-23, [#208](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/208),
+  [#212](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/212), [D-136](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group BC) are NOT RUN.
+  - #208, Ajmal's choice: for `autocad_join_curves`, `autocad_explode`, `autocad_trim_extend` and
+    `autocad_break_curve` the erase question asks "Keep the change, or undo the whole change?". Enter,
+    Esc, closing it or no answer puts the drawing back exactly as it was before the tool ran (UNDO Back
+    to Heron's mark, as Discard and `autocad_undo_last` do), so the old and the new shape are never left
+    on top of each other, and the chat is told it was undone. These four tools now always get Heron's
+    UNDO mark, and are refused before anything is sent when it cannot be put down (UNDO off). Every
+    other tool's erase question is unchanged.
+  - #212: isolating only xref layers never tries to make one current (`others='off'` leaves the current
+    layer alone; `others='freeze'` is refused before HERON-ISOLATE is saved); trim, break and join are
+    flagged destructive; `_width` lets any retryable error up instead of "width changes along it"; a
+    `autocad_layer_states` example became a "Don't use when".
+  - The Keep question's zoom counts as an undo step after the job only when it really zoomed, for the
+    palette's Undo and for `autocad_undo_last` (refines D-130).
+
 - **Lengths and texts read by the plug-in in one go (2026-11-23, [#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195),
   [#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197), [D-134](docs/DECISIONS.md)).**
   `autocad_total_length` and `autocad_measure(layer=...)` ask the plug-in's new Read operation
