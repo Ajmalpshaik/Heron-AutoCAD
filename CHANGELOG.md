@@ -4,6 +4,17 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Sheet-tab and preview bugs (2026-11-23, [#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
+  [#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40), [#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41),
+  [D-140](docs/DECISIONS.md)).** `autocad_create_layout` over COM no longer answers "Outcome unknown: AutoCAD
+  went busy" for a sheet it made: the page setup set `CustomScale`, which a layout does not have
+  (`SetCustomScale` now, also for the PDF export), and centred a layout plot, which AutoCAD refuses; the
+  plot style table now gets written. `autocad_status` on a sheet tab reads the space and tab from TILEMODE
+  and CTAB, says `viewport_active` when the sheet's viewport is active, and never fails on the caption or
+  version; `space="paper"` draws on the sheet on screen even when COM's active layout lags it; a COM error
+  in the gate's first look is an answer, not a bare "Exception occurred". `autocad_preview` of a whole
+  sheet whose text cannot read in one picture adds the four close-ups by itself (`detail_added`;
+  `detail=1` for one picture). Tested offline only; live rows D8, D20, D33 and AM7 NOT RUN.
 - **Tool bugs found by the live-check runner, settled (2026-11-23, [#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218),
   [D-137](docs/DECISIONS.md)).** A super hatch refused after attaching its xref no longer raises the
   keep-erased box (a table record made and erased in one job is no erase, in the plug-in's count).

@@ -306,6 +306,12 @@ caught first). If a command was running when the error came, it is still cancell
   NOT RUN live (NEEDS-CHECKING AF1-AF11). The two places that pick the space themselves (the
   wipeout in `tools/drafting.py`, the dimension edits in `tools/dimensions_edit.py`) use the same
   fallback (#169).
+- **Since [D-140](DECISIONS.md) (#39, #40):** on a sheet tab `autocad_status` takes the space and the
+  tab from TILEMODE and CTAB, not COM's ActiveSpace / ActiveLayout (which can lag the tab, D-125);
+  `active_space` is `"paper"` on a sheet even with its viewport active (`viewport_active: true` then);
+  `space="paper"` draws on the sheet CTAB names. Over COM a sheet's scale is set with
+  `SetCustomScale` (a layout has no `CustomScale`; that was the "went busy" of row D8), and a layout
+  plot is not centred. All NOT RUN live (D8, D20, D33).
 - `create_material(replace=true)` with only `diffuse_rgb` kept the old texture image, which covers
   the colour; from plug-in **1.4.2** the image is cleared (K16, NOT RUN).
 
