@@ -168,6 +168,10 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == ["block_attributes"], name
         assert "faster_from" not in reads, name
+    # And the standards check's object facts; its layers and the reference stay COM's (D-143).
+    standards = by_name["autocad_check_standards"]["plugin"]
+    assert standards["role"] == "when_there" and standards["operations"] == ["entity_properties"]
+    assert "faster_from" not in standards
     assert by_name["autocad_batch_draw"]["plugin"]["role"] == "when_there"  # quiet input when it is there
     assert by_name["autocad_sequence"]["plugin"]["runs_other_tools"] is True
     # A keyword's value is not an operation: saved commands have an action called "show".

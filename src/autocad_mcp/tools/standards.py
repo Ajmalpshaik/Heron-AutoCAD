@@ -41,6 +41,8 @@ from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from ..core.variants import point_to_list
 from . import layer_standard as layer_files
+from ._shared import faster_read
+from .takeoff import NotTheSame, plugin_number
 from .text_tools import attribute_blocks, plugin_attribute_blocks
 
 KNOWN_RULES = {
@@ -267,6 +269,97 @@ def _reference_from_autocad(path: str) -> dict[str, Any]:
         del source
 
 
+# ---- the objects' facts: COM, or the plug-in in one go (#196, D-143) ------------------
+
+DIMENSION = "Dimension"  # an object whose class name holds this is a dimension, to the overlap rule
+
+
+def entity_rows(entities: Any, rules: dict, max_entities: int) -> tuple[list[dict[str, Any]], bool]:
+    """The facts the entity rules read, one row per object; and whether there were more than max_entities.
+
+    Reads COM objects and the plug-in's stand-ins alike, with the same code.
+    Colour, linetype and a dimension's box are read only when a rule asks for them.
+    """
+    rows: list[dict[str, Any]] = []
+    for entity in entities:
+        if len(rows) >= max_entities:
+            return rows, True
+        row: dict[str, Any] = {"handle": str(entity.Handle), "type": str(entity.ObjectName), "layer": str(entity.Layer)}
+        if rules.get("require_bylayer_color"):
+            row["color"] = int(entity.Color)
+        if rules.get("require_bylayer_linetype"):
+            row["linetype"] = str(entity.Linetype)
+        if DIMENSION in row["type"] and rules.get("forbid_overlapping_dimensions"):
+            try:
+                lo, hi = entity.GetBoundingBox()
+                row["box"] = (lo[0], lo[1], hi[0], hi[1])
+            except BaseException as exc:  # noqa: BLE001 - no box: left out of the overlap rule
+                raise_if_busy(exc)
+        rows.append(row)
+    return rows, False
+
+
+class _NoBox(Exception):
+    """The plug-in found no box for this object; COM's GetBoundingBox fails for it too."""
+
+
+class PluginEntity:
+    """One object of the plug-in's entity_properties, as the COM object it stands for (D-143).
+
+    Handle, ObjectName, Layer, Color, Linetype and GetBoundingBox, so
+    entity_rows reads it with the code it reads COM with. Color is the number
+    COM gives (256 ByLayer, 0 ByBlock, 1-255); None when it is not an index,
+    and then the check reads over COM when a rule needs it.
+    """
+
+    def __init__(self, row: Any) -> None:
+        if not isinstance(row, list) or len(row) != 6:
+            raise NotTheSame("a row of the wrong shape")
+        handle, kind, layer, color, linetype, box = row
+        if not all(isinstance(v, str) for v in (handle, kind, layer, linetype)):
+            raise NotTheSame("a handle, class, layer or linetype that is not text")
+        if color is not None and (isinstance(color, bool) or not isinstance(color, int) or not 0 <= color <= 256):
+            raise NotTheSame(f"a colour that is not one: {color!r}")
+        if box is not None and (not isinstance(box, list) or len(box) != 4):
+            raise NotTheSame("a box of the wrong shape")
+        self.Handle, self.ObjectName, self.Layer, self.Linetype = handle, kind, layer, linetype
+        self.Color = color
+        self._box = None if box is None else tuple(plugin_number(v) for v in box)
+
+    def GetBoundingBox(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:  # noqa: N802 - COM's name
+        if self._box is None:
+            raise _NoBox(self.Handle)
+        x1, y1, x2, y2 = self._box
+        return (x1, y1, 0.0), (x2, y2, 0.0)
+
+
+def plugin_entities(rules: dict, max_entities: int) -> list[PluginEntity] | None:
+    """Every object in the drawing, up to one past max_entities, read by the plug-in in one go; None: read over COM.
+
+    One past, so entity_rows says "only the first n were read" from the same
+    loop either way. None when the plug-in is older, its answer is not one
+    this server reads as COM, or a colour the rules need is not an index.
+    """
+    args: dict[str, Any] = {"filter": [], "limit": max_entities + 1}
+    if rules.get("forbid_overlapping_dimensions"):
+        args["box_classes"] = DIMENSION
+    read = faster_read("entity_properties", args)
+    if read is None:
+        return None
+    try:
+        rows, total = read["entities"], read["total"]
+        if not isinstance(rows, list) or isinstance(total, bool) or not isinstance(total, int):
+            raise NotTheSame("an answer without its objects")
+        if len(rows) != min(total, max_entities + 1):
+            raise NotTheSame("an answer with objects left out")
+        found = [PluginEntity(row) for row in rows]
+    except (TypeError, ValueError, KeyError):  # NotTheSame, or an answer of the wrong shape
+        return None
+    if rules.get("require_bylayer_color") and any(entity.Color is None for entity in found[:max_entities]):
+        return None  # a true colour: what COM's Color gives for it is not looked at yet (D-143)
+    return found
+
+
 @mcp.tool(
     name="autocad_check_standards",
     **tool_meta("Check Drawing Standards", read_only=True, idempotent=True),
@@ -376,28 +469,17 @@ async def autocad_check_standards(
         entities: list[dict] = []
         capped = False
         if needs_entities:
-            sel = select_filtered(doc)
-            try:
-                for entity in iter_selection(sel):
-                    if len(entities) >= max_entities:
-                        capped = True
-                        break
-                    row = {
-                        "handle": str(entity.Handle),
-                        "type": str(entity.ObjectName),
-                        "layer": str(entity.Layer),
-                        "color": int(entity.Color),
-                        "linetype": str(entity.Linetype),
-                    }
-                    if "Dimension" in row["type"] and wanted.get("forbid_overlapping_dimensions"):
-                        try:
-                            lo, hi = entity.GetBoundingBox()
-                            row["box"] = (lo[0], lo[1], hi[0], hi[1])
-                        except BaseException as exc:  # noqa: BLE001
-                            raise_if_busy(exc)
-                    entities.append(row)
-            finally:
-                discard_selection_set(doc)
+            # The plug-in reads every object's facts in one go (D-143); COM, a round
+            # trip per fact per object, only for an older one. One loop reads both.
+            facts = plugin_entities(wanted, max_entities)
+            if facts is not None:
+                entities, capped = entity_rows(facts, wanted, max_entities)
+            else:
+                sel = select_filtered(doc)
+                try:
+                    entities, capped = entity_rows(iter_selection(sel), wanted, max_entities)
+                finally:
+                    discard_selection_set(doc)
         more: list[dict[str, Any]] = []
         sources = []
         if has_rules:

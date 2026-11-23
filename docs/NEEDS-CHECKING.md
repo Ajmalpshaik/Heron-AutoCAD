@@ -851,6 +851,25 @@ character by character. Work on a copy of the drawing for the writing rows. **Ev
 | BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
 | BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
 
+## Group BH - The standards check's object facts the plug-in reads in one go (D-143) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-143](DECISIONS.md), issue #196). Built and tested offline only
+(`tests/test_plugin_standards_reads.py` compares the plug-in and COM answers on one fake drawing;
+`PropertyFactsTests.cs` what the plug-in writes). The plug-in operation `entity_properties` has never
+run. Needs the plug-in rebuilt and reinstalled from code that has it (plug-ins 1.8.0 and 1.8.1 do not:
+they are read over COM), and the server restarted. "Both ways" means the same call to a second server
+started with `--no-bridge`, as in Groups AS, AU, BB and BE; the plug-in's log shows
+`operation entity_properties` when the plug-in read it. "The same text" means the two answers compared
+character by character. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BH1 | A real MEP plan with objects on layer 0, colour and linetype overrides, objects on a sheet and in model space: `autocad_check_standards(rules={'forbid_entities_on_layer_0': true, 'require_bylayer_color': true, 'require_bylayer_linetype': true})` both ways | The log shows `operation entity_properties`; the same text both ways, findings in the same order with the same colour numbers and linetype names | NOT RUN |
+| BH2 | One line with a true colour (RGB) and one with a colour-book colour: `autocad_check_standards(rules={'require_bylayer_color': true})`, then `rules={'forbid_entities_on_layer_0': true}`, with the plug-in | First: the check reads over COM (the log shows the call, the answer matches `--no-bridge`). Second: the plug-in's answer is used. Write down what COM's `Color` gives for each of the two lines | NOT RUN |
+| BH3 | One of each dimension kind (rotated, aligned, angular, radial, diameter, arc length, ordinate), some drawn on top of each other: `autocad_check_standards(rules={'forbid_overlapping_dimensions': true})` both ways | The same overlaps both ways: .NET's `GeometricExtents` gives each dimension the box COM's `GetBoundingBox` gives | NOT RUN |
+| BH4 | The plan of BH1 with more than 50 objects: `autocad_check_standards(rules=..., max_entities=50)` both ways | The same text: "Only the first 50 objects were read", `passed` null, the same 50 objects checked | NOT RUN |
+| BH5 | Plug-in 1.8.1 installed (no `entity_properties`): BH1; then on a plan of 20,000 objects time BH1 with the new plug-in and over COM; then draw a line yourself, run BH1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
+
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only

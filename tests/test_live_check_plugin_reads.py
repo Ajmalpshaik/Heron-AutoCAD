@@ -1,4 +1,4 @@
-"""The AU, BB and BE rows are reasons only: the plug-in's reads are compared with a second server, which the runner does not start."""
+"""The AU, BB, BE and BH rows are reasons only: the plug-in's reads are compared with a second server, which the runner does not start."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ def test_nothing_is_measured_here():
 
 
 def test_every_row_has_its_reason():
-    want = {f"AU{n}" for n in range(1, 9)} | {f"BB{n}" for n in range(1, 11)} | {f"BE{n}" for n in range(1, 11)}
+    want = {f"AU{n}" for n in range(1, 9)} | {f"BB{n}" for n in range(1, 11)} | {f"BE{n}" for n in range(1, 11)} | {f"BH{n}" for n in range(1, 6)}
     assert set(reads.BY_EYE) == want
 
 
