@@ -8,15 +8,78 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (S16: sheet tab and preview bugs, #39, #40, #41; D-141)
+## Latest - 2026-11-23 (wave 3: S14-S23, D-140 to D-154; the open-issue sweep)
 
-Root-caused by reading the code, nothing run in AutoCAD. **#40 found:** the COM page setup set a
-layout's `CustomScale`, which does not exist (`SetCustomScale` does), then centred a layout plot;
-pywin32's "can not be set" read as busy, hence "Outcome unknown" on every sheet. **#39 and #41 made
-robust, cause not certain:** status reads TILEMODE / CTAB, `space="paper"` follows the tab on screen,
-a COM error in the gate's first look is an answer; a whole-sheet extents preview brings its four
-close-ups. **Next (on this PC):** restart the server, then rows D8 (also with `--no-bridge`), D20,
-D33 and AM7 (with AM1 on the A1 SLD).
+The owner asked for every open issue to be worked through in nested cloud sessions. One parent cloud
+session ran ten nested sessions, at most three at a time; each merged its own PRs with `python`,
+`plugin` and `review` green, then was archived. **Nothing was run in AutoCAD.**
+
+| Part | Issues | PR | Decision, live rows |
+|---|---|---|---|
+| S14 a replace tool inside a sequence or saved command, boolean, make_block in place, arrays, outlines get the whole-change question | #255 | #265 | D-140, BG1-BG8 |
+| S15 a plug-in job that touched nothing is aborted (no empty undo step); a new geo location stays inside the transaction; tiled viewports stay a View job | #80, #258 | #266 | D-143, AQ15-AQ17 |
+| S16 sheet tab: layout `CustomScale` cause of #40 found; status / paper space / extents preview made robust | #39, #40, #41 | #267 | D-141, D8, D20, D33 re-opened, AM7 |
+| S17 new `autocad_lengthen`; fillet / chamfer with arcs and open polylines (200 tools) | #154 | #272 | D-144, BH1-BH11 |
+| S18 overkill `tidy_polylines`; eTransmit points packed drawings at the files beside them (plug-in `retarget_pack_paths`) | #159, #160 | #274, #277 | D-146, D-150, AD13-AD15 |
+| S19 flat views `hidden_lines`; jogged `section_line` | #171 | #282 | D-152, AH17-AH21 |
+| S20 set_attributes reads a semicolon CSV; plug-in moves ranks 5, 8, 9 (check_standards facts, merge_layers, attribute writes) - all nine ranks of #74 done | #259, #196, #199, #200 | #271, #273, #275, #278 | D-145, D-147, D-148, BI, BJ, BK |
+| S21 dialog-watch rows V1, V4, V6, V7 open an AutoLISP alert; `.pdb` ignored in any case on Linux | #213, #262 | #268 | D-142 |
+| S22 a property AutoCAD will not set answers at once, not as busy; model extents preview uses fresh plug-in extents (410 filter) | #270, #269 | #276, #279 | D-149, D-151, AL8, AL9, AM8 |
+| S23 a missing member on a get answers at once; sheet previews use fresh extents | #280, #281 | #283, (S23b) | D-153, D-154, AL10, AL11 |
+
+Also merged by the earlier parent while this wave started: #260 (S11, #218, #254) and #261 (S9 part 2,
+#222). #74 closed: all nine ranked moves are in; the unranked small-gain list is not worth moving.
+**The owner's decisions:** none new this wave (D-142's alert route for the V rows was the parent's call).
+**For the next release:** `src/` and the plug-in changed after v1.8.1, so bump both and **rebuild and
+reinstall the plug-in** (new operations: `entity_properties`, `layer_objects`, `merge_layers`,
+`write_attributes`, `retarget_pack_paths`, the 410 extents filter, the no-op abort). Take every name in
+`bridge.NEWER_READS` out once that release is named.
+**Next (on this PC, on the owner's word):** install the next release, restart the server, then live rows
+in this order: BG and BC (the whole-change box), D8 / D20 / D33 / AM7 (sheets), AQ15-AQ17 and T7 (undo
+steps; T7 decides #263), BI-BK (plug-in moves), BH, AD13-AD15, AH17-AH21, V1-V7 (Admin on), AL8-AL11,
+AM8. The runner (`tools/live_check.py`) measures most of them.
+**Open question for the owner at BH10:** does AutoCAD's own FILLET join two open polylines into one?
+Heron keeps them separate (join afterwards with `autocad_join_curves`).
+**Still open, on hold:** #263 (needs live row T7), #216 (needs group AQ passed live), #70 (needs the
+owner's layer list), #75 (waits for Heron AI's registry).
+**Process note:** sessions took the same D-number four times; give each nested session its own reserved
+numbers up front.
+
+## Earlier - 2026-11-23 (wave 2: S6-S13, D-132 to D-139)
+
+The owner's second "Yes, next 10". Eight nested sessions, run at most three at a time, all merged with
+`python`, `plugin` and `review` green, nothing run in AutoCAD. The Claude app restarted once during the
+wave; S9 and S11 were resumed from their worktrees and lost nothing.
+
+| Part | Issues | PR | Decision, live rows |
+|---|---|---|---|
+| S6 palette Select and Zoom pick only selectable objects | #234 | #248 | D-132, AZ1-AZ6 (X25 re-opened) |
+| S7 typed command text refuses control characters; run_lisp expect on a busy retry; expect_dialog after HERONSTOP | #242, #210 | #250 | D-133, BA1-BA4 |
+| S8 plug-in reads: total_length, measure, count_text, find_text | #195, #197 | #251 | D-134, BB1-BB10 |
+| S9 live-check runner covers groups AF to BF (245 measured rows) | #222 | #257, #261 | D-118 (no new rule) |
+| S10 replace edits undo the whole change; xref isolate; destructive flags; busy width; Keep zoom | #208, #212 | #256 | D-136, BC1-BC13 |
+| S11 tool bugs found by the runner (4 fixed, 3 not real); gate test order; super hatch layer name | #218, #254 | #260 | D-137, BD1-BD6 |
+| S12 plug-in reads: block attributes | #198 | #253 | D-138, BE1-BE10 |
+| S13 names refuse control characters | #249 | #252 | D-139, BF1-BF2 |
+
+**The owner's decisions:** for #208 he chose "Undo the whole change": for join, explode, trim and break the
+erase box asks "Keep the change, or undo the whole change?", and any other answer undoes the whole job
+(D-136). S10's own rule that these four tools are refused when no UNDO mark can be put down: he
+confirmed it ("Yes, keep it").
+**For the next release:** `src/` and the plug-in changed after v1.8.1, so bump both. Take
+`block_references`, `block_definitions`, `entity_lengths`, `entity_texts` and `block_attributes` out of
+`bridge.NEWER_READS` and name the release that carries them.
+**Next (on this PC, on the owner's word):** install the next release, restart the server, then live rows:
+AZ with X3 and X25 first (the palette fault seen in 1.8.0), BC (the new box), then BA, BB, BD, BE, BF,
+and the earlier AU-AY. The runner (`tools/live_check.py`) measures 245 rows of them.
+**Being worked on elsewhere (cloud sessions started outside this parent, seen 2026-11-23 16:20):** [S14]
+#255 (a replace tool inside a sequence or saved command still gets the old box), [S15] #258 and #80 (group
+AQ geo location in the transaction; empty jobs leave no undo step, D-140, which split off #263), [S16]
+#39, #40, #41 (sheet-tab and preview bugs). Their own PRs record what they did. Also new: #262 (a `.PDB`
+copied into the bundle on Linux).
+**Open for a later wave:** #259 (set_attributes reads a semicolon CSV as one column), the next plug-in
+moves #196, #199, #200 (#200 can build on `block_attributes`), and a runner note from S9: an older
+plug-in makes a plug-in row FAIL with its "update Heron" words instead of NOT RUN.
 
 ## Earlier - 2026-11-23 (the wave of ten: S1-S5, D-127 to D-131)
 
