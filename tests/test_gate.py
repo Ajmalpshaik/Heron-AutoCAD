@@ -375,6 +375,33 @@ def test_a_marked_job_that_wrote_nothing_leaves_nothing_to_undo(env):
     assert gate.last_change() is None
 
 
+def test_a_kept_job_without_a_mark_counts_the_questions_zoom(env):
+    # D-130: the Keep question zoomed to the job; with no mark, one UNDO step would be that zoom.
+    FakeBridge.ask_to_keep = True
+    env["undo_on"] = False
+    draw, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
+    call(draw)
+    assert gate.last_change()["marked"] is False and gate.last_change()["views_since"] == 1
+
+
+def test_a_kept_job_with_a_mark_is_undone_back_to_it(env):
+    FakeBridge.ask_to_keep = True
+    draw, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
+    call(draw)
+    assert gate.last_change()["marked"] is True
+
+
+def test_bridge_end_puts_the_mark_on_the_wire(monkeypatch):
+    # #206: the palette's Undo reads "marked" from end; the gate tests use a fake bridge, so check the real one.
+    from autocad_mcp.core.bridge import Bridge
+
+    sent = []
+    monkeypatch.setattr(Bridge, "call", lambda self, op, **fields: sent.append((op, fields)) or {"ok": True})
+    Bridge(1).end("j1", True, "done", "Draw Line", 12, True)
+    Bridge(1).end("j2", True, "done", "Draw Line", 12)
+    assert [(op, fields["job"], fields["marked"]) for op, fields in sent] == [("end", "j1", True), ("end", "j2", False)]
+
+
 def test_an_unmarked_job_that_wrote_nothing_keeps_the_last_change(env):
     draw, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
     call(draw)
@@ -605,7 +632,8 @@ def test_an_erase_is_asked_even_with_ask_to_keep_off(env):
     # #209: all 4 came back, so neither the line nor the count says "erased". A raw command may
     # still have changed a setting, so it stays DONE with the not-counted note.
     first = answers.split(whole)[0]
-    assert "4 erased" not in first and "no drawing object was added, changed or erased" in first
+    assert "0 added, 0 changed, 4 erased" not in first and "no drawing object was added, changed or erased" in first
+    assert "all 4 erased object(s) brought back" in first
     assert result["heron_changes"] == {"added": 0, "modified": 0, "erased": 0}
 
 
@@ -631,7 +659,9 @@ def test_all_brought_back_but_something_was_also_made_is_done_with_none_erased(e
     FakeBridge.counted = {"added": 2, "modified": 0, "erased": 3, "erased_handles": ["A", "B", "C"]}
     FakeBridge.erase_answer = {"answer": "restored", "restored": 3}
     tool, _ = make_tool("autocad_trim_extend", '{"done": true}')
-    assert answers.split(call(tool))[0] == "DONE - 2 added, 0 changed, 0 erased."
+    assert answers.split(call(tool))[0] == (
+        "DONE - 2 added, 0 changed, 0 erased. The modeller had all 3 erased object(s) brought back."
+    )
 
 
 def test_some_brought_back_counts_only_those_still_erased(env):
@@ -639,7 +669,9 @@ def test_some_brought_back_counts_only_those_still_erased(env):
     FakeBridge.erase_answer = {"answer": "restored", "restored": 1}
     erase, _ = make_tool("autocad_delete_entities", '{"deleted": 4}')
     whole = call(erase)
-    assert answers.split(whole)[0] == "DONE - 0 added, 0 changed, 3 erased."
+    assert answers.split(whole)[0] == (
+        "DONE - 0 added, 0 changed, 3 erased. The modeller had 1 of the 4 erased object(s) brought back."
+    )
     assert json.loads(answers.body(whole))["heron_changes"]["erased"] == 3
 
 
@@ -652,8 +684,21 @@ def test_a_restore_heron_could_only_queue_still_counts_them_erased(env):
     }  # fmt: skip
     erase, _ = make_tool("autocad_delete_entities", '{"deleted": 4}')
     whole = call(erase)
-    assert answers.split(whole)[0] == "DONE - 0 added, 0 changed, 4 erased."
+    # The count is what the drawing held when Heron asked; the line says they are on their way back.
+    assert answers.split(whole)[0] == (
+        "DONE - 0 added, 0 changed, 4 erased. "
+        "Heron could not show the question in time, so it is bringing them back."
+    )
     assert "bringing them back" in json.loads(answers.body(whole))["heron_note"]
+
+
+def test_a_restore_that_brought_none_back_says_to_look(env):
+    FakeBridge.counted = dict(ERASED_4)
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 0}
+    erase, _ = make_tool("autocad_delete_entities", '{"deleted": 4}')
+    first = answers.split(call(erase))[0]
+    assert first.startswith("DONE - 0 added, 0 changed, 4 erased. The modeller asked for the 4")
+    assert "none came back: look at the drawing" in first
 
 
 def test_a_text_answer_gets_its_count_restated_after_a_restore(env):

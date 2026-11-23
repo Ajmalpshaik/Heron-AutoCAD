@@ -81,7 +81,8 @@ async def autocad_undo_last() -> str:
     if last is None:
         raise AutocadError(
             "Heron has no change of its own to undo in this chat (none yet, or it was already "
-            "undone, discarded, or followed by a raw command or a save). Nothing was changed."
+            "undone, discarded, or followed by a raw command or a save, by a job that put an UNDO mark "
+            "down and wrote nothing, or by erased objects being brought back). Nothing was changed."
         )
 
     def look() -> str:
@@ -108,9 +109,9 @@ async def autocad_undo_last() -> str:
         )
     if not last["marked"] and last["views_since"]:
         raise AutocadError(
-            "Heron zoomed or showed objects since its last change, and with Ask to Keep off there is no "
-            "UNDO mark to go back to exactly, so one step back would undo the zoom instead. Use Ctrl+Z "
-            "until it is gone. Nothing was changed."
+            "Heron zoomed or showed objects since its last change (the Keep or Discard question zooms "
+            "too), and Heron put no UNDO mark down before it, so one step back would undo the zoom "
+            "instead. Use Ctrl+Z until it is gone. Nothing was changed."
         )
 
     def undo() -> dict[str, Any]:

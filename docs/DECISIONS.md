@@ -25,6 +25,12 @@ are not rewritten.
   work go with it. A missing `marked` (an older server) or anything but a JSON `true` is no mark, so
   the palette's Undo is `UNDO 1`. D-68's rule otherwise stands: with no mark, a Heron zoom or show
   since refuses.
+- **The Keep question's zoom counts as a zoom since.** A job can now be asked Keep or Discard with no
+  mark (AutoCAD was in a command). Before, "asked" always meant Back, which took the question's own
+  select-and-zoom with it. That zoom (`Showing.SelectAndZoom`, COM `ZoomWindow`, undo recording on) is
+  an undo step after the job. So with no mark, `ActivityLog.ShownForKeep` counts it as a view since,
+  and the gate keeps `views_since` 1 for `autocad_undo_last`. Both then refuse one step, as for any
+  Heron zoom since.
 - **A busy AutoCAD is never "no mark".** `_mark()` lets every retryable error up
   (`errors.is_retryable`, wider than the busy refusal it let up before). The retry loop asks again,
   and an AutoCAD still busy ends the call before anything is sent (D-100). Why there is no mark is
@@ -34,8 +40,10 @@ are not rewritten.
   objects brought back are taken off the count: `heron_changes`, the activity list and the plain line
   count only what is still erased. A Change job with everything back and nothing else counted is
   NOTHING CHANGED, with a sentence saying so. An Admin job (a raw command) stays DONE with the
-  "not counted" wording, because a command can change settings that are not counted. A restore Heron
-  could only queue (`restored: 0` with a message) changes no count.
+  "not counted" wording, because a command can change settings that are not counted. This departs from
+  the issue's "NOTHING CHANGED" for that one case. In every other case the line ends with what came
+  back: all, some ("1 of the 4"), the plug-in's own message when it could only queue the restore (then
+  no count changes, because nothing is back yet), or "none came back: look at the drawing".
 - **No one-step undo after a restore (#209.1, #244).** The plug-in brings objects back in its own
   transaction after the job, so the last undo step is the restore. `autocad_undo_last` is given
   nothing to undo after any restore. The palette refuses and hides an unmarked Undo for that job

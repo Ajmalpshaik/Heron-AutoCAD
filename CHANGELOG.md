@@ -19,7 +19,8 @@ Newest first. Dates are when the change was made.
     and nothing else changed, is NOTHING CHANGED with a note; `heron_changes` and the activity list
     count only what is still erased.
   - After that restore, neither `autocad_undo_last` nor the palette's one-step Undo is offered: one step
-    back would erase the objects again (#244).
+    back would erase the objects again (#244). The same goes for a job asked Keep or Discard with no
+    mark down: the question's zoom is the last step.
   - `autocad_undo_last` no longer says "undone" after undoing nothing. Before, a later job that put a
     mark down and wrote nothing could be the step it undid.
   - `autocad_gaps` no longer advises "try again" for an unknown outcome or a failed Discard. Doing the

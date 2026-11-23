@@ -88,6 +88,8 @@ namespace Heron.AutoCAD.Addin
                 {
                     var doc = AcApp.DocumentManager.MdiActiveDocument;
                     var count = doc == null ? request.Handles.Length : Showing.SelectAndZoom(doc, request.Handles);
+                    // That zoom is an undo step after the job: an unmarked one-step Undo would undo it (D-130).
+                    if (doc != null) Activity.ShownForKeep(request.Job);
                     return HeronKeepQuestion.Ask(request.Summary, count);
                 }, KeepWait, out answer);
             }

@@ -130,6 +130,26 @@ public class ActivityLogTests
     }
 
     [Fact]
+    public void Asked_to_keep_but_not_marked_the_questions_zoom_refuses_one_step_and_hides_undo()
+    {
+        // D-130: the Keep question zooms to the job; with no mark, UNDO 1 would undo that zoom.
+        _log.Begin(new JobInfo { Job = "j1", Tool = "autocad_draw_line", Risk = Risk.Change, Drawing = Dwg, AskToKeep = true }, At);
+        _log.ShownForKeep("j1");
+        _log.End(new JobEnd { Job = "j1", Ok = true, Outcome = "done", Marked = false }, new ChangeReport { Added = 1, AddedHandles = new[] { "A" } });
+        Assert.Equal(PaletteTexts.UndoViewsSince, _log.CanUndo("j1", Clean()).Reason);
+        Assert.False(PaletteRows.Buttons(_log.Entries[0], newest: true).Undo);
+    }
+
+    [Fact]
+    public void Asked_to_keep_and_marked_the_questions_zoom_is_inside_the_mark()
+    {
+        _log.Begin(new JobInfo { Job = "j1", Tool = "autocad_draw_line", Risk = Risk.Change, Drawing = Dwg, AskToKeep = true }, At);
+        _log.ShownForKeep("j1");
+        _log.End(new JobEnd { Job = "j1", Ok = true, Outcome = "done", Marked = true }, new ChangeReport { Added = 1, AddedHandles = new[] { "A" } });
+        Assert.Equal("_.UNDO _Back ", _log.CanUndo("j1", Clean()).Command);
+    }
+
+    [Fact]
     public void After_the_erase_question_brought_objects_back_one_step_is_refused_and_hidden()
     {
         // #244: the restore is an undo step after the job; UNDO 1 would erase them again.

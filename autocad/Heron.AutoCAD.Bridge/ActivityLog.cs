@@ -160,6 +160,22 @@ namespace Heron.AutoCAD.Bridge
         }
 
         /// <summary>
+        /// The Keep or Discard question selected and zoomed to this job (D-130).
+        /// That zoom is an undo step of its own after the job, as a Heron zoom
+        /// after it is: with no mark, one step back would undo the zoom.
+        /// </summary>
+        public void ShownForKeep(string job)
+        {
+            lock (_gate)
+            {
+                var entry = Find(job);
+                if (entry == null) return;
+                entry.ViewsSince++;
+            }
+            Changed?.Invoke();
+        }
+
+        /// <summary>
         /// The erase question brought this job's erased objects back, or is about
         /// to (#244). That restore is an undo step of its own after the job, so
         /// one step back would erase them again instead of undoing the job.
@@ -266,7 +282,7 @@ namespace Heron.AutoCAD.Bridge
         public string[] AddedHandles { get; set; } = new string[0];
         /// <summary>What it made or changed, for Select and Zoom.</summary>
         public string[] ShownHandles { get; set; } = new string[0];
-        /// <summary>Zooms and shows by Heron since it ended: each is an undo step of its own.</summary>
+        /// <summary>Zooms and shows by Heron since it ended, and the Keep question's zoom: each is an undo step of its own.</summary>
         public int ViewsSince { get; set; }
         /// <summary>The erase question brought its erased objects back: an undo step after the job (#244).</summary>
         public bool BroughtBack { get; set; }

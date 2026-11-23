@@ -1078,6 +1078,7 @@ install it first. Changes on. Use a scratch drawing with UNDO on (UNDOCTL 5). **
 | AX4 | Ask to Keep off. Erase 4 objects with Heron (`autocad_delete_entities`) and answer "bring them back" | First line NOTHING CHANGED, saying all 4 were brought back; `heron_changes` erased 0; `autocad_activity` says erased 0; `autocad_undo_last` says there is nothing to undo | NOT RUN |
 | AX5 | Ask to Keep off. A Heron job that erases some objects and adds others (for example a trim that erases a piece and makes a new one), answer "bring them back", then look at the palette card | First line DONE with erased 0; the card has no Undo button; `autocad_undo_last` says there is nothing to undo; the restored objects stay | NOT RUN |
 | AX6 | Ask to Keep on. Draw a line with Heron and Keep. Then ask Heron to move a handle that does not exist (it refuses). Then `autocad_undo_last` | It says there is nothing to undo; the line stays | NOT RUN |
+| AX8 | Ask to Keep on. Start `LINE` and leave it at its prompt, ask Heron to move an object, press Keep when asked, then look at the palette card and call `autocad_undo_last` | The card has no Undo button (the question's zoom is the last step); `autocad_undo_last` refuses, naming the zoom | NOT RUN |
 | AX7 | After AX3 or any OUTCOME UNKNOWN job, `autocad_gaps` | That job's advice says to look at the drawing (or remove by hand), never "Press Esc, then try again" | NOT RUN |
 
 ## Group AY - Installer and release polish (D-131) (a shared Windows server, not this PC)

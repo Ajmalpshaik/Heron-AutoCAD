@@ -551,7 +551,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
 
         ok, outcome, result = False, "failed", None
         counted: dict[str, Any] | None = None
-        wrote = marked = brought_back = False
+        wrote = marked = brought_back = asked_keep = False
         # Status reads the drawing found above: where the drawing log stood
         # then is its mark, so a close during the call is not swallowed (#48).
         mark_before = await _mark_now(job, pid) if tool == STATUS_TOOL else None
@@ -627,8 +627,8 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 if boxes:
                     result = _with_dialogs(result, boxes)
 
-            asked_keep = ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES
-            said: tuple[str, str] | None = None
+            asked_keep = bool(ok and wrote and job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES)
+            said: tuple[str | None, str] | None = None
             if dry_run:
                 # No question: whatever it did is taken back now (D-63).
                 result, outcome, said = await _roll_back(result, text, ok, counted, wrote)
@@ -675,7 +675,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
             _record(tool, risk, drawing, ok, outcome, started, message)
             _remember(
                 tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked, dry_run,
-                brought_back=brought_back,
+                brought_back=brought_back, zoomed=asked_keep,
             )
             if companion.enabled():
                 companion.write(companion_state())  # the Companion page, once the chat asked for it (D-71)
@@ -840,7 +840,7 @@ def _restate_changes(result: Any, before: dict[str, Any], now: dict[str, Any]) -
 
 async def _ask_erase(
     job: Job, result: Any, counted: dict[str, Any], risk: Risk
-) -> tuple[Any, dict[str, Any], tuple[str, str] | None, bool]:
+) -> tuple[Any, dict[str, Any], tuple[str | None, str] | None, bool]:
     """The erase question (D-50), and what the drawing holds after its answer (#209).
 
     Returns (result, the counts as they are now, the plain line's word and
@@ -855,7 +855,8 @@ async def _ask_erase(
     finally:
         progress.stop(beat)
     said = answer.get("answer")
-    now, line, brought_back = counted, None, False
+    now, brought_back = counted, False
+    line: tuple[str | None, str] | None = None
     if said == "keep_erased" and answer.get("asked") is False:
         # Never "the modeller chose": nobody was asked (D-50, D-62).
         where = (
@@ -883,12 +884,22 @@ async def _ask_erase(
         if restored:
             now = {**counted, "erased": erased - restored}
             result = _restate_changes(result, counted, now)
-            if not int(now.get("added", 0)) and not int(now.get("modified", 0)) and not now["erased"] and risk is Risk.CHANGE:
-                line = (
-                    answers.NOTHING_CHANGED,
-                    f"the job erased {erased} object(s) and the modeller had all of them brought back, "
-                    "so no drawing object is added, changed or erased now.",
-                )
+        others = int(now.get("added", 0)) + int(now.get("modified", 0))
+        if restored == erased and not others and risk is Risk.CHANGE:
+            line = (
+                answers.NOTHING_CHANGED,
+                f"the job erased {erased} object(s) and the modeller had all of them brought back, "
+                "so no drawing object is added, changed or erased now.",
+            )
+        elif restored == erased:
+            line = (None, f"The modeller had all {erased} erased object(s) brought back.")
+        elif restored:
+            line = (None, f"The modeller had {restored} of the {erased} erased object(s) brought back.")
+        elif answer.get("message"):
+            # Not back yet (or never): the count is what the drawing held when Heron asked.
+            line = (None, str(answer["message"]))
+        else:
+            line = (None, f"The modeller asked for the {erased} erased object(s) back, but none came back: look at the drawing.")
     elif said == "nothing_erased":
         return result, counted, None, False
     else:
@@ -902,12 +913,14 @@ async def _ask_erase(
 def _remember(
     tool: str, risk: Risk, drawing: str, ok: bool, outcome: str, started: float, job: Job | None,
     result: Any, counted: dict[str, Any] | None, wrote: bool, marked: bool, dry_run: bool = False,
-    brought_back: bool = False,
+    brought_back: bool = False, zoomed: bool = False,
 ) -> None:
     """The activity list, and what "undo Heron's last change" may undo (D-54).
 
     brought_back: the erase question put erased objects back after the job, so
     the last UNDO step may be that restore and not the job (#209).
+    zoomed: the Keep or Discard question zoomed to the job, an undo step of its
+    own: with no mark, one step back would be that zoom (D-130).
     """
     global _last_change
     text = result if isinstance(result, str) else ""
@@ -943,7 +956,7 @@ def _remember(
         _last_change["views_since"] += 1
     elif risk is Risk.CHANGE and wrote:
         _last_change = (
-            {**entry, "created": created, "marked": marked, "views_since": 0}
+            {**entry, "created": created, "marked": marked, "views_since": 1 if zoomed else 0}
             if ok and outcome == "done" else None
         )  # fmt: skip
     elif risk is Risk.CHANGE and marked:
