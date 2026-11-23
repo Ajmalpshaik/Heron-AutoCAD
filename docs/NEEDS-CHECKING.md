@@ -455,15 +455,21 @@ Added on 2026-11-21 ([D-66](DECISIONS.md), issue #83). Built and tested offline
 (`DialogWatchTests.cs`, `tests/test_gate.py`). Needs the new plug-in build and a server restart.
 **Every row below is NOT RUN.**
 
+Rows V1, V4, V6 and V7 were rewritten on 2026-11-23 ([D-142](DECISIONS.md), issue #213): Heron
+refuses OPEN, CLOSE and PURGE before sending them, so they could never open the box they tested.
+The way in is AutoLISP's alert box through `autocad_run_lisp` (Admin on); `tools/live_check.py`
+measures them from the tool's answer. The alert box has only OK, so the watch's press is Esc. Still
+NOT RUN: no live run yet. What AutoCAD names that box is read from the answer, not assumed.
+
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
-| V1 | Admin ON: `autocad_send_command("_OPEN\n")` (FILEDIA 1, so the Select File dialog opens) | Within about 1 s the dialog closes by itself; the answer has `heron_dialogs`: "AutoCAD showed 'Select File'; Heron closed it with Cancel, nothing was kept from that step."; no drawing opens; the next call works without pressing Esc | NOT RUN |
+| V1 | Admin ON, a drawing open: `autocad_run_lisp('(alert "Heron live check")')` (AutoLISP's alert box is a real modal box opened mid-job; `autocad_send_command("_OPEN")` is refused first, [D-142](DECISIONS.md), #213) | Within about 1 s the box closes by itself; the answer has `heron_dialogs` naming it: "AutoCAD showed '<its title>'; Heron closed it with Esc, nothing was kept from that step." (the box has only OK, so Cancel and No do not exist; **never OK, never Yes**); no timeout; the next call works without pressing Esc | NOT RUN |
 | V2 | Open AutoCAD's Options dialog yourself and leave it open; then `autocad_list_layers` | Options is **not** closed; the answer is the Q3 "AutoCAD stayed busy" one; no `heron_dialogs` | NOT RUN |
 | V3 | Ask to Keep ON: `autocad_draw_line`, then wait at Keep or Discard for 5 s | The Keep or Discard box stays up until you answer it; it is never closed by the watch | NOT RUN |
-| V4 | Admin ON: change something in a drawing, then `autocad_send_command("_CLOSE\n")` | The "Save changes?" box gets **Cancel**, never Yes or No; the drawing stays open with the change; the answer names the box | NOT RUN |
+| V4 | Admin ON: draw a line (it stays unsaved), then the same alert call as V1 (a "Save changes?" box cannot be opened: `autocad_send_command("_CLOSE")` is refused first, D-142) | The box is closed with Esc, never OK or Yes, and named in `heron_dialogs`; the line is still in the drawing and the same drawing is still open | NOT RUN |
 | V5 | With no Heron job running, open the Select File dialog yourself (Ctrl+O) and wait 10 s | It stays open: the watch never acts outside a job | NOT RUN |
-| V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`) | One line "dialog watch: 'Select File' -> Cancel"; no error lines | NOT RUN |
-| V7 | Plug-in 1.7.0, Admin on. Draw two unused layers' worth of nothing; `autocad_send_command(command="_PURGE", expect_box="Purge - Confirm Purge", press="Yes")` (the dialog form; check the box's real title first) | The plug-in presses Yes on that box only; the answer says "Heron pressed Yes on it, as this call asked"; any other box in the same call is still cancelled. With Changes only (Admin off) the call is refused before anything is sent | NOT RUN |
+| V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`, today's `addin-<UTC date>.log`) | One line "dialog watch: '<the box's title>' -> Esc" for that call; no error lines | NOT RUN |
+| V7 | Plug-in 1.7.0, Admin on. First V1 (it names the alert box's real title); then `autocad_run_lisp('(alert "Heron live check")', expect_box=<that title>, press="OK")`; then the same with a different `expect_box` title ("PURGE's own box" cannot be opened: `autocad_send_command("_PURGE")` is refused first, D-142) | Heron presses OK on that box only and says "AutoCAD showed '<title>'; Heron pressed OK on it, as this call asked (#101)."; with the other title the alert is still closed with Esc. With Admin off the call is refused before anything is sent (turn Admin off by hand to see it; the runner does not) | NOT RUN |
 | V8 | Same call with a plug-in older than 1.7.0 | Refused: "needs Heron's plug-in 1.7.0 or newer", nothing sent | NOT RUN |
 
 ## Group U - Check lists for QA: NO DATA, office and project lists, reports, wording (AutoCAD 2027, this PC)
