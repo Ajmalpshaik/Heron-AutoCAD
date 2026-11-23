@@ -583,8 +583,8 @@ CHECKS_AC: tuple[Check, ...] = (
 )
 
 EYE_AC: dict[str, str] = {
-    "AC1": "making the block in place of the circle erases the circle, so Heron asks you to keep it erased "
-           "(D-50); BATTMAN, ATTDISP and the INSERT prompts are also read by eye",
+    "AC1": "making the block in place of the circle erases the circle, so Heron asks you to keep the change "
+           "or undo the whole change (D-140); BATTMAN, ATTDISP and the INSERT prompts are also read by eye",
     "AC3": "needs the Block Editor to add FLOW and delete SIZE, and the sync then erases each insert's SIZE "
            "(the plug-in erases a dropped attribute), so Heron asks you to keep it erased (D-50)",
     "AC4": "needs a dynamic block with its grips dragged by hand and an attribute moved in the Block Editor",

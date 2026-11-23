@@ -84,7 +84,7 @@ Nothing below may be called working until its row says PASS with a date and a ve
 | D5 | `autocad_set_ucs(mode="world")`, then `mode="3point"`, then `mode="named"` back | The UCS icon moves and turns each time; one Ctrl+Z per call; `HERON-UCS` is reused, not duplicated | NOT RUN |
 | D6 | `autocad_set_ucs(mode="entity")` on a rotated block, and on a block on a tilted plane | Lines up with the block; the tilted one is refused in plain words, not guessed | NOT RUN |
 | D7 | Tilt the UCS out of the XY plane, then `autocad_batch_draw(coords="ucs")` | Refused, naming `autocad_convert_points`; nothing drawn | NOT RUN |
-| D8 | `autocad_create_layout(name="D-101", paper_size="A1", plot_style_table="monochrome.ctb")` | New tab; Page Setup shows A1, DWG To PDF, monochrome; the returned `sheet` frame matches what PAGESETUP shows | **FAIL** 2026-10-28, AutoCAD 2027 (26.0s): five A1 tabs AC-101..105 were made with DWG To PDF and ISO full bleed A1, but every call answered `Outcome unknown: AutoCAD went busy` (also with `activate=false`); `plot_style_table` not tried (no monochrome.ctb). Cause not found |
+| D8 | `autocad_create_layout(name="D-101", paper_size="A1", plot_style_table="monochrome.ctb")`, then the same with the plug-in turned off (`--no-bridge`) and `activate=false` | New tab; Page Setup shows A1, DWG To PDF, monochrome, scale 1:1; the answer has no `warning`, `page_setup.scale` is `1:1` and `plot_style_table` is there; the returned `sheet` frame matches what PAGESETUP shows. Was **FAIL** 2026-10-28, AutoCAD 2027 (26.0s): five A1 tabs AC-101..105 made, but every call answered `Outcome unknown: AutoCAD went busy` (also with `activate=false`). **Cause found in the code (#40, D-141):** the COM page setup set `CustomScale`, which a layout does not have (its scale is `SetCustomScale`), then centred a layout plot, which AutoCAD refuses (D20); pywin32 answers both `Property ... can not be set`, which the retry reads as busy. Both fixed; the plot style table, written after them, never got there before. Re-run NOT RUN | NOT RUN |
 | D9 | `autocad_create_layout(copy_from="D-101")` | The copy carries the page setup | NOT RUN |
 | D10 | `autocad_page_setup(all_layouts=true, paper_size="A1", plotter="DWG To PDF.pc3", scale="1:1")` | Every tab changes; only the options passed are different afterwards | NOT RUN |
 | D11 | `autocad_page_setup` with a plotter and a sheet size AutoCAD does not have | Named in the error, with the sizes that plotter does offer; the sheet is unchanged | NOT RUN |
@@ -96,7 +96,7 @@ Nothing below may be called working until its row says PASS with a date and a ve
 | D17 | After D13, zoom inside the viewport | Refused / no change: the lock held and the scale is still true | NOT RUN |
 | D18 | `autocad_save_view` from a window, then `autocad_list_views` | The corners come back the same; `zoom_to` showed the area | NOT RUN |
 | D19 | `autocad_export(area="view", view_name=...)` then `autocad_add_viewport(view_name=...)` | The PDF and the viewport show the **same** area | NOT RUN |
-| D20 | `autocad_export(area="layout", scale="1:1")` on the D-101 sheet | The PDF is the sheet, title block and all, at full size; the layout's page setup is put back | **FAIL then fixed, re-run NOT RUN** 2026-10-28, AutoCAD 2027 (26.0s): `Outcome unknown: AutoCAD went busy`, no PDF. Two causes found by hand: setting `CenterPlot` on a layout plot raises, and choosing the plotter drops an A1 layout to ANSI A. `_plot_pdf` now skips `CenterPlot` for `area="layout"` and keeps the layout's own sheet when no `paper_size` is given |
+| D20 | `autocad_export(area="layout", scale="1:1")` on the D-101 sheet | The PDF is the sheet, title block and all, at full size; the layout's page setup is put back | **FAIL then fixed, re-run NOT RUN** 2026-10-28, AutoCAD 2027 (26.0s): `Outcome unknown: AutoCAD went busy`, no PDF. Two causes found by hand: setting `CenterPlot` on a layout plot raises, and choosing the plotter drops an A1 layout to ANSI A. `_plot_pdf` now skips `CenterPlot` for `area="layout"` and keeps the layout's own sheet when no `paper_size` is given. **A third, found 2026-11-23 (#40, D-141):** the scale was set as `CustomScale`, which a layout does not have; it is now `SetCustomScale`, so the re-run would have stopped there too |
 | D21 | `autocad_drawing_setup(units="millimeters", scale="1:50", paper_text_height=2.5, osnaps=[...])` with `dry_run=true`, then false | The dry run writes nothing; the real run sets INSUNITS, DIMSCALE 50, LTSCALE 50, CANNOSCALE 1:50, TEXTSIZE 125, OSMODE; each `from`/`to` matches what SETVAR reports | NOT RUN |
 | D22 | `autocad_drawing_setup` on a drawing where one variable is read-only for that release | That one is in `failed`; the rest still land | NOT RUN |
 | D23 | `autocad_create_styles` with a text style and a dim style that has a `text_style` and a `precision`, then dimension something | The dim uses the new style at the right size; no notes on the style; **the drawing's own DIM variables are back where they were** (check DIMSCALE, DIMTXT, DIMTXSTY and DIMDEC with SETVAR). On 2026-10-28 a dim style with `"text_style": "ROMANS"` failed outright (`could not convert string to float: 'S'`); fixed, re-run NOT RUN | NOT RUN |
@@ -109,7 +109,7 @@ Nothing below may be called working until its row says PASS with a date and a ve
 | D30 | `autocad_sequence` containing `autocad_save_drawing`, and one containing `autocad_run_lisp` | Both refused, naming the level; nothing ran. **This is the padlock ceiling (D-29) and must be re-run whenever a tool is added** | NOT RUN |
 | D31 | After the whole set, `autocad_preview` and `autocad_check_standards` | The sheet looks right and the standard passes | NOT RUN |
 | D32 | `autocad_drawing_setup(scale="1:10")`, then `autocad_drawing_setup(scale=10)` | The first sets CANNOSCALE 1:10 and DIMSCALE 10 with nothing in `failed`; the second is **refused**, asking for '1:10' or '10:1', and DIMSCALE is still 10. On 2026-10-28 both failed with `could not convert string to float: ':'`; fixed, re-run NOT RUN | NOT RUN |
-| D33 | With a sheet tab active (after creating layouts and a Save As), `autocad_status`, then `autocad_add_table(space="paper")` | Status answers with `active_space: "paper"`; the table lands on the sheet. **FAIL** 2026-10-28, AutoCAD 2027 (26.0s): both raised a bare `Exception occurred`; status worked again once the Model tab was clicked, which left the gate blocking every tool until then. Common to both: `doc.PaperSpace` with a layout active. Not reproduced or fixed | NOT RUN |
+| D33 | With a sheet tab active (after creating layouts and a Save As), `autocad_status`, then `autocad_add_table(space="paper")`; then click into the sheet's viewport (MSPACE) and `autocad_status` again | Status answers with `active_space: "paper"`, `active_layout` the tab on screen and nothing in `unreadable`; the table lands on that sheet; in the viewport, `active_space` is still `"paper"` with `viewport_active: true`. Was **FAIL** 2026-10-28, AutoCAD 2027 (26.0s): both raised a bare `Exception occurred`; status worked again once the Model tab was clicked. **Fixed offline (#39, D-141):** the space and tab come from TILEMODE and CTAB, not COM's ActiveSpace / ActiveLayout (which lagged the tab on 2026-11-22, D-125); `space="paper"` and the sheet count use the block of the sheet CTAB names when COM's layout lags or `doc.PaperSpace` throws; a COM error in the gate's first look is an answer, not a bare exception. Which of these AutoCAD hit is not known: re-run NOT RUN | NOT RUN |
 
 ## Group E - Geometry, annotation and 3D (AutoCAD 2027, this PC)
 
@@ -455,15 +455,21 @@ Added on 2026-11-21 ([D-66](DECISIONS.md), issue #83). Built and tested offline
 (`DialogWatchTests.cs`, `tests/test_gate.py`). Needs the new plug-in build and a server restart.
 **Every row below is NOT RUN.**
 
+Rows V1, V4, V6 and V7 were rewritten on 2026-11-23 ([D-142](DECISIONS.md), issue #213): Heron
+refuses OPEN, CLOSE and PURGE before sending them, so they could never open the box they tested.
+The way in is AutoLISP's alert box through `autocad_run_lisp` (Admin on); `tools/live_check.py`
+measures them from the tool's answer. The alert box has only OK, so the watch's press is Esc. Still
+NOT RUN: no live run yet. What AutoCAD names that box is read from the answer, not assumed.
+
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
-| V1 | Admin ON: `autocad_send_command("_OPEN\n")` (FILEDIA 1, so the Select File dialog opens) | Within about 1 s the dialog closes by itself; the answer has `heron_dialogs`: "AutoCAD showed 'Select File'; Heron closed it with Cancel, nothing was kept from that step."; no drawing opens; the next call works without pressing Esc | NOT RUN |
+| V1 | Admin ON, a drawing open: `autocad_run_lisp('(alert "Heron live check")')` (AutoLISP's alert box is a real modal box opened mid-job; `autocad_send_command("_OPEN")` is refused first, [D-142](DECISIONS.md), #213) | Within about 1 s the box closes by itself; the answer has `heron_dialogs` naming it: "AutoCAD showed '<its title>'; Heron closed it with Esc, nothing was kept from that step." (the box has only OK, so Cancel and No do not exist; **never OK, never Yes**); no timeout; the next call works without pressing Esc | NOT RUN |
 | V2 | Open AutoCAD's Options dialog yourself and leave it open; then `autocad_list_layers` | Options is **not** closed; the answer is the Q3 "AutoCAD stayed busy" one; no `heron_dialogs` | NOT RUN |
 | V3 | Ask to Keep ON: `autocad_draw_line`, then wait at Keep or Discard for 5 s | The Keep or Discard box stays up until you answer it; it is never closed by the watch | NOT RUN |
-| V4 | Admin ON: change something in a drawing, then `autocad_send_command("_CLOSE\n")` | The "Save changes?" box gets **Cancel**, never Yes or No; the drawing stays open with the change; the answer names the box | NOT RUN |
+| V4 | Admin ON: draw a line (it stays unsaved), then the same alert call as V1 (a "Save changes?" box cannot be opened: `autocad_send_command("_CLOSE")` is refused first, D-142) | The box is closed with Esc, never OK or Yes, and named in `heron_dialogs`; the line is still in the drawing and the same drawing is still open | NOT RUN |
 | V5 | With no Heron job running, open the Select File dialog yourself (Ctrl+O) and wait 10 s | It stays open: the watch never acts outside a job | NOT RUN |
-| V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`) | One line "dialog watch: 'Select File' -> Cancel"; no error lines | NOT RUN |
-| V7 | Plug-in 1.7.0, Admin on. Draw two unused layers' worth of nothing; `autocad_send_command(command="_PURGE", expect_box="Purge - Confirm Purge", press="Yes")` (the dialog form; check the box's real title first) | The plug-in presses Yes on that box only; the answer says "Heron pressed Yes on it, as this call asked"; any other box in the same call is still cancelled. With Changes only (Admin off) the call is refused before anything is sent | NOT RUN |
+| V6 | During V1, look at the add-in log (`%LOCALAPPDATA%\Heron\autocad\logs`, today's `addin-<UTC date>.log`) | One line "dialog watch: '<the box's title>' -> Esc" for that call; no error lines | NOT RUN |
+| V7 | Plug-in 1.7.0, Admin on. First V1 (it names the alert box's real title); then `autocad_run_lisp('(alert "Heron live check")', expect_box=<that title>, press="OK")`; then the same with a different `expect_box` title ("PURGE's own box" cannot be opened: `autocad_send_command("_PURGE")` is refused first, D-142) | Heron presses OK on that box only and says "AutoCAD showed '<title>'; Heron pressed OK on it, as this call asked (#101)."; with the other title the alert is still closed with Esc. With Admin off the call is refused before anything is sent (turn Admin off by hand to see it; the runner does not) | NOT RUN |
 | V8 | Same call with a plug-in older than 1.7.0 | Refused: "needs Heron's plug-in 1.7.0 or newer", nothing sent | NOT RUN |
 
 ## Group U - Check lists for QA: NO DATA, office and project lists, reports, wording (AutoCAD 2027, this PC)
@@ -568,9 +574,9 @@ the server. Changes on. **Every row below is NOT RUN.**
 | AB2 | Three stacked horizontal dimensions about 200, 450 and 1300 off a base dimension: `autocad_space_dimensions(handles=[base, a, b, c], spacing=400, dry_run=true)`, then without dry_run; then `spacing=0` | Dry run moves nothing; then the dimension lines sit exactly 400, 800, 1200 off the base (measure), extension lines still start on the geometry, text moved with them; one Ctrl+Z puts them back; spacing 0 lines them all up on the base line | NOT RUN |
 | AB3 | Same with an aligned stack on a 30-degree slope, and one radius dimension in the list | The aligned ones step out square to the slope; the radius dimension is in `skipped` and has not moved | NOT RUN |
 | AB4 | Two dimensions crossed by two pipe lines: `autocad_break_dimensions(handles=[...])`, then `remove=true` | A gap (DIMBREAK size) where each line crosses each dimension; AutoCAD back at `Command:`; move a pipe and the gap follows; `remove` takes the gaps off; a line's handle in the list, or a dimension on a locked layer, is refused and nothing typed | NOT RUN |
-| AB5 | Turn some layers off and freeze one: `autocad_layer_states(action="save", name="COORD")`; change the layers; `action="restore"`; `autocad_list_layers` | LAYERSTATE dialog shows COORD; restore brings back every layer as saved and `before_after` lists exactly the layers that changed; `list_layers` gives COORD in `layer_states`; saving COORD again without overwrite is refused | NOT RUN |
+| AB5 | Turn some layers off and freeze one: `autocad_layer_states(action="save", name="COORD")`; change the layers; `action="restore"`; `autocad_list_layers` | LAYERSTATE dialog shows COORD; restore brings back every layer as saved, and `before_after` lists exactly the layers whose on, frozen or locked state changed (a colour, linetype or other setting the state also puts back is not listed: look at one in the Layer Properties Manager); `list_layers` gives COORD in `layer_states`; saving COORD again without overwrite is refused | NOT RUN |
 | AB6 | Current layer 0: `autocad_isolate_layers(handles=[a duct])`, then again with a pipe, then `action="unisolate"`; then with `others="lock"` and `others="freeze"` | Only the duct's layer shows and becomes current; the second isolate keeps the first state (`already_isolated`); unisolate puts every layer and current layer 0 back and HERON-ISOLATE is gone from LAYERSTATE; lock mode greys the others and they cannot be picked; freeze works with the current layer moved first; isolating a frozen layer thaws it and makes it current | NOT RUN |
-| AB7 | Layers DUCT (locked, objects in model space, on a layout, inside a block definition and one block attribute) and M-DUCT: `autocad_merge_layers(layers=["DUCT"], into="M-DUCT")`, then with `confirm=true` | First call changes nothing and counts drawing / blocks / attributes right; then every one is on M-DUCT (also inside the block, the attribute too), DUCT is gone from the layer list; one Ctrl+Z brings it all back | NOT RUN |
+| AB7 | Layers DUCT (locked, objects in model space, on a layout, inside a block definition and one block attribute) and M-DUCT: `autocad_merge_layers(layers=["DUCT"], into="M-DUCT")`, then with `confirm=true` | First call changes nothing and counts drawing / blocks / attributes right. With `confirm=true` the removed layer DUCT counts as one erased object, so Heron's erase box asks first (D-50): choose **Keep them erased** (Enter brings the DUCT layer back). Then every one is on M-DUCT (also inside the block, the attribute too), DUCT is gone from the layer list; one Ctrl+Z brings it all back | NOT RUN |
 | AB8 | Same, but DUCT frozen in one layout viewport (VP freeze) | Either DUCT is removed, or it is kept with AutoCAD's reason; no object is left on it | NOT RUN |
 | AB9 | 1:50 drawing: `autocad_add_text(text="NOTE", height=125, annotative=true)`; `autocad_list_annotation_scales(handles=[it])`; then `autocad_annotation_scales(handles=[it], add=["1:100"])` and look in a 1:50 and a 1:100 viewport | The text shows the annotative icon; Properties shows Paper text height 2.5 and Model 125 (if it shows 6250 or 2.5 the height rule in D-81 is wrong: record which); `paper_height` is 2.5; after the add it is 2.5 mm on paper in both viewports | NOT RUN |
 | AB10 | `autocad_add_dimension(..., annotative=true)`, `autocad_dimension_run(..., annotative=true)`, `autocad_add_multileader(..., annotative=true)`, then one Ctrl+Z each | Each is annotative at 1:50 (OBJECTSCALE lists 1:50), arrows and text sized from the scale, not doubled by DIMSCALE; one Ctrl+Z removes the object and its annotative state together | NOT RUN |
@@ -588,7 +594,7 @@ Use a model with a room, a few lights and a light block (the villa or Luxury Sui
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
 | AE1 | `autocad_set_3d_view(visual_style=...)` once for each of the ten styles; then VSCURRENT Hidden by hand and `autocad_set_3d_view(direction='sw_iso')` | Each answer's `visual_style_found` is the style on screen (record AutoCAD's exact names, e.g. `Realistic`, `Shades of Gray`), with no `visual_style_warning` and no `visual_style_found_from` for a style that took; after the hand change it says `Hidden`. If it lags one style behind, the read needs the viewports written to the drawing first, as `set_sun` does | NOT RUN |
-| AE2 | Inside a room: `autocad_add_camera_view(name='LIVING-CAM-1', eye=[<corner>, 1600], target=[<far wall>, 1200], lens=24)` | The screen shows the room in perspective from the corner (in 2D Wireframe the answer warns instead, and perspective shows after `visual_style='realistic'`); VIEW lists LIVING-CAM-1 as a perspective view; Properties of the view: lens 24 mm. Record AutoCAD's Field of view next to the answer's `field_of_view_degrees` (73.74). One Ctrl+Z removes the view | NOT RUN |
+| AE2 | Inside a room: `autocad_add_camera_view(name='LIVING-CAM-1', eye=[<corner>, 1600], target=[<far wall>, 1200], lens=24)` | The screen shows the room in perspective from the corner. In 2D Wireframe the answer warns instead, and AutoCAD may keep PERSPECTIVE 0 there: switching to `visual_style='realistic'` alone may not bring it back, so record PERSPECTIVE after the switch, and if it reads 0, `-VIEW _Restore LIVING-CAM-1` in Realistic shows the view in perspective; VIEW lists LIVING-CAM-1 as a perspective view; Properties of the view: lens 24 mm. Record AutoCAD's Field of view next to the answer's `field_of_view_degrees` (73.74). One Ctrl+Z removes the view | NOT RUN |
 | AE3 | After AE2: zoom and orbit away, then VIEW, restore LIVING-CAM-1 | The same perspective comes back at **24 mm** (an `entmake` view came back at 50 mm on 2026-11-09); no DVIEW prompt, nothing hangs | NOT RUN |
 | AE4 | `autocad_add_camera_view` with the AE2 name again, then with `replace=true` and a new eye, then a new name with `look_through=false` | First refused naming replace; second moves LIVING-CAM-1; third saves the view and leaves the screen as it was. Ajmal renders LIVING-CAM-1 from the Render window's view list: the picture is the camera's | NOT RUN |
 | AE5 | `autocad_set_sun(date='2026-06-21', time='10:00', latitude=25.29, longitude=51.53, utc_offset=3, daylight_saving=false, on=true)` | Sun Properties: 21/06/2026, 10:00, no daylight saving; Geographic Location: 25.29 **N**, 51.53 **E**, UTC+3; `(entget (cdr (assoc 361 (entget (tblobjname "VPORT" "*Active")))))` shows groups 91 and 92 equal to the answer's `dxf` (2461213, 36000000). Record whether `azimuth` / `altitude` are in degrees as Sun Properties shows them. One Ctrl+Z takes back the date, the place and SUNSTATUS together | NOT RUN |
@@ -667,7 +673,7 @@ and reinstalled, and the server restarted. **Every row below is NOT RUN.**
 |---|---|---|---|
 | AC1 | Draw a circle, `autocad_make_block(name='VALVE TAG', handles=[circle], base_point=<centre>, attributes=[{"tag":"TAG","default":"V-101","position":<centre>,"height":25},{"tag":"SIZE","default":"DN50","invisible":true},{"tag":"MAKE","default":"ACME","constant":true}])` | One insert in place of the circle; BATTMAN lists TAG, SIZE, MAKE with those modes; TAG shows V-101 at the centre; SIZE is hidden (ATTDISP ON shows it under the base point); MAKE shows ACME and is not asked for on INSERT; one Ctrl+Z takes it away | NOT RUN |
 | AC2 | `autocad_make_block` with a tag `VALVE TAG`, then with `constant` and no default | Both refused with the reason; no block made (`autocad_list_blocks`) | NOT RUN |
-| AC3 | After AC1, insert VALVE TAG three more times, type TAG values V-102..V-104. In the Block Editor add a FLOW attribute and delete SIZE, save. `autocad_sync_attributes(block='VALVE TAG', dry_run=true)`, then without | Dry run: 4 inserts, each keeps its TAG, gains FLOW, loses SIZE; drawing unchanged. Then each insert shows its own V-10x still, FLOW with its default, no SIZE (ATTEDIT); one Ctrl+Z undoes it all | NOT RUN |
+| AC3 | After AC1, insert VALVE TAG three more times, type TAG values V-102..V-104. In the Block Editor add a FLOW attribute and delete SIZE, save. `autocad_sync_attributes(block='VALVE TAG', dry_run=true)`, then without | Dry run: 4 inserts, each keeps its TAG, gains FLOW, loses SIZE; drawing unchanged. Without it, each insert's dropped SIZE counts as an erased object, so Heron's erase box asks first (D-50): choose **Keep them erased** (Enter brings the SIZE attributes back). Then each insert shows its own V-10x still, FLOW with its default, no SIZE (ATTEDIT); one Ctrl+Z undoes it all | NOT RUN |
 | AC4 | A dynamic block with an attribute, three inserts with their grips changed (so they are *U copies). Change the attribute's position in the Block Editor; sync | All three are touched (`touched: 3`), keep their values, and the attribute sits where the definition now has it | NOT RUN |
 | AC5 | One insert on a locked layer, one attribute holding a field (Insert Field into the TAG value); sync | The locked one is in `skipped`, not changed; the job still runs for the others; the field attribute keeps its field (`kept_as_they_were: 1`) | NOT RUN |
 | AC5b | During AC7, type HERONSTOP while the table is being linked; and `autocad_table_from_excel(space='paper')` with the Model tab active | Neither draws a table over COM: the stop is said, and the Model-tab refusal asks for a sheet tab. Nothing is in the drawing | NOT RUN |
@@ -768,6 +774,24 @@ when the plug-in read it. **Every row below is NOT RUN.**
 | AU7 | A MINSERT, a block placed on a sheet (layout) and an xref: `autocad_count_blocks()` and `autocad_list_blocks()` both ways | Each is counted the same both ways (the sheet's block included in both) | NOT RUN |
 | AU8 | Draw a line yourself, run AU1 and AU4, then press Ctrl+Z once | The Ctrl+Z takes away **your line**: the reads left no undo step | NOT RUN |
 
+## Group BD - Tool bugs found by the live-check runner (D-137) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-137](DECISIONS.md); issue #218). Built and tested offline only
+(`tests/test_preview_extents.py`, `tests/test_tables.py`, `tests/test_attribute_sheet.py`,
+`tests/test_drawing_copy.py`, `tests/test_plugin_tools.py`, `tests/test_draw_extra.py`; bridge test
+`JobChangesTests.cs`). **Nothing here has run in AutoCAD.** The plug-in changed (the change count): build
+and install it, then restart the server. Changes on, Ask to Keep off, the erase question on. A scratch
+drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BD1 | A closed outline about 3000 x 2400 and a tile .dwg **not yet attached**: `autocad_super_hatch(boundary=<it>, xref="<the .dwg>", spacing=[20, 20])` (too many tiles), **not** a dry run | REFUSED naming the tile count and the limit; **no** Heron erase box opens in AutoCAD (before this, the xref detached on the refusal counted as an erased object); External References does not list the .dwg; `addin-*.log` shows no erase asked for that job | NOT RUN |
+| BD2 | `autocad_create_layer(name="LC-BD2")`, then in a second call `autocad_purge` (or `autocad_delete_layer`) of LC-BD2 | The second call still raises the erase box about the layer: a layer made in an **earlier** job is an erase as before. Choose Keep them erased | NOT RUN |
+| BD3 | In `autocad_set_3d_view(direction="sw_iso")`: `autocad_preview(area="window", corner1=[0,0], corner2=[5000,4000], detail=2)`; then again in a plan view of the world UCS | In the iso view: one picture, `detail_skipped` names the plan view, no close-ups. In plan: the window and four close-ups, as AM rows | NOT RUN |
+| BD4 | In Excel on a PC whose list separator is `;` (or a CSV typed by hand: `TAG;FLOW;NOTE`, then `F-01;2,5;"kitchen; roof"`): save as CSV, then `autocad_table_from_excel(path=<it>, position=[0,0])` | Three columns, not one: F-01, 2,5 and kitchen; roof in their own cells; the comma in 2,5 kept as typed | NOT RUN |
+| BD5 | The AC14 drawings: `autocad_copy_from_drawing(source='pump-room', handles=[<a layer's handle in pump-room.dwg, from autocad_list_layers>], base_point=[0,0])`; then with the skid's handle, `dry_run=true` | The first is refused: the handle is "not a drawn object" (named with its type), nothing copied. The dry run lists `source_objects` with the skid's type (AcDbBlockReference) and layer | NOT RUN |
+| BD6 | `autocad_super_hatch(boundary=<it>, block=<a tile block>, layer="L\|PAVE")`, then with a real line break in the layer name | Each refused at once naming the layer name; nothing is made and no layer appears | NOT RUN |
+
 ## Group BF - Names refuse control characters (D-139) (AutoCAD 2027, this PC)
 
 Added on 2026-11-23 ([D-139](DECISIONS.md); issue #249). Built and tested offline only
@@ -827,6 +851,66 @@ character by character. Work on a copy of the drawing for the writing rows. **Ev
 | BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
 | BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
 
+## Group BK - Attribute writes made by the plug-in in one transaction: set attributes, apply sheet (D-148) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-148](DECISIONS.md), issue #200). Built and tested offline only
+(`tests/test_plugin_attribute_writes.py` runs both tools both ways over one fake drawing and compares the
+answers and the attributes left; `AttributeWritesTests.cs` what the plug-in reads and answers). The
+plug-in operation `write_attributes` has never run. Needs the plug-in rebuilt and reinstalled from code
+that has it (plug-ins 1.8.0 and 1.8.1 do not: the writes go over COM), and the server restarted. "Both
+ways" means the same call on a second copy of the drawing to a second server started with
+`--no-bridge`; the plug-in's log shows `operation write_attributes`. Work on copies of a real drawing.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BK1 | Title blocks on several sheets: `autocad_set_attributes(values={'REV': 'B'}, block_name=<the title block>)` both ways | The log shows `operation write_attributes`; the same text both ways; every sheet's REV is B; one Ctrl+Z takes all of it back | NOT RUN |
+| BK2 | The same with Ask to Keep on, both ways | Keep or Discard asks once; write down the count of changed objects both ways (the plug-in's transaction and COM's writes may count the block references differently); Discard takes every cell back | NOT RUN |
+| BK3 | Export a sheet (`autocad_export_attribute_sheet`), edit two cells and blank a third in Excel, save: `autocad_apply_attribute_sheet(path=...)` both ways | The same text both ways: only the two edited cells written (D-69), the blank one left; one undo step | NOT RUN |
+| BK4 | A title block whose REV attribute is centred or right-aligned: BK1 with a longer value | The new text sits on the same alignment point both ways (the plug-in's `AdjustAlignment` as COM's TextString) | NOT RUN |
+| BK5 | A title block whose attribute holds a field (the file name): `autocad_set_attributes` on that tag with the plug-in | The plug-in refuses it as a field and the cells are written over COM (the log shows both); write down what COM's write did to the field | NOT RUN |
+| BK6 | A sheet edited on a copy where one block's layer is then locked: `autocad_apply_attribute_sheet(path=...)` with the plug-in, then `--no-bridge` | With the plug-in: the answer says that block would not take the cell and "Nothing was changed"; no attribute changed, no undo step. Over COM: that cell under `failed`, the rest written | NOT RUN |
+| BK7 | Plug-in 1.8.1 installed (no `write_attributes`): BK1 and BK3; then on a plan with 2,000 tagged blocks time a 2,000-cell `autocad_set_attributes` with the new plug-in and over COM | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times) | NOT RUN |
+
+## Group BJ - The layer merge read and made by the plug-in: one transaction, all or none (D-147) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-147](DECISIONS.md), issue #199). Built and tested offline only
+(`tests/test_plugin_merge_layers.py` runs the merge both ways over one fake drawing and compares the
+answers and the drawings left; `LayerMergeTests.cs` what the plug-in reads and writes). The plug-in
+operations `layer_objects` and `merge_layers` have never run. Needs the plug-in rebuilt and reinstalled
+from code that has them (plug-ins 1.8.0 and 1.8.1 do not: the merge goes over COM), and the server
+restarted. "Both ways" means the same call on a second copy of the drawing to a second server started
+with `--no-bridge`; the plug-in's log shows `operation layer_objects` and `operation merge_layers`. Work
+on copies of a real drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BJ1 | A real drawing with two layers to merge, holding objects in model space, on a sheet, inside block definitions and as block attributes, one of them locked and current: `autocad_merge_layers(layers=[...], into=...)` (no `confirm`) both ways | The log shows `operation layer_objects`; the same text both ways, the same counts per layer and place | NOT RUN |
+| BJ2 | The same with `confirm=true`, Ask to Keep on, both ways | The log shows `operation merge_layers`; the same text both ways; every object on the new layer, the old layers gone, the new layer current. Keep or Discard asks once and counts the same number of changed objects both ways (write both); Discard takes all of it back, the layers too | NOT RUN |
+| BJ3 | Merge again on a fresh copy and press Ctrl+Z once | One Ctrl+Z puts every object back on its old layer, the old layers back (the locked one locked) and the old current layer current | NOT RUN |
+| BJ4 | An old layer frozen in a sheet's viewport only (VP Freeze), and one named in a layer filter: merge both ways | Write down which layers each way removes and which it keeps: the plug-in asks AutoCAD's purge, COM tries Delete; a kept one is locked again if it was | NOT RUN |
+| BJ5 | An object AutoCAD will not move (a proxy object from another application on an old layer, if one can be had): merge with the plug-in, then `--no-bridge` | With the plug-in: the answer says that object would not move and "Nothing was changed"; nothing in the drawing moved, no undo step. Over COM: the object is under `failed`, its layer kept, the rest moved | NOT RUN |
+| BJ6 | A block whose attribute definitions were deleted after it was inserted (no ATTSYNC), an attribute on an old layer: merge (no `confirm`) with the plug-in | The read goes to COM (the log shows `layer_objects`, the answer matches `--no-bridge`); write down whether COM's read listed that attribute | NOT RUN |
+| BJ7 | Plug-in 1.8.1 installed (no `layer_objects` or `merge_layers`): BJ1 and BJ2; then on a plan with 50 block definitions and 20,000 objects on the old layers, time BJ2 with the new plug-in and over COM | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times) | NOT RUN |
+## Group BI - The standards check's object facts the plug-in reads in one go (D-145) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-145](DECISIONS.md), issue #196). Built and tested offline only
+(`tests/test_plugin_standards_reads.py` compares the plug-in and COM answers on one fake drawing;
+`PropertyFactsTests.cs` what the plug-in writes). The plug-in operation `entity_properties` has never
+run. Needs the plug-in rebuilt and reinstalled from code that has it (plug-ins 1.8.0 and 1.8.1 do not:
+they are read over COM), and the server restarted. "Both ways" means the same call to a second server
+started with `--no-bridge`, as in Groups AS, AU, BB and BE; the plug-in's log shows
+`operation entity_properties` when the plug-in read it. "The same text" means the two answers compared
+character by character. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BI1 | A real MEP plan with objects on layer 0, colour and linetype overrides, objects on a sheet and in model space: `autocad_check_standards(rules={'forbid_entities_on_layer_0': true, 'require_bylayer_color': true, 'require_bylayer_linetype': true})` both ways | The log shows `operation entity_properties`; the same text both ways, findings in the same order with the same colour numbers and linetype names | NOT RUN |
+| BI2 | One line with a true colour (RGB) and one with a colour-book colour: `autocad_check_standards(rules={'require_bylayer_color': true})`, then `rules={'forbid_entities_on_layer_0': true}`, with the plug-in | First: the check reads over COM (the log shows the call, the answer matches `--no-bridge`). Second: the plug-in's answer is used. Write down what COM's `Color` gives for each of the two lines | NOT RUN |
+| BI3 | One of each dimension kind (rotated, aligned, angular, radial, diameter, arc length, ordinate), some drawn on top of each other: `autocad_check_standards(rules={'forbid_overlapping_dimensions': true})` both ways | The same overlaps both ways: .NET's `GeometricExtents` gives each dimension the box COM's `GetBoundingBox` gives | NOT RUN |
+| BI4 | The plan of BI1 with more than 50 objects: `autocad_check_standards(rules=..., max_entities=50)` both ways | The same text: "Only the first 50 objects were read", `passed` null, the same 50 objects checked | NOT RUN |
+| BI5 | Plug-in 1.8.1 installed (no `entity_properties`): BI1; then on a plan of 20,000 objects time BI1 with the new plug-in and over COM; then draw a line yourself, run BI1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
+
 ## Group AO - PDF Import: a PDF page as lines (AutoCAD 2027, this PC)
 
 Added on 2026-11-21 ([D-106](DECISIONS.md); issue #113). Built and tested offline only
@@ -863,7 +947,7 @@ were not checked against Autodesk's reference (D-108); each row compares with Au
 |---|---|---|---|
 | AP1 | `autocad_add_construction_line(base=[1000,1000], angle=90)`; then `kind='ray'`, `base=[0,0]`, `through=[300,400]`; then the same in paper space with a sheet tab active (`space='paper'`) | A vertical XLINE through 1000,1000 (LIST says Xline, base point 1000,1000, unit direction 0,1); a RAY from 0,0 towards 300,400 only; the paper one on the sheet. `verified: true` each | NOT RUN |
 | AP2 | A closed polyline 1000 x 500: `autocad_add_region(handles=[it])` | One region (LIST says Region), area 500000, perimeter 3000, centroid 500,250 (MASSPROP agrees); **the polyline is still there** (record it: does COM's AddRegion keep the outline, whatever DELOBJ says?) | NOT RUN |
-| AP3 | Four lines meeting end to end in a square, plus a circle elsewhere: `autocad_add_region(handles=[all five], erase_outlines=true)` | Two regions; the four lines and the circle erased after the modeller's yes (D-50); one Ctrl+Z brings them back and takes the regions away. Then add one loose open line to the handles: **record whether AddRegion ignores it** (Heron erases every outline given, so it goes too). An outline on a locked layer with erase_outlines: refused before any region is made | NOT RUN |
+| AP3 | Four lines meeting end to end in a square, plus a circle elsewhere: `autocad_add_region(handles=[all five], erase_outlines=true)` | Two regions; the four lines and the circle erased after the modeller chooses Keep the change (the whole-change question, D-140); one Ctrl+Z brings them back and takes the regions away. Then add one loose open line to the handles: **record whether AddRegion ignores it** (Heron erases every outline given, so it goes too). An outline on a locked layer with erase_outlines: refused before any region is made | NOT RUN |
 | AP4 | An open polyline; then a text: `autocad_add_region` on each | The polyline: refused with "no region" and AutoCAD's own words, nothing made; the text: refused before AutoCAD is asked | NOT RUN |
 | AP5 | `autocad_add_donut(centers=[[0,0],[500,0]], outside_diameter=150, inside_diameter=100)`; then `outside_diameter=30` (a dot) at 1000,0. Beside them, AutoCAD's own DONUT with the same sizes | Rings and a dot that look the same as DONUT's (LIST of each: closed polyline, 2 vertices, constant width 25 and 15); with FILLMODE 0 the answer has the note and they show as outlines | NOT RUN |
 | AP6 | A line 0,0 to 1000,0: `autocad_divide_curve(segments=4)`; then AutoCAD's own DIVIDE 4 on a copy | Points at 250, 500, 750 (none on the ends), the same as DIVIDE's; with PDMODE 0 the answer has the point-style note | NOT RUN |
@@ -883,7 +967,9 @@ plug-in, restart the server. Scratch drawing in millimetres, `autocad_status` fi
 change row press **Ctrl+Z once** and check the drawing is back as it was. The .NET names were read
 from Autodesk's reference DLLs and the COM numbers from Autodesk's interop DLL; what they *mean*
 (an array's base point and angles, a geo location's reference point) was not, so each row compares
-with AutoCAD's own command. **Every row below is NOT RUN.**
+with AutoCAD's own command. AQ15-AQ17 were added on 2026-11-23 ([D-143](DECISIONS.md), #258, #80;
+`Bridge.Tests/OperationTransactionTests.cs`): a plug-in change, so build and install the plug-in first.
+**Every row below is NOT RUN.**
 
 | Row | Do | Pass looks like | Result |
 |---|---|---|---|
@@ -901,6 +987,9 @@ with AutoCAD's own command. **Every row below is NOT RUN.**
 | AQ12 | A new drawing never placed: `autocad_geo_location()` with no place; then `autocad_set_sun(latitude=9.93, longitude=76.27)` and `autocad_geo_location(point=[1000,2000])` | First refused, San Francisco named; then the location is Kochi at 1000,2000 and the sun's place did not move (`moved: false`) | NOT RUN |
 | AQ13 | INSUNITS 0: `autocad_geo_location(latitude=25.29, longitude=51.53)`; then units mm and `coordinate_system='UTM84-39N'`; then `'NOT-A-SYSTEM'`; then `action='remove'` | No units: refused; UTM84-39N: located at the same place; the unknown code: refused, nothing changed; remove: GEOGRAPHICLOCATION shows no location; one Ctrl+Z brings it back | NOT RUN |
 | AQ14 | AutoCAD 2025 / 2026 and 2021-2024 builds: AQ1, AQ4, AQ6, AQ8, AQ11 | As in AutoCAD 2027 | NO MACHINE |
+| AQ15 | ([D-143](DECISIONS.md), #258) A drawing in mm with no location: draw a line by hand, then `autocad_geo_location(latitude=25.29, longitude=51.53)`. Press Ctrl+Z once, then once more | `made: true`. The first Ctrl+Z takes the location off (GEOGRAPHICLOCATION shows none; LATITUDE / LONGITUDE back to what they were); the line is still there. The second Ctrl+Z removes the line. **Record if the location needed two Ctrl+Z** | NOT RUN |
+| AQ16 | ([D-143](DECISIONS.md), #258) Draw a line with `autocad_draw_line`, then `autocad_tiled_viewports(layout='two_vertical')`; ask "undo your last change" (`autocad_undo_last`), then the palette's Undo on the line's row | The split stays a View job: no padlock asked. Both Undos either remove the line and leave the split, or refuse plainly because a view step came after it; **neither undoes only the split**. Record which. One Ctrl+Z by hand after the split puts back one viewport | NOT RUN |
+| AQ17 | ([D-143](DECISIONS.md), #80) Ask to Keep off. Draw a line by hand. Then a plug-in job that has nothing to do and opens no server group: `autocad_update_table_links()` on a drawing with no Excel link. Open the Undo drop-down on the Quick Access toolbar | The plug-in's log says "touched nothing: aborted, no undo step". The list shows the hand-drawn line on top, no blank entry; one Ctrl+Z removes the line. **Record what the list shows on top** | NOT RUN |
 
 ## Group AM - A preview of a full sheet: what it covered, and close-ups (AutoCAD 2027, this PC)
 
@@ -917,6 +1006,7 @@ the row that says which cause #41 was. **Every row below is NOT RUN.**
 | AM4 | Draw a line at 100000,100000, then `autocad_preview()`; erase it, `autocad_preview()` again | First: `plotted` reaches 100000 and the sheet is small in the picture. Second: record whether `plotted` shrank back to the sheet (the regen refreshed the extents) or still reaches 100000 (stale until ZOOM E; then the code should do more) | NOT RUN |
 | AM5 | `autocad_preview(width_px=4000)` and `width_px=640` | Record the `size` and `pixels` AutoCAD chose each time: they are the PNG plotter's biggest and smallest sizes, not yet known here | NOT RUN |
 | AM6 | `autocad_set_3d_view(direction='sw_iso')`, `autocad_preview(detail=2)`; then `autocad_preview(area='view', detail=2)` | First: one picture and `detail_skipped` naming the plan view. Second: refused, naming area='extents' or 'window'; nothing plotted | NOT RUN |
+| AM7 | D-141 (#41, 2026-11-23). Restart the server. On the A1 SLD in Model: `autocad_preview()` with no `detail`; then `autocad_preview(detail=1)`; then on a small detail drawing (not a sheet) `autocad_preview()` | First: 5 pictures, `detail_added` names the sheet and TEXTSIZE, the 2.5 mm text reads in the four close-ups. Second: one picture and a `tip`. Third: one picture, no `detail_added`. If the first still shows only the frame in the overview, record whether the close-ups show the contents (they are windows, the route that showed everything on 2026-10-28) | NOT RUN |
 
 ## Group AH - 3D for MEP: duct runs, pipe spools, flat views, sections, surfaces, meshes, super hatch tiles (AutoCAD 2027, this PC)
 
@@ -935,8 +1025,8 @@ RUN.**
 | AH3 | Look at the AH1 and AH2 answers' pieces | Write down whether any bend says `revolved_the_other_way` (AutoCAD's revolve sense, not in its reference). Either way every bend must continue the run, not fold back over the straight | NOT RUN |
 | AH4 | Spool from AH2 (not joined): `autocad_flatten_views(handles=[its five handles], insert_at=[4000, 0], layer="M-SHOP")` | Three blocks FLATSHOT-1-FRONT, -TOP, -RIGHT on M-SHOP; plan above the front and the right view to its right, lined up (the pipe's centreline level across front and right); no hidden lines; the model untouched. Record `laid_flat_from` (expected `plane`). Compare with FLATSHOT done by hand on the same spool | NOT RUN |
 | AH5 | Two overlapping boxes: `autocad_flatten_views(views=["front"])` with `join=false`, then `join=true` | Without join the back box's lines show through the front one; with join they are hidden, and the line where the two meet on a flush face is gone | NOT RUN |
-| AH6 | The AH1 duct run: `autocad_section_plane(points=[[2500,-1000],[2500,5000]], insert_at=[8000, 0], layer="M-SECT")` | A section plane in the model through x=2500 (SECTIONPLANE's object), and block SECTION-1 at 8000,0: the duct's 600 x 400 cut outline, hatched, and the bend and riser beyond seen in elevation. It looks left of the line: from x=2500 towards -X (`looking` [-1,0,0]). Record `laid_flat_from` | NOT RUN |
-| AH7 | `autocad_section_plane(points=[[0,0,3200],[1000,0,3200],[0,1000,3200]], insert_at=[0,-6000], background=false)` | A plan cut at 3200 looking down, north up: the duct's cut outlines along the first leg and the riser's 600 x 400, hatched, nothing beyond | NOT RUN |
+| AH6 | The AH1 duct run: `autocad_section_plane(points=[[2500,-1000],[2500,5000]], insert_at=[8000, 0], handles=<the five AH1 solids>, layer="M-SECT")` (without `handles` it cuts every solid in model space) | A section plane in the model through x=2500 (SECTIONPLANE's object), and block SECTION-n at 8000,0: the duct's 600 x 400 cut outline, hatched; `cut` 1 of 5 solids (only the first straight crosses x=2500). It looks left of the line: from x=2500 towards -X (`looking` [-1,0,0]), so the bend and the riser (x 4400 to 5300) are behind the plane and **not** drawn: the section is 600 x 400, nothing from the +X side. Record `laid_flat_from` | NOT RUN |
+| AH7 | `autocad_section_plane(points=[[0,0,3200],[1000,0,3200],[0,1000,3200]], insert_at=[0,-6000], handles=<the five AH1 solids>, background=false)` | A plan cut at 3200 looking down, north up (`looking` [0,0,-1], `up` [0,1,0]), hatched, nothing beyond. What is cut is the bend up: 600 along X by 565.7 along Y (radius 400, so 200 to 600 round its centre at z 3400). 3200 is the top face of the level legs (z 2800 to 3200), so whether AutoCAD shows them as cut is its call: record it. The riser starts at z 3400 and is not cut | NOT RUN |
 | AH8 | `autocad_section_plane` with two points far from every solid, then with `keep_plane=false` | First: refused, "neither cuts nor sees ... Nothing was changed", and no section plane left. Second (through the duct): the block only, no plane in the model | NOT RUN |
 | AH9 | Two open arcs at z=0 and z=2000: `autocad_loft(sections=[a, b], surface=true)`; then `autocad_thicken_surface(<it>, thickness=3)` | A lofted surface through both arcs (`area` given), the arcs kept; thickening it makes a 3 mm solid. Without `surface=true` the loft is refused naming surface=true | NOT RUN |
 | AH10 | `autocad_add_surface(kind="planar", corners=[[0,0,2700],[3000,2000,2700]])`; then `kind="planar", outlines=[a closed polyline]`; then `kind="network"` with three curves each way crossing | A 3000 x 2000 plane surface at 2700 (area 6,000,000); one over the polyline; one network surface through the six curves. An open outline is refused | NOT RUN |
@@ -1229,10 +1319,12 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 | AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
 | AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
 | AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
+| AL8 | D-149 (#270, 2026-11-23). Restart the server. The runner draws a line straight into model space, then sets `Radius` on it over COM (a property a line does not have) | Within a second or two: `PropertyRefused`, naming `'Radius'` and saying AutoCAD was not busy; never "Outcome unknown", "stayed busy" or "Lost the COM connection" after ten seconds | NOT RUN |
+| AL9 | D-149 (#270). Options dialog open. `autocad_modify_entity` on a line, `layer='0'` | As AL1: "AutoCAD stayed busy ... press Esc" (or the change made once the dialog is closed); never "AutoCAD has no property" or "would not set" | NOT RUN |
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 
-Added on 2026-11-21 for issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
 [05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
 Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
 parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and
@@ -1252,6 +1344,7 @@ the server restarted. **Every row below is NOT RUN.**
 | AD10 | A saved drawing with a nested xref, a JPG, a PDF underlay, an SHX text style and a .ctb: `autocad_etransmit`. Unzip it on another PC (or rename the project folder) and open the drawing | The zip holds the drawing, both xrefs, the image, the PDF, the .shx, PlotStyles/x.ctb and the report; on the other PC every xref, image, underlay and font is found from the drawing's folder | NOT RUN |
 | AD11 | `autocad_etransmit` on an unsaved drawing; on a saved one with Publish off; with `list_only=true` | Unsaved: refused, "save it first". Publish off: refused naming Publish, no file. list_only: the list, no file written | NOT RUN |
 | AD12 | With the 1.7.0 plug-in still installed: attach a PDF, clip an xref, trace a boundary, eTransmit | Each says the plug-in does not have the operation and to update it; nothing changes in the drawing | NOT RUN |
+| AD13 | Draw a polyline 0,500 > 0,0 > 1000,0 > 400,0 (its tail goes back along the last segment) and one with a spike part way along (0,0 > 10,0 > 10,5 > 10,0 > 20,0). `autocad_overkill(tidy_polylines=true)`, then the same with `confirm=true` and its `plan_id`; then Ctrl+Z once. Also a polyline whose width changes along it, doubled the same way | Dry run: the first under `rebuild` with segment 2 going, the spike and the varying-width one under `left` with why; nothing changed. Confirm: the same handle now 0,500 > 0,0 > 1000,0 (3 vertices, length 1500), no erase question; the spike one unchanged. Ctrl+Z once brings back all 4 vertices | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 
@@ -1318,3 +1411,45 @@ and count, or LIST at the spot). **Every row below is NOT RUN.**
 | BC11 | Same xref: `autocad_isolate_layers(layers=["MECH\|M-DUCT"], others="freeze")`, then `autocad_list_layers` | Refused, naming the xref layer and others='off' or 'lock'; nothing changed; no HERON-ISOLATE in the layer states | NOT RUN |
 | BC12 | Ask to Keep on. Start `LINE` and leave it at its prompt; ask Heron to make a multileader style only (its arrow block cannot be selected), press Keep if the job runs (as in AX8); finish your LINE, then look at the palette card and call `autocad_undo_last` | `addin-*.log` shows `show: ... left out of the selection` and no zoom; the card's Undo and `autocad_undo_last` do not blame a zoom (they may still refuse for another reason, named) | NOT RUN |
 | BC13 | A polyline whose width changes along it (PEDIT > Edit vertex > Width on one segment) and a line across it: `autocad_trim_extend` trim it | Still refused in `failed` with "width changes along it" (#212.3 now lets a retryable read error up; this proves a real varying width is not one). Record which error AutoCAD gave in the add-in or server log if any | NOT RUN |
+
+## Group BG - Replace-shaped edits D-136 did not cover: steps of a sequence, and four more tools (D-140) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-140](DECISIONS.md); issue #255). Built and tested offline only
+(`tests/test_gate.py`, `tests/test_sequence.py`, `tests/test_saved_and_release.py`). **Nothing here has
+run in AutoCAD.** Server only (restart the server); the plug-in is the one Group BC needs (it has the
+"Keep the change, or undo the whole change?" box). Changes on, **Ask to Keep off**, the erase question
+on, a scratch drawing with UNDO on (UNDOCTL 5). "As before the job" is as in Group BC. **Every row below
+is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BG1 | Two wall lines A and B end to end: `autocad_sequence` with step 1 `autocad_draw_line` (any line C) and step 2 `autocad_join_curves([A, B])`. The box asks; press **Enter** | The box is "Keep the change, or undo the whole change?". After Enter the drawing is as before the sequence: A and B as they were, **and no line C**; first line NOTHING CHANGED saying Heron undid the whole change | NOT RUN |
+| BG2 | As BG1, press **Keep the change** | Line C and one joined line; B stays erased; first line DONE; `autocad_undo_last` then takes back the whole sequence (C gone, A and B back) | NOT RUN |
+| BG3 | Turn UNDO off (`UNDO` > Control > None), then BG1's sequence. Turn UNDO back on afterwards | REFUSED before anything runs, naming the join step ("its step Join ...") and UNDO off; no line C is drawn | NOT RUN |
+| BG4 | Save BG1's steps as a saved command (`autocad_saved_command` save, A and B as inputs), then run it on two new lines and press Enter | As BG1: the whole saved command is undone, nothing doubled | NOT RUN |
+| BG5 | Two overlapping boxes: `autocad_solid_boolean(operation='union')`, press Enter. Then a plate and a cylinder through it: `subtract`, press Enter | Each time the two solids are back exactly as they were (the first solid at its old volume, no hole, the second there once, not inside a union) | NOT RUN |
+| BG6 | A circle: `autocad_make_block` with its handle (keep_originals left out), press Enter. Then again with `keep_originals=true` | Enter: the circle is back, no insert on it, and no new block in the block list. With keep_originals: no erase box at all | NOT RUN |
+| BG7 | A hanger block and a line: `autocad_associative_array(pattern='path', path=<the line>, count=4)`, press Enter | The hanger is back once, no array left on it | NOT RUN |
+| BG8 | A closed polyline: `autocad_add_region(erase_outlines=true)`, press Enter. Then `erase_outlines` left out | Enter: the polyline is back and no region on it. Left out: no erase box | NOT RUN |
+
+## Group BH - Lengthen; fillet and chamfer between a line and an arc (D-144) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-144](DECISIONS.md); issue #154). Built and tested offline only
+(`tests/test_edit2d_geometry.py`, `tests/test_edit2d_tools.py`). **Nothing here has run in AutoCAD.**
+Server only (restart the server); no plug-in change. Changes on, **Ask to Keep off**, a scratch
+drawing in millimetres. The runner measures BH1 to BH9 (`tools/live_check_lengthen.py`). **Every row
+below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BH1 | A line 0,0 to 1000,0. `autocad_lengthen` mode=delta, value=500, points=[[900,0]]; then delta -200 with points=[[100,0]] | The line runs 0,0 to 1500,0, then 200,0 to 1500,0; same handle and layer; each call is one Ctrl+Z | NOT RUN |
+| BH2 | Two lines 1000 long. `autocad_lengthen` mode=total value=2400 on one; mode=percent value=50, end=start on the other | 0 to 2400; and 500 to 1000 (the start end moved) | NOT RUN |
+| BH3 | An arc 0 to 90 degrees, r 500. `autocad_lengthen` delta = 500 x pi / 4; then percent 50 with end=start | The arc keeps its circle and runs 0 to 135 degrees, then 67.5 to 135; `autocad_measure` of its length agrees with the numbers | NOT RUN |
+| BH4 | A polyline 0,0 - 1000,0 - 1000,500. `autocad_lengthen` delta -700; then delta +200 with end=start | After the first: 800 long, two vertices (`autocad_polyline_info`); after the second: 1000 long, starting at -200,0 | NOT RUN |
+| BH5 | An arc 0 to 90 degrees, r 500 at 0,0 and a line 100,300 to 1500,300. `autocad_fillet_chamfer` fillet, handles=[line, arc], radius=50 | A new arc r 50 centred 550 from the big arc's centre and 50 above the line, on the line's layer; the line starts at the tangent point; the big arc still ends at 90 degrees. Then the same two objects with AutoCAD's own FILLET r 50 (click the line on its right, the arc near its top): the same arc | NOT RUN |
+| BH6 | Two arcs: r 500 at 0,0 from 0 to 90 and r 500 at 800,0 from 90 to 180. Fillet r 50 | A new arc r 50 centred 550 from both centres (above their meeting point); both arcs trimmed to the tangent points | NOT RUN |
+| BH7 | Two open polylines: 0,0 - 1000,0 - 1000,300 and 1500,900 - 1500,600 - 1300,600. Fillet r 100 | Each polyline still has 3 vertices, ending at 1000,500 and 1100,600; one new arc r 100 at 1100,500 | NOT RUN |
+| BH8 | BH5's line and arc: chamfer distance=40, distance2=40 | The chamfer line starts 40 along the line from the corner and ends on the arc 40 along it (the angle method with an arc is refused) | NOT RUN |
+| BH9 | Lengthen a closed polyline, a circle, a line by -400 (its whole length), and a line on a locked layer; fillet a circle with a line | Each refused with its reason (closed, not a line / arc / polyline, would vanish, the locked layer named, "two lines ..."); nothing changes and no undo step is opened | NOT RUN |
+| BH10 | BH1 to BH5 again with AutoCAD's own LENGTHEN (Delta, Total, Percent) and FILLET typed by hand on the same objects | The same lengths and the same fillet arc; record any difference (the arc end AutoCAD picks when no point is given) | NOT RUN |
+| BH11 | AutoCAD 2025 / 2026 and 2021-2024 builds: BH1, BH3, BH5, BH7 | As in AutoCAD 2027 | NO MACHINE |

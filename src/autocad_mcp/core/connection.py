@@ -32,6 +32,7 @@ from .errors import (
     OutcomeUnknown,
     StaleDispatchError,
     com_message,
+    explain_set_failure,
     is_dispatch_failure,
     is_retryable,
     raise_if_busy,
@@ -51,6 +52,33 @@ RETRY_WINDOW = 10.0
 MODEL_SPACE = "model"
 PAPER_SPACE = "paper"
 
+
+
+def check_property_sets(cls: Any) -> None:
+    """Make a refused property set say why, instead of reading as a busy AutoCAD (#270, D-149).
+
+    pywin32's late-bound object answers every property it cannot set with
+    "Property '<x>' can not be set.", busy or not. Wrapped here, that one error
+    is looked into by ``errors.explain_set_failure``: a property the object does
+    not have, or a value it turns down, becomes PropertyRefused at once; a busy
+    AutoCAD still goes up as before and is asked again. Every other set is
+    untouched. Safe to call twice.
+    """
+    plain = cls.__setattr__
+    if getattr(plain, "heron_checked", False):
+        return
+
+    def __setattr__(self: Any, name: str, value: Any) -> None:  # noqa: N807 - it is the method
+        try:
+            plain(self, name, value)
+        except AttributeError as failure:
+            explain_set_failure(self, name, value, failure)
+
+    __setattr__.heron_checked = True  # type: ignore[attr-defined]
+    cls.__setattr__ = __setattr__
+
+
+check_property_sets(win32com.client.CDispatch)
 
 class _ComWorker:
     """Runs every COM call on one dedicated apartment thread.
@@ -369,23 +397,60 @@ def get_space(doc: Any, space: str = MODEL_SPACE) -> Any:
 
     ``doc.PaperSpace`` can throw a bare Automation error with a sheet tab
     active (known limit 23, #39: autocad_add_table(space="paper") failed so).
-    The active layout's own block holds the same objects and takes the same
-    Add calls, so it is used then. A busy AutoCAD is not a broken one: that
-    error goes up to be retried.
+    The sheet's own block holds the same objects and takes the same Add
+    calls, so it is used then, and whenever COM's ActiveLayout is not the tab
+    on screen. A busy AutoCAD is not a broken one: that error goes up to be
+    retried.
     """
     if space != PAPER_SPACE:
         return doc.ModelSpace
+    # COM's ActiveLayout can lag the tab on screen (D-125): then doc.PaperSpace is
+    # another sheet's, or throws. The sheet CTAB names is the one the modeller sees (#39).
+    lagging = sheet_on_screen(doc, only_if_lagging=True)
+    if lagging is not None:
+        return lagging.Block
     try:
         return doc.PaperSpace
     except BaseException as exc:  # noqa: BLE001 - the layout's block is tried next
         raise_if_busy(exc)
         try:
-            layout = doc.ActiveLayout
+            layout = sheet_on_screen(doc) or doc.ActiveLayout
             if str(layout.Name) != "Model":
                 return layout.Block
         except BaseException as inner:  # noqa: BLE001 - the first error says more
             raise_if_busy(inner)
         raise
+
+
+def sheet_on_screen(doc: Any, only_if_lagging: bool = False) -> Any:
+    """The sheet whose tab is on screen (CTAB), or None on the Model tab or when CTAB will not say.
+
+    only_if_lagging: only when COM's ActiveLayout names another layout than CTAB
+    does, which is when doc.PaperSpace cannot be trusted (#39, D-125). A busy
+    AutoCAD goes up to be asked again.
+    """
+    try:
+        tab = str(doc.GetVariable("CTAB") or "").strip()
+    except BaseException as exc:  # noqa: BLE001 - CTAB unreadable: COM's own answer then
+        raise_if_busy(exc)
+        return None
+    if not tab or tab.lower() == "model":
+        return None
+    if only_if_lagging:
+        try:
+            if str(doc.ActiveLayout.Name).strip().lower() == tab.lower():
+                return None
+        except BaseException as exc:  # noqa: BLE001 - ActiveLayout unreadable: CTAB decides
+            raise_if_busy(exc)
+    try:
+        layouts = doc.Layouts
+        for i in range(int(layouts.Count)):
+            layout = layouts.Item(i)
+            if str(layout.Name).strip().lower() == tab.lower():
+                return layout
+    except BaseException as exc:  # noqa: BLE001 - the layouts will not list: COM's own answer then
+        raise_if_busy(exc)
+    return None
 
 
 def require_idle(doc: Any) -> None:

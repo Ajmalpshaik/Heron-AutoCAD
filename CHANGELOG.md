@@ -4,6 +4,129 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A property AutoCAD will not set is answered at once, not as a busy AutoCAD (2026-11-23,
+  [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-149](docs/DECISIONS.md)).** pywin32 gives
+  "Property '...' can not be set." both when AutoCAD is busy and when the object has no such property or turns
+  the value down, so a real refusal was asked again for ten seconds and came out as "Outcome unknown: AutoCAD
+  went busy" (that was #40). The server now asks the object itself: a property it does not have, or a value it
+  refuses, is a plain error at once naming the property ("AutoCAD has no property 'CustomScale' on this
+  object ... AutoCAD was not busy"); a busy AutoCAD is still asked again as before. Server only. Tested offline
+  only; live rows AL8 (the runner measures it) and AL9 NOT RUN.
+- **Attribute writes are one transaction in the plug-in: only the changed cells, all or none (2026-11-23,
+  [#200](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/200), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-148](docs/DECISIONS.md)).** After the plug-in has read the blocks (D-138), `autocad_set_attributes` and
+  `autocad_apply_attribute_sheet` write their planned cells with the plug-in's new Change operation
+  `write_attributes`: only the cells the modeller changed (D-69), every one in one transaction. A block gone, a tag
+  gone or a cell AutoCAD will not take (a locked layer) now refuses the whole write with "Nothing was changed",
+  where COM wrote the rest and listed the cell as failed. COM stays the fallback: a read over COM, an older plug-in,
+  or a multiline, constant or field attribute the plug-in does not write yet. Tested offline only (both tools run
+  both ways over one fake drawing, answers and attributes compared, and through the real gate); not tested in
+  AutoCAD: live rows BK1-BK7 NOT RUN.
+- **The layer merge is one transaction in the plug-in: all of it or none (2026-11-23,
+  [#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-147](docs/DECISIONS.md)).** `autocad_merge_layers` reads the objects on the old layers with the plug-in's new
+  Read operation `layer_objects` (in the COM read's order, so the preview and counts are the same), then makes the
+  merge with the new Change operation `merge_layers`: the planned objects moved and the empty old layers purged in
+  one transaction. One object that will not move now refuses the whole merge with "Nothing was changed", where COM
+  moved the rest and listed it as failed. COM stays the fallback for each half (an older plug-in, an answer it
+  cannot read as COM's). The padlock, `confirm=true`, the one undo step and Keep or Discard are unchanged. New
+  helper `_shared.faster_change`. Tested offline only (the merge run both ways over one fake drawing, answers and
+  drawings compared, and through the real gate); not tested in AutoCAD: live rows BJ1-BJ7 NOT RUN.
+- **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
+  [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
+  OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end
+  and a zig-zag along one straight line or circle are listed under `rebuild` with the segments going, and the
+  confirm (same `plan_id`, same undo step) sets that polyline's vertices and bulges again from vertices it
+  already had. A spike part way along, an old-style 2D polyline and one whose width changes along it are left,
+  with why. Off by default, so nothing changes for a call without it. Tested offline only; live row AD13 NOT RUN.
+- **The standards check's objects are read by the plug-in in one go (2026-11-23,
+  [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-145](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and
+  linetype, overlapping dimensions) ask the plug-in's new Read operation `entity_properties` for every object's
+  handle, class, layer, colour, linetype and a dimension's box, instead of 5-6 COM round trips per object; the
+  rules stay in Python and one loop reads COM objects and the plug-in's rows alike. COM stays the fallback: an
+  older plug-in (1.8.0 and 1.8.1 do not have it), an answer it cannot read as COM's, or a true colour the colour
+  rule needs. Over COM the check now reads colour and linetype only when a rule asks for them. Layers and the
+  reference drawing compare stay COM's. Tested offline only (the check run both ways over one fake drawing and
+  compared as text); not tested in AutoCAD: live rows BI1-BI5 NOT RUN.
+- **Lengthen, and a fillet or chamfer between a line, an arc and a polyline's end (2026-11-23,
+  [#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154), [D-144](docs/DECISIONS.md)).** New tool
+  `autocad_lengthen` makes a line, an arc or an open polyline longer or shorter at one end: by a distance
+  (`delta`, negative shortens), to a `total` length or by a `percent`, at the end nearer `points` or `end`.
+  An arc end runs on round its own circle; a shorter polyline is cut back over its corners, arcs kept.
+  `autocad_fillet_chamfer` now takes a line and an arc, two arcs, or the ends of open polylines (each stays
+  one polyline), meeting them as if they ran on; with two meeting points it names the other corner and
+  `keep_points` choose. AutoCAD's CHAMFER takes no arc, so a chamfer to an arc is measured along the arc
+  (the angle method is refused). Two lines answer as before. Worked out in `acad/edit2d.py`, written over
+  COM, no plug-in change. 200 tools. Tested offline only; live rows BH1-BH11 NOT RUN (the runner measures
+  BH1-BH9 in `tools/live_check_lengthen.py`).
+- **A plug-in job that changed nothing leaves no undo step; the geographic location stays inside the
+  job (2026-11-23, [#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80),
+  [#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258), [D-143](docs/DECISIONS.md)).** Every plug-in
+  operation's transaction is watched with AutoCAD's own events; one that opened, added or erased no object
+  and changed no variable is aborted like a read instead of committed. A new geographic location that
+  AutoCAD will not take into the job's transaction is taken off again and the job refused, instead of being
+  left in the drawing outside it; if it cannot be taken off, the answer says it may still be there.
+  `autocad_tiled_viewports` stays a View job (the reason is in D-143), with a test that its own undo step is
+  counted after a change. The server's empty undo group is still open, as issue #263 (live row T7). Tested
+  offline only; live rows AQ15-AQ17 NOT RUN. Needs the new plug-in.
+- **`autocad_set_attributes(csv_path=...)` reads a semicolon CSV (2026-11-23,
+  [#259](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/259)).** A CSV saved by Excel on a PC whose list
+  separator is a semicolon was read as one column whose heading was the whole header line, so no row matched
+  a block and nothing was written. It is now read as `autocad_table_from_excel` reads one: comma, semicolon or
+  tab (`acad/attribute_sheet.csv_delimiter`), UTF-8 or else Excel's cp1252. Tested offline only.
+- **The dialog watch's live rows get a way in, and the bundle leaves `.pdb` out on Linux too (2026-11-23,
+  [#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213), [#262](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/262),
+  [D-142](docs/DECISIONS.md)).** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed OPEN, CLOSE and PURGE,
+  which Heron refuses before sending, so no box could open. They now use AutoLISP's alert box through
+  `autocad_run_lisp` with Admin on (the watch presses Esc; the box's title is read from the answer) and the
+  runner measures them, each with a good and a bad recording; `DIALOG_COMMANDS` is not loosened. New helper
+  `live_common.addin_log_lines()`. Not tested in AutoCAD: live rows V1, V4, V6, V7 NOT RUN. `build_plugin.py`
+  ignored `*.pdb` with a case-sensitive pattern, so an upper-case `.PDB` was copied on Linux and
+  `test_the_bundle_leaves_pdb_files_out` failed in cloud sessions; the ignore now ignores the letter case on every OS.
+- **Sheet-tab and preview bugs (2026-11-23, [#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
+  [#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40), [#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41),
+  [D-141](docs/DECISIONS.md)).** `autocad_create_layout` over COM no longer answers "Outcome unknown: AutoCAD
+  went busy" for a sheet it made: the page setup set `CustomScale`, which a layout does not have
+  (`SetCustomScale` now, also for the PDF export), and centred a layout plot, which AutoCAD refuses; the
+  plot style table now gets written. `autocad_status` on a sheet tab reads the space and tab from TILEMODE
+  and CTAB, says `viewport_active` when the sheet's viewport is active, and never fails on the caption or
+  version; `space="paper"` draws on the sheet on screen even when COM's active layout lags it; a COM error
+  in the gate's first look is an answer, not a bare "Exception occurred". `autocad_preview` of a whole
+  sheet whose text cannot read in one picture adds the four close-ups by itself (`detail_added`;
+  `detail=1` for one picture). Tested offline only; live rows D8, D20, D33 and AM7 NOT RUN.
+- **Replace-shaped edits D-136 did not cover get the whole-change question (2026-11-23,
+  [#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), [D-140](docs/DECISIONS.md)).** A join,
+  explode, trim or break run as a step of `autocad_sequence` or a saved command makes the whole call a
+  replace job: Heron's UNDO mark first, refused with none, and "Undo the whole change" takes back the whole
+  sequence, not only the erased objects. `autocad_solid_boolean`, `autocad_associative_array`,
+  `autocad_make_block` (in place of the objects) and `autocad_add_region` (with `erase_outlines`) are replace
+  jobs too. The gate now gets each call's arguments from `tool_errors`. The runner gives each BG row its
+  reason (a person answers the box). Tested offline only; live rows BG1-BG8 NOT RUN.
+- **The live-check runner covers groups AU, AV, AW, AX, AZ, BA, BB, BC, BD, BE and BF, part 2 of
+  [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222), which it closes (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
+  New files `tools/live_check_textsafety.py` (AW, BA, BF), `live_check_keepbox.py` (AV, AX, AZ, BC) and
+  `live_check_plugin_reads.py` (AU, BB, BE) and `live_check_bugfixes.py` (BD), each with an offline test holding a good and a bad recording per
+  check. 18 rows are measured: AW1-AW4, AW9, AW11-AW14, BA1, BA2, BF1, BF2, AV6, AZ6, BC13, BD4 and BD6. The other 70
+  have their reason: the plug-in reads (AU, BB, BE) are compared with a second `--no-bridge` server, which the
+  runner does not start; the palette, Keep and erase boxes, Ask to Keep on, UNDO off, the Options dialog, HERONSTOP
+  and any command left open on purpose are a person's. AV6, AZ6 and BA2 need the Model tab in front and say "not
+  run this time" with a sheet in front (the runner never switches tab). With part 1 every group of the register
+  on main except the older A, B, C, G-L and S is the runner's (245 measured, 334 with a reason). `tests/test_live_check_render.py` also gets the recordings for AE2's `-VIEW _Restore` path (S11), good and bad. No rule is new
+  (no D-135), no tool changed. **Run only against recorded answers, never in AutoCAD.**
+- **Tool bugs found by the live-check runner, settled (2026-11-23, [#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218),
+  [D-137](docs/DECISIONS.md)).** A super hatch refused after attaching its xref no longer raises the
+  keep-erased box (a table record made and erased in one job is no erase, in the plug-in's count).
+  `autocad_preview` skips close-ups of a window in a 3D view or a turned UCS, as D-102 said.
+  `autocad_table_from_excel` reads a semicolon CSV from a European Excel in its columns (one separator
+  helper, shared with the attribute sheet). `autocad_copy_from_drawing` refuses a handle that names no
+  drawn object in the source and names each source object's type and layer (`source_objects`).
+  `autocad_super_hatch` checks its layer name before anything is sent. Three were not bugs (the
+  dimension run, the table-link answer, a line's flatness), said in D-137. Six register rows reworded.
+  Tested offline only; live rows BD1-BD6 NOT RUN.
+- **Gate test order ([#254](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/254)).** `gate.reset()`
+  forgets why the last job had no UNDO mark, so `tests/test_answers.py` then `tests/test_gate.py` pass in
+  either order.
 - **The live-check runner covers groups AF, AI, AK, AR, AT and AY, part 1 of
   [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222) (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
   New files `tools/live_check_sheets.py` (AF), `live_check_drawtools.py` (AI), `live_check_solids.py` (AR),

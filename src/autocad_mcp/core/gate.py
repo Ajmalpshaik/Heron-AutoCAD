@@ -12,9 +12,11 @@ Order for one call:
    it will ask Keep or Discard afterwards.
 4. If it will ask, put an UNDO mark down first, so Discard can go back to
    exactly here: the job, the zoom to it, layers a batch made, all of it.
-   A tool that replaces objects (join, explode, trim, break) always gets the
-   mark, and is refused when it cannot: its erase question undoes the whole
-   job back to it (D-136).
+   A tool that replaces objects (join, explode, trim, break, a solid boolean,
+   an associative array, a block made in place, regions with their outlines
+   erased), or a sequence with one among its steps, always gets the mark, and
+   is refused when it cannot: its erase question undoes the whole job back to
+   it (D-136, D-140).
 5. Run the tool.
 6. If the call really wrote and the plug-in asks, Discard means UNDO Back to
    the mark, then check the new objects are gone before saying so.
@@ -47,7 +49,7 @@ from .bridge import (
 )
 from .connection import get_app, run
 from .drawing_events import Mark, Verdict, front_moved, judge
-from .errors import AutocadError, is_retryable, raise_if_busy
+from .errors import AutocadError, com_message, is_retryable, raise_if_busy
 from .risk import Risk, risk_of
 
 DISCARDED = "Discarded: nothing was kept."
@@ -104,7 +106,21 @@ UNDOES = {"autocad_undo_last"}
 # only the erased object would leave the old and the new shape on top of each other, so their
 # erase question is "Keep the change, or undo the whole change?", and anything but a clear keep
 # goes back to Heron's UNDO mark. So they always get a mark first, Ask to Keep on or off.
-REPLACES = {"autocad_join_curves", "autocad_explode", "autocad_trim_extend", "autocad_break_curve"}
+REPLACES = {
+    "autocad_join_curves", "autocad_explode", "autocad_trim_extend", "autocad_break_curve",
+    # The same shape (D-140, #255): the first solid already holds the union or the cut when the
+    # others are erased; the array already holds copies of the objects it takes in.
+    "autocad_solid_boolean", "autocad_associative_array",
+}  # fmt: skip
+# Replace objects only with some arguments (D-140): a block put in place of its objects, regions
+# made with their outlines erased. Each is given the call's arguments with their defaults.
+REPLACES_WHEN: dict[str, Callable[[dict[str, Any]], bool]] = {
+    "autocad_make_block": lambda args: not args.get("keep_originals", False),
+    "autocad_add_region": lambda args: bool(args.get("erase_outlines", False)),
+}
+# Run other tools as steps, inside this one job (D-140): for each, the steps a call will run, as
+# (tool, arguments with their defaults). The tool registers it (tools/sequence.py, saved_commands.py).
+STEPS_OF: dict[str, Callable[[dict[str, Any]], list[tuple[str, dict[str, Any]]]]] = {}
 REPLACE_NEEDS_UNDO = (
     "{what} replaces objects: it writes the new shape, then erases the old one. Heron puts an UNDO "
     "mark down first, so that 'Undo the whole change' can put the drawing back exactly as it was, "
@@ -240,10 +256,16 @@ def front_changed_in_job() -> tuple[str, str] | None:
 
 
 def reset(looked_at: str | None = None, mark: Mark | None = None) -> None:
-    """Forget which drawing Heron checked (tests, and a fresh server start)."""
-    global _last_drawing, _checked_mark
+    """Forget which drawing Heron checked (tests, and a fresh server start).
+
+    The reason the last ``_mark()`` gave for no mark is forgotten too: it
+    belongs to one job, and a stale "AutoCAD was in a command" must never be
+    the reason a later Discard gives (#254).
+    """
+    global _last_drawing, _checked_mark, _no_mark
     _last_drawing = looked_at
     _checked_mark = mark
+    _no_mark = ""
 
 
 async def _since_checked(pid: int | None, drawing: str) -> Verdict:
@@ -291,7 +313,15 @@ async def _probe() -> tuple[int, str]:
         doc = app.ActiveDocument
         return pid, str(doc.FullName) or str(doc.Name)
 
-    return await run(look)
+    try:
+        return await run(look)
+    except AutocadError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - a COM error here used to escape every tool's handler bare (#39)
+        raise AutocadError(
+            f"Heron could not tell which drawing AutoCAD has open ({com_message(exc)}). Click "
+            "the drawing's Model tab, or press Esc in AutoCAD, and try again."
+        ) from exc
 
 
 async def _mark() -> bool:
@@ -463,12 +493,51 @@ def _with_note(result: str, note: str) -> str:
     return f"{result}\n\n{note}"
 
 
-async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool = False) -> Any:
+def replacing(tool: str, args: dict[str, Any] | None = None) -> str | None:
+    """The tool in this call that replaces objects (D-136, D-140), or None.
+
+    The tool itself when it is in REPLACES, or in REPLACES_WHEN with these
+    arguments; for a sequence or a saved command, the first of its steps that
+    is. A call whose steps cannot be read (a step list the tool will refuse, a
+    saved command that is not there) is None: the tool refuses it itself, and
+    nothing is run.
+    """
+    args = args or {}
+    if tool in REPLACES:
+        return tool
+    when = REPLACES_WHEN.get(tool)
+    if when is not None:
+        return tool if when(args) else None
+    steps_of = STEPS_OF.get(tool)
+    if steps_of is None:
+        return None
+    try:
+        steps = steps_of(args)
+    except (AutocadError, KeyError, TypeError, ValueError):
+        # Reading the steps touches no AutoCAD: the tool says what is wrong with them, and runs none.
+        return None
+    for step, step_args in steps:
+        if step not in STEPS_OF and replacing(step, step_args):
+            return step
+    return None
+
+
+def _replace_title(job: Job, replacer: str) -> str:
+    """The job's name in a replace refusal: a sequence names its step that replaces objects."""
+    return job.title if replacer == job.tool else f"{job.title} (its step {_title(replacer)})"
+
+
+async def guarded(
+    tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool = False, args: dict[str, Any] | None = None
+) -> Any:
     """Run one tool call through the gate. Returns the tool's result.
 
     dry_run: run the job inside Heron's UNDO mark, report, then go back to the
     mark (D-63). Only a Change tool can; the rest are refused before anything
     is sent.
+    args: the call's arguments, with their defaults, so the gate can tell a
+    call that replaces objects: a block made in place, or a sequence with a
+    join among its steps (D-140).
     """
     global _last_drawing, _checked_mark, _current
     async with _lock:
@@ -572,6 +641,9 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
         # Status reads the drawing found above: where the drawing log stood
         # then is its mark, so a close during the call is not swallowed (#48).
         mark_before = await _mark_now(job, pid) if tool == STATUS_TOOL else None
+        # A replace job, or a sequence with one among its steps: the mark always, the whole-change
+        # question, and refused with no mark (D-136, D-140).
+        replacer = replacing(tool, args) if job and risk is Risk.CHANGE and not dry_run else None
         try:
             if dry_run:
                 try:
@@ -584,7 +656,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                         facts = answers.Facts(result, ok=False, outcome=outcome, refused_by_heron=True)
                         result = answers.with_line(result, answers.line(facts))
                     return result
-            elif job and (job.ask_to_keep or tool in REPLACES) and risk is Risk.CHANGE and tool not in UNDOES:
+            elif job and (job.ask_to_keep or replacer) and risk is Risk.CHANGE and tool not in UNDOES:
                 try:
                     marked = await _mark()
                 except AutocadError as exc:
@@ -592,12 +664,13 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                     result = f"Error: {exc}"
                     facts = answers.Facts(result, ok=False, outcome="failed", busy=True)
                     return answers.with_line(result, answers.line(facts))
-                if not marked and tool in REPLACES:
+                if not marked and replacer:
                     # With no mark, "Undo the whole change" could not put the drawing back, and
                     # bringing back only the erased objects would leave both shapes (D-136).
                     why, fix = _no_mark_reason()
                     outcome = "refused"
-                    result = "Error: " + REPLACE_NEEDS_UNDO.format(what=job.title, why=why, fix=fix)
+                    what = _replace_title(job, replacer)
+                    result = "Error: " + REPLACE_NEEDS_UNDO.format(what=what, why=why, fix=fix)
                     facts = answers.Facts(result, ok=False, outcome=outcome, refused_by_heron=True)
                     return answers.with_line(result, answers.line(facts))
 
@@ -667,8 +740,9 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                 ok = outcome != "failed"
                 # The question's zoom is an undo step after the job, only if it really ran (D-136).
                 keep_zoomed = getattr(job.bridge, "keep_zoomed", True) is not False
-            elif counted and counted["erased"] > 0 and tool in REPLACES and marked:
-                # A replace job: keep the change, or undo the whole of it back to the mark (D-136).
+            elif counted and counted["erased"] > 0 and replacer and marked:
+                # A replace job: keep the change, or undo the whole of it back to the mark (D-136);
+                # for a sequence, the whole sequence (D-140).
                 result, whole, counted, said = await _ask_whole(job, result, text, counted, ok)
                 if whole:
                     outcome, ok = whole, whole != "failed"
@@ -958,6 +1032,10 @@ def _made(text: str) -> list[str]:
                     found.extend(str(h) for h in value)
                 elif key == "replaced_by" and isinstance(value, str):
                     found.append(value)
+                elif key == "regions" and isinstance(value, list):
+                    # autocad_add_region's new regions, each with its handle (D-140).
+                    found.extend(str(r["handle"]) for r in value if isinstance(r, dict) and r.get("handle"))
+                    walk(value)
                 else:
                     walk(value)
         elif isinstance(node, list):
@@ -974,7 +1052,10 @@ async def _ask_whole(
     """The erase question for a job that replaced objects, which holds Heron's UNDO mark (D-136, #208).
 
     Join, explode, and a circle trimmed or broken into an arc write the new
-    shape, then erase the old one. Bringing back only what was erased would
+    shape, then erase the old one; so do a solid boolean, an associative
+    array, a block made in place and regions made with their outlines erased,
+    and a sequence with any of them among its steps (D-140), whose undo takes
+    back the whole sequence. Bringing back only what was erased would
     leave both shapes on top of each other, so the modeller is asked "Keep the
     change, or undo the whole change?". Only a clear keep keeps. Every other
     answer (Enter, Esc, the box closed, no answer in time, an older plug-in

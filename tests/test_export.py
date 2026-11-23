@@ -118,6 +118,9 @@ class FakeLayout:
                 (0, "AutoCAD.Application", "Invalid input", None, 0, -2147024809),
                 None,
             )
+        if name == "CustomScale":
+            # A layout has no CustomScale (a viewport has): pywin32 answers so (#40).
+            raise AttributeError("Property 'Item.CustomScale' can not be set.")
         if self.autocad_2027 and name == "CenterPlot" and value and self.state["PlotType"] == 5:
             # Seen live 2026-10-28: centring a layout plot is refused.
             raise pythoncom.com_error(-2147352567, "Exception occurred.", None, None)
@@ -126,6 +129,10 @@ class FakeLayout:
         if self.autocad_2027 and name == "ConfigName":
             # Seen live 2026-10-28: choosing the plotter drops the sheet to its default.
             self.state["CanonicalMediaName"] = MEDIA[0]
+
+    def SetCustomScale(self, paper, drawing):
+        self.events.append(("call", "SetCustomScale"))
+        self.state["CustomScale"] = paper / drawing
 
     def RefreshPlotDeviceInfo(self):
         self.events.append(("call", "RefreshPlotDeviceInfo"))

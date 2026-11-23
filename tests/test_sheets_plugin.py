@@ -101,6 +101,18 @@ class Layout:
         self.Block = Block()
         self.size = size
 
+    def __setattr__(self, name, value):
+        # As AutoCAD and pywin32 answer (#40): a layout has no CustomScale (SetCustomScale
+        # sets its scale), and centring a layout plot is refused (row D20, 2026-10-28).
+        if name == "CustomScale":
+            raise AttributeError("Property 'Item.CustomScale' can not be set.")
+        if name == "CenterPlot" and value and getattr(self, "PlotType", None) == 5:
+            raise AttributeError("Property 'Item.CenterPlot' can not be set.")
+        object.__setattr__(self, name, value)
+
+    def SetCustomScale(self, paper, drawing):
+        object.__setattr__(self, "custom_scale", (paper, drawing))
+
     def GetPaperSize(self):
         return self.size
 

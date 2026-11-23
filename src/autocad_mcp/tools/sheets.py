@@ -51,7 +51,13 @@ from ._shared import COORDS_OPT, current_ucs, in_plugin, ucs_for, world_coords
 
 # The media-name matching is already proven and tested in document.py (the PDF
 # export path); a sheet picks its paper the same way rather than a second way.
-from .document import _MEDIA_NAME, _match_media, _normalize_media, layout_on_screen  # noqa: PLC2701
+from .document import (  # noqa: PLC2701
+    _MEDIA_NAME,
+    _match_media,
+    _normalize_media,
+    layout_on_screen,
+    set_custom_scale,
+)
 
 # AcActiveSpace: acPaperSpace = 0, acModelSpace = 1 (document.py reads it too).
 AC_PAPER_SPACE = 0
@@ -424,12 +430,23 @@ def _set_page(
         else:
             ratio = plan.parse_typed_scale(scale)
             layout.UseStandardScale = False
-            layout.CustomScale = ratio
+            set_custom_scale(layout, ratio)
             written["scale"] = plan.scale_text(ratio)
 
     if centre is not None:
-        layout.CenterPlot = bool(centre)
-        written["centred"] = bool(centre)
+        # AutoCAD will not centre a layout plot (seen live 2026-10-28, row D20): the
+        # sheet is placed by its own origin. The refusal used to stop the page setup
+        # there, and pywin32's "can not be set" read as a busy AutoCAD (#40).
+        plots_layout = str(plot_area or "").strip().lower() == "layout" or (
+            not plot_area and _read(layout, "PlotType", None) == PLOT_AREAS["layout"]
+        )
+        if centre and plots_layout:
+            written["centred"] = False
+            written["centred_note"] = "A layout plot is placed by the sheet's own origin; AutoCAD does not centre it."
+        elif _write(layout, "CenterPlot", bool(centre)):
+            written["centred"] = bool(centre)
+        else:
+            written["centred_note"] = "AutoCAD would not change the plot's centring; check Page Setup."
 
     if style_sheet is not None:
         name = str(style_sheet).strip()

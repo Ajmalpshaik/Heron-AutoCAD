@@ -18,7 +18,7 @@ done looks like here.
 - [x] **Padlocks a file cannot switch on** ([#76](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/76), bug) and a Windows policy that holds one off ([#77](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/77)). D-59, D-60, PRs #121 and #140; live rows R1-R9 NOT RUN. Open: whether connect-at-start leaves the file too ([#141](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/141)).
 - [x] A chat reopened after a Claude restart keeps its hold ([#78](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/78), bug). D-61, PR #124; live row T1 NOT RUN.
 - [x] One plain result line: DONE / NOTHING CHANGED / REFUSED / OUTCOME UNKNOWN ([#79](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/79)). D-62, PR #124; live rows T2-T3 NOT RUN.
-- [ ] No empty undo step ([#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80)). Part done in PR #124 (no undo step when nothing differs); taking back an empty job waits for live row T7 ([05 §26](05-known-limits.md)).
+- [x] No empty undo step ([#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80)). PR #124 (no undo step when nothing differs) and D-143 (a plug-in operation that touched nothing is aborted, live row AQ17). Open: the server's empty group waits for live row T7 ([#263](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/263), [05 §26](05-known-limits.md)).
 - [x] Dry run for any change ([#81](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/81)); before / after values ([#82](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/82)). D-63 and D-62, PR #124; live rows T4-T6 NOT RUN.
 - [x] Dialog watch during a job ([#83](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/83)).
 - [x] Check lists: NO DATA + coverage ([#84](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/84)), office list + project changes ([#85](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/85)), Excel / HTML report ([#86](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/86)), never "complies" ([#87](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/87)). D-64 and D-65, PR #122; live rows U1-U10 NOT RUN.
@@ -73,8 +73,9 @@ done looks like here.
   tall had to be deleted and drawn again, and a delete needs the modeller's yes each time. Done
   2026-11-21: `autocad_edit_vertex` and `autocad_stretch`, with the trim / extend / fillet / join
   tools ([D-78](DECISIONS.md)); live rows AA11-AA12 NOT RUN. ([#49](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/49))
-- [ ] Lengthen (by a distance, to a total, by a percent), and a fillet or chamfer between a line and an
-  arc: left over from the 2D edits. ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154))
+- [x] Lengthen (by a distance, to a total, by a percent), and a fillet or chamfer between a line and an
+  arc: done 2026-11-23, `autocad_lengthen` and `autocad_fillet_chamfer` on lines, arcs and polyline ends
+  ([D-144](DECISIONS.md)); live rows BH1-BH11 NOT RUN. ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154))
 - [ ] `autocad_preview` with `area='extents'` on an A1 schematic drawn at 1:1 showed only the two
   frame rectangles; `area='window'` over the same parts showed everything. Find out why before
   trusting an extents preview of a full sheet. ([#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41))

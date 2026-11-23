@@ -343,6 +343,16 @@ def test_discard_with_undo_off_says_so(env):
     assert "UNDO is off" in result
 
 
+def test_reset_forgets_why_an_earlier_job_had_no_mark(monkeypatch):
+    # #254: a stale "AutoCAD was in a command" from an earlier job (or test) must not be a later reason.
+    monkeypatch.setattr(gate, "_last_drawing", None)
+    monkeypatch.setattr(gate, "_checked_mark", None)
+    monkeypatch.setattr(gate, "_no_mark", gate.NO_MARK_IN_COMMAND)
+    gate.reset()
+    assert gate._no_mark == ""
+    assert gate._no_mark_reason()[0].startswith("UNDO is off")
+
+
 def test_discard_when_autocad_was_in_a_command_says_so_not_undo_off(env, monkeypatch):
     # #206: the mark was skipped because AutoCAD was in a command; UNDOCTL was never the reason.
     FakeBridge.ask_to_keep = True
@@ -391,6 +401,16 @@ def test_a_kept_job_without_a_mark_counts_the_questions_zoom(env):
     draw, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')
     call(draw)
     assert gate.last_change()["marked"] is False and gate.last_change()["views_since"] == 1
+
+
+def test_a_tiled_viewport_split_after_a_change_counts_as_a_step_since(env):
+    # D-143: the split stays a View job, like ZOOM and set_3d_view, which write the same *Active
+    # viewport records. Its own undo step is counted, so "undo the last change" never undoes the split.
+    env["undo_on"] = False
+    call(make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')[0])
+    assert gate.last_change()["views_since"] == 0
+    call(make_tool("autocad_tiled_viewports", '{"tiles": 2}', writes=False)[0])
+    assert gate.last_change()["views_since"] == 1
 
 
 def test_a_kept_job_with_a_mark_is_undone_back_to_it(env):
@@ -1004,6 +1024,163 @@ def test_every_other_tools_erase_question_is_unchanged(env):
     assert env["marks"] == 0 and env["discards"] == 0
     assert FakeBridge.erase_whole == [()]  # asked with (job, summary) only, as before D-136
     assert first.startswith("NOTHING CHANGED - the job erased 4 object(s)")
+
+
+# ---- replace-shaped edits D-136 did not cover: steps, and four more tools (D-140, #255) ------
+
+
+def tool_taking(name: str, result: str, **defaults):
+    """A stand-in tool with named arguments and their defaults, as a real tool has."""
+    import inspect
+
+    calls: list[dict] = []
+
+    async def tool(**kwargs) -> str:
+        calls.append(kwargs)
+        connection.mark_writing()
+        return result
+
+    tool.__name__ = name
+    tool.__signature__ = inspect.Signature(
+        [inspect.Parameter(k, inspect.Parameter.KEYWORD_ONLY, default=v) for k, v in defaults.items()]
+    )
+    return tool_errors(tool), calls
+
+
+JOIN_STEP = {"tool": "autocad_join_curves", "args": {"handles": ["1A", "1B"]}}
+LINE_STEP = {"tool": "autocad_draw_line", "args": {"start": [0, 0], "end": [1, 0]}}
+SEQUENCE_RAN = json.dumps({"ran": 2, "failed": 0, "skipped": 0, "steps": [
+    {"index": 1, "tool": "autocad_draw_line", "ok": True, "result": {"created": True, "handle": "2A"}},
+    {"index": 2, "tool": "autocad_join_curves", "ok": True, "result": json.loads(JOINED)},
+]})  # fmt: skip
+
+
+@pytest.fixture
+def steps_read(monkeypatch):
+    """The sequence's own step reader, as tools/sequence.py registers it, without the real tools."""
+    monkeypatch.setitem(
+        gate.STEPS_OF, "autocad_sequence",
+        lambda args: [] if args.get("dry_run") else [(s["tool"], s["args"]) for s in args["steps"]],
+    )  # fmt: skip
+
+
+def a_sequence(env, steps, counted=JOIN_COUNT):
+    FakeBridge.counted = dict(counted)
+    env["back_on_undo"] = set(counted["erased_handles"])
+    return tool_taking("autocad_sequence", SEQUENCE_RAN, steps=steps, stop_on_error=True, dry_run=False)
+
+
+@pytest.mark.parametrize("answer", NOT_KEPT)
+def test_a_sequence_with_a_replace_step_undoes_the_whole_sequence(env, steps_read, answer):
+    FakeBridge.erase_answer = dict(answer)
+    tool, runs = a_sequence(env, [LINE_STEP, JOIN_STEP])
+    first, rest = answers.split(call(tool))
+    # Ask to Keep off, and still the mark first, the whole-change question, and back to the mark:
+    # the line of step 1 goes too, so nothing of the sequence is left (D-140).
+    assert runs and env["marks"] == 1 and env["discards"] == 1
+    assert FakeBridge.erase_whole == [(True,)]
+    assert first.startswith("NOTHING CHANGED - ") and "Heron undid the whole change" in first
+    assert rest.startswith("Undone: ") and ends()[-1][3] == "discarded" and FakeBridge.marked_at_end == [True]
+
+
+def test_undoing_a_sequence_checks_every_steps_new_objects_are_gone(env, steps_read):
+    FakeBridge.erase_answer = {"answer": "undo_whole", "restored": 0, "asked": True}
+    env["left"] = ["2A"]  # the line of step 1 is still there after UNDO Back
+    first = answers.split(call(a_sequence(env, [LINE_STEP, JOIN_STEP])[0]))[0]
+    assert first.startswith("OUTCOME UNKNOWN - ") and "2A" in first
+
+
+def test_keep_the_change_keeps_the_whole_sequence(env, steps_read):
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0, "asked": True}
+    first = answers.split(call(a_sequence(env, [LINE_STEP, JOIN_STEP])[0]))[0]
+    assert first.startswith("DONE - ") and env["discards"] == 0
+    assert gate.last_change()["marked"] is True
+
+
+def test_a_sequence_with_a_replace_step_and_no_mark_is_refused_and_runs_nothing(env, steps_read, monkeypatch):
+    env["undo_on"] = False
+    monkeypatch.setattr(gate, "_no_mark", gate.NO_MARK_UNDO_OFF)
+    tool, runs = a_sequence(env, [LINE_STEP, JOIN_STEP])
+    first, rest = answers.split(call(tool))
+    assert runs == [] and first.startswith("REFUSED - ")
+    assert "(its step " in rest and "replaces objects" in rest and "Turn UNDO on" in rest
+
+
+def test_a_sequence_without_a_replace_step_keeps_the_usual_question(env, steps_read):
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 1, "asked": True}
+    call(a_sequence(env, [LINE_STEP, {"tool": "autocad_delete_entities", "args": {"handles": ["1B"]}}])[0])
+    assert env["marks"] == 0 and env["discards"] == 0 and FakeBridge.erase_whole == [()]
+
+
+def test_a_sequence_checked_only_needs_no_mark(env, steps_read):
+    env["undo_on"] = False
+    FakeBridge.counted = {"added": 0, "modified": 0, "erased": 0, "erased_handles": []}
+    tool, runs = tool_taking("autocad_sequence", '{"dry_run": true}', steps=[JOIN_STEP], dry_run=False)
+    asyncio.run(tool(dry_run=True))
+    assert runs and env["marks"] == 0
+
+
+def test_steps_that_cannot_be_read_are_left_to_the_tool(env, monkeypatch):
+    def broken(args):
+        raise AutocadError("Step 1: there is no tool called 'autocad_draw_lion'.")
+
+    monkeypatch.setitem(gate.STEPS_OF, "autocad_sequence", broken)
+    assert gate.replacing("autocad_sequence", {"steps": []}) is None
+
+
+BOOLEAN = '{"operation": "union", "handle": "S1", "consumed": ["S2"], "failed": []}'
+SOLID_COUNT = {"added": 0, "modified": 1, "erased": 1, "erased_handles": ["S2"]}
+ARRAY = '{"created": true, "handle": "AR1", "associative": true, "sources": ["H1"]}'
+BLOCK = '{"created": true, "block": "PLATE", "handle": "IN1", "objects": 1}'
+REGION = '{"created": 1, "regions": [{"handle": "R1", "area": 4.0}], "erased_outlines": ["P1"]}'
+NEW_COUNT = {"added": 1, "modified": 0, "erased": 1, "erased_handles": ["H1"]}
+
+NEW_REPLACES = [
+    ("autocad_solid_boolean", BOOLEAN, SOLID_COUNT, {}),
+    ("autocad_associative_array", ARRAY, NEW_COUNT, {}),
+    ("autocad_make_block", BLOCK, NEW_COUNT, {"keep_originals": False}),
+    ("autocad_add_region", REGION, NEW_COUNT, {"erase_outlines": True}),
+]
+
+
+@pytest.mark.parametrize("tool, result, counted, args", NEW_REPLACES)
+def test_the_other_write_then_erase_tools_undo_the_whole_change(env, tool, result, counted, args):
+    # Bringing back only the erased objects would leave them under the union, the array, the
+    # insert or the region: so the whole change is undone instead (D-140).
+    FakeBridge.erase_answer = {"answer": "undo_whole", "restored": 0, "asked": True}
+    FakeBridge.counted = dict(counted)
+    env["back_on_undo"] = set(counted["erased_handles"])
+    made, _ = tool_taking(tool, result, **args)
+    first = answers.split(call(made))[0]
+    assert env["marks"] == 1 and env["discards"] == 1 and FakeBridge.erase_whole == [(True,)]
+    assert first.startswith("NOTHING CHANGED - "), first
+
+
+@pytest.mark.parametrize("tool, args", [
+    ("autocad_make_block", {"keep_originals": True}),
+    ("autocad_add_region", {"erase_outlines": False}),
+])  # fmt: skip
+def test_a_block_that_keeps_its_objects_or_regions_that_keep_their_outlines_are_no_replace(env, tool, args):
+    assert gate.replacing(tool, args) is None
+    call(tool_taking(tool, BLOCK, **args)[0])
+    assert env["marks"] == 0
+
+
+def test_a_make_block_left_at_its_default_replaces_in_place(env):
+    # The default puts the insert in place of the objects: tool_errors hands the gate the defaults.
+    FakeBridge.counted = dict(NEW_COUNT)
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0, "asked": True}
+    call(tool_taking("autocad_make_block", BLOCK, block="PLATE", keep_originals=False)[0])
+    assert env["marks"] == 1 and FakeBridge.erase_whole == [(True,)]
+
+
+def test_undoing_regions_checks_the_regions_are_gone(env):
+    FakeBridge.erase_answer = {"answer": "undo_whole", "restored": 0, "asked": True}
+    FakeBridge.counted = dict(NEW_COUNT)
+    env["back_on_undo"] = {"H1"}
+    env["left"] = ["R1"]
+    first = answers.split(call(tool_taking("autocad_add_region", REGION, erase_outlines=True)[0]))[0]
+    assert first.startswith("OUTCOME UNKNOWN - ") and "R1" in first
 
 
 # ---- the Keep question's zoom, only when it ran (D-136, refines D-130) -----------------------

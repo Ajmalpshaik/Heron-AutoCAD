@@ -151,6 +151,9 @@ async def autocad_super_hatch(
     if origin is not None and len(origin) < 2:
         raise AutocadError("origin must be [x, y].")
     holder = validate_name(name, "block") if name else None
+    # The layer goes to the plug-in as a name it will make: checked here first, so a
+    # line break or a '|' is refused before anything is sent (D-139).
+    layer = validate_name(layer, "layer") if layer else None
 
     def work() -> dict[str, Any]:
         doc = get_doc()

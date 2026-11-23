@@ -368,7 +368,7 @@ CHECKS: tuple[Check, ...] = (
 )
 
 _ARRAY_ERASES = ("making the array takes the source objects into it, which erases them, so Heron asks you to keep "
-                 "them erased (D-50) and the runner cannot answer")
+                 "the change or undo the whole change (D-140) and the runner cannot answer")
 
 BY_EYE: dict[str, str] = {
     "AQ1": _ARRAY_ERASES + "; the ARRAY tab and a stretched path are seen on screen too",
@@ -380,4 +380,7 @@ BY_EYE: dict[str, str] = {
     "AQ10": "the DWF is opened in Autodesk Viewer and compared with the PDF by eye, on a sheet tab made active "
             "by hand; the refusal half needs Publish off",
     "AQ14": "needs AutoCAD 2025 / 2026 and 2021-2024 machines, which are not here",
+    "AQ15": "a line drawn by hand, then Ctrl+Z pressed by hand twice and GEOGRAPHICLOCATION looked at (D-143)",
+    "AQ16": "the palette's Undo is clicked by hand, and the split is seen on screen (D-143)",
+    "AQ17": "a line drawn by hand and the Quick Access Undo drop-down read by eye (D-143)",
 }

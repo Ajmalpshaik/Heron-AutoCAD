@@ -5,6 +5,397 @@
 
 ---
 
+## D-149 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
+
+**Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
+[#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270) (found by S16 under D-141). **Status:** in
+force; narrows D-100's reading of pywin32's set error, keeps D-100 and D-128 as they are. Read in the code
+and pywin32's `dynamic.py`; no AutoCAD here. Tested offline only (`tests/test_property_refused.py`); live
+rows AL8 (measured by the runner) and AL9 NOT RUN.
+
+- **The gap.** pywin32's late-bound object answers every property it cannot set with
+  `Property 'Item.CustomScale' can not be set.`: when the name is not in the object's type information
+  and `GetIDsOfNames` fails, and when the put itself is refused. It drops the HRESULT both ways, so a busy
+  AutoCAD and an object that simply has no such property read the same. `errors.is_dispatch_failure`
+  took all of them for busy: asked again for ten seconds, then "Lost the COM connection", or "Outcome
+  unknown: AutoCAD went busy" once a write had begun (#40, row D8).
+- **Now.** `connection.check_property_sets` wraps `win32com.client.CDispatch.__setattr__` once, at
+  import. A set that works is untouched. Only that one error is looked into
+  (`errors.explain_set_failure`): the object is asked for the name's id itself. `DISP_E_UNKNOWNNAME` /
+  `DISP_E_MEMBERNOTFOUND` is the new `PropertyRefused` ("AutoCAD has no property 'CustomScale' on this
+  object ... was not busy"). With an id, the value is put once more (a property set twice to one value is
+  the same set): taken, the set is done; refused with any COM error that is not busy or retryable, it is
+  `PropertyRefused` with AutoCAD's own words. Busy, a dead pointer, or anything unclear: pywin32's error
+  goes up as it is, so the retry loop asks again exactly as before.
+- **`PropertyRefused` is an `AutocadError` and an `AttributeError`.** `is_dispatch_failure`,
+  `is_retryable` and `is_busy` are all False for it, so `_with_retry` gives it at once, before or after a
+  write. As an AutocadError a tool shows it as "Error: ..." and an `except AutocadError` fallback takes it
+  like any plain refusal; as an AttributeError, the many places that read a refused set as "not there"
+  (`_write`, `getattr` defaults) read it so still.
+- **Callers checked.** `_with_retry` (retry and re-dispatch only for the busy case now), the hatch
+  fallback in `draw.py` (a method call, not a set: unchanged), every `raise_if_busy` (it never counted
+  this error: unchanged), the `is_retryable` checks in tools (a refused set now takes their fallback
+  instead of being retried). A plain AttributeError with the set message and no object behind it (fakes
+  in the tests) is still read as busy, as before. Gets are not changed: a missing member on a get still
+  reads as D-100 says.
+- **Not chosen:** telling them apart by the words (there is nothing in them), or by asking AutoCAD
+  whether it is busy just after (it can be free a moment later, and a busy set would then be called a
+  refusal).
+
+---
+
+## D-148 - Attribute writes are made by the plug-in in one transaction: only the planned cells, all of them or none
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #200 (rank 9 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BK).
+`autocad_set_attributes` and `autocad_apply_attribute_sheet` write their planned cells with the plug-in's
+new Change operation `write_attributes`; COM stays the fallback. The rules:
+(1) **Only the cells the server planned (D-69).** The plan is made as before, from the read (D-138): the
+cells the modeller changed, nothing else. The server sends each as [handle, tag, text]; the plug-in
+writes exactly those, each setting every attribute with that tag on that block reference (the tag
+matched exactly, as the COM loop's `==`), and puts text that is not left-aligned back on its alignment
+point (`AdjustAlignment`, as COM's TextString does). Nothing to write sends nothing (no undo step, D-62).
+(2) **One transaction, all or none.** A block gone since the read, a tag it no longer has, or an
+attribute AutoCAD will not take (a locked layer) refuses the whole write: the transaction is aborted and
+the answer is the plug-in's refusal, ending "Nothing was changed." Over COM, `autocad_apply_attribute_sheet`
+lists such a cell under `failed` and writes the rest; that half-written sheet is what this move takes
+away. A refused write is never made again over COM.
+(3) **Only after a plug-in read.** The write is offered to the plug-in only when the plug-in read the
+blocks (the tool holds `ComRefs` then). A read over COM means a block or attribute the plug-in is not
+trusted for (D-138: multiline, constant, attributes and definition disagreeing), and COM writes it as
+before. The plug-in also refuses, with the words `AttributeWritePlan.UseCom`, a multiline or constant
+attribute, one holding a field (what .NET's TextString does to a field is not looked at yet, BK5), or more
+than 100,000 cells; it has changed nothing then, and the server writes every cell over COM.
+(4) **The same answer, the same job.** The answer is built from the plan either way, so a write that
+lands gives the same text as COM's; the tools stay Change jobs in one UNDO mark, the operation is at
+Change (the Changes padlock holds it, a Bridge test), and Keep or Discard counts AutoCAD's own events
+(D-50), which BK2 compares live. A report that does not count every cell is "Outcome unknown".
+(5) **Older plug-ins.** One without `write_attributes` (1.8.0, 1.8.1, or built before this) says so,
+and the cells are written over COM by handle, as D-138 left them. The writes use D-147's
+`_shared.faster_change`. Rejected: having the plug-in work out which cells changed (two copies of D-69's
+rules), and writing over COM what a refused write left (the half-written sheet again).
+
+---
+
+## D-147 - The layer merge is read and made by the plug-in: one read, one transaction, all of it or none
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #199 (rank 8 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BJ).
+`autocad_merge_layers` asks the plug-in's new Read operation `layer_objects` for the objects on the old
+layers, and its new Change operation `merge_layers` to make the merge; COM stays the fallback for each,
+as D-114 sets out. The rules:
+(1) **The read: raw facts in COM's order.** The plug-in finds the objects the COM read finds, in its
+order: each old layer's selection (the server sends the filters it selects with, the name's wildcards
+escaped), then every item of every block definition but layouts and xrefs (`IsLayout`,
+`IsFromExternalReference`, as COM's IsLayout and IsXRef), then every attribute of every block reference;
+each as [handle, layer, where]. The server plans from these with the code it plans the COM read with
+(`merge_targets`, `merge_counts`), so the preview (`confirm=false`) and the counts are the same either way.
+As D-138, a block reference with an attribute on an old layer whose definition holds no attribute
+definitions is not trusted (`unsure`): whether COM's HasAttributes lets the COM read see it is not looked
+at yet, so the whole read goes to COM.
+(2) **The change: one transaction, the server's plan.** The server sends the old layers, the new one and
+the handles it planned; the plug-in moves exactly those. In one transaction: an old current layer gives
+way to the new one, a locked old layer is unlocked, every planned object moves, then each old layer is
+removed when AutoCAD's own purge (`Database.Purge`) says nothing uses it any more, or kept and locked
+again. **One object that will not move refuses the whole merge**: the transaction is aborted and the
+answer is the plug-in's refusal, ending "Nothing was changed." Over COM such an object is listed under
+`failed` and its layer kept, with the rest moved; that half-done merge is what this move takes away. A
+refused merge is never made again over COM.
+(3) **The same answer.** The server builds the answer from the plan and the plug-in's report (which
+layers it removed, which it kept and why, the old current layer) with COM's own rows and order:
+the CLAYER row, one row per moved object, one per removed layer. A kept layer's reason is AutoCAD's own
+words in the brackets of "AutoCAD would not remove it (...)": COM's error over COM, "it is still
+referenced" from the plug-in's purge; only those words differ. A report that does not account for every
+old layer, or moves another count, is "Outcome unknown" (the change is committed: it is said, not
+redone).
+(4) **The padlock, `confirm=true` and Keep or Discard are the tool's, unchanged.** The tool is still
+a Change job, the merge still needs `confirm=true`, and it still runs inside one UNDO mark; the plug-in's
+operation is at Change, so the Changes padlock holds it as it holds the COM writes (a Bridge test). Keep
+or Discard counts what AutoCAD's own database events say the job changed (D-50), which a plug-in
+transaction raises as COM's writes do (BJ2 checks the number live).
+(5) **Fallbacks.** `layer_objects` joins `bridge.NEWER_READS`. A plug-in without `layer_objects`
+(1.8.0, 1.8.1, or one built before this) reads over COM; one without `merge_layers` merges over COM,
+each object looked up by its handle after a plug-in read. New helper `_shared.faster_change`: a change the
+plug-in makes in one transaction, or None (no plug-in, older, no such operation) for the COM path;
+the capability manifest calls it "when there", as `faster_read`. Rejected: a merge that moves
+"everything on the layers" itself (two copies of the rules for what moves, and a plan the preview did
+not show), and falling back to COM after a refused merge (the half-done drawing again).
+
+---
+
+## D-146 - Overkill may rebuild a polyline that goes back over itself, from its own vertices, when asked
+
+**Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue
+[#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159). **Status:** in force; changes D-84's "a
+polyline is never broken or changed" for this one case; tested offline only, live row AD13 NOT RUN.
+
+- **Asked for, never by default.** `autocad_overkill(tidy_polylines=true)` is OVERKILL's "optimize segments
+  within polylines". Without it nothing about a polyline changes from D-84.
+- **Only from its own vertices.** A vertex is dropped, never moved or added (`acad/overkill.tidy_polyline`):
+  zero-length segments go, and a run of segments one after another on one straight line (or one circle)
+  that goes back over itself becomes one segment from where it comes in to where it goes on. At an open
+  polyline's free end, the end moves to the run's far end (an existing vertex). So the shape on paper is
+  the same, drawn once, and a loose line erased as "lies on polyline" still lies on it.
+- **What it leaves, with why:** a run that goes back over itself part way along (a spike, or the polyline
+  coming in from the middle of the doubled stretch): one polyline cannot draw that without the doubling,
+  and breaking it in two is not one safe step. Arcs going all the way round one circle; a closed polyline
+  lying all on one line; an old-style 2D polyline; one whose width changes along it (read only for the
+  polyline to rebuild, as the 2D edits read it, D-78). Segments far apart in one polyline lying over each
+  other, and two polylines over each other, stay as D-84 lists them.
+- **Same rules as the rest of Overkill:** listed first (`rebuild`, with the segments going and any new
+  segment), the `plan_id` covers it, the confirm sets the same polyline's vertices and bulges again (same
+  handle, its one width kept) inside the one undo step. A rebuild erases nothing, so on its own it brings
+  no erase question (D-50).
+
+Rejected: merging straight runs that only go one way (vertices in a straight line that draw nothing
+twice), which the issue did not ask for and which would change polylines that are not doubled; and
+breaking a polyline in two where it doubles back part way along.
+
+---
+
+## D-145 - The standards check's object facts are read by the plug-in in one go; the rules stay in Python
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #196 (rank 5 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BI).
+`autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour, ByLayer linetype,
+overlapping dimensions) ask the plug-in's new Read operation `entity_properties`; COM stays the
+fallback, as D-114 sets out. The rules:
+(1) **Raw facts, one loop.** The plug-in selects all of the drawing as the COM selection does
+(`Editor.SelectAll`, no filter) and sends, per object in the order selected: handle, class (COM's
+ObjectName), layer, colour as COM's Color number, linetype (COM's Linetype: `ByLayer`, `ByBlock` or the
+name) and, only for a class whose name holds the text the server sends in `box_classes`
+(`Dimension`, only when `forbid_overlapping_dimensions` is asked), the x and y of its
+`GeometricExtents` corners (COM's GetBoundingBox, as D-114's `entity_extents`; null when it has none).
+The server turns each row into a stand-in with COM's property names (`standards.PluginEntity`), and
+one loop (`standards.entity_rows`) reads COM objects and stand-ins alike. The rules (`standards.check`)
+are not touched.
+(2) **The cut-off from the same loop.** The server asks for `max_entities + 1` objects: the loop sees
+the one past the cut-off and says "Only the first n objects were read" (and `passed: null`) itself,
+either way. The plug-in counts the rest without opening them and sends `total`; an answer whose rows
+are not `min(total, limit)` is not used.
+(3) **Read over COM when not sure.** A colour that is not an AutoCAD Color Index number (a true
+colour, a colour book; .NET's `ColorMethod` other than ByLayer, ByBlock or ByAci) is sent as null:
+what COM's Color gives for one is not looked at yet (BI2). With `require_bylayer_color` asked, such an
+object among the ones read sends the whole read to COM; without it, the colour is not read at all, so
+the plug-in's answer stands. Also to COM: a box corner that is not finite, a row of the wrong shape,
+an object that is not an entity (the plug-in refuses the read).
+(4) **COM reads only what a rule needs.** The COM loop read colour and linetype of every object for
+every check; it now reads them only when `require_bylayer_color` / `require_bylayer_linetype` is asked
+(3 round trips per object instead of 5 for a layer-0 check). The answer is unchanged: `check` reads a
+row's colour and linetype only for those two rules.
+(5) **An older plug-in.** As D-127: `entity_properties` joins `bridge.NEWER_READS`; 1.8.0 and 1.8.1 say
+they do not have it, and the check reads over COM; the capability manifest names no "faster from"
+version for it until the release is named.
+(6) **Layers and the reference stay COM's.** The 9 reads per layer and the reference drawing compare
+are left: a drawing rarely has more than a few hundred layers, and `describe_layer` is shared with
+other tools. Rejected: moving the rules into the plug-in (two copies of them to keep the same), and a
+box for every object (`GeometricExtents` on 20,000 objects to use a handful).
+
+---
+
+## D-144 - Lengthen is its own tool; a fillet or chamfer takes a line, an arc or a polyline's end
+
+**Decided:** 2026-11-23, by session S17 of the 2026-11-23 wave, building issue
+[#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154). **Status:** in force; tested offline only
+(`tests/test_edit2d_geometry.py`, `tests/test_edit2d_tools.py`, `tests/test_live_check_lengthen.py`), live rows
+BH1-BH11 NOT RUN. Adds to D-78, which stands: the same plain-Python geometry in `acad/edit2d.py`, written back
+over COM by setting the object's own points, no plug-in change.
+- **Lengthen is a new tool, `autocad_lengthen`**, not a mode of `autocad_trim_extend`. AutoCAD has LENGTHEN as
+  its own command, a draftsman asks for it by that name, and trim and extend are "to a boundary" while this is
+  "by a number". `mode` is `delta` (add, a negative value shortens), `total` (the whole object this long) or
+  `percent` (100 changes nothing). One end changes: the one nearer `points`, else `end` (`end` or `start`).
+  Level CHANGE, as `autocad_edit_vertex`. It keeps the object's handle, so it is not a replace job (no erase,
+  no D-136 question). AutoCAD's LENGTHEN **DYnamic** and **Total angle** are not built: the first needs a
+  mouse, the second is the same as Total for an arc.
+- **How the end moves.** A straight end runs on along its own line, an arc end round its own circle and never
+  to a full circle (refused, with the most it can grow). A shorter object is cut back along its own shape over
+  as many segments as it takes, arcs kept as arcs. A closed polyline, a circle and a change that would leave
+  nothing are refused; a locked layer and a sloping or tilted object as in D-78.
+- **`autocad_fillet_chamfer` takes two objects of any mix of line, arc and open polyline.** Two lines still use
+  the older two-line maths (their answers are unchanged). Anything else goes through one general rule: the
+  two curves are met as if they ran on (a line for ever, an arc round its circle), as FILLET does with TRIM on;
+  each keeps the part on one side of the corner and the other end is trimmed or extended to the tangent
+  point. The fillet circle is the one tangent to both on the kept parts whose tangent points are nearest the
+  corner; it is the short arc between them. When two curves meet twice, the corner is the one nearest the
+  points to keep (`keep_points`, or a polyline's own body); without them it is the one that needs the least
+  running on, and `note` says where the other one is.
+- **A polyline gives its end segment.** The end of each open polyline that makes the nearer corner is used
+  (its other vertices stay), and it stays one polyline, with the arc as a bulge only where the polyline
+  already had one. The new fillet arc is a separate arc with the first object's look, as for two lines (D-78).
+  Joining the two polylines into one, as AutoCAD may do, is not done here: join them afterwards with
+  `autocad_join_curves`.
+- **Chamfer to an arc is Heron's own rule.** AutoCAD's CHAMFER takes straight objects only (lines, polylines,
+  rays, xlines; not checked in AutoCAD here), so a chamfer with an arc has no AutoCAD behaviour to copy. The
+  distance is measured **along the curve** from the corner (round the arc), the chamfer line joins the two
+  points, and the angle method is refused with an arc or a polyline. Two lines are unchanged.
+- **Still not done:** a circle in a fillet (AutoCAD fillets a circle without trimming it), blend curves
+  (not in #154), and a fillet between two curves that never meet even run on.
+
+## D-143 - A plug-in job that touched nothing is aborted; the geographic location joins the transaction or is taken off; tiled viewports stay a View job
+
+**Decided:** 2026-11-23, by session S15 of the 2026-11-23 wave, on issues
+[#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258) and
+[#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80) (the idea of Heron for Revit's D-160; no files
+copied). **Status:** in force; tested offline only, live rows AQ15-AQ17 NOT RUN.
+
+- **No empty undo step from the plug-in (#80).** Where the job's undo pieces are: the server opens the group
+  (`StartUndoMark` / `EndUndoMark`, `core/registry.undo_mark`) and puts the `UNDO _Mark` down (D-18); the
+  plug-in opens no group, but each of its operations ends in a transaction `Commit` (`PluginRunner`), the one
+  piece the plug-in owns. Before, only a Read was aborted (D-34). Now every operation's transaction is watched
+  (`TransactionWatch`: AutoCAD's own events for an object opened for change, appended, modified, erased,
+  unappended or reappended, and a drawing or AutoCAD variable changed). One that touched none of those, and
+  left no work for after it (a sheet to put on screen, a regen, a clean-up), is **aborted**: with nothing
+  written, an abort leaves the same drawing a commit would, and it cannot leave an undo entry. Anything that
+  could be a change keeps the commit, as before: aborting a real change would lose the job, an empty step
+  costs one Ctrl+Z. The rule is `Bridge/OperationTransaction.cs`, tested offline.
+- **Not done, and why (the server's group).** An empty `StartUndoMark` / `EndUndoMark` pair, or a lone mark
+  with Ask to Keep on, may still leave an entry; whether AutoCAD keeps one is live row T7, unchanged. Taking it
+  out afterwards needs one more `UNDO`, which would undo the modeller's own work if AutoCAD kept nothing
+  ([05 §26](05-known-limits.md#26-a-job-that-changed-nothing-may-still-leave-an-undo-step)). Issue #80 closes with
+  the plug-in's part; the server's part waits for T7 in issue
+  [#263](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/263).
+- **GeoLocation inside the transaction (#258 a): real only on the failure path.** `GeoLocationData.PostToDb()`
+  then `tr.AddNewlyCreatedDBObject` is Autodesk's own documented order, and on success the location is in the
+  transaction and in the server's undo group, so the set is one Ctrl+Z (that part of the issue is not real by
+  the code; AQ15 checks it live). The real fault: when `AddNewlyCreatedDBObject` threw, the old code went on
+  with the location **outside** the transaction, left open for write, kept on success and erased by hand only
+  if a later check refused. Now `PostedObject.Post` either has it inside the transaction or takes it off at
+  once (`EraseFromDb`) and refuses ("Nothing was changed" is then true). If taking it off fails too, the answer
+  is a new `RunLeftBehind`: it says the location may still be there, and never "Nothing was changed". A post
+  that itself fails added nothing; the unused object is freed and AutoCAD's own error answers.
+- **Tiled viewports stay a View job (#258 b).** `autocad_tiled_viewports` deletes and adds viewport-table
+  records, but the `*Active` records are AutoCAD's own record of the screen: ZOOM, PAN and
+  `autocad_set_3d_view` write the same records, and those are View jobs too. The only other record is the named
+  configuration "Heron", Heron's own name (D-111). A View job keeps its own undo step, and both Undos already
+  count it as a step after the job (`views_since` in the gate, `ViewsSince` in the palette, D-54), so "undo the
+  last change" never undoes the split by mistake; a test now holds that. As a Change job it would need the
+  Changes padlock and a Keep question just to split the screen. No code changed for this; `core/risk.py` keeps it
+  under VIEW, as AQ7 intends. AQ16 checks the split's own undo step live.
+
+---
+
+## D-142 - The dialog watch's live rows open their box with AutoLISP's alert, not with OPEN, CLOSE or PURGE
+
+**Decided:** 2026-11-23, by session S21 of the 2026-11-23 wave, on the parent session's decision for issue
+[#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213). **Status:** in force; tested offline only
+(`tests/test_live_check_heron.py`), live rows V1, V4, V6 and V7 NOT RUN. Settles how D-66's watch is tested;
+it changes no rule of the watch.
+
+**The gap.** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed `_OPEN`, `_CLOSE` and `_PURGE` through
+`autocad_send_command`. All three are in `DIALOG_COMMANDS`, which Heron refuses before anything is sent, and
+`suppress_dialogs` would have set FILEDIA to 0 anyway. So no live row could make AutoCAD open a box during
+a Heron job.
+
+**The way in.** `autocad_run_lisp('(alert "Heron live check")')` with Admin on. AutoLISP's alert is a real
+modal box, opened in the middle of the job, and `autocad_run_lisp` is not refused for it. The watch's
+rule is unchanged (Cancel, else No, else Esc; never OK, never Yes): the alert has only OK, so it gets Esc.
+- **`DIALOG_COMMANDS` is not loosened.** OPEN, CLOSE and PURGE stay refused.
+- **V1** the box is closed and named in `heron_dialogs`, and the next call works without pressing Esc.
+  **V4** keeps its point (never Yes, the change stays, the drawing stays open) with a line drawn first; the
+  "Save changes?" box itself cannot be reached. **V6** reads the add-in log for exactly one
+  `dialog watch: '<title>' -> Esc` line and no error lines. **V7** reads the box's real title from V1's
+  answer, then `expect_box=<title>, press="OK"` (`autocad_run_lisp` takes both, #101) must say "as this call
+  asked", and a different title must still be closed by the watch. V7's Admin-off refusal is not measured by
+  the runner: it never moves a padlock (D-59).
+- **The title is read, never assumed.** What AutoCAD calls its alert box is not known from here.
+- **The runner** (`tools/live_check_heron.py`) measures these four rows; `live_common.addin_log_lines()` is
+  the one new helper (today's `addin-<UTC date>.log` in `%LOCALAPPDATA%\Heron\autocad\logs`). Each row has a
+  good and a bad recording offline, and extra tests hold the watch to "never OK or Yes".
+- **Not tested in AutoCAD.** If the live run shows the alert answered differently (a title that is empty, a
+  Cancel instead of Esc), that is a finding for D-66, not for this entry.
+
+---
+
+## D-141 - A sheet tab is read from TILEMODE and CTAB; a layout's scale is SetCustomScale; a whole-sheet preview brings its close-ups
+
+**Decided:** 2026-11-23, by session S16 of the 2026-11-23 wave, for issues
+[#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
+[#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40) and
+[#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41). **Status:** in force; extends D-90
+(sheets) and D-125 (the tab on screen), and supersedes D-102's "the default preview stays one
+picture" for a whole sheet only. Root-caused by reading the code; no AutoCAD here. Tested offline
+only (`tests/test_sheet_tab_bugs.py`, `tests/test_preview_extents.py`); live rows D8, D20, D33 and
+AM7 NOT RUN.
+
+- **#40, found:** the COM page setup of a new sheet (`_set_page`, also `autocad_page_setup`) set
+  `layout.CustomScale`. A layout has no such property; only a viewport has. Autodesk's ActiveX
+  reference sets a layout's scale with `SetCustomScale(paper, drawing)`. pywin32 answers a property
+  it cannot set with `Property 'Item.CustomScale' can not be set.`, which `errors.is_dispatch_failure`
+  reads as a busy AutoCAD; once the layout was added that is "Outcome unknown: AutoCAD went busy",
+  every call, also with `activate=false`, after the plotter and A1 were written: exactly row D8. The
+  next line, `CenterPlot = True` on a layout plot, is refused by AutoCAD too (seen live in row D20).
+  Now: `set_custom_scale` (tools/document.py) for the sheet and for the PDF export; centring is not
+  asked of a layout plot (the answer says `centred: false` and why), and a refused centring is a note,
+  not a stop. The plot style table, written after both, now gets there. The plug-in route (D-90) did
+  neither and is unchanged. `is_dispatch_failure` is left as it is: it is shared by every tool, and a
+  busy AutoCAD does give that same message.
+- **#39, made robust (cause not certain):** the 2026-10-28 code read `doc.PaperSpace`, which threw
+  on a sheet tab; D-90 already fell back to the layout's block. What is new: the space and the tab in
+  `autocad_status` come from **TILEMODE and CTAB** first, AutoCAD's own variables, not COM's
+  ActiveSpace / ActiveLayout, which lagged the tab on 2026-11-22 (D-125). A sheet tab is `"paper"`
+  even with its viewport active, which is said as `viewport_active: true`. `get_space(doc, "paper")`
+  and the paper count use the block of the sheet CTAB names whenever COM's ActiveLayout names another
+  tab, or `doc.PaperSpace` throws. The window caption, version and drawing name are named in
+  `unreadable` instead of failing. And the gate's first look at AutoCAD ran outside every tool's error
+  handler, so a COM error there came out as a bare "Exception occurred": it is now an AutocadError,
+  which status answers through and other tools refuse in words.
+- **#41, made robust (cause not certain):** a picture of a whole sheet has too few pixels for its
+  text (D-102's most likely cause); windows over its parts showed everything live. So with `detail`
+  left out, an extents preview whose box is a **sheet** (A0-A2, ANSI D-E, ARCH D-E1, or its frame up
+  to about 11 % smaller, at 1:1 or a common drawing scale up to 1:1000) and whose TEXTSIZE is smaller
+  than the text the picture can read gets the four close-ups by itself, with `detail_added` saying
+  why. `detail=1` keeps one picture. A drawing that is not a sheet, a sheet whose text reads, a
+  window and the current view are unchanged, so most previews stay one picture. Not done: measuring
+  the extents afresh. D-102 trusted a regen to refresh EXTMIN/EXTMAX, but Autodesk says they shrink
+  only on ZOOM All / Extents; the plug-in's `entity_extents` cannot filter by space yet (its filter
+  takes type, layer, block and colour only), so that is left (row AM4 says whether it matters).
+
+---
+
+## D-140 - A sequence with a replace step, and four more write-then-erase tools, get the whole-change question
+
+**Decided:** 2026-11-23, by session S14 of the 2026-11-23 wave ("Yes, next 10"), on issue
+[#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), found by S10 under D-136. Applies Ajmal's
+D-136 choice ("Undo the whole change"); no new question to him. **Status:** in force; tested offline only
+(`tests/test_gate.py`, `tests/test_sequence.py`, `tests/test_saved_and_release.py`), live rows NOT RUN
+(NEEDS-CHECKING Group BG). Extends D-136, so D-50's erase question changes for these calls only.
+
+**The gap.** D-136's gate knew a replace job by the tool's own name. `autocad_sequence` (and
+`autocad_saved_command`, which runs one) calls each step's body directly inside one job named after the
+sequence, so a join, explode, trim or break run as a step got no mark (Ask to Keep off) and D-50's
+"Bring them back", which leaves both shapes on top of each other.
+
+**The rule now.**
+- **The gate is told the call's arguments.** `tool_errors` binds them with their defaults and passes them
+  to `guarded(args=...)`. `gate.replacing(tool, args)` names the tool in the call that replaces objects,
+  or None.
+- **Steps.** A tool that runs others registers a step reader in `gate.STEPS_OF`: `sequence.steps_of`
+  (the steps, checked by `plan_steps`, each with its tool's defaults) and `saved_commands.steps_of` (a
+  `run`, the saved steps with the inputs filled). A sequence with any replace step is a replace job, as
+  the tool alone is: the mark first with Ask to Keep on or off, **refused before any step runs** when no
+  mark can be put down (the refusal names the step: "Run Several Tools In Order (its step Join ...)"),
+  and the erase question "Keep the change, or undo the whole change?", whose undo goes back to the mark,
+  so it takes back **the whole sequence**, the steps before the join too. Then the gate checks every
+  step's new objects are gone. A sequence's or saved command's check-only `dry_run`, and a step list the
+  tool will refuse anyway, are no replace job (nothing runs; the tool says what is wrong).
+- **Four tools checked (the issue's list), from the code:**
+  - `autocad_solid_boolean`: **added to `REPLACES`.** The first solid is changed in place to the union,
+    the cut or the shared part, and the others are erased. Bringing back only the others leaves them
+    inside a union, or in the hole they cut, and the first solid is not as it was.
+  - `autocad_associative_array`: **added.** The array object holds copies of the sources, which AutoCAD
+    takes in and erases; bringing them back leaves them on top of the array's first item.
+  - `autocad_make_block`: **added when `keep_originals` is false** (its default, `gate.REPLACES_WHEN`).
+    The objects are erased under the new insert; bringing them back doubles them. With
+    `keep_originals=true` nothing is erased and nothing changes.
+  - `autocad_add_region` (the outline tool, AP3): **added when `erase_outlines` is true**. Bringing back
+    the outlines leaves them on the regions' edges. The regions' handles (`"regions"`) now count as new
+    objects that undoing the whole change must take away (`gate._made`).
+- **Unchanged:** every other tool and every sequence without a replace step, word for word (tested).
+  The live-check runner still leaves AC1, AP3 and the AQ rows to an eye: the box now asks the
+  whole-change question, which the runner cannot answer either.
+
+---
+
 ## D-139 - A symbol-table name with a control character in it is refused before anything reaches COM
 
 **Decided:** 2026-11-23, by session S13 of the 2026-11-23 wave ("Yes, next 10"), on issue
@@ -72,6 +463,75 @@ would give one operation two row shapes, with S8's tests and parser pinned to th
 C# pieces are reused instead: `EntityReads.TryAttributes` (which `entity_texts` now calls too, its
 answer unchanged), `TextAttribute` (with `Invisible`, which `entity_texts` does not write) and
 `BlockReads.RealName`.
+
+## D-137 - The runner's seven suspected tool bugs, each settled: four fixed, three not bugs; a table record made and erased in one job is no erase
+
+**Decided:** 2026-11-23, by session S11 of the 2026-11-23 wave ("Yes, next 10"), on issues
+[#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218) (found by reading the code while the
+live-check runner was written) and [#254](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/254), and
+S13's follow-up in D-139. **Status:** in force; tested offline only (each fix has a test that failed
+before it), live rows NOT RUN (NEEDS-CHECKING Group BD). Refines D-50's count; D-83 and D-102 stand.
+
+**Fixed:**
+1. **A table record made and erased in one job is no erase** (the super hatch xref). `ChangeWatch` counts
+   only drawn objects as added, but any table record as erased. So a super hatch refused after it had
+   attached its xref (it detaches it again, `SuperHatch.Tile.Fail`) reported the xref's block record, and
+   any layers the xref brought, as erased, and the gate raised the keep-erased box for a job that failed;
+   "bring them back" would have un-erased a detached xref. Now `ChangeWatch` tells `JobChanges` of a table
+   record appended in the job (`RecordMade`); it is still not counted as added, but its erase in the same
+   job is "never made", as D-50 already said of a scratch object. A record made in an **earlier** job, or
+   one that was there before (a merge, a purge), is an erase exactly as before. The rule is in the Bridge
+   and tested; whether AutoCAD sends `ObjectAppended` for `AttachXref`'s record is BD1.
+4. **Preview close-ups of a window out of plan are skipped**, as D-102 said they are: `_plot_png` checked
+   the plan view only for `area='extents'`. A model-space window with `detail` 2 or 3 in a 3D view, a
+   turned UCS or a twisted view now gives the one picture and `detail_skipped` with the reason. A paper
+   layout's window is always flat and still splits.
+6. **A CSV's separator is read, not assumed.** `autocad_table_from_excel` read a semicolon CSV (a European
+   Excel) as one column. One helper, `acad/attribute_sheet.csv_delimiter`, now serves it and the attribute
+   sheet: comma, semicolon or tab, whichever the first line holding any has most of, outside quotes. The
+   attribute sheet used to count over the first 4 KB, where decimal commas below a semicolon header could
+   outvote it ("1,5;2,5"); Excel pads every row, a title too, with the same separators, so one line is
+   enough. A tie is a comma. Not changed: `layer_standard._delimiter` (it reads the header line already)
+   and `text_tools._read_rows` (`autocad_set_attributes(csv_path=...)`, comma only), issue
+   [#259](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/259).
+7. **`autocad_copy_from_drawing` no longer copies by handle unseen.** A handle is unique only inside one
+   drawing, and low handles overlap in nearly every pair of drawings, so a handle read in the active
+   drawing cannot be told from one read in the source: it is **not** refused or warned on by guessing.
+   Instead (a) a handle that names no drawn object in the source (a layer, a style, a block definition:
+   no `Layer` of its own) is refused before anything is copied, and (b) the answer and the dry run name each
+   source object's type and layer (`source_objects`, the first 50, `source_objects_left_out` for the rest),
+   so the chat can see a wrong object before or after the copy. A wrong handle that names a drawn object
+   in the source is still copied: this makes it visible, it does not detect it.
+- **S13's follow-up (D-139):** `autocad_super_hatch` validates `layer` with `validate_name` before anything
+  is sent, and sends the trimmed name.
+
+**Not bugs, with the reason (said on #218 too):**
+2. **`autocad_dimension_run(dim_style=...)` deleting a dimension that will not take the style** raises no
+   box: the dimension was appended in the same job, so its erase is "made and erased in the same job"
+   (`JobChanges.Erased`, test `A_scratch_object_made_and_erased_in_the_job_is_neither`). The only record
+   that could still have counted, its anonymous `*D` block, is covered by fix 1.
+3. **`autocad_update_table_links`' answer** was put right on 2026-11-22 (#191): the docstring now lists
+   `updated: [{handle, source}]` and `not_linked`, which is what `ExcelTables.Update` writes. One unreadable
+   workbook refusing the whole update is D-83's rule (one transaction, nothing half-updated), and the
+   docstring says so.
+5. **`draw_extra._flat_z` reading a line's ends, not its normal**, is right. A line is its two ends: equal
+   Z means level in world plan, whatever UCS drew it; its normal only sets the direction of a thickness.
+   Points and blocks are placed at world points along it. A line drawn up a tilted UCS's Y axis climbs and
+   is refused (AP10 tries that one). A pinning test marks a level line with a tilted normal.
+
+**#254, gate state between tests.** `gate._no_mark` (why the last `_mark()` put no mark down, for a
+Discard's words, #206) is set by the real `_mark()`; `test_answers` and `test_busy_refusals` call it, and
+the `env` fixture's fake `_mark` never clears it, so a later Discard said "AutoCAD was in a command". The
+fix is in the gate: `gate.reset()` (the fresh start the fixture and a server start use) forgets it too,
+and the test that set it puts it back.
+
+**Register rows reworded (#218):** AB5 (a restore lists on / frozen / locked only), AB7 and AC3 (the merge
+and the sync raise the erase box first), AH6 (looking -X the bend and riser are behind the plane; give
+the duct's `handles`), AH7 (3200 cuts the bend up, 600 x 565.7; the level legs' top face is AutoCAD's
+call; `handles`), AE2 (perspective may stay off after a switch from 2D Wireframe; the runner now restores
+the view by hand when PERSPECTIVE reads 0). The two AQ items added to #218 later (`GeoLocation.Change`,
+`autocad_tiled_viewports`) were not among the seven and moved to their own issue,
+[#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258).
 
 ## D-136 - A replace edit's erase question undoes the whole change; xref layers are never made current
 

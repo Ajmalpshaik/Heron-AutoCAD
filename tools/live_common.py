@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import sys
 from collections.abc import Awaitable, Callable
@@ -423,6 +424,28 @@ async def by_hand_line(start: list[float], end: list[float]) -> str:
     return await run(draw)
 
 
+async def by_hand_set(handle: str, name: str, value: Any) -> dict[str, Any]:
+    """Set one COM property straight on an object, as Heron's own code does, and time it (#270).
+
+    Answers ``{"error": "<type>: <words>" or None, "seconds": <how long>}``; never raises.
+    """
+    import time
+
+    from autocad_mcp.acad.entities import resolve_handle
+    from autocad_mcp.core.connection import get_doc, run
+
+    def write() -> None:
+        setattr(resolve_handle(get_doc(), handle), name, value)
+
+    started = time.monotonic()
+    try:
+        await run(write)
+        error = None
+    except BaseException as exc:  # noqa: BLE001 - the answer is what the row measures
+        error = f"{type(exc).__name__}: {exc}"
+    return {"error": error, "seconds": round(time.monotonic() - started, 2)}
+
+
 async def by_hand_group(handles: list[str], name: str) -> str:
     """A group made as the modeller makes one with GROUP (name '*' for an unnamed one), not through Heron."""
     from autocad_mcp.core.connection import get_doc, run
@@ -481,6 +504,18 @@ def files_in(folder: Path, pattern: str = "*") -> list[str]:
     """The names of the files in a folder that match a pattern, sorted; [] when there is no folder."""
     try:
         return sorted(p.name for p in Path(folder).glob(pattern) if p.is_file())
+    except OSError:
+        return []
+
+
+def addin_log_lines() -> list[str]:
+    """Today's lines of the plug-in's own log (``%LOCALAPPDATA%\\Heron\\autocad\\logs``, named by the UTC date); [] when there is none."""
+    from datetime import datetime, timezone
+
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    name = f"addin-{datetime.now(timezone.utc):%Y%m%d}.log"
+    try:
+        return (Path(base) / "Heron" / "autocad" / "logs" / name).read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return []
 

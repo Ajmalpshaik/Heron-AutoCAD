@@ -85,7 +85,7 @@ Drawings stay on the PC that made them; none are in this repository.
 
 ## What it can do
 
-Heron has **199 tools**. The plain-words catalogue of every one, with what to ask in the chat, the
+Heron has **200 tools**. The plain-words catalogue of every one, with what to ask in the chat, the
 padlock it needs and whether it was ever checked in AutoCAD, is
 [docs/TOOL-CATALOGUE.md](docs/TOOL-CATALOGUE.md); the live list is always
 `.venv\Scripts\autocad-mcp.exe --list-tools`. Every tool has a level, and the level decides which

@@ -306,6 +306,12 @@ caught first). If a command was running when the error came, it is still cancell
   NOT RUN live (NEEDS-CHECKING AF1-AF11). The two places that pick the space themselves (the
   wipeout in `tools/drafting.py`, the dimension edits in `tools/dimensions_edit.py`) use the same
   fallback (#169).
+- **Since [D-141](DECISIONS.md) (#39, #40):** on a sheet tab `autocad_status` takes the space and the
+  tab from TILEMODE and CTAB, not COM's ActiveSpace / ActiveLayout (which can lag the tab, D-125);
+  `active_space` is `"paper"` on a sheet even with its viewport active (`viewport_active: true` then);
+  `space="paper"` draws on the sheet CTAB names. Over COM a sheet's scale is set with
+  `SetCustomScale` (a layout has no `CustomScale`; that was the "went busy" of row D8), and a layout
+  plot is not centred. All NOT RUN live (D8, D20, D33).
 - `create_material(replace=true)` with only `diffuse_rgb` kept the old texture image, which covers
   the colour; from plug-in **1.4.2** the image is cleared (K16, NOT RUN).
 
@@ -335,6 +341,12 @@ is off" after Discard). A few places still carry on through a refusal on purpose
 variables back, pressing Esc on the way to the real error, a redraw after the work, and the run-LISP
 waits. Each is named with its reason in `tests/test_busy_sweep.py`. NOT RUN live (NEEDS-CHECKING
 group AL).
+
+**A property AutoCAD will not set ([D-149](DECISIONS.md), #270).** pywin32 says "can not be set" for a
+busy AutoCAD and for a real refusal alike. The server asks the object again itself: no such property, or
+a value turned down, is answered at once as an error naming the property; busy is asked again. If AutoCAD
+is busy at the first try and free for the second ask, the set is simply done. A *read* of a property the
+object does not have is not changed. NOT RUN live (NEEDS-CHECKING AL8, AL9).
 
 **Which command AutoCAD is in ([D-77](DECISIONS.md), #47).** A busy answer's first line now names
 it ("it is still in the HATCH command"), from the plug-in's command tracker, with what the plug-in
@@ -366,7 +378,8 @@ Since [D-66](DECISIONS.md) the plug-in closes a modal box AutoCAD opens while a 
 Heron for Revit takes back a kept job that changed nothing, so its undo list gets no blank entry
 (its D-160). In AutoCAD this is only partly done ([D-62](DECISIONS.md), issue #80):
 - **Where an empty step could come from.** The plug-in opens no undo group of its own; reads leave
-  none at all ([D-34](DECISIONS.md)). The groups come from the server: each change tool opens one
+  none at all ([D-34](DECISIONS.md)), and since [D-143](DECISIONS.md) neither does any plug-in
+  operation that touched nothing: its transaction is aborted, not committed (live row AQ17). The groups come from the server: each change tool opens one
   (`StartUndoMark` / `EndUndoMark`) around its writes, and with Ask to Keep on, or for a dry run, the
   gate puts an `UNDO _Mark` down first ([D-18](DECISIONS.md)).
 - **Fixed.** The tools that most often have nothing to do now look first and write only what
@@ -377,7 +390,7 @@ Heron for Revit takes back a kept job that changed nothing, so its undo list get
 - **Not fixed.** Other change tools open their group before they know there is nothing to do, and
   with Ask to Keep on Heron's mark stays in the list for a job that wrote nothing. Whether AutoCAD
   keeps an entry for an empty group, or for a mark with nothing after it, is not known: it has not
-  been checked in AutoCAD (NEEDS-CHECKING T7).
+  been checked in AutoCAD (NEEDS-CHECKING T7). This is the part of #80 still open after D-143, now issue #263.
 - **Why it is not taken back afterwards.** Taking an entry out means one more `UNDO`. If AutoCAD
   kept no entry, that `UNDO` undoes the modeller's own last change instead. And the plug-in counts
   drawing objects only, so "counted nothing" is not proof: a layer or a variable may have changed.
@@ -466,7 +479,8 @@ From [D-78](DECISIONS.md) and [D-79](DECISIONS.md); all NOT RUN live (NEEDS-CHEC
 - **Stretch** moves a dimension, hatch, arc or anything else only when it lies wholly inside the
   window, and lists the rest. AutoCAD's STRETCH would move a dimension's points; Heron does not.
 - **Draw order** works in one space at a time; the screen may need a regen to show it.
-- **Groups:** an unnamed group (*A1) is listed but not made. No Lengthen tool yet ([#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154)).
+- **Groups:** an unnamed group (*A1) is listed but not made.
+- **Lengthen and a fillet with an arc** ([D-144](DECISIONS.md), group BH): AutoCAD's LENGTHEN DYnamic and Total-angle options are not built; a fillet takes a line, an arc or an open polyline's end, not a circle; a chamfer to an arc is measured along the arc (AutoCAD's CHAMFER takes no arc) and refuses the angle method; the fillet between two polylines is a separate arc, the polylines are not joined. None of it is proven in AutoCAD yet.
 - None of it is proven in AutoCAD yet ([NEEDS-CHECKING group AA](NEEDS-CHECKING.md)).
 
 ## 30. Files read with AutoCAD closed, the reference standard, and shared check lists
@@ -582,14 +596,20 @@ From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NE
 
 ## 35. Overkill, boundary, eTransmit, underlays and clips have their own limits
 
-From issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md)); all NOT RUN
+From issues #112, #104, #118, #114 and #159 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-146](DECISIONS.md)); all NOT RUN
 live (NEEDS-CHECKING group AD). The plug-in parts (underlays, xref and underlay clips, boundary,
 eTransmit's file list) need the plug-in **newer than 1.7.0**; an older one answers that it does not
 have the operation, and nothing is sent.
 
-- **`autocad_overkill` never breaks or changes a polyline.** A polyline is erased only when it is
-  an exact copy of another (either direction, any start corner); overlaps on polylines, a polyline
-  doubling back on itself, and a loose line lying only partly on one are listed under `left`.
+- **`autocad_overkill` never breaks a polyline.** A polyline is erased only when it is
+  an exact copy of another (either direction, any start corner); overlaps between polylines, and a
+  loose line lying only partly on one, are listed under `left`. A polyline doubling back on itself is
+  listed too, unless `tidy_polylines=true` is given ([D-146](DECISIONS.md), row AD13): then a
+  doubled stretch at its end, or a zig-zag along one line or circle between two of its corners, and
+  zero-length segments go, by dropping vertices it already has (none moved or added). A spike or a
+  doubled stretch part way along stays (one polyline cannot draw it any other way), and so does an
+  old-style 2D polyline, one whose width changes along it, and one segment lying over another far
+  away in the same polyline.
   Widths are not compared. Only lines, arcs, circles and polylines lying flat in plan (normal +Z)
   are looked at; a line with its ends at two heights, a curve-fit or spline-fit 2D polyline, and
   anything else are counted as skipped. Arcs that together go all the way round are left (one arc

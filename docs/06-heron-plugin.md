@@ -23,7 +23,7 @@ Tab **Heron**, panel **AI Bridge**: two buttons, the same layout and icons as He
 | **Admin** | Allows any command, AutoLISP, system variables, purge, audit (needs Changes) | `HERONADMIN` |
 | **Publish** | Allows save, Save As, export and plot (needs Changes) | `HERONPUBLISH` |
 | **Ask to Keep** | After each change, ask Keep or Discard. Its line says **Keeping the rest of this job** while a "keep the rest" answer holds | `HERONASKTOKEEP` |
-| **Ask before keeping erased objects** | The erase question ([D-50](DECISIONS.md), [D-123](DECISIONS.md)): after a job erases anything, ask **Bring them back** or **Keep them erased** (for join, explode, trim and break: **Undo the whole change** or **Keep the change**, [D-136](DECISIONS.md)). **ON at every AutoCAD start.** Off, what a job erases stays erased with no box, and the chat's answer says it was kept without asking | `HERONASKERASE` |
+| **Ask before keeping erased objects** | The erase question ([D-50](DECISIONS.md), [D-123](DECISIONS.md)): after a job erases anything, ask **Bring them back** or **Keep them erased** (for join, explode, trim, break and the other tools that replace objects, and a sequence holding one: **Undo the whole change** or **Keep the change**, [D-136](DECISIONS.md), [D-140](DECISIONS.md)). **ON at every AutoCAD start.** Off, what a job erases stays erased with no box, and the chat's answer says it was kept without asking | `HERONASKERASE` |
 
 - AutoCAD starts **disconnected** every time; only your press of **Heron** connects it
   ([D-73](DECISIONS.md)). Until you
@@ -210,6 +210,9 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `super_hatch` | `autocad_super_hatch` | a block of tiles, one reference, a spatial filter (XCLIP) |
 | `layer_state_names` (Read) | `autocad_list_layers`, `autocad_isolate_layers` | `LayerStateManager.GetLayerStateNames`, its mask and description ([D-81](DECISIONS.md)) |
 | `layer_state` | `autocad_layer_states`, `autocad_isolate_layers` | `LayerStateManager.SaveLayerState` / `RestoreLayerState` / `DeleteLayerState` |
+| `layer_objects` (Read) | `autocad_merge_layers` (#199) | `Editor.SelectAll` with each old layer's filter, every `BlockTableRecord` but layouts and xrefs, every block reference's `AttributeCollection`: each object on an old layer as handle, layer and place; `unsure` for an attribute whose definition defines none ([D-147](DECISIONS.md)) |
+| `merge_layers` | `autocad_merge_layers` (#199) | One transaction: `Database.Clayer` to the new layer if an old one was current, old layers unlocked, each planned object's `LayerId`, then `Database.Purge` and `Erase` for each old layer nothing uses, the rest locked again. One object that will not move aborts all of it ([D-147](DECISIONS.md)) |
+| `write_attributes` | `autocad_set_attributes`, `autocad_apply_attribute_sheet` (#200) | One transaction: each planned [handle, tag, text] sets every attribute with that tag on that block reference (`AttributeReference.TextString`, then `AdjustAlignment` for text that is not left-aligned). A block gone, a tag gone or an attribute AutoCAD will not take aborts all of it; a multiline, constant or field attribute hands every cell back to COM ([D-148](DECISIONS.md)) |
 | `dimension_lines` (Read) | `autocad_space_dimensions` | `RotatedDimension` / `AlignedDimension`: direction and `DimLinePoint` ([D-80](DECISIONS.md)) |
 | `move_dimension_lines` | `autocad_space_dimensions` | `DimLinePoint`, then `RecomputeDimensionBlock` |
 | `annotation_scales` (Read) | `autocad_list_annotation_scales` | the `ACDB_ANNOTATIONSCALES` collection, `Database.Cannoscale`, `DBObject.HasContext` |
@@ -226,7 +229,8 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `block_definitions` (Read) | `autocad_list_blocks` (#194) | Each named `BlockTableRecord`: items, `IsFromExternalReference` and `PathName`, `IsDynamicBlock`, attribute tags; with `counts`, the references per real name ([D-127](DECISIONS.md)) |
 | `entity_lengths` (Read) | `autocad_total_length`, `autocad_measure(layer=...)` (#195) | `Editor.SelectAll` with COM's filter (and only the `classes` asked for); each object's class, layer, `Line` / `Polyline` / `Polyline2d` / `Polyline3d` / `Arc.Length`, `Circle.Circumference`, `Curve` / `Hatch` / `Region.Area`, the closed flag, a spline's `NurbsData` and an ellipse's radii and parameters. The server keeps only what COM gives for each class ([D-134](DECISIONS.md)) |
 | `entity_texts` (Read) | `autocad_count_text`, `autocad_find_text` (#197) | `Editor.SelectAll` once per filter in `filters`; each `DBText.TextString` / `MText.Contents` (formatting codes left in), `Position` / `Location`, a block reference's `Name` and its `AttributeCollection` in order, each attribute's tag, text and multiline / constant flags ([D-134](DECISIONS.md)) |
-| `block_attributes` (Read) | `autocad_extract_attributes`, `autocad_export_attribute_sheet`, the reads of `autocad_set_attributes` and `autocad_apply_attribute_sheet` (#198) | `Editor.SelectAll` with COM's INSERT filter; every block reference's handle, `Name`, real name (`DynamicBlockTableRecord`, as COM's EffectiveName), layer, `Position`, the `Layout.LayoutName` of its owner, its definition's `HasAttributeDefinitions` and its `AttributeCollection` in order, each attribute's tag, text and invisible / constant / multiline flags. Asked inside a Change or Publish job too; the writes stay COM's ([D-138](DECISIONS.md)) |
+| `block_attributes` (Read) | `autocad_extract_attributes`, `autocad_export_attribute_sheet`, the reads of `autocad_set_attributes` and `autocad_apply_attribute_sheet` (#198) | `Editor.SelectAll` with COM's INSERT filter; every block reference's handle, `Name`, real name (`DynamicBlockTableRecord`, as COM's EffectiveName), layer, `Position`, the `Layout.LayoutName` of its owner, its definition's `HasAttributeDefinitions` and its `AttributeCollection` in order, each attribute's tag, text and invisible / constant / multiline flags. Asked inside a Change or Publish job too; the writes are `write_attributes`, or COM for an older plug-in ([D-138](DECISIONS.md), [D-148](DECISIONS.md)) |
+| `entity_properties` (Read) | `autocad_check_standards`' entity rules (#196) | `Editor.SelectAll` of all of the drawing, up to `limit` objects (the rest counted, not opened, as `total`); each object's handle, class, layer, colour as COM's Color number (null for a true colour or a colour book), `Linetype`, and for a class whose name holds `box_classes`, the x and y of its `GeometricExtents`. The rules stay in the server ([D-145](DECISIONS.md)) |
 | `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
 | `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |
 | `attach_underlay` | `autocad_attach_underlay` (PDF, DWF, DGN) | `PdfDefinition` / `DwfDefinition` / `DgnDefinition` in the drawing's dictionary, loaded, and a `PdfReference` / `DwfReference` / `DgnReference` ([D-84](DECISIONS.md)) |
@@ -244,7 +248,8 @@ gives the same answer; a stop or "Outcome unknown" is said, not read again. `blo
 `block_definitions` came after 1.8.1 ([D-127](DECISIONS.md)): 1.8.0 and 1.8.1 say they do not have
 them, and the two block tools read over COM. `entity_lengths` and `entity_texts` came after 1.8.1 too
 ([D-134](DECISIONS.md)): the length and text tools read over COM with 1.8.0 and 1.8.1. So did
-`block_attributes` ([D-138](DECISIONS.md)): with 1.8.0 and 1.8.1 the four attribute tools read over COM. Which tools come next:
+`block_attributes` ([D-138](DECISIONS.md)): with 1.8.0 and 1.8.1 the four attribute tools read over COM. And
+`entity_properties` ([D-145](DECISIONS.md)): with 1.8.0 and 1.8.1 the standards check reads its objects over COM. Which tools come next:
 [13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
 
 ## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)
@@ -307,6 +312,11 @@ the box or no answer) or *Keep the change* ([D-136](DECISIONS.md)): bringing bac
 object would leave the old and the new shape on top of each other, so anything but Keep goes back to
 Heron's UNDO mark and the drawing is exactly as it was before the tool ran. These four always get
 the mark, and are refused before anything is sent when AutoCAD cannot take one (UNDO off).
+
+Since [D-140](DECISIONS.md) the same goes for a solid boolean (union, subtract, intersect), an
+associative array, a block made in place of its objects, and regions made with `erase_outlines`; and
+for `autocad_sequence` or a saved command with any of these among its steps, where Undo the whole
+change takes back the whole sequence.
 
 ## The plain line a change job answers with ([D-62](DECISIONS.md))
 

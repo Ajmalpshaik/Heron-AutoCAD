@@ -21,6 +21,11 @@ import pythoncom
 # the transient condition the HRESULT would have marked retryable. A genuine
 # Python AttributeError always reads "... has no attribute ...", which is what
 # separates the two.
+#
+# The set message also comes when the object simply has no such property, or
+# turns the value down: pywin32 drops the HRESULT either way. So the server asks
+# the object again itself (explain_set_failure, installed by core/connection.py)
+# and a real refusal becomes PropertyRefused, which is never retried (#270).
 _COM_MEMBER_PATH = re.compile(r"^[\w<>. ]+\.[A-Za-z_]\w*$")
 _COM_SET_FAILURE = re.compile(r"^Property '[^']+' can ?not be set\.?$")
 
@@ -46,6 +51,13 @@ BUSY_REFUSAL_HRESULTS = {
 # it says the call itself threw, which a "not there" fallback may rightly take.
 BUSY_HRESULTS = BUSY_REFUSAL_HRESULTS | {
     -2146777998,  # 0x800AC472 VBA_E_IGNORE - AutoCAD is in a modal dialog
+}
+
+
+# HRESULTs GetIDsOfNames gives for a name the object does not have (#270).
+NO_MEMBER_HRESULTS = {
+    -2147352570,  # 0x80020006 DISP_E_UNKNOWNNAME
+    -2147352573,  # 0x80020003 DISP_E_MEMBERNOTFOUND
 }
 
 
@@ -83,6 +95,35 @@ class OutcomeUnknown(AutocadError):
         super().__init__(message or self.DEFAULT)
 
 
+class PropertyRefused(AutocadError, AttributeError):
+    """AutoCAD answered that this object has no such property, or will not take the value (#270, D-149).
+
+    pywin32 gives both as "Property 'Item.CustomScale' can not be set.", the same
+    words a busy AutoCAD gives, so they used to be asked again for ten seconds and
+    end as "Outcome unknown: AutoCAD went busy" (#40). This one AutoCAD answered:
+    it is a plain error at once, naming the property. It is still an
+    AttributeError, so code that reads a refused set as "not there" reads it so.
+    """
+
+    def __init__(self, owner: str, prop: str, reason: str | None = None) -> None:
+        self.owner = owner
+        self.prop = prop
+        self.reason = reason
+        if reason is None:
+            text = (
+                f"AutoCAD has no property '{prop}' on this object ({owner}), so it could not "
+                "be set. AutoCAD was not busy, so it was not asked again. This is a gap in "
+                "Heron: report it with this message."
+            )
+        else:
+            text = (
+                f"AutoCAD would not set '{prop}' on this object ({owner}): {reason}. AutoCAD "
+                "was not busy, so it was not asked again. Check the value, or set it by hand "
+                "in AutoCAD."
+            )
+        super().__init__(text)
+
+
 class StaleDispatchError(Exception):
     """The cached COM pointer stopped answering; retry with a fresh one.
 
@@ -117,6 +158,8 @@ def is_dispatch_failure(exc: BaseException) -> bool:
     """
     if isinstance(exc, StaleDispatchError):
         return True
+    if isinstance(exc, PropertyRefused):
+        return False  # AutoCAD answered: no such property, or not this value (#270)
     if hresult_of(exc) in DEAD_POINTER_HRESULTS:
         return True
     if isinstance(exc, AttributeError):
@@ -162,6 +205,42 @@ def is_busy(exc: BaseException) -> bool:
     tools rightly read that one as "not there".
     """
     return hresult_of(exc) in BUSY_HRESULTS or _says_busy(exc)
+
+
+def explain_set_failure(obj: object, prop: str, value: object, failure: AttributeError) -> None:
+    """Ask the object again why pywin32 could not set ``prop``, and say so (#270, D-149).
+
+    Called only with pywin32's "Property '<x>' can not be set." AttributeError,
+    which hides the HRESULT. The object is asked for the name's id, and when it
+    has one, to take the value once more (a property set twice to one value is
+    the same set):
+
+    - no such name: PropertyRefused naming the property;
+    - the value turned down for another reason: PropertyRefused with AutoCAD's words;
+    - busy, a dead pointer, or anything unclear: ``failure`` goes up as it is, so
+      the retry loop asks again, exactly as before;
+    - taken this time: returns, the set is done.
+    """
+    if not _COM_SET_FAILURE.match(str(failure).strip()):
+        raise failure
+    state = getattr(obj, "__dict__", {})
+    ole = state.get("_oleobj_")
+    owner = str(state.get("_username_") or "?")
+    if ole is None:
+        raise failure
+    try:
+        found = ole.GetIDsOfNames(prop)
+    except BaseException as exc:  # noqa: BLE001 - only a clear "no such name" changes the answer
+        if hresult_of(exc) in NO_MEMBER_HRESULTS and not is_retryable(exc):
+            raise PropertyRefused(owner, prop) from None
+        raise failure from None
+    dispid = found[0] if isinstance(found, (tuple, list)) else found
+    try:
+        ole.Invoke(dispid, 0, pythoncom.INVOKE_PROPERTYPUT, 0, value)
+    except BaseException as exc:  # noqa: BLE001 - only AutoCAD's own refusal changes the answer
+        if not isinstance(exc, pythoncom.com_error) or is_retryable(exc):
+            raise failure from None
+        raise PropertyRefused(owner, prop, com_message(exc)) from exc
 
 
 def raise_if_busy(exc: BaseException) -> None:

@@ -144,6 +144,41 @@ namespace Heron.AutoCAD.Addin
             return RunResult.Done(list.Write);
         }
 
+        /// <summary>
+        /// entity_properties (autocad_check_standards' entity rules, #196, D-143):
+        /// the first "limit" selected objects, each with what the server's COM
+        /// loop reads off it: Handle, ObjectName, Layer, Color, Linetype, and for
+        /// a class whose name holds "box_classes", the box GetBoundingBox gives.
+        /// The rules stay in the server; "total" says how many were selected.
+        /// </summary>
+        public static RunResult Properties(Document doc, Transaction tr, RunArgs args)
+        {
+            var list = new PropertyFactList((long)args.Number("limit", 0), args.Text("box_classes"));
+            foreach (var id in Select(doc, args))
+            {
+                if (!list.Take()) continue; // past the limit: counted, never opened
+                if (!(tr.GetObject(id, OpenMode.ForRead, false) is Entity entity))
+                    return RunResult.Failed("Heron could not read an object it selected. Nothing was changed.");
+                var objectClass = entity.GetRXClass().Name;
+                double[]? box = null;
+                if (list.WantsBox(objectClass))
+                {
+                    try
+                    {
+                        var extents = entity.GeometricExtents;
+                        box = new[] { extents.MinPoint.X, extents.MinPoint.Y, extents.MaxPoint.X, extents.MaxPoint.Y };
+                    }
+                    catch (AcException)
+                    {
+                        box = null; // no box: COM's GetBoundingBox fails too, and the loop leaves it out
+                    }
+                }
+                list.Add(new PropertyFact(entity.Handle.ToString(), objectClass, entity.Layer,
+                    PropertyFact.ComColor((int)entity.Color.ColorMethod, entity.ColorIndex), entity.Linetype, box));
+            }
+            return RunResult.Done(list.Write);
+        }
+
         /// <summary>What COM's Length (ArcLength, Circumference), Area and Closed would read, and a spline's or an ellipse's definition.</summary>
         private static CurveFact CurveFacts(Entity entity)
         {
@@ -252,7 +287,7 @@ namespace Heron.AutoCAD.Addin
         /// <summary>Everything in the drawing the filter matches, as ssget "X" (COM's acSelectionSetAll) takes it.</summary>
         internal static ObjectId[] Select(Document doc, RunArgs args) => Select(doc, EntityFilter.Parse(args.Element("filter")));
 
-        private static ObjectId[] Select(Document doc, IReadOnlyList<FilterPair> pairs)
+        internal static ObjectId[] Select(Document doc, IReadOnlyList<FilterPair> pairs)
         {
             var values = new List<TypedValue>();
             foreach (var pair in pairs)

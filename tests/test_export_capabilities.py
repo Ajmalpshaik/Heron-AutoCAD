@@ -163,11 +163,23 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
         assert reads["role"] == "when_there" and reads["operations"] == [operation], name
         assert "faster_from" not in reads, name
     # And the block attribute reads, the two writing tools' too: their writes stay COM's (D-138).
-    for name in ("autocad_extract_attributes", "autocad_export_attribute_sheet", "autocad_set_attributes",
-                 "autocad_apply_attribute_sheet"):
+    for name in ("autocad_extract_attributes", "autocad_export_attribute_sheet"):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == ["block_attributes"], name
         assert "faster_from" not in reads, name
+    # The two writing tools write through the plug-in too, in one transaction, when it is there (D-148).
+    for name in ("autocad_set_attributes", "autocad_apply_attribute_sheet"):
+        writes = by_name[name]["plugin"]
+        assert writes["role"] == "when_there" and writes["operations"] == ["block_attributes", "write_attributes"], name
+        assert writes["version_needed"] is None and "faster_from" not in writes, name
+    # And the standards check's object facts; its layers and the reference stay COM's (D-145).
+    standards = by_name["autocad_check_standards"]["plugin"]
+    assert standards["role"] == "when_there" and standards["operations"] == ["entity_properties"]
+    assert "faster_from" not in standards
+    # The layer merge reads and merges through the plug-in when it is there, COM otherwise (D-147).
+    merging = by_name["autocad_merge_layers"]["plugin"]
+    assert merging["role"] == "when_there" and merging["operations"] == ["layer_objects", "merge_layers"]
+    assert merging["version_needed"] is None and "faster_from" not in merging
     assert by_name["autocad_batch_draw"]["plugin"]["role"] == "when_there"  # quiet input when it is there
     assert by_name["autocad_sequence"]["plugin"]["runs_other_tools"] is True
     # A keyword's value is not an operation: saved commands have an action called "show".

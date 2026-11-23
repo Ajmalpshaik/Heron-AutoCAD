@@ -10,6 +10,7 @@ matching are plain functions, tested without AutoCAD.
 from __future__ import annotations
 
 import csv
+import io
 import os
 import re
 from collections.abc import Callable, Iterable, Iterator
@@ -18,6 +19,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from ..acad import geometry
+from ..acad.attribute_sheet import csv_delimiter
 from ..acad.curves import read_path
 from ..acad.entities import resolve_handle, resolve_handles
 from ..acad.selection import (
@@ -32,7 +34,7 @@ from ..core.connection import get_doc, get_space, require_idle, run
 from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, point_to_list
-from ._shared import LAYER_OPT, before_after, faster_read, point
+from ._shared import LAYER_OPT, before_after, faster_change, faster_read, point
 from .takeoff import NotTheSame, plugin_number
 
 Order = Literal["rows", "columns", "path", "given"]
@@ -165,12 +167,22 @@ def align_moves(boxes: dict[str, tuple[float, float, float, float]], mode: Align
 
 
 def _read_rows(csv_path: str) -> list[dict]:
+    """The rows of a CSV, as autocad_table_from_excel reads one (#259).
+
+    Comma, or the semicolon an Excel on a European PC writes (``csv_delimiter``);
+    UTF-8, or Excel's own cp1252 on a Western PC when the file is not UTF-8.
+    """
     path = os.path.expandvars(os.path.expanduser(csv_path.strip().strip('"')))
     try:
-        with open(path, encoding="utf-8-sig", newline="") as fh:
-            return list(csv.DictReader(fh))
+        with open(path, "rb") as fh:
+            content = fh.read()
     except OSError as exc:
         raise AutocadError(f"Could not read the CSV file {path}: {exc}") from exc
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("cp1252", errors="replace")
+    return list(csv.DictReader(io.StringIO(text, newline=""), delimiter=csv_delimiter(text)))
 
 
 # ---- AutoCAD side -----------------------------------------------------------
@@ -236,6 +248,39 @@ class ComRefs:
             return self[handle]
         except AutocadError:
             return default
+
+
+# The plug-in's words for "nothing was written: write these cells over COM" (AttributeWritePlan.UseCom).
+USE_COM = "Heron writes these over COM instead."
+
+
+def plugin_write_attributes(changes: list[dict[str, Any]], objects: Any) -> bool:
+    """The planned cells written by the plug-in in one transaction, all or none (#200, D-148); False: write them over COM.
+
+    Only after the plug-in read the blocks (``objects`` is then ComRefs): a
+    read over COM means a block or attribute the plug-in is not trusted for.
+    False, with nothing written, when the plug-in is older, does not have the
+    operation, or says one of the attributes is one it does not write yet
+    (multiline, constant, a field). Any other refusal is raised: the plug-in
+    wrote nothing, and the sheet is not then half-written over COM.
+    """
+    if not isinstance(objects, ComRefs) or not changes:
+        return False
+    sent = [[str(c["handle"]), str(c["tag"]), str(c["new"])] for c in changes]
+    try:
+        report = faster_change("write_attributes", {"changes": sent}, "Writing the attributes")
+    except AutocadError as exc:
+        if USE_COM in str(exc):
+            return False
+        raise
+    if report is None:
+        return False
+    if report.get("written") != len(sent):
+        raise AutocadError(
+            "Outcome unknown: Heron in AutoCAD wrote the attributes but its answer could not be read. Look at the "
+            "drawing (one Ctrl+Z takes the writes back) before trying again."
+        )
+    return True
 
 
 def _attribute_refs(doc: Any, block_name: str | None, layer: str | None) -> tuple[list[dict], Any]:
@@ -453,7 +498,7 @@ async def autocad_set_attributes(
     block_name: Annotated[str | None, Field(description="Only this block (real name), e.g. the title block. Default: every block with attributes.")] = None,
     values: Annotated[dict[str, str] | None, Field(description="{TAG: value} written to every matching block, e.g. {'REV': 'B'}.")] = None,
     rows: Annotated[list[dict[str, str]] | None, Field(description="Per-block values: one dict per block, with the 'key' column saying which block.")] = None,
-    csv_path: Annotated[str | None, Field(description="Or a CSV file holding the rows (first line = column names).")] = None,
+    csv_path: Annotated[str | None, Field(description="Or a CSV file holding the rows (first line = column names; comma or semicolon, as Excel saves it).")] = None,
     key: Annotated[str | None, Field(description="Column that picks the block: an attribute tag (e.g. 'SHEET_NO') or 'layout' for the layout name.")] = None,
     layer: Annotated[str | None, Field(description="Only blocks on this layer.")] = None,
     dry_run: Annotated[bool, Field(description="True: list the changes without making them.")] = False,
@@ -462,6 +507,8 @@ async def autocad_set_attributes(
 
     Same values for all, or one row per block from a list or CSV, matched by a
     tag or the layout name. Pairs with autocad_extract_attributes (read, edit, write back).
+    Through Heron's plug-in every change is written in one transaction: all of
+    it, or nothing if one block will not take it.
 
     Returns:
         JSON: {"changed": n, "changes": [{handle, block, layout, tag, old, new}], "unknown_tags", "unmatched_rows",
@@ -489,12 +536,14 @@ async def autocad_set_attributes(
             # Nothing differs: no write, so no empty undo step (D-62).
             return {"changed": 0, "dry_run": False, "blocks_read": len(refs), **plan, **before_after([])}
         with undo_mark(doc):
-            for change in plan["changes"]:
-                ref = objects[change["handle"]]
-                for att in ref.GetAttributes():
-                    if str(att.TagString) == change["tag"]:
-                        att.TextString = change["new"]
-                ref.Update()
+            # Through the plug-in every cell in one transaction (D-148); COM, a round trip per attribute, otherwise.
+            if not plugin_write_attributes(plan["changes"], objects):
+                for change in plan["changes"]:
+                    ref = objects[change["handle"]]
+                    for att in ref.GetAttributes():
+                        if str(att.TagString) == change["tag"]:
+                            att.TextString = change["new"]
+                    ref.Update()
         listed = [{"handle": c["handle"], "property": f"attribute {c['tag']}", "from": c["old"], "to": c["new"]}
                   for c in plan["changes"]]  # fmt: skip
         return {"changed": len(plan["changes"]), "blocks_read": len(refs), **plan, **before_after(listed)}

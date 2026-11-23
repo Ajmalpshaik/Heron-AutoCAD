@@ -289,3 +289,130 @@ class TestTheToleranceNeverChains:
         item = arc("A", 0, 0, 500, 0, 360)
         out = overkill.plan([item])
         assert out["erase"] == [] and out["skipped"][0]["handle"] == "A"
+
+
+class TestTidyPolylines:
+    """#159: a polyline going back over itself, rebuilt from its own vertices."""
+
+    def tidy(self, *items, **options):
+        return overkill.plan(list(items), tidy_polylines=True, **options)
+
+    def rebuilt(self, out):
+        return {row["handle"]: row for row in out["rebuild"]}
+
+    def test_nothing_is_rebuilt_unless_asked(self):
+        out = overkill.plan([pline("A", [[0, 0], [1000, 0], [400, 0]])])
+        assert out["rebuild"] == [] and "doubles back" in out["left"][0]["why"]
+
+    def test_a_tail_going_back_along_the_last_segment_goes(self):
+        out = self.tidy(pline("A", [[0, 500], [0, 0], [1000, 0], [400, 0]]))
+        row = self.rebuilt(out)["A"]
+        assert row["vertices"] == [[0, 500], [0, 0], [1000, 0]] and row["bulges"] == [0.0, 0.0]
+        assert [g["segment"] for g in row["segments_going"]] == [2] and row["new_segments"] == []
+        assert row["vertex_count_was"] == 4 and out["left"] == [] and out["erase"] == []
+
+    def test_a_head_going_back_moves_the_start_to_the_far_end(self):
+        row = self.rebuilt(self.tidy(pline("A", [[400, 0], [1000, 0], [0, 0], [0, 500]])))["A"]
+        assert row["vertices"] == [[1000, 0], [0, 0], [0, 500]]
+        assert [g["segment"] for g in row["segments_going"]] == [0]
+
+    def test_out_and_back_becomes_one_segment(self):
+        row = self.rebuilt(self.tidy(pline("A", [[0, 0], [1000, 0], [0, 0]])))["A"]
+        assert row["vertices"] == [[0, 0], [1000, 0]] and row["bulges"] == [0.0]
+
+    def test_a_zig_zag_along_one_line_between_two_corners_becomes_one_segment(self):
+        row = self.rebuilt(self.tidy(pline("A", [[0, 10], [0, 0], [10, 0], [5, 0], [15, 0], [15, 10]])))["A"]
+        assert row["vertices"] == [[0, 10], [0, 0], [15, 0], [15, 10]]
+        assert [g["segment"] for g in row["segments_going"]] == [1, 2, 3]
+        assert row["new_segments"] == [{"from": [0, 0], "to": [15, 0]}]
+
+    def test_only_vertices_it_had_are_used(self):
+        item = pline("A", [[0, 10], [0, 0], [10, 0], [5, 0], [15, 0], [15, 10]])
+        row = self.rebuilt(self.tidy(item))["A"]
+        assert all(v in item["vertices"] for v in row["vertices"])
+
+    def test_a_spike_part_way_along_is_left_with_why(self):
+        out = self.tidy(pline("A", [[0, 0], [10, 0], [10, 5], [10, 0], [20, 0]]))
+        assert out["rebuild"] == [] and len(out["left"]) == 1
+        assert "part way along" in out["left"][0]["why"]
+
+    def test_coming_in_from_the_middle_of_the_doubled_stretch_is_left(self):
+        out = self.tidy(pline("A", [[0, 0], [1000, 0], [400, 0], [400, 500]]))
+        assert out["rebuild"] == [] and "part way along" in out["left"][0]["why"]
+
+    def test_a_run_going_one_way_keeps_its_vertices(self):
+        out = self.tidy(pline("A", [[0, 0], [5, 0], [10, 0], [10, 10]]))
+        assert out["rebuild"] == [] and out["left"] == []
+
+    def test_a_rectangle_is_not_touched(self):
+        out = self.tidy(pline("A", [[0, 0], [10, 0], [10, 10], [0, 10]], closed=True))
+        assert out["rebuild"] == [] and out["left"] == []
+
+    def test_zero_length_segments_go(self):
+        row = self.rebuilt(self.tidy(pline("A", [[0, 0], [0, 0], [10, 0], [10, 10]])))["A"]
+        assert row["vertices"] == [[0, 0], [10, 0], [10, 10]]
+        assert row["segments_going"][0]["why"] == "zero length"
+
+    def test_a_closed_polyline_repeating_its_first_vertex_loses_the_repeat(self):
+        row = self.rebuilt(self.tidy(pline("A", [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]], closed=True)))["A"]
+        assert row["vertices"] == [[0, 0], [10, 0], [10, 10], [0, 10]] and row["closed"] is True
+
+    def test_a_doubled_stretch_across_a_closed_polylines_start(self):
+        row = self.rebuilt(self.tidy(pline("A", [[0, 3], [0, 0], [10, 0], [10, 10], [0, 10], [0, 0]], closed=True)))["A"]
+        # The start (0, 3) lay on the doubled stretch: the loop now starts at the next vertex kept.
+        assert row["vertices"] == [[0, 0], [10, 0], [10, 10], [0, 10]]
+        assert row["bulges"] == [0.0, 0.0, 0.0, 0.0]
+
+    def test_a_closed_polyline_folded_flat_is_left(self):
+        out = self.tidy(pline("A", [[0, 0], [10, 0]], closed=True))
+        assert out["rebuild"] == [] and "all on one line or circle" in out["left"][0]["why"]
+
+    def test_a_polyline_circle_of_two_arcs_is_not_touched(self):
+        out = self.tidy(pline("A", [[0, 0], [10, 0]], [1.0, 1.0], closed=True))
+        assert out["rebuild"] == [] and out["left"] == []
+
+    def test_an_arc_out_and_back_keeps_the_arc_it_keeps_exactly(self):
+        b = math.tan(math.radians(90) / 4)
+        row = self.rebuilt(self.tidy(pline("A", [[10, 0], [0, 10], [10, 0], [20, 0]], [b, -b, 0.0])))["A"]
+        assert row["vertices"] == [[0, 10], [10, 0], [20, 0]] and row["bulges"] == [-b, 0.0]
+
+    def test_arcs_zig_zagging_round_one_circle_become_one_arc(self):
+        # 0 -> 90 -> 45 -> 135 degrees round a circle of radius 10, then a line out.
+        pts = [[10 * math.cos(math.radians(a)), 10 * math.sin(math.radians(a))] for a in (0, 90, 45, 135)]
+        bulges = [math.tan(math.radians(90) / 4), math.tan(math.radians(-45) / 4), math.tan(math.radians(90) / 4), 0.0]
+        row = self.rebuilt(self.tidy(pline("A", [[20, 0]] + pts + [[0, 20]], [0.0] + bulges)))["A"]
+        assert row["vertices"] == [[20, 0], pts[0], pts[3], [0, 20]]
+        assert row["bulges"][1] == pytest.approx(math.tan(math.radians(135) / 4))
+
+    def test_arcs_going_all_the_way_round_are_left(self):
+        b = 1.0  # a half circle
+        out = self.tidy(pline("A", [[10, 0], [-10, 0], [10, 0], [-10, 0]], [b, b, -b]))
+        assert out["rebuild"] == [] and "all the way round" in out["left"][0]["why"]
+
+    def test_an_old_style_polyline_is_left_with_why(self):
+        item = pline("A", [[0, 0], [1000, 0], [400, 0]])
+        item["old_style"] = True
+        out = self.tidy(item)
+        assert out["rebuild"] == [] and len(out["left"]) == 1 and "old-style" in out["left"][0]["why"]
+
+    def test_a_polyline_whose_width_changes_is_left_with_why(self):
+        item = pline("A", [[0, 0], [1000, 0], [400, 0]])
+        item["width_varies"] = True
+        out = self.tidy(item)
+        assert out["rebuild"] == [] and "width changes" in out["left"][0]["why"]
+
+    def test_a_loose_line_on_the_doubled_stretch_still_goes(self):
+        out = self.tidy(pline("A", [[0, 0], [1000, 0], [400, 0]]), line("B", 600, 0, 900, 0))
+        assert set(erased(out)) == {"B"} and set(self.rebuilt(out)) == {"A"}
+
+    def test_a_copy_is_erased_not_rebuilt(self):
+        out = self.tidy(pline("A", [[0, 0], [1000, 0], [400, 0]]), pline("B", [[0, 0], [1000, 0], [400, 0]]))
+        assert set(erased(out)) == {"B"} and set(self.rebuilt(out)) == {"A"}
+
+    def test_two_polylines_overlapping_each_other_are_still_left(self):
+        out = self.tidy(pline("A", [[0, 0], [1000, 0]]), pline("B", [[500, 0], [1500, 0]]))
+        assert out["rebuild"] == [] and "polylines overlap" in out["left"][0]["why"]
+
+    def test_noise_within_the_tolerance_still_counts(self):
+        row = self.rebuilt(self.tidy(pline("A", [[0, 0], [1000, 0.004], [400, -0.003]]), tolerance=0.01))["A"]
+        assert row["vertices"] == [[0, 0], [1000, 0.004]]

@@ -17,7 +17,7 @@ from pydantic import Field
 from ..acad import sheets as sheet_plan
 from ..acad.coords import advice as ucs_advice
 from ..acad.units import unit_name
-from ..core.connection import get_app, get_doc, run
+from ..core.connection import get_app, get_doc, run, sheet_on_screen
 from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, point_to_list
@@ -109,6 +109,20 @@ def _match_media(names: list[str] | tuple[str, ...], wanted: str, plotter: str =
             "'ISO full bleed A3 (420.00 x 297.00 MM)'."
         )
     return min(ranked)[3]
+
+
+def set_custom_scale(layout: Any, ratio: float) -> None:
+    """Give a layout (or page setup) a custom plot scale, as paper units per drawing unit.
+
+    A layout has no CustomScale property: that is a viewport's. Its scale is set
+    with SetCustomScale(paper, drawing), as Autodesk's ActiveX reference says.
+    Setting "CustomScale" on a layout is refused by pywin32 as "Property ... can
+    not be set", which reads as a busy AutoCAD, so every 1:1 sheet and PDF
+    ended in "Outcome unknown" (#40, rows D8 and D20).
+    """
+    ratio = float(ratio)
+    paper, drawing = (ratio, 1.0) if ratio >= 1.0 else (1.0, 1.0 / ratio)
+    layout.SetCustomScale(paper, drawing)
 
 
 def _snapshot_page_setup(doc: Any, layout: Any) -> Any:
@@ -204,7 +218,7 @@ def _plot_pdf(
             layout.StandardScale = AC_SCALE_TO_FIT
         else:
             layout.UseStandardScale = False
-            layout.CustomScale = sheet_plan.parse_typed_scale(scale)
+            set_custom_scale(layout, sheet_plan.parse_typed_scale(scale))
         if area != "layout":
             # A layout plot is the sheet itself: AutoCAD refuses to centre it.
             layout.CenterPlot = True
@@ -319,6 +333,54 @@ def _clear_text(box: Box, pixels: tuple[float, float]) -> float:
     return float(f"{CLEAR_TEXT_PX * per_pixel:.3g}")
 
 
+# Sheet sizes (long x short) in millimetres and in inches: ISO A0-A2, ANSI D-E, ARCH D-E1.
+_SHEETS_MM = ((1189.0, 841.0), (841.0, 594.0), (594.0, 420.0))
+_SHEETS_IN = ((34.0, 22.0), (44.0, 34.0), (36.0, 24.0), (42.0, 30.0), (48.0, 36.0))
+# The scales a sheet's frame is drawn at in model space, besides 1:1.
+_SHEET_SCALES = (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000)
+SHEET_FIT = 0.03
+
+
+def _is_sheet(box: Box) -> bool:
+    """True when the box is an A2-or-bigger sheet (or its frame) at 1:1 or a drawing scale.
+
+    The frame inside the margins counts too: up to about 11 % smaller than the paper.
+    """
+    long_side = max(box[1][0] - box[0][0], box[1][1] - box[0][1])
+    short_side = min(box[1][0] - box[0][0], box[1][1] - box[0][1])
+    for sheet_long, sheet_short in _SHEETS_MM + _SHEETS_IN:
+        for scale in _SHEET_SCALES:
+            fits_long = 0.92 - SHEET_FIT <= long_side / (sheet_long * scale) <= 1.0 + SHEET_FIT
+            fits_short = 0.92 - SHEET_FIT <= short_side / (sheet_short * scale) <= 1.0 + SHEET_FIT
+            if fits_long and fits_short:
+                return True
+    return False
+
+
+def _sheet_too_fine(doc: Any, box: Box, clear: float) -> str | None:
+    """Why a whole-sheet extents preview gets its close-ups by itself, or None (#41, D-141).
+
+    On 2026-10-28 an extents picture of an A1 sheet at 1:1 showed only its
+    frame, while windows over its parts showed everything. One picture of a
+    sheet that big has too few pixels for its text and thin lines, so the
+    close-ups (windows, the route that showed everything) come with it.
+    """
+    if not _is_sheet(box):
+        return None
+    try:
+        text_size = float(doc.GetVariable("TEXTSIZE"))
+    except BaseException as exc:  # noqa: BLE001 - not known: the picture alone, as before
+        raise_if_busy(exc)
+        return None
+    if not 0 < text_size < clear:
+        return None
+    return (
+        f"A whole sheet: text under about {clear:g} high does not read in one picture and this "
+        f"drawing's text size (TEXTSIZE) is {text_size:g}, so four close-ups were added. Pass "
+        "detail=1 for the one picture."
+    )
+
+
 def _detail_parts(box: Box, rows: int) -> list[tuple[str, list[float], list[float]]]:
     """Split a box into rows x rows overlapping windows, top left first."""
     (x0, y0), (x1, y1) = box
@@ -395,15 +457,19 @@ def _plot_png(
     corner1: Sequence[float] | None,
     corner2: Sequence[float] | None,
     width_px: int,
-    detail: int = 1,
+    detail: int | None = 1,
 ) -> dict[str, Any]:
     """Plot the active layout to a PNG through AutoCAD's own PNG plotter.
 
     Same order as _plot_pdf (plotter on the layout first, PlotToFile with the
     path alone) and the same restore, so a preview never changes the page setup.
     With detail 2 or 3 the same area is then plotted again as overlapping
-    windows (D-102), each beside target as <name>-<picture>.png.
+    windows (D-102), each beside target as <name>-<picture>.png. With detail
+    None (the tool's default) a whole sheet whose text cannot read in one
+    picture gets the four close-ups by itself (#41, D-141).
     """
+    auto = detail is None
+    detail = 1 if detail is None else detail
     layout, resynced = _on_screen_for_plot(doc)
     plot = doc.Plot
     background = doc.GetVariable("BACKGROUNDPLOT")
@@ -441,6 +507,10 @@ def _plot_png(
         elif area == "window":
             box = _box(corner1, corner2)
             why_not = None if box else "the window has no area"
+            if box and detail > 1 and bool(layout.ModelType) and not _plan_view(doc):
+                # The close-ups split the window in world X and Y; in a 3D view or a
+                # turned UCS those parts do not match the picture (D-102, #218).
+                why_not = "the screen is not a plan view of the world UCS"
         found = _PIXEL_MEDIA.search(str(layout.CanonicalMediaName))
         pixels = (float(found.group(1)), float(found.group(2))) if found else None
         if box:
@@ -455,9 +525,14 @@ def _plot_png(
             result["pixels"] = [int(pixels[0]), int(pixels[1])]
         if box and pixels:
             result["smallest_clear_text"] = _clear_text(box, pixels)
+            if auto and area == "extents" and why_not is None:
+                why = _sheet_too_fine(doc, box, result["smallest_clear_text"])
+                if why:
+                    detail = 2
+                    result["detail_added"] = why
         parts = []
         if detail > 1:
-            if box and pixels:
+            if box and pixels and why_not is None:
                 parts = _detail_parts(box, detail)
             else:
                 why_not = why_not or "the PNG plotter offers no size in pixels"
@@ -541,9 +616,17 @@ def _paper_space_count(doc: Any) -> int | None:
     ``doc.PaperSpace`` can throw a bare Automation error on a sheet AutoCAD has
     half set up (Luxury Suite 2, 2026-11-09: after a viewport hung on a sheet
     made with Layouts.Add), and one bad count used to sink the whole status
-    report (#39). The active layout's own block still answered, so that is
-    asked next, and last the Heron plug-in, which counts the sheet in .NET.
+    report (#39). The sheet on screen (CTAB) is counted from its own block
+    first, so COM's ActiveLayout lagging the tab (D-125) cannot give another
+    sheet's count; then doc.PaperSpace, then the active layout's block, and
+    last the Heron plug-in, which counts the sheet in .NET.
     """
+    try:
+        sheet = sheet_on_screen(doc)
+        if sheet is not None:
+            return int(sheet.Block.Count)
+    except BaseException as exc:  # noqa: BLE001 - doc.PaperSpace is asked next
+        raise_if_busy(exc)
     try:
         return int(doc.PaperSpace.Count)
     except BaseException as exc:  # noqa: BLE001 - see the docstring
@@ -560,7 +643,22 @@ def _paper_space_count(doc: Any) -> int | None:
 
 
 def _active_space(doc: Any) -> str:
-    """'model' or 'paper': ActiveSpace, else whether the active layout is the Model tab."""
+    """'model' or 'paper': the tab on screen first (TILEMODE, CTAB), then COM's ActiveSpace.
+
+    TILEMODE and CTAB are AutoCAD's own variables and answer on a sheet tab where
+    COM's ActiveSpace and ActiveLayout did not (#39) or lagged (D-125). A sheet
+    tab is "paper" even with a viewport made active on it: the tab is a sheet.
+    """
+    try:
+        return "model" if int(doc.GetVariable("TILEMODE")) == 1 else "paper"
+    except BaseException as exc:  # noqa: BLE001 - CTAB says it too
+        raise_if_busy(exc)
+    try:
+        tab = str(doc.GetVariable("CTAB") or "").strip()
+        if tab:
+            return "model" if tab.lower() == "model" else "paper"
+    except BaseException as exc:  # noqa: BLE001 - COM's own answer next
+        raise_if_busy(exc)
     try:
         return "model" if int(doc.ActiveSpace) == 1 else "paper"
     except BaseException as exc:  # noqa: BLE001 - the layout's name says it too
@@ -573,6 +671,26 @@ def _active_space(doc: Any) -> str:
         if report and "model" in report:
             return "model" if report["model"] else "paper"
         return "unknown"
+
+
+def _layout_name(doc: Any) -> str:
+    """The tab on screen: CTAB, else COM's ActiveLayout (which can lag it, D-125)."""
+    try:
+        tab = str(doc.GetVariable("CTAB") or "").strip()
+        if tab:
+            return tab
+    except BaseException as exc:  # noqa: BLE001 - COM's own answer next
+        raise_if_busy(exc)
+    return str(doc.ActiveLayout.Name)
+
+
+def _viewport_active(doc: Any) -> bool:
+    """True on a sheet tab whose viewport is active (MSPACE): CVPORT is then above 1."""
+    try:
+        return int(doc.GetVariable("TILEMODE")) == 0 and int(doc.GetVariable("CVPORT")) > 1
+    except BaseException as exc:  # noqa: BLE001 - not known to be in a viewport
+        raise_if_busy(exc)
+        return False
 
 
 def _status_field(unread: list[str], name: str, read: Any, default: Any = None) -> Any:
@@ -624,7 +742,8 @@ async def autocad_status(
             "path": str,               # full path, "" when never saved
             "saved": bool,             # false when unsaved changes exist
             "read_only": bool,
-            "active_space": str,       # "model" or "paper" ("unknown" if AutoCAD will not say)
+            "active_space": str,       # "model" or "paper": the tab on screen ("unknown" if AutoCAD will not say)
+            "viewport_active": bool,   # only on a sheet tab whose viewport is active (MSPACE)
             "active_layout": str,      # the tab on screen, e.g. "Model" or "E-101"
             "units": str,              # e.g. "millimeters"
             "ucs": {                   # the coordinate system the modeller is working in
@@ -654,10 +773,11 @@ async def autocad_status(
 
     def work() -> dict[str, Any]:
         app = get_app(launch_if_needed=launch_if_needed)
+        skipped: list[str] = []  # the window caption and version are extras, never the answer (#39)
         result: dict[str, Any] = {
             "connected": True,
-            "application": str(app.Caption)[:120],
-            "version": str(app.Version),
+            "application": _status_field(skipped, "application", lambda: str(app.Caption)[:120], ""),
+            "version": _status_field(skipped, "version", lambda: str(app.Version), ""),
             "open_drawings": int(app.Documents.Count),
         }
         if result["open_drawings"] == 0:
@@ -670,8 +790,8 @@ async def autocad_status(
 
         doc = app.ActiveDocument
         ucs = current_ucs(doc)
-        name = str(doc.Name)
-        unread: list[str] = []
+        unread: list[str] = list(skipped)
+        name = _status_field(unread, "name", lambda: str(doc.Name), "")
         full = _status_field(unread, "path", lambda: str(doc.FullName), "")
         result["active_drawing"] = {
             "name": name,
@@ -679,7 +799,7 @@ async def autocad_status(
             "saved": _status_field(unread, "saved", lambda: bool(doc.Saved)),
             "read_only": _status_field(unread, "read_only", lambda: bool(doc.ReadOnly)),
             "active_space": _active_space(doc),
-            "active_layout": _status_field(unread, "active_layout", lambda: str(doc.ActiveLayout.Name)),
+            "active_layout": _status_field(unread, "active_layout", lambda: _layout_name(doc)),
             "units": _units_of(doc),
             "ucs": ucs.describe(_ucs_name_of(doc) or None),
             "current_layer": _status_field(unread, "current_layer", lambda: str(doc.ActiveLayer.Name)),
@@ -688,6 +808,9 @@ async def autocad_status(
             "layer_count": _status_field(unread, "layer_count", lambda: int(doc.Layers.Count)),
             "block_definition_count": _status_field(unread, "block_definition_count", lambda: int(doc.Blocks.Count)),
         }
+        if result["active_drawing"]["active_space"] == "paper" and _viewport_active(doc):
+            # Drawing tools still draw in model space unless asked for space="paper".
+            result["active_drawing"]["viewport_active"] = True
         if unread:
             result["active_drawing"]["unreadable"] = unread
         # Coordinates here are always world ones. When the modeller has set a
@@ -1578,7 +1701,7 @@ async def autocad_preview(
         int, Field(ge=320, le=4000, description="Wanted image width in pixels.")
     ] = 1600,
     detail: Annotated[
-        int,
+        int | None,
         Field(
             ge=1,
             le=3,
@@ -1586,10 +1709,11 @@ async def autocad_preview(
                 "1 = one picture. 2 or 3 = also close-ups of the same area, "
                 "split 2 x 2 or 3 x 3 (area='extents' or 'window'): use it for "
                 "a full sheet, whose small text and thin lines cannot show in "
-                "one picture."
+                "one picture. Omit: one picture, or four close-ups as well when "
+                "the extents are a whole sheet whose text cannot read in one."
             ),
         ),
-    ] = 1,
+    ] = None,
 ) -> list | str:
     """See the drawing: plot it to a PNG and return the picture.
 
@@ -1602,13 +1726,17 @@ async def autocad_preview(
     lines do not show, though the heavy frame does (issue #41). The answer
     says the area plotted and the smallest text that reads
     (`smallest_clear_text`); `detail=2` adds four overlapping close-ups of
-    the same area, `detail=3` nine.
+    the same area, `detail=3` nine. With `detail` left out, an extents
+    preview of a whole sheet (A2 or bigger, at 1:1 or a drawing scale) whose
+    text cannot read in one picture gets the four close-ups by itself, and
+    `detail_added` says why; `detail=1` keeps it to one picture.
 
     Returns:
         The PNG image (then one per close-up, top left first), then JSON:
         {"area", "layout", "size", "pixels", "plotted": {"min", "max",
         "width", "height"}, "smallest_clear_text", "detail": [{"picture",
-        "part", "corner1", "corner2"}], "detail_smallest_clear_text", "tip"}.
+        "part", "corner1", "corner2"}], "detail_smallest_clear_text",
+        "detail_added", "tip"}.
         A `plotted` area much bigger than the sheet means something lies far
         off: find it with autocad_get_extents.
 
@@ -1622,7 +1750,7 @@ async def autocad_preview(
     """
     if area == "window" and (not corner1 or not corner2):
         raise AutocadError("area='window' needs both corner1 and corner2 as [x, y].")
-    if detail > 1 and area == "view":
+    if detail is not None and detail > 1 and area == "view":
         raise AutocadError(
             "detail works with area='extents' or area='window': the current "
             "view has no corners to split. Give the window's corners instead."
