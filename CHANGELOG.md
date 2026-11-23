@@ -4,6 +4,23 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A layer, style, block, view or other table name with a line break, tab or Esc in it is refused
+  (2026-11-23, [#249](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/249), [D-139](docs/DECISIONS.md)).**
+  `validate_name` now refuses any control character, on the name as given (before the ends are
+  stripped), with the same plain sentence D-133 uses for a view name. Every caller was read; none
+  needed a change. Tested offline only; live rows BF1-BF2 NOT RUN.
+- **Block attributes read by the plug-in in one go (2026-11-23, [#198](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/198),
+  [D-138](docs/DECISIONS.md)).** `autocad_extract_attributes`, `autocad_export_attribute_sheet` and the
+  reads of `autocad_set_attributes` and `autocad_apply_attribute_sheet` ask the plug-in's new Read
+  operation `block_attributes` instead of 7-9 COM round trips per block reference plus 2 per attribute.
+  The server reads the plug-in's facts with the same loop it reads COM with (real name, block name
+  matched without case, the layout each block is on, attributes in their own order). The writes stay
+  COM's: only the changed blocks are looked up, by handle (#200 moves the writes). COM stays the
+  fallback, with the same answer: plug-ins 1.8.0 and 1.8.1 do not have the operation, and a multiline or
+  constant attribute, or attributes that do not match the block's definition, on a block the tool would
+  read sends the whole read to COM. **Tested offline only** (`tests/test_plugin_attribute_reads.py` runs
+  all four tools both ways over one fake drawing and compares the text; `BlockAttributeFactsTests.cs`
+  the plug-in side). Live rows BE1-BE10 NOT RUN.
 - **Join, explode, and a trimmed or broken circle undo the whole change unless kept; isolating an xref
   layer; destructive flags; a busy width read (2026-11-23, [#208](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/208),
   [#212](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/212), [D-136](docs/DECISIONS.md)).**

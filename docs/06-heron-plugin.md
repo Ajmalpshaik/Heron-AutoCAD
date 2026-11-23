@@ -226,6 +226,7 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `block_definitions` (Read) | `autocad_list_blocks` (#194) | Each named `BlockTableRecord`: items, `IsFromExternalReference` and `PathName`, `IsDynamicBlock`, attribute tags; with `counts`, the references per real name ([D-127](DECISIONS.md)) |
 | `entity_lengths` (Read) | `autocad_total_length`, `autocad_measure(layer=...)` (#195) | `Editor.SelectAll` with COM's filter (and only the `classes` asked for); each object's class, layer, `Line` / `Polyline` / `Polyline2d` / `Polyline3d` / `Arc.Length`, `Circle.Circumference`, `Curve` / `Hatch` / `Region.Area`, the closed flag, a spline's `NurbsData` and an ellipse's radii and parameters. The server keeps only what COM gives for each class ([D-134](DECISIONS.md)) |
 | `entity_texts` (Read) | `autocad_count_text`, `autocad_find_text` (#197) | `Editor.SelectAll` once per filter in `filters`; each `DBText.TextString` / `MText.Contents` (formatting codes left in), `Position` / `Location`, a block reference's `Name` and its `AttributeCollection` in order, each attribute's tag, text and multiline / constant flags ([D-134](DECISIONS.md)) |
+| `block_attributes` (Read) | `autocad_extract_attributes`, `autocad_export_attribute_sheet`, the reads of `autocad_set_attributes` and `autocad_apply_attribute_sheet` (#198) | `Editor.SelectAll` with COM's INSERT filter; every block reference's handle, `Name`, real name (`DynamicBlockTableRecord`, as COM's EffectiveName), layer, `Position`, the `Layout.LayoutName` of its owner, its definition's `HasAttributeDefinitions` and its `AttributeCollection` in order, each attribute's tag, text and invisible / constant / multiline flags. Asked inside a Change or Publish job too; the writes stay COM's ([D-138](DECISIONS.md)) |
 | `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
 | `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |
 | `attach_underlay` | `autocad_attach_underlay` (PDF, DWF, DGN) | `PdfDefinition` / `DwfDefinition` / `DgnDefinition` in the drawing's dictionary, loaded, and a `PdfReference` / `DwfReference` / `DgnReference` ([D-84](DECISIONS.md)) |
@@ -242,7 +243,8 @@ object. With an older plug-in, or one that cannot do the read, the tool reads ov
 gives the same answer; a stop or "Outcome unknown" is said, not read again. `block_references` and
 `block_definitions` came after 1.8.1 ([D-127](DECISIONS.md)): 1.8.0 and 1.8.1 say they do not have
 them, and the two block tools read over COM. `entity_lengths` and `entity_texts` came after 1.8.1 too
-([D-134](DECISIONS.md)): the length and text tools read over COM with 1.8.0 and 1.8.1. Which tools come next:
+([D-134](DECISIONS.md)): the length and text tools read over COM with 1.8.0 and 1.8.1. So did
+`block_attributes` ([D-138](DECISIONS.md)): with 1.8.0 and 1.8.1 the four attribute tools read over COM. Which tools come next:
 [13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
 
 ## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)

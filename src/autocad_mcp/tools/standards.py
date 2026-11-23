@@ -41,6 +41,7 @@ from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
 from ..core.variants import point_to_list
 from . import layer_standard as layer_files
+from .text_tools import attribute_blocks, plugin_attribute_blocks
 
 KNOWN_RULES = {
     "layer_name_pattern",
@@ -497,30 +498,29 @@ async def autocad_extract_attributes(
     """
 
     def work() -> list[dict[str, Any]]:
-        doc = get_doc()
-        sel = select_filtered(doc, entity_type="insert", layer=layer)
-        rows: list[dict[str, Any]] = []
-        try:
-            for ref in iter_selection(sel):
-                try:
-                    if not ref.HasAttributes:
-                        continue
-                    name = str(getattr(ref, "EffectiveName", None) or ref.Name)
-                except BaseException as exc:  # noqa: BLE001 - not a block reference after all
-                    raise_if_busy(exc)
-                    continue
-                if block_name and name.lower() != block_name.lower():
-                    continue
-                rows.append({
+        def rows(entities: Any) -> list[dict[str, Any]]:
+            return [
+                {
                     "block": name,
                     "handle": str(ref.Handle),
                     "layer": str(ref.Layer),
                     "insertion": point_to_list(ref.InsertionPoint),
                     "attributes": read_attributes(ref),
-                })
+                }
+                for ref, name in attribute_blocks(entities, block_name)
+            ]
+
+        # Every block reference is read: the plug-in in one go, as the COM objects
+        # they stand for (D-138); COM, 7-9 round trips each, only for an older one.
+        blocks = plugin_attribute_blocks(block_name, layer)
+        if blocks is not None:
+            return rows(blocks)
+        doc = get_doc()
+        sel = select_filtered(doc, entity_type="insert", layer=layer)
+        try:
+            return rows(iter_selection(sel))
         finally:
             discard_selection_set(doc)
-        return rows
 
     rows = await run(work)
     if output == "csv":

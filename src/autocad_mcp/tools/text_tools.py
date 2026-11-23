@@ -12,7 +12,7 @@ from __future__ import annotations
 import csv
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Iterator
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
@@ -184,36 +184,180 @@ def _layout_of(doc: Any, entity: Any) -> str | None:
         return None
 
 
-def _attribute_refs(doc: Any, block_name: str | None, layer: str | None) -> tuple[list[dict], dict[str, Any]]:
+def _real_name(ref: Any) -> str:
+    """A block reference's real name, as the attribute tools take it: COM's EffectiveName, or its Name."""
+    return str(getattr(ref, "EffectiveName", None) or ref.Name)
+
+
+def attribute_blocks(entities: Iterable[Any], block_name: str | None) -> Iterator[tuple[Any, str]]:
+    """The block references with attributes, each with its real name; with block_name, only that block.
+
+    The one loop the four attribute tools read with, over COM objects or the
+    plug-in's stand-ins alike (D-138): a reference that will not say whether
+    it has attributes, or what it is called, is skipped, as over COM.
+    """
+    for ref in entities:
+        try:
+            if not ref.HasAttributes:
+                continue
+            name = _real_name(ref)
+        except BaseException as exc:  # noqa: BLE001
+            raise_if_busy(exc)
+            continue
+        if block_name and name.lower() != block_name.lower():
+            continue
+        yield ref, name
+
+
+def _attribute_row(ref: Any, name: str, layout_of: Callable[[Any], str | None]) -> dict[str, Any]:
+    attributes = {str(a.TagString): str(a.TextString) for a in ref.GetAttributes()}
+    return {"handle": str(ref.Handle), "block": name, "layout": layout_of(ref), "attributes": attributes}
+
+
+class ComRefs:
+    """The block references a write needs, looked up over COM by handle, each only when a change needs it.
+
+    After the plug-in read the attributes (D-138) the write half still writes
+    over COM, as before: objects[handle] raises as resolve_handle does, and
+    objects.get(handle) gives None for a handle that is gone.
+    """
+
+    def __init__(self, doc: Any) -> None:
+        self._doc = doc
+        self._found: dict[str, Any] = {}
+
+    def __getitem__(self, handle: str) -> Any:
+        if handle not in self._found:
+            self._found[handle] = resolve_handle(self._doc, handle)
+        return self._found[handle]
+
+    def get(self, handle: str, default: Any = None) -> Any:
+        try:
+            return self[handle]
+        except AutocadError:
+            return default
+
+
+def _attribute_refs(doc: Any, block_name: str | None, layer: str | None) -> tuple[list[dict], Any]:
+    # Every block reference is read: the plug-in in one go, as the COM objects
+    # they stand for (D-138); COM, 7-9 round trips each, only for an older one.
+    blocks = plugin_attribute_blocks(block_name, layer)
+    if blocks is not None:
+        refs = [_attribute_row(ref, name, lambda r: r.layout) for ref, name in attribute_blocks(blocks, block_name)]
+        return refs, ComRefs(doc)
     refs, objects = [], {}
     sel = select_filtered(doc, entity_type="insert", layer=layer)
     try:
-        for ref in iter_selection(sel):
-            try:
-                if not ref.HasAttributes:
-                    continue
-                name = str(getattr(ref, "EffectiveName", None) or ref.Name)
-            except BaseException as exc:  # noqa: BLE001
-                raise_if_busy(exc)
-                continue
-            if block_name and name.lower() != block_name.lower():
-                continue
-            attributes = {str(a.TagString): str(a.TextString) for a in ref.GetAttributes()}
-            refs.append({"handle": str(ref.Handle), "block": name, "layout": _layout_of(doc, ref), "attributes": attributes})
+        for ref, name in attribute_blocks(iter_selection(sel), block_name):
+            refs.append(_attribute_row(ref, name, lambda r: _layout_of(doc, r)))
             objects[str(ref.Handle)] = ref
     finally:
         discard_selection_set(doc)
     return refs, objects
 
 
+# ---- block attributes read by the plug-in in one go (#198, D-138) ----------------
+
+class PluginBlock:
+    """One block reference of the plug-in's block_attributes, as the COM object it stands for (D-138).
+
+    It has COM's Handle, Name (a changed dynamic block's *U name),
+    EffectiveName, Layer, InsertionPoint, HasAttributes and GetAttributes, each
+    attribute with TagString, TextString and Invisible; reading anything else
+    raises AttributeError, as COM does. So the attribute tools' own loop
+    (attribute_blocks) reads it with the code it reads COM with. ``layout`` is
+    what _layout_of reads over COM: the layout the reference is on, or None.
+    ``unsure`` names why it may not read the same as over COM; the whole read
+    then goes to COM if a tool would read this reference (plugin_attribute_blocks).
+    """
+
+    def __init__(self, row: Any) -> None:
+        if not isinstance(row, list) or len(row) != 8:
+            raise NotTheSame("a row of the wrong shape")
+        handle, name, effective, layer, point, layout, defines, attributes = row
+        if not all(isinstance(v, str) for v in (handle, name, layer)):
+            raise NotTheSame("a handle, name or layer that is not text")
+        if not isinstance(effective, str):
+            raise NotTheSame("a block whose real name the plug-in could not read")
+        if layout is not None and not isinstance(layout, str):
+            raise NotTheSame("a layout that is not text")
+        if not isinstance(point, list) or len(point) != 3:
+            raise NotTheSame("a block without its insertion point")
+        if not isinstance(defines, bool) or not isinstance(attributes, list):
+            raise NotTheSame("a block whose attributes the plug-in could not read")
+        found: list[PluginAttribute] = []
+        unsure: str | None = None
+        for item in attributes:
+            if not isinstance(item, list) or len(item) != 5:
+                raise NotTheSame("an attribute of the wrong shape")
+            tag, value, invisible, constant, multiline = item
+            if not isinstance(tag, str) or not isinstance(value, str):
+                raise NotTheSame("an attribute whose tag or text is not text")
+            if not all(isinstance(flag, bool) for flag in (invisible, constant, multiline)):
+                raise NotTheSame("an attribute without its flags")
+            if constant or multiline:
+                # Not yet shown to read the same as over COM (Groups BB and BE): COM reads the drawing.
+                unsure = "a multiline or constant attribute"
+            found.append(PluginAttribute(tag, value, invisible))
+        if bool(found) != defines:
+            # COM's HasAttributes may follow the definition or the reference: here they differ (Group BE).
+            unsure = unsure or "attributes on the reference that the definition does not match"
+        self._facts: dict[str, Any] = {
+            "Handle": handle,
+            "Name": name,
+            "EffectiveName": effective,
+            "Layer": layer,
+            "InsertionPoint": tuple(plugin_number(v) for v in point),
+            "HasAttributes": bool(found),
+        }
+        self._attributes = tuple(found)
+        self.layout: str | None = layout
+        self.unsure = unsure
+
+    def __getattr__(self, name: str) -> Any:
+        facts = self.__dict__.get("_facts", {})
+        if name in facts:
+            return facts[name]
+        raise AttributeError(name)
+
+    def GetAttributes(self) -> tuple[PluginAttribute, ...]:  # noqa: N802 - COM's name
+        return self._attributes
+
+
+def plugin_attribute_blocks(block_name: str | None, layer: str | None) -> list[PluginBlock] | None:
+    """Every block reference on the layer, read by the plug-in in one go (#198), in the order selected.
+
+    None: read them over COM, as when the plug-in is older, its answer is not
+    one this server reads as COM, or a reference the tool would read has an
+    attribute or a definition the plug-in's answer is not yet trusted for.
+    """
+    read = faster_read("block_attributes", {"filter": [[code, value] for code, value in filter_pairs("insert", layer)]})
+    if read is None:
+        return None
+    try:
+        rows = read["blocks"]
+        if not isinstance(rows, list):
+            raise NotTheSame("an answer without its blocks")
+        blocks = [PluginBlock(row) for row in rows]
+    except (TypeError, ValueError, KeyError):  # NotTheSame, or an answer of the wrong shape
+        return None
+    for block in blocks:
+        # A reference the loop skips by its name is never read, so it cannot differ.
+        if block.unsure and not (block_name and _real_name(block).lower() != block_name.lower()):
+            return None
+    return blocks
+
+
 # ---- texts read by the plug-in in one go (#197, D-134) --------------------------
 
 class PluginAttribute:
-    """One attribute of a block reference, as COM's GetAttributes gives it: TagString and TextString."""
+    """One attribute of a block reference, as COM's GetAttributes gives it: TagString, TextString (and Invisible, when sent)."""
 
-    def __init__(self, tag: str, text: str) -> None:
+    def __init__(self, tag: str, text: str, invisible: bool | None = None) -> None:
         self.TagString = tag
         self.TextString = text
+        if invisible is not None:
+            self.Invisible = invisible
 
 
 class PluginText:

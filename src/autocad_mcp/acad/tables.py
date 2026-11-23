@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
+from .lisp import refuse_control
 
 # Characters AutoCAD rejects in symbol-table names.
 INVALID_NAME_CHARS = set('<>/\\":;?*|,=`')
@@ -16,6 +17,8 @@ INVALID_NAME_CHARS = set('<>/\\":;?*|,=`')
 
 def validate_name(name: str, kind: str = "layer") -> str:
     """Reject names AutoCAD will not accept, before it raises a vague error."""
+    # Before the strip: strip() would drop a trailing newline or tab unseen (#249).
+    refuse_control(name, f"{kind} name")
     clean = name.strip()
     if not clean:
         raise AutocadError(f"A {kind} name cannot be empty.")

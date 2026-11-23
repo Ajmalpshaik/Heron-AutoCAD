@@ -2562,7 +2562,7 @@ A dimension style is built the way AutoCAD's own API requires: the DIM variables
 - The drawing's own DIM variables are put back even if a style fails.
 - The plug-in does part of the work (`multileader_style`, `table_style`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, AN1, AN3, AN5, AN7, AN13, AZ1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, BF2, AN1, AN3, AN5, AN7, AN13, AZ1).
 
 ### `autocad_find_replace_text`
 
@@ -3086,9 +3086,9 @@ Each row is matched to its block by the Handle column. A cell is written only wh
 - A file with no Handle column, a handle twice, or more than 10000 changes: refused, nothing written.
 - A row whose block is gone, or a value under a tag the block does not have: listed, the rest still applied.
 - A cell AutoCAD would not take (a locked layer): listed in 'failed'.
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y2, RV2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y2, BE5, RV2).
 
 ### `autocad_attach_underlay`
 
@@ -3325,9 +3325,9 @@ One row per block reference, one column per tag, with the block's handle, name a
 **Limits and versions.**
 - An unsaved drawing has no folder: it says to save it first.
 - No block with attributes: it says so and writes nothing.
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y1, RV2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y1, BE3, BE8, RV2).
 
 ### `autocad_extract_attributes`
 
@@ -3352,9 +3352,9 @@ Use for "make a camera schedule", "list all equipment tags", or to check tag val
 - Claude reads the answer back to you in words; nothing in the drawing changes.
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E19, S3).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows E19, BE1, BE2, BE6, BE7, BE8, BE9, BE10, S3).
 
 ### `autocad_get_dynamic_properties`
 
@@ -3638,9 +3638,9 @@ Same values for all, or one row per block from a list or CSV, matched by a tag o
 - Technical shape of the answer: `JSON: {"changed": n, "changes": [{handle, block, layout, tag, old, new}], "unknown_tags", "unmatched_rows", "before_after": the first 50 changes as {handle, property, from, to}}`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AZ4).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BE4, BE10, AZ4).
 
 ### `autocad_set_dynamic_properties`
 
@@ -3776,7 +3776,7 @@ Safe to call repeatedly: an existing layer is updated with whatever properties y
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q1, T2, T4, AL5).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q1, T2, T4, BF1, BF2, AL5).
 
 ### `autocad_create_linetype`
 
