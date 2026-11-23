@@ -168,6 +168,10 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == ["block_attributes"], name
         assert "faster_from" not in reads, name
+    # The layer merge reads and merges through the plug-in when it is there, COM otherwise (D-146).
+    merging = by_name["autocad_merge_layers"]["plugin"]
+    assert merging["role"] == "when_there" and merging["operations"] == ["layer_objects", "merge_layers"]
+    assert merging["version_needed"] is None and "faster_from" not in merging
     assert by_name["autocad_batch_draw"]["plugin"]["role"] == "when_there"  # quiet input when it is there
     assert by_name["autocad_sequence"]["plugin"]["runs_other_tools"] is True
     # A keyword's value is not an operation: saved commands have an action called "show".
