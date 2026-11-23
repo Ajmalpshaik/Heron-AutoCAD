@@ -24,6 +24,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
+from ..core import gate
 from ..core.errors import AutocadError
 from ..core.folders import heron_local
 from ..core.registry import dumps, mcp, tool_errors, tool_meta
@@ -134,6 +135,19 @@ def load(name: str) -> dict[str, Any]:
         raise AutocadError(
             f"There is no saved command called '{name}'." + (f" There are: {', '.join(names)}." if names else "")
         ) from None
+
+
+def steps_of(args: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """The steps a 'run' will run, inputs filled, for the gate: a replace step makes it a replace job (D-140)."""
+    name = args.get("name")
+    if args.get("action") != "run" or args.get("dry_run") or not name:
+        return []
+    record = load(name)
+    filled = fill(record["steps"], _values(record, args.get("inputs") or {}))
+    return sequence.steps_of({"steps": filled})
+
+
+gate.STEPS_OF["autocad_saved_command"] = steps_of
 
 
 @mcp.tool(name="autocad_saved_command", **tool_meta("Saved Commands"))

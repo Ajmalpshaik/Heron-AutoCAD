@@ -89,6 +89,24 @@ def test_a_saved_command_holds_the_changes_padlock_like_a_sequence():
     assert risk_of("autocad_saved_command") is Risk.CHANGE is risk_of("autocad_sequence")
 
 
+def test_running_a_saved_command_with_a_replace_step_is_a_replace_job():
+    # The gate reads the saved steps, inputs filled, as it reads a sequence's (D-140, #255).
+    from autocad_mcp.core import gate
+
+    join = {"tool": "autocad_join_curves", "args": {"handles": ["{{first}}", "{{second}}"]}}
+    spec = {"first": {"example": "1A"}, "second": {"example": "1B"}}
+    asyncio.run(saved_commands.autocad_saved_command(action="save", name="Close run", steps=[join], inputs=spec))
+    asyncio.run(saved_commands.autocad_saved_command(action="save", name="Plinth", steps=[BOX], inputs=INPUTS))
+    run = {"action": "run", "name": "close run", "inputs": {"first": "2A", "second": "2B"}, "dry_run": False}
+    assert gate.replacing("autocad_saved_command", run) == "autocad_join_curves"
+    assert gate.replacing("autocad_saved_command", {**run, "dry_run": True}) is None
+    assert gate.replacing("autocad_saved_command", {**run, "action": "show"}) is None
+    assert gate.replacing("autocad_saved_command", {**run, "name": "plinth", "inputs": {"width": 1, "depth": 1}}) is None
+    assert gate.replacing("autocad_saved_command", {**run, "name": "not there"}) is None
+    for name in ("Close run", "Plinth"):
+        asyncio.run(saved_commands.autocad_saved_command(action="delete", name=name))
+
+
 # ---------------------------------------------------------------------------
 # Installer and release
 # ---------------------------------------------------------------------------

@@ -19,11 +19,19 @@ no recursion either: a sequence cannot contain a sequence.
 Undo: each step keeps its own undo step, so Ctrl+Z backs them out one at a
 time — which is what a drafter wants when step four of five was wrong. With the
 **Ask to Keep** padlock on, Discard backs out the whole call at once.
+
+A step that replaces objects (a join, an explode, a trim or break of a circle,
+a solid boolean, an associative array, a block made in place, regions with
+their outlines erased) makes the whole sequence a replace job (D-140): the
+gate puts its UNDO mark down first, refuses the sequence when it cannot, and
+the erase question is "Keep the change, or undo the whole change?", whose undo
+takes back the whole sequence. ``steps_of`` tells the gate the steps.
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 from typing import Annotated, Any
 
@@ -161,6 +169,25 @@ def plan_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return planned
 
 
+def steps_of(args: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """The steps a call will run, each as (tool, its arguments with their defaults), for the gate (D-140).
+
+    None for a dry run, which runs nothing. Raises AutocadError, as
+    plan_steps does, for a step list the sequence will refuse.
+    """
+    if args.get("dry_run"):
+        return []
+    found = []
+    for step in plan_steps(args.get("steps") or []):
+        params = inspect.signature(_tool(step["tool"]).fn).parameters.values()
+        defaults = {p.name: p.default for p in params if p.default is not inspect.Parameter.empty}
+        found.append((step["tool"], {**defaults, **step["args"]}))
+    return found
+
+
+gate.STEPS_OF[SELF] = steps_of
+
+
 async def _call(tool: Any, args: dict[str, Any]) -> str:
     """Run one step's tool body, without a second trip through the gate.
 
@@ -243,7 +270,9 @@ async def autocad_sequence(
     Every step's arguments are validated against that tool's own schema first,
     so a sequence with a mistake in step four changes nothing at all. Each step
     that runs keeps its own undo step; with the Ask to Keep padlock on, Discard
-    backs out the whole call.
+    backs out the whole call. A step that replaces objects (join, explode, a
+    solid boolean, a block made in place...) makes the call one replace job:
+    "Undo the whole change" takes back the whole sequence (D-140).
 
     It cannot do more than the Changes padlock already allows: steps at the
     Publish or Admin level, and a sequence inside a sequence, are refused
