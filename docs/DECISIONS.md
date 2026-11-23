@@ -60,6 +60,10 @@ doubled."*
   refused trim) now clears the chat's last change, by D-130's #209.2 rule: its mark is the newest, so
   UNDO Back for the older job would stop at it.
 - **Unchanged:** every other tool's erase question, word for word (tested), its default and its restore.
+- **Not covered yet ([#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255)).** The gate knows
+  the tool by its own name, so a join, explode, trim or break run as a step of `autocad_sequence` (or a
+  saved command) still gets the usual question. Other tools with the same write-then-erase shape
+  (a solid boolean, a block made in place, an associative array) are to be checked one by one there.
 
 **#212, the other follow-ups of PRs #151 and #153.**
 1. **Isolating an xref layer.** `isolate_plan` picks the first kept layer **of this drawing's own** (no

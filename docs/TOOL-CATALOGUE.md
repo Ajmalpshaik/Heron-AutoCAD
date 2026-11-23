@@ -2192,7 +2192,7 @@ Works in plan on lines, arcs and polylines (a polyline arc is cut on its arc; a 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA1, AA4, BC5).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AA1, AA4, BC5, BC13).
 
 
 ## Text, labels and tables
