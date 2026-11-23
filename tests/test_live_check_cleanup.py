@@ -96,4 +96,4 @@ def test_a_bad_answer_fails(monkeypatch, row):
 def test_every_ad_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(cleanup.BY_EYE)
     assert not set(CHECKS) & set(cleanup.BY_EYE)
-    assert rows == {f"AD{n}" for n in range(1, 14)}
+    assert rows == {f"AD{n}" for n in range(1, 16)}

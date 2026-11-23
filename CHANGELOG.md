@@ -4,6 +4,14 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **`autocad_etransmit` points the packed drawings at the files beside them (2026-11-23,
+  [#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160), [D-150](docs/DECISIONS.md)).** As eTransmit
+  does, the xref, image and PDF / DWF / DGN underlay paths saved in the packed drawing and each packed xref
+  drawing are set to the bare file name of the file in the pack. The new plug-in operation `retarget_pack_paths`
+  does it in a copy opened as a side database, never in the drawing on screen: the original stays untouched.
+  A name two files share, or a file that was missing, keeps its path; the answer (`paths`) and the report list
+  every path set and kept. A plug-in without the operation packs as before and says so. Tested offline only;
+  live rows AD14 and AD15 NOT RUN. Needs the new plug-in.
 - **A property AutoCAD will not set is answered at once, not as a busy AutoCAD (2026-11-23,
   [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-149](docs/DECISIONS.md)).** pywin32 gives
   "Property '...' can not be set." both when AutoCAD is busy and when the object has no such property or turns
