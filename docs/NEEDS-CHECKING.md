@@ -1387,3 +1387,25 @@ is NOT RUN.**
 | BG6 | A circle: `autocad_make_block` with its handle (keep_originals left out), press Enter. Then again with `keep_originals=true` | Enter: the circle is back, no insert on it, and no new block in the block list. With keep_originals: no erase box at all | NOT RUN |
 | BG7 | A hanger block and a line: `autocad_associative_array(pattern='path', path=<the line>, count=4)`, press Enter | The hanger is back once, no array left on it | NOT RUN |
 | BG8 | A closed polyline: `autocad_add_region(erase_outlines=true)`, press Enter. Then `erase_outlines` left out | Enter: the polyline is back and no region on it. Left out: no erase box | NOT RUN |
+
+## Group BH - Lengthen; fillet and chamfer between a line and an arc (D-144) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-144](DECISIONS.md); issue #154). Built and tested offline only
+(`tests/test_edit2d_geometry.py`, `tests/test_edit2d_tools.py`). **Nothing here has run in AutoCAD.**
+Server only (restart the server); no plug-in change. Changes on, **Ask to Keep off**, a scratch
+drawing in millimetres. The runner measures BH1 to BH9 (`tools/live_check_lengthen.py`). **Every row
+below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BH1 | A line 0,0 to 1000,0. `autocad_lengthen` mode=delta, value=500, points=[[900,0]]; then delta -200 with points=[[100,0]] | The line runs 0,0 to 1500,0, then 200,0 to 1500,0; same handle and layer; each call is one Ctrl+Z | NOT RUN |
+| BH2 | Two lines 1000 long. `autocad_lengthen` mode=total value=2400 on one; mode=percent value=50, end=start on the other | 0 to 2400; and 500 to 1000 (the start end moved) | NOT RUN |
+| BH3 | An arc 0 to 90 degrees, r 500. `autocad_lengthen` delta = 500 x pi / 4; then percent 50 with end=start | The arc keeps its circle and runs 0 to 135 degrees, then 67.5 to 135; `autocad_measure` of its length agrees with the numbers | NOT RUN |
+| BH4 | A polyline 0,0 - 1000,0 - 1000,500. `autocad_lengthen` delta -700; then delta +200 with end=start | After the first: 800 long, two vertices (`autocad_polyline_info`); after the second: 1000 long, starting at -200,0 | NOT RUN |
+| BH5 | An arc 0 to 90 degrees, r 500 at 0,0 and a line 100,300 to 1500,300. `autocad_fillet_chamfer` fillet, handles=[line, arc], radius=50 | A new arc r 50 centred 550 from the big arc's centre and 50 above the line, on the line's layer; the line starts at the tangent point; the big arc still ends at 90 degrees. Then the same two objects with AutoCAD's own FILLET r 50 (click the line on its right, the arc near its top): the same arc | NOT RUN |
+| BH6 | Two arcs: r 500 at 0,0 from 0 to 90 and r 500 at 800,0 from 90 to 180. Fillet r 50 | A new arc r 50 centred 550 from both centres (above their meeting point); both arcs trimmed to the tangent points | NOT RUN |
+| BH7 | Two open polylines: 0,0 - 1000,0 - 1000,300 and 1500,900 - 1500,600 - 1300,600. Fillet r 100 | Each polyline still has 3 vertices, ending at 1000,500 and 1100,600; one new arc r 100 at 1100,500 | NOT RUN |
+| BH8 | BH5's line and arc: chamfer distance=40, distance2=40 | The chamfer line starts 40 along the line from the corner and ends on the arc 40 along it (the angle method with an arc is refused) | NOT RUN |
+| BH9 | Lengthen a closed polyline, a circle, a line by -400 (its whole length), and a line on a locked layer; fillet a circle with a line | Each refused with its reason (closed, not a line / arc / polyline, would vanish, the locked layer named, "two lines ..."); nothing changes and no undo step is opened | NOT RUN |
+| BH10 | BH1 to BH5 again with AutoCAD's own LENGTHEN (Delta, Total, Percent) and FILLET typed by hand on the same objects | The same lengths and the same fillet arc; record any difference (the arc end AutoCAD picks when no point is given) | NOT RUN |
+| BH11 | AutoCAD 2025 / 2026 and 2021-2024 builds: BH1, BH3, BH5, BH7 | As in AutoCAD 2027 | NO MACHINE |

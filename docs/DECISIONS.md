@@ -42,6 +42,44 @@ version for it until the release is named.
 are left: a drawing rarely has more than a few hundred layers, and `describe_layer` is shared with
 other tools. Rejected: moving the rules into the plug-in (two copies of them to keep the same), and a
 box for every object (`GeometricExtents` on 20,000 objects to use a handful).
+## D-144 - Lengthen is its own tool; a fillet or chamfer takes a line, an arc or a polyline's end
+
+**Decided:** 2026-11-23, by session S17 of the 2026-11-23 wave, building issue
+[#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154). **Status:** in force; tested offline only
+(`tests/test_edit2d_geometry.py`, `tests/test_edit2d_tools.py`, `tests/test_live_check_lengthen.py`), live rows
+BH1-BH11 NOT RUN. Adds to D-78, which stands: the same plain-Python geometry in `acad/edit2d.py`, written back
+over COM by setting the object's own points, no plug-in change.
+- **Lengthen is a new tool, `autocad_lengthen`**, not a mode of `autocad_trim_extend`. AutoCAD has LENGTHEN as
+  its own command, a draftsman asks for it by that name, and trim and extend are "to a boundary" while this is
+  "by a number". `mode` is `delta` (add, a negative value shortens), `total` (the whole object this long) or
+  `percent` (100 changes nothing). One end changes: the one nearer `points`, else `end` (`end` or `start`).
+  Level CHANGE, as `autocad_edit_vertex`. It keeps the object's handle, so it is not a replace job (no erase,
+  no D-136 question). AutoCAD's LENGTHEN **DYnamic** and **Total angle** are not built: the first needs a
+  mouse, the second is the same as Total for an arc.
+- **How the end moves.** A straight end runs on along its own line, an arc end round its own circle and never
+  to a full circle (refused, with the most it can grow). A shorter object is cut back along its own shape over
+  as many segments as it takes, arcs kept as arcs. A closed polyline, a circle and a change that would leave
+  nothing are refused; a locked layer and a sloping or tilted object as in D-78.
+- **`autocad_fillet_chamfer` takes two objects of any mix of line, arc and open polyline.** Two lines still use
+  the older two-line maths (their answers are unchanged). Anything else goes through one general rule: the
+  two curves are met as if they ran on (a line for ever, an arc round its circle), as FILLET does with TRIM on;
+  each keeps the part on one side of the corner and the other end is trimmed or extended to the tangent
+  point. The fillet circle is the one tangent to both on the kept parts whose tangent points are nearest the
+  corner; it is the short arc between them. When two curves meet twice, the corner is the one nearest the
+  points to keep (`keep_points`, or a polyline's own body); without them it is the one that needs the least
+  running on, and `note` says where the other one is.
+- **A polyline gives its end segment.** The end of each open polyline that makes the nearer corner is used
+  (its other vertices stay), and it stays one polyline, with the arc as a bulge only where the polyline
+  already had one. The new fillet arc is a separate arc with the first object's look, as for two lines (D-78).
+  Joining the two polylines into one, as AutoCAD may do, is not done here: join them afterwards with
+  `autocad_join_curves`.
+- **Chamfer to an arc is Heron's own rule.** AutoCAD's CHAMFER takes straight objects only (lines, polylines,
+  rays, xlines; not checked in AutoCAD here), so a chamfer with an arc has no AutoCAD behaviour to copy. The
+  distance is measured **along the curve** from the corner (round the arc), the chamfer line joins the two
+  points, and the angle method is refused with an arc or a polyline. Two lines are unchanged.
+- **Still not done:** a circle in a fillet (AutoCAD fillets a circle without trimming it), blend curves
+  (not in #154), and a fillet between two curves that never meet even run on.
+
 ## D-143 - A plug-in job that touched nothing is aborted; the geographic location joins the transaction or is taken off; tiled viewports stay a View job
 
 **Decided:** 2026-11-23, by session S15 of the 2026-11-23 wave, on issues
