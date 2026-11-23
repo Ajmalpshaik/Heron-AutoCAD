@@ -5,6 +5,45 @@
 
 ---
 
+## D-149 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
+
+**Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
+[#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270) (found by S16 under D-141). **Status:** in
+force; narrows D-100's reading of pywin32's set error, keeps D-100 and D-128 as they are. Read in the code
+and pywin32's `dynamic.py`; no AutoCAD here. Tested offline only (`tests/test_property_refused.py`); live
+rows AL8 (measured by the runner) and AL9 NOT RUN.
+
+- **The gap.** pywin32's late-bound object answers every property it cannot set with
+  `Property 'Item.CustomScale' can not be set.`: when the name is not in the object's type information
+  and `GetIDsOfNames` fails, and when the put itself is refused. It drops the HRESULT both ways, so a busy
+  AutoCAD and an object that simply has no such property read the same. `errors.is_dispatch_failure`
+  took all of them for busy: asked again for ten seconds, then "Lost the COM connection", or "Outcome
+  unknown: AutoCAD went busy" once a write had begun (#40, row D8).
+- **Now.** `connection.check_property_sets` wraps `win32com.client.CDispatch.__setattr__` once, at
+  import. A set that works is untouched. Only that one error is looked into
+  (`errors.explain_set_failure`): the object is asked for the name's id itself. `DISP_E_UNKNOWNNAME` /
+  `DISP_E_MEMBERNOTFOUND` is the new `PropertyRefused` ("AutoCAD has no property 'CustomScale' on this
+  object ... was not busy"). With an id, the value is put once more (a property set twice to one value is
+  the same set): taken, the set is done; refused with any COM error that is not busy or retryable, it is
+  `PropertyRefused` with AutoCAD's own words. Busy, a dead pointer, or anything unclear: pywin32's error
+  goes up as it is, so the retry loop asks again exactly as before.
+- **`PropertyRefused` is an `AutocadError` and an `AttributeError`.** `is_dispatch_failure`,
+  `is_retryable` and `is_busy` are all False for it, so `_with_retry` gives it at once, before or after a
+  write. As an AutocadError a tool shows it as "Error: ..." and an `except AutocadError` fallback takes it
+  like any plain refusal; as an AttributeError, the many places that read a refused set as "not there"
+  (`_write`, `getattr` defaults) read it so still.
+- **Callers checked.** `_with_retry` (retry and re-dispatch only for the busy case now), the hatch
+  fallback in `draw.py` (a method call, not a set: unchanged), every `raise_if_busy` (it never counted
+  this error: unchanged), the `is_retryable` checks in tools (a refused set now takes their fallback
+  instead of being retried). A plain AttributeError with the set message and no object behind it (fakes
+  in the tests) is still read as busy, as before. Gets are not changed: a missing member on a get still
+  reads as D-100 says.
+- **Not chosen:** telling them apart by the words (there is nothing in them), or by asking AutoCAD
+  whether it is busy just after (it can be free a moment later, and a busy set would then be called a
+  refusal).
+
+---
+
 ## D-148 - Attribute writes are made by the plug-in in one transaction: only the planned cells, all of them or none
 
 **Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #200 (rank 9 of #74), under
@@ -35,6 +74,8 @@ Change (the Changes padlock holds it, a Bridge test), and Keep or Discard counts
 and the cells are written over COM by handle, as D-138 left them. The writes use D-147's
 `_shared.faster_change`. Rejected: having the plug-in work out which cells changed (two copies of D-69's
 rules), and writing over COM what a refused write left (the half-written sheet again).
+
+---
 
 ## D-147 - The layer merge is read and made by the plug-in: one read, one transaction, all of it or none
 
@@ -80,6 +121,8 @@ the capability manifest calls it "when there", as `faster_read`. Rejected: a mer
 "everything on the layers" itself (two copies of the rules for what moves, and a plan the preview did
 not show), and falling back to COM after a refused merge (the half-done drawing again).
 
+---
+
 ## D-146 - Overkill may rebuild a polyline that goes back over itself, from its own vertices, when asked
 
 **Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue
@@ -107,6 +150,9 @@ polyline is never broken or changed" for this one case; tested offline only, liv
 Rejected: merging straight runs that only go one way (vertices in a straight line that draw nothing
 twice), which the issue did not ask for and which would change polylines that are not doubled; and
 breaking a polyline in two where it doubles back part way along.
+
+---
+
 ## D-145 - The standards check's object facts are read by the plug-in in one go; the rules stay in Python
 
 **Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #196 (rank 5 of #74), under
@@ -144,6 +190,9 @@ version for it until the release is named.
 are left: a drawing rarely has more than a few hundred layers, and `describe_layer` is shared with
 other tools. Rejected: moving the rules into the plug-in (two copies of them to keep the same), and a
 box for every object (`GeometricExtents` on 20,000 objects to use a handful).
+
+---
+
 ## D-144 - Lengthen is its own tool; a fillet or chamfer takes a line, an arc or a polyline's end
 
 **Decided:** 2026-11-23, by session S17 of the 2026-11-23 wave, building issue

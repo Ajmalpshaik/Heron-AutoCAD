@@ -1877,7 +1877,7 @@ Only the arguments you pass are changed; everything else is left alone. Properti
 - Reports a locked layer explicitly, and can work around it when layer_lock_override is true.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T4, T6, AA16, AL6).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T4, T6, AA16, AL6, AL9).
 
 ### `autocad_move_entities`
 

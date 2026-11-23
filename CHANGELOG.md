@@ -4,6 +4,14 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A property AutoCAD will not set is answered at once, not as a busy AutoCAD (2026-11-23,
+  [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-149](docs/DECISIONS.md)).** pywin32 gives
+  "Property '...' can not be set." both when AutoCAD is busy and when the object has no such property or turns
+  the value down, so a real refusal was asked again for ten seconds and came out as "Outcome unknown: AutoCAD
+  went busy" (that was #40). The server now asks the object itself: a property it does not have, or a value it
+  refuses, is a plain error at once naming the property ("AutoCAD has no property 'CustomScale' on this
+  object ... AutoCAD was not busy"); a busy AutoCAD is still asked again as before. Server only. Tested offline
+  only; live rows AL8 (the runner measures it) and AL9 NOT RUN.
 - **Attribute writes are one transaction in the plug-in: only the changed cells, all or none (2026-11-23,
   [#200](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/200), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
   [D-148](docs/DECISIONS.md)).** After the plug-in has read the blocks (D-138), `autocad_set_attributes` and
