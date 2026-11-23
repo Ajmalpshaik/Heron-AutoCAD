@@ -1,5 +1,6 @@
 """Live checks for multileader and table styles made by the plug-in (group AN), and the busy-AutoCAD
-rows of group AL (all left to a person: they need AutoCAD kept busy by hand).
+rows of group AL (left to a person: they need AutoCAD kept busy by hand), but for AL8, a property
+AutoCAD will not set answering at once (#270).
 
 Run by ``live_check.py``; see ``live_common.py`` for the rules every check keeps.
 What AutoCAD's style dialogs show is not looked at: each style row comes back as
@@ -187,6 +188,20 @@ async def an13_a_missing_style_leaves_nothing_behind(ctx: Context) -> str:
     return f"both refused with 'Nothing was left in the drawing'; the drawing still has {after} objects, as before"
 
 
+
+async def al8_a_property_a_line_lacks_answers_at_once(ctx: Context) -> str:
+    o = lc.origin("AL8")
+    handle = await lc.by_hand_line([o[0], o[1], 0.0], [o[0] + 1000.0, o[1], 0.0])
+    out = await lc.by_hand_set(handle, "Radius", 5.0)
+    error = str(out.get("error") or "")
+    expect(error, "AutoCAD took a Radius on a line; the row needs a property the object does not have")
+    expect(error.startswith("PropertyRefused"), f"not answered as a refused property: {error[:200]}")
+    expect("'Radius'" in error, f"the answer does not name the property: {error[:200]}")
+    expect(not any(w in error for w in ("Outcome unknown", "stayed busy", "Lost the COM")), f"read as busy: {error[:200]}")
+    seconds = float(out.get("seconds") or 0.0)
+    expect(seconds < 3.0, f"took {seconds} s: it was asked again as if AutoCAD were busy")
+    return f"setting Radius on a line answered in {seconds} s: {error[:160]}"
+
 CHECKS: tuple[Check, ...] = (
     Check("AN1", "AN", "a TLD label style is made as asked", an1_a_tld_label_style_is_made_as_asked),
     Check("AN2", "AN", "a note takes the current style", an2_a_note_takes_the_current_style),
@@ -198,6 +213,7 @@ CHECKS: tuple[Check, ...] = (
     Check("AN9", "AN", "a style without title or header rows", an9_a_style_without_title_or_header_rows),
     Check("AN10", "AN", "wrong options are said and nothing kept", an10_wrong_options_are_said_and_nothing_kept),
     Check("AN13", "AN", "a missing style leaves nothing behind", an13_a_missing_style_leaves_nothing_behind),
+    Check("AL8", "AL", "a property a line lacks answers at once", al8_a_property_a_line_lacks_answers_at_once),
 )
 
 _BUSY = "needs AutoCAD kept busy by hand (the Options dialog open, or a heavy REGEN) while it runs"
@@ -208,4 +224,5 @@ BY_EYE: dict[str, str] = {
     "AN12": "needs a plug-in built before this change installed",
     **{f"AL{n}": _BUSY for n in range(1, 8)},
     "AL4": "needs Ask to Keep on, your Discard click, and a heavy REGEN started by hand",
+    "AL9": _BUSY,
 }

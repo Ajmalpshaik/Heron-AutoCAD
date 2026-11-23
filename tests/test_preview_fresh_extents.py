@@ -1,4 +1,4 @@
-"""An extents preview frames model space as the plug-in measures it, not stale EXTMIN/EXTMAX (#269, D-148).
+"""An extents preview frames model space as the plug-in measures it, not stale EXTMIN/EXTMAX (#269, D-150).
 
 EXTMIN/EXTMAX shrink only on ZOOM Extents or All, so after an erase they can
 still reach the erased object, and AutoCAD's own Extents plot frames that.

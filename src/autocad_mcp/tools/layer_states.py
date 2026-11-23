@@ -21,13 +21,18 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-from ..acad.entities import resolve_handles
-from ..acad.selection import discard_selection_set, iter_selection, select_filtered
+from ..acad.entities import resolve_handle, resolve_handles
+from ..acad.selection import (
+    discard_selection_set,
+    filter_pairs,
+    iter_selection,
+    select_filtered,
+)
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, com_message, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from . import _shared
-from ._shared import before_after, in_plugin
+from ._shared import before_after, faster_change, faster_read, in_plugin
 
 # The bits of a layer state, as LayerStateMasks numbers them (checked in the
 # AutoCAD 2021 and 2027 reference assemblies).
@@ -486,6 +491,11 @@ async def autocad_isolate_layers(
     return dumps(await run(isolate if action == "isolate" else unisolate))
 
 
+def _not_removed(why: str) -> str:
+    """Why an old layer emptied by the merge was kept: AutoCAD's own words, from COM or the plug-in."""
+    return f"AutoCAD would not remove it ({why}); it is still used somewhere, for example by a viewport or a layer filter"
+
+
 def _merge_items(doc: Any, sources: Sequence[str]) -> list[tuple[dict[str, Any], Any]]:
     """Every object on the old layers: in every space, in block definitions, and attributes."""
     found: list[tuple[dict[str, Any], Any]] = []
@@ -521,6 +531,75 @@ def _merge_items(doc: Any, sources: Sequence[str]) -> list[tuple[dict[str, Any],
     return found
 
 
+# ---- the merge in the plug-in: one read, one transaction (#199, D-147) --------------
+
+WHERE = ("drawing", "blocks", "attributes")
+
+
+def _pairs(entity_type: str | None = None, layer: str | None = None) -> list[list[Any]]:
+    return [[code, value] for code, value in filter_pairs(entity_type, layer)]
+
+
+def plugin_merge_items(sources: Sequence[str]) -> list[dict[str, Any]] | None:
+    """The objects on the old layers, read by the plug-in in one go in the COM read's order; None: read over COM.
+
+    None when the plug-in is older, its answer is not one this server reads
+    as COM's, or a block reference with an attribute on an old layer has a
+    definition with no attribute definitions (whether COM sees it is not
+    looked at yet, D-138).
+    """
+    read = faster_read("layer_objects", {
+        "layers": list(sources),
+        "filters": [_pairs(layer=escape_wildcards(source)) for source in sources],
+        "inserts": _pairs("block"),
+    })
+    if read is None:
+        return None
+    rows, unsure = read.get("items"), read.get("unsure")
+    if not isinstance(rows, list) or not isinstance(unsure, bool) or unsure:
+        return None
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        if (not isinstance(row, list) or len(row) != 3 or not all(isinstance(v, str) for v in row)
+                or row[2] not in WHERE):
+            return None
+        items.append({"handle": row[0], "layer": row[1], "where": row[2]})
+    return items
+
+
+class _ByHandle:
+    """The objects a COM write needs after the plug-in read them, looked up by handle, each only when moved."""
+
+    def __init__(self, doc: Any) -> None:
+        self._doc = doc
+
+    def __getitem__(self, handle: str) -> Any:
+        return resolve_handle(self._doc, handle)
+
+
+def plugin_merge(sources: Sequence[str], target: str, moving: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    """The plug-in's merge in one transaction: every planned object moved, or none (D-147). None: merge over COM."""
+    report = faster_change("merge_layers", {
+        "layers": list(sources), "into": target, "handles": [item["handle"] for item in moving],
+    }, "Merging the layers")
+    if report is None:
+        return None
+    removed, kept, current = report.get("removed"), report.get("kept"), report.get("current", None)
+    shaped = (
+        isinstance(removed, list) and isinstance(kept, list) and (current is None or isinstance(current, str))
+        and report.get("moved") == len(moving)
+        and all(isinstance(layer, str) for layer in removed)
+        and all(isinstance(k, list) and len(k) == 2 and all(isinstance(v, str) for v in k) for k in kept)
+        and sorted([*removed, *(k[0] for k in kept)]) == sorted(sources)
+    )
+    if not shaped:
+        raise AutocadError(
+            "Outcome unknown: Heron in AutoCAD merged the layers but its answer could not be read. Look at the "
+            "drawing (one Ctrl+Z takes the merge back) before trying again."
+        )
+    return {"removed": removed, "kept": {layer: why for layer, why in kept}, "current": current}
+
+
 @mcp.tool(name="autocad_merge_layers", **tool_meta("Merge Layers", destructive=True))
 @tool_errors
 async def autocad_merge_layers(
@@ -540,7 +619,9 @@ async def autocad_merge_layers(
 
     Call it first without confirm to see what would move. If an old layer is
     the current layer, the new one becomes current. A locked old layer is
-    unlocked for the move. One undo step.
+    unlocked for the move. One undo step. Through Heron's plug-in the whole
+    merge is one transaction: every object moves and the empty old layers
+    go, or, if one object will not move, nothing changes at all.
 
     Args:
         layers (list[str]): the layers to merge away.
@@ -573,9 +654,17 @@ async def autocad_merge_layers(
             sources, target = check_merge(layers, into, existing)
         except ValueError as exc:
             raise AutocadError(f"{exc}. Nothing was changed.") from exc
-        pairs = _merge_items(doc, sources)
-        moving = merge_targets([item for item, _ in pairs], sources)
-        objects = {item["handle"]: entity for item, entity in pairs}
+        # The plug-in reads the old layers' objects in one go (D-147); COM, 2-3 round
+        # trips per item of every block definition, only for an older one.
+        items = plugin_merge_items(sources)
+        objects: Any
+        if items is not None:
+            objects = _ByHandle(doc)
+        else:
+            pairs = _merge_items(doc, sources)
+            items = [item for item, _ in pairs]
+            objects = {item["handle"]: entity for item, entity in pairs}
+        moving = merge_targets(items, sources)
         counts = merge_counts(moving, sources)
         if not confirm:
             return {
@@ -596,39 +685,54 @@ async def autocad_merge_layers(
         removed: list[str] = []
         kept: list[dict[str, str]] = []
         with undo_mark(doc):
-            current = str(doc.ActiveLayer.Name)
-            if current.casefold() in {s.casefold() for s in sources}:
-                doc.ActiveLayer = doc.Layers.Item(target)
-                rows.append({"variable": "CLAYER", "property": "current layer", "from": current, "to": target})
-            relock = []
-            for source in sources:
-                layer = doc.Layers.Item(source)
-                if bool(_try(lambda la=layer: la.Lock, False)):
-                    layer.Lock = False
-                    relock.append(source)
-            left = {s.casefold(): 0 for s in sources}
-            for item in moving:
-                try:
-                    objects[item["handle"]].Layer = target
-                    rows.append({"handle": item["handle"], "property": "layer", "from": item["layer"], "to": target})
-                except BaseException as exc:  # noqa: BLE001 - one object, not the merge
-                    raise_if_busy(exc)
-                    failed.append({"handle": item["handle"], "reason": com_message(exc)})
-                    left[item["layer"].casefold()] += 1
-            for source in sources:
-                if left[source.casefold()]:
-                    kept.append({"layer": source, "why": f"{left[source.casefold()]} object(s) on it would not move"})
-                else:
-                    try:
-                        doc.Layers.Item(source).Delete()
+            merged = plugin_merge(sources, target, moving)
+            if merged is not None:
+                # All of it landed in one transaction; the answer is built as COM's is.
+                if merged["current"] is not None:
+                    rows.append({"variable": "CLAYER", "property": "current layer", "from": merged["current"],
+                                 "to": target})
+                rows.extend({"handle": item["handle"], "property": "layer", "from": item["layer"], "to": target}
+                            for item in moving)
+                for source in sources:
+                    if source in merged["removed"]:
                         removed.append(source)
                         rows.append({"layer": source, "property": "layer", "from": "there", "to": "merged and removed"})
-                        continue
-                    except BaseException as exc:  # noqa: BLE001 - still referenced somewhere
+                    else:
+                        kept.append({"layer": source, "why": _not_removed(merged["kept"][source])})
+            else:
+                current = str(doc.ActiveLayer.Name)
+                if current.casefold() in {s.casefold() for s in sources}:
+                    doc.ActiveLayer = doc.Layers.Item(target)
+                    rows.append({"variable": "CLAYER", "property": "current layer", "from": current, "to": target})
+                relock = []
+                for source in sources:
+                    layer = doc.Layers.Item(source)
+                    if bool(_try(lambda la=layer: la.Lock, False)):
+                        layer.Lock = False
+                        relock.append(source)
+                left = {s.casefold(): 0 for s in sources}
+                for item in moving:
+                    try:
+                        objects[item["handle"]].Layer = target
+                        rows.append({"handle": item["handle"], "property": "layer", "from": item["layer"], "to": target})
+                    except BaseException as exc:  # noqa: BLE001 - one object, not the merge
                         raise_if_busy(exc)
-                        kept.append({"layer": source, "why": f"AutoCAD would not remove it ({com_message(exc)}); it is still used somewhere, for example by a viewport or a layer filter"})
-                if source in relock:
-                    _try(lambda s=source: setattr(doc.Layers.Item(s), "Lock", True))
+                        failed.append({"handle": item["handle"], "reason": com_message(exc)})
+                        left[item["layer"].casefold()] += 1
+                for source in sources:
+                    if left[source.casefold()]:
+                        kept.append({"layer": source, "why": f"{left[source.casefold()]} object(s) on it would not move"})
+                    else:
+                        try:
+                            doc.Layers.Item(source).Delete()
+                            removed.append(source)
+                            rows.append({"layer": source, "property": "layer", "from": "there", "to": "merged and removed"})
+                            continue
+                        except BaseException as exc:  # noqa: BLE001 - still referenced somewhere
+                            raise_if_busy(exc)
+                            kept.append({"layer": source, "why": _not_removed(com_message(exc))})
+                    if source in relock:
+                        _try(lambda s=source: setattr(doc.Layers.Item(s), "Lock", True))
         result: dict[str, Any] = {
             "into": target,
             "moved": len(moving) - len(failed),

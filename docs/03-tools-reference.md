@@ -223,7 +223,7 @@ step; an object on a locked layer is refused before anything is written. Not pro
 |---|---|---|
 | `autocad_layer_states` | Change | Save the layers as a named layer state (what it remembers is up to you), restore one (every layer it changed comes back in `before_after`), or delete one. Done by the plug-in ([D-81](DECISIONS.md)) |
 | `autocad_isolate_layers` | Change | LAYISO / LAYUNISO: keep the layers of picked objects (or named layers), every other layer `off`, `freeze` or `lock`. The layers before the first isolate are saved as the HERON-ISOLATE layer state; `unisolate` puts them back, current layer too |
-| `autocad_merge_layers` | Change | LAYMERGE: every object on the old layers moves to the new one (model, layouts, block definitions, attributes); an old layer is removed only when nothing is left on it. Needs `confirm=true`; without it, says what would move |
+| `autocad_merge_layers` | Change | LAYMERGE: every object on the old layers moves to the new one (model, layouts, block definitions, attributes); an old layer is removed only when nothing is left on it. Needs `confirm=true`; without it, says what would move. Through the plug-in, read in one go and made in one transaction: every object moves or nothing changes; COM for an older one ([D-147](DECISIONS.md)) |
 
 ## Escape hatches (Admin; regen is View)
 
@@ -250,9 +250,9 @@ alternative, because a dialog blocks COM until a person closes it.
 | `autocad_select_connected` | Read | A whole run joined end to end: handles, total length, open ends |
 | `autocad_list_layouts` | Read | Layouts in tab order with plotter, paper, object count |
 | `autocad_set_dynamic_properties` | Change | Set visibility, size, distance, flip; typed and checked; failures listed |
-| `autocad_set_attributes` | Change | Attributes from `values`, `rows` or `csv_path`, matched by `key` (a tag or `layout`); `dry_run` (the blocks read by the plug-in in one go, COM for an older one, [D-138](DECISIONS.md); the writes over COM) |
+| `autocad_set_attributes` | Change | Attributes from `values`, `rows` or `csv_path`, matched by `key` (a tag or `layout`); `dry_run` (the blocks read by the plug-in in one go and the changes written in one transaction, all or none, COM for an older one, [D-138](DECISIONS.md), [D-148](DECISIONS.md)) |
 | `autocad_export_attribute_sheet` | Publish | Every block's attributes in a new `.xlsx` next to the drawing (one row per block, one column per tag, handle first), with an "As exported" copy; never over an earlier one ([D-69](DECISIONS.md); the blocks read by the plug-in in one go, COM for an older one, [D-138](DECISIONS.md)) |
-| `autocad_apply_attribute_sheet` | Change | Reads the edited `.xlsx` (or a `.csv` with a Handle column) and writes only the cells that changed, in one undo step; blanks change nothing; a value the drawing changed since the export is kept; a cell changed in both is a conflict, listed; `dry_run` ([D-69](DECISIONS.md); the blocks read by the plug-in in one go, COM for an older one, [D-138](DECISIONS.md); the writes over COM) |
+| `autocad_apply_attribute_sheet` | Change | Reads the edited `.xlsx` (or a `.csv` with a Handle column) and writes only the cells that changed, in one undo step; blanks change nothing; a value the drawing changed since the export is kept; a cell changed in both is a conflict, listed; `dry_run` ([D-69](DECISIONS.md); the blocks read by the plug-in in one go and the changed cells written in one transaction, all or none (a cell AutoCAD will not take then refuses the sheet), COM for an older one, [D-138](DECISIONS.md), [D-148](DECISIONS.md)) |
 | `autocad_number_tags` | Change | Prefix + padded number + suffix on blocks (`tag`), texts or new text; sort rows / columns / path |
 | `autocad_text_clean` | Change | Strip MText formatting codes; `dry_run` |
 | `autocad_find_replace_text` | Change | Find / replace (plain or regex) in text, mtext, attributes, mleaders, dim overrides, tables; `dry_run` |

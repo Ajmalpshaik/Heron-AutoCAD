@@ -1877,7 +1877,7 @@ Only the arguments you pass are changed; everything else is left alone. Properti
 - Reports a locked layer explicitly, and can work around it when layer_lock_override is true.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T4, T6, AA16, AL6).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows T4, T6, AA16, AL6, AL9).
 
 ### `autocad_move_entities`
 
@@ -1965,7 +1965,7 @@ An import from Revit or IFC often draws every wall line twice, or in pieces lyin
 4. Read the first line of the answer: DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN. Ask for a preview to look at the result.
 
 **What it needs from you.**
-- Optional: `layers`, `handles`, `tolerance`, `ignore_layer`, `join_end_to_end`, `space`, `confirm`, `plan_id`.
+- Optional: `layers`, `handles`, `tolerance`, `ignore_layer`, `join_end_to_end`, `tidy_polylines`, `space`, `confirm`, `plan_id`.
 
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
@@ -1978,7 +1978,7 @@ An import from Revit or IFC often draws every wall line twice, or in pieces lyin
 - confirm=true without the listing's plan_id, or after the drawing changed, does nothing and says to list again.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AD1, AD13).
 
 ### `autocad_polyline_info`
 
@@ -3122,10 +3122,10 @@ Each row is matched to its block by the Handle column. A cell is written only wh
 **Limits and versions.**
 - A file with no Handle column, a handle twice, or more than 10000 changes: refused, nothing written.
 - A row whose block is gone, or a value under a tag the block does not have: listed, the rest still applied.
-- A cell AutoCAD would not take (a locked layer): listed in 'failed'.
+- A cell AutoCAD would not take (a locked layer): listed in 'failed'. Through Heron's plug-in the writes are one transaction: such a cell refuses the whole sheet, and nothing is written.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y2, BE5, RV2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y2, BE5, BK3, BK6, RV2).
 
 ### `autocad_attach_underlay`
 
@@ -3364,7 +3364,7 @@ One row per block reference, one column per tag, with the block's handle, name a
 - No block with attributes: it says so and writes nothing.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y1, BE3, BE8, RV2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Y1, BE3, BE8, BK3, RV2).
 
 ### `autocad_extract_attributes`
 
@@ -3652,7 +3652,7 @@ For device, pole and camera schedules, or setting-out points from a survey.
 ### `autocad_set_attributes`
 
 **What it does.** Fill block attributes: title blocks on every layout, equipment tags, schedules.
-Same values for all, or one row per block from a list or CSV, matched by a tag or the layout name. Pairs with autocad_extract_attributes (read, edit, write back).
+Same values for all, or one row per block from a list or CSV, matched by a tag or the layout name. Pairs with autocad_extract_attributes (read, edit, write back). Through Heron's plug-in every change is written in one transaction: all of it, or nothing if one block will not take it.
 
 **The problem it solves.**
 - "fill the title block on every sheet with this drawing number and date".
@@ -3677,7 +3677,7 @@ Same values for all, or one row per block from a list or CSV, matched by a tag o
 **Limits and versions.**
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BE4, BE10, AZ4).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows BE4, BE10, BK1, BK5, BK7, AZ4).
 
 ### `autocad_set_dynamic_properties`
 
@@ -4042,9 +4042,9 @@ AutoCAD's LAYMERGE. Objects move from the old layers in model space, on every la
 
 **Limits and versions.**
 - Layer 0, an xref's layer, a layer that is not there, or merging a layer into itself is refused before anything changes.
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB7).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AB7, BJ1).
 
 ### `autocad_remap_layers`
 

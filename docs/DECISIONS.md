@@ -5,7 +5,7 @@
 
 ---
 
-## D-148 - An extents preview in model space measures the objects through the plug-in when EXTMIN/EXTMAX are stale
+## D-150 - An extents preview in model space measures the objects through the plug-in when EXTMIN/EXTMAX are stale
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
 [#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269) (found by S16 under D-141). **Status:** in
@@ -35,6 +35,154 @@ RUN. **Needs the plug-in built from this change**; an older one previews as befo
 - **Not chosen:** a ZOOM Extents before the preview (it changes the modeller's view, and the zoom is an
   undo step), and trusting the plug-in's box always (a frozen layer's object would stretch the picture
   the way #41 did).
+## D-149 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
+
+**Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
+[#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270) (found by S16 under D-141). **Status:** in
+force; narrows D-100's reading of pywin32's set error, keeps D-100 and D-128 as they are. Read in the code
+and pywin32's `dynamic.py`; no AutoCAD here. Tested offline only (`tests/test_property_refused.py`); live
+rows AL8 (measured by the runner) and AL9 NOT RUN.
+
+- **The gap.** pywin32's late-bound object answers every property it cannot set with
+  `Property 'Item.CustomScale' can not be set.`: when the name is not in the object's type information
+  and `GetIDsOfNames` fails, and when the put itself is refused. It drops the HRESULT both ways, so a busy
+  AutoCAD and an object that simply has no such property read the same. `errors.is_dispatch_failure`
+  took all of them for busy: asked again for ten seconds, then "Lost the COM connection", or "Outcome
+  unknown: AutoCAD went busy" once a write had begun (#40, row D8).
+- **Now.** `connection.check_property_sets` wraps `win32com.client.CDispatch.__setattr__` once, at
+  import. A set that works is untouched. Only that one error is looked into
+  (`errors.explain_set_failure`): the object is asked for the name's id itself. `DISP_E_UNKNOWNNAME` /
+  `DISP_E_MEMBERNOTFOUND` is the new `PropertyRefused` ("AutoCAD has no property 'CustomScale' on this
+  object ... was not busy"). With an id, the value is put once more (a property set twice to one value is
+  the same set): taken, the set is done; refused with any COM error that is not busy or retryable, it is
+  `PropertyRefused` with AutoCAD's own words. Busy, a dead pointer, or anything unclear: pywin32's error
+  goes up as it is, so the retry loop asks again exactly as before.
+- **`PropertyRefused` is an `AutocadError` and an `AttributeError`.** `is_dispatch_failure`,
+  `is_retryable` and `is_busy` are all False for it, so `_with_retry` gives it at once, before or after a
+  write. As an AutocadError a tool shows it as "Error: ..." and an `except AutocadError` fallback takes it
+  like any plain refusal; as an AttributeError, the many places that read a refused set as "not there"
+  (`_write`, `getattr` defaults) read it so still.
+- **Callers checked.** `_with_retry` (retry and re-dispatch only for the busy case now), the hatch
+  fallback in `draw.py` (a method call, not a set: unchanged), every `raise_if_busy` (it never counted
+  this error: unchanged), the `is_retryable` checks in tools (a refused set now takes their fallback
+  instead of being retried). A plain AttributeError with the set message and no object behind it (fakes
+  in the tests) is still read as busy, as before. Gets are not changed: a missing member on a get still
+  reads as D-100 says.
+- **Not chosen:** telling them apart by the words (there is nothing in them), or by asking AutoCAD
+  whether it is busy just after (it can be free a moment later, and a busy set would then be called a
+  refusal).
+
+---
+
+## D-148 - Attribute writes are made by the plug-in in one transaction: only the planned cells, all of them or none
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #200 (rank 9 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BK).
+`autocad_set_attributes` and `autocad_apply_attribute_sheet` write their planned cells with the plug-in's
+new Change operation `write_attributes`; COM stays the fallback. The rules:
+(1) **Only the cells the server planned (D-69).** The plan is made as before, from the read (D-138): the
+cells the modeller changed, nothing else. The server sends each as [handle, tag, text]; the plug-in
+writes exactly those, each setting every attribute with that tag on that block reference (the tag
+matched exactly, as the COM loop's `==`), and puts text that is not left-aligned back on its alignment
+point (`AdjustAlignment`, as COM's TextString does). Nothing to write sends nothing (no undo step, D-62).
+(2) **One transaction, all or none.** A block gone since the read, a tag it no longer has, or an
+attribute AutoCAD will not take (a locked layer) refuses the whole write: the transaction is aborted and
+the answer is the plug-in's refusal, ending "Nothing was changed." Over COM, `autocad_apply_attribute_sheet`
+lists such a cell under `failed` and writes the rest; that half-written sheet is what this move takes
+away. A refused write is never made again over COM.
+(3) **Only after a plug-in read.** The write is offered to the plug-in only when the plug-in read the
+blocks (the tool holds `ComRefs` then). A read over COM means a block or attribute the plug-in is not
+trusted for (D-138: multiline, constant, attributes and definition disagreeing), and COM writes it as
+before. The plug-in also refuses, with the words `AttributeWritePlan.UseCom`, a multiline or constant
+attribute, one holding a field (what .NET's TextString does to a field is not looked at yet, BK5), or more
+than 100,000 cells; it has changed nothing then, and the server writes every cell over COM.
+(4) **The same answer, the same job.** The answer is built from the plan either way, so a write that
+lands gives the same text as COM's; the tools stay Change jobs in one UNDO mark, the operation is at
+Change (the Changes padlock holds it, a Bridge test), and Keep or Discard counts AutoCAD's own events
+(D-50), which BK2 compares live. A report that does not count every cell is "Outcome unknown".
+(5) **Older plug-ins.** One without `write_attributes` (1.8.0, 1.8.1, or built before this) says so,
+and the cells are written over COM by handle, as D-138 left them. The writes use D-147's
+`_shared.faster_change`. Rejected: having the plug-in work out which cells changed (two copies of D-69's
+rules), and writing over COM what a refused write left (the half-written sheet again).
+
+---
+
+## D-147 - The layer merge is read and made by the plug-in: one read, one transaction, all of it or none
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #199 (rank 8 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BJ).
+`autocad_merge_layers` asks the plug-in's new Read operation `layer_objects` for the objects on the old
+layers, and its new Change operation `merge_layers` to make the merge; COM stays the fallback for each,
+as D-114 sets out. The rules:
+(1) **The read: raw facts in COM's order.** The plug-in finds the objects the COM read finds, in its
+order: each old layer's selection (the server sends the filters it selects with, the name's wildcards
+escaped), then every item of every block definition but layouts and xrefs (`IsLayout`,
+`IsFromExternalReference`, as COM's IsLayout and IsXRef), then every attribute of every block reference;
+each as [handle, layer, where]. The server plans from these with the code it plans the COM read with
+(`merge_targets`, `merge_counts`), so the preview (`confirm=false`) and the counts are the same either way.
+As D-138, a block reference with an attribute on an old layer whose definition holds no attribute
+definitions is not trusted (`unsure`): whether COM's HasAttributes lets the COM read see it is not looked
+at yet, so the whole read goes to COM.
+(2) **The change: one transaction, the server's plan.** The server sends the old layers, the new one and
+the handles it planned; the plug-in moves exactly those. In one transaction: an old current layer gives
+way to the new one, a locked old layer is unlocked, every planned object moves, then each old layer is
+removed when AutoCAD's own purge (`Database.Purge`) says nothing uses it any more, or kept and locked
+again. **One object that will not move refuses the whole merge**: the transaction is aborted and the
+answer is the plug-in's refusal, ending "Nothing was changed." Over COM such an object is listed under
+`failed` and its layer kept, with the rest moved; that half-done merge is what this move takes away. A
+refused merge is never made again over COM.
+(3) **The same answer.** The server builds the answer from the plan and the plug-in's report (which
+layers it removed, which it kept and why, the old current layer) with COM's own rows and order:
+the CLAYER row, one row per moved object, one per removed layer. A kept layer's reason is AutoCAD's own
+words in the brackets of "AutoCAD would not remove it (...)": COM's error over COM, "it is still
+referenced" from the plug-in's purge; only those words differ. A report that does not account for every
+old layer, or moves another count, is "Outcome unknown" (the change is committed: it is said, not
+redone).
+(4) **The padlock, `confirm=true` and Keep or Discard are the tool's, unchanged.** The tool is still
+a Change job, the merge still needs `confirm=true`, and it still runs inside one UNDO mark; the plug-in's
+operation is at Change, so the Changes padlock holds it as it holds the COM writes (a Bridge test). Keep
+or Discard counts what AutoCAD's own database events say the job changed (D-50), which a plug-in
+transaction raises as COM's writes do (BJ2 checks the number live).
+(5) **Fallbacks.** `layer_objects` joins `bridge.NEWER_READS`. A plug-in without `layer_objects`
+(1.8.0, 1.8.1, or one built before this) reads over COM; one without `merge_layers` merges over COM,
+each object looked up by its handle after a plug-in read. New helper `_shared.faster_change`: a change the
+plug-in makes in one transaction, or None (no plug-in, older, no such operation) for the COM path;
+the capability manifest calls it "when there", as `faster_read`. Rejected: a merge that moves
+"everything on the layers" itself (two copies of the rules for what moves, and a plan the preview did
+not show), and falling back to COM after a refused merge (the half-done drawing again).
+
+---
+
+## D-146 - Overkill may rebuild a polyline that goes back over itself, from its own vertices, when asked
+
+**Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue
+[#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159). **Status:** in force; changes D-84's "a
+polyline is never broken or changed" for this one case; tested offline only, live row AD13 NOT RUN.
+
+- **Asked for, never by default.** `autocad_overkill(tidy_polylines=true)` is OVERKILL's "optimize segments
+  within polylines". Without it nothing about a polyline changes from D-84.
+- **Only from its own vertices.** A vertex is dropped, never moved or added (`acad/overkill.tidy_polyline`):
+  zero-length segments go, and a run of segments one after another on one straight line (or one circle)
+  that goes back over itself becomes one segment from where it comes in to where it goes on. At an open
+  polyline's free end, the end moves to the run's far end (an existing vertex). So the shape on paper is
+  the same, drawn once, and a loose line erased as "lies on polyline" still lies on it.
+- **What it leaves, with why:** a run that goes back over itself part way along (a spike, or the polyline
+  coming in from the middle of the doubled stretch): one polyline cannot draw that without the doubling,
+  and breaking it in two is not one safe step. Arcs going all the way round one circle; a closed polyline
+  lying all on one line; an old-style 2D polyline; one whose width changes along it (read only for the
+  polyline to rebuild, as the 2D edits read it, D-78). Segments far apart in one polyline lying over each
+  other, and two polylines over each other, stay as D-84 lists them.
+- **Same rules as the rest of Overkill:** listed first (`rebuild`, with the segments going and any new
+  segment), the `plan_id` covers it, the confirm sets the same polyline's vertices and bulges again (same
+  handle, its one width kept) inside the one undo step. A rebuild erases nothing, so on its own it brings
+  no erase question (D-50).
+
+Rejected: merging straight runs that only go one way (vertices in a straight line that draw nothing
+twice), which the issue did not ask for and which would change polylines that are not doubled; and
+breaking a polyline in two where it doubles back part way along.
+
+---
+
 
 ---
 
@@ -75,6 +223,9 @@ version for it until the release is named.
 are left: a drawing rarely has more than a few hundred layers, and `describe_layer` is shared with
 other tools. Rejected: moving the rules into the plug-in (two copies of them to keep the same), and a
 box for every object (`GeometricExtents` on 20,000 objects to use a handful).
+
+---
+
 ## D-144 - Lengthen is its own tool; a fillet or chamfer takes a line, an arc or a polyline's end
 
 **Decided:** 2026-11-23, by session S17 of the 2026-11-23 wave, building issue

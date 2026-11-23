@@ -5,12 +5,47 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **An extents preview no longer frames an object that was erased (2026-11-23,
-  [#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269), [D-148](docs/DECISIONS.md)).** AutoCAD shrinks
+  [#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269), [D-150](docs/DECISIONS.md)).** AutoCAD shrinks
   EXTMIN/EXTMAX only on ZOOM Extents, so after an erase `autocad_preview()` could still reach the erased object
   and show the sheet small. In model space the preview now asks the plug-in to measure the objects themselves
   (its `entity_extents` filter takes the space, DXF 410); when that box is well inside EXTMIN/EXTMAX the picture
   is a window over it and `extents_note` says why. No plug-in, or an older one: as before. Needs the new
   plug-in. Tested offline only; live row AM8 NOT RUN (the runner measures it).
+- **A property AutoCAD will not set is answered at once, not as a busy AutoCAD (2026-11-23,
+  [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-149](docs/DECISIONS.md)).** pywin32 gives
+  "Property '...' can not be set." both when AutoCAD is busy and when the object has no such property or turns
+  the value down, so a real refusal was asked again for ten seconds and came out as "Outcome unknown: AutoCAD
+  went busy" (that was #40). The server now asks the object itself: a property it does not have, or a value it
+  refuses, is a plain error at once naming the property ("AutoCAD has no property 'CustomScale' on this
+  object ... AutoCAD was not busy"); a busy AutoCAD is still asked again as before. Server only. Tested offline
+  only; live rows AL8 (the runner measures it) and AL9 NOT RUN.
+- **Attribute writes are one transaction in the plug-in: only the changed cells, all or none (2026-11-23,
+  [#200](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/200), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-148](docs/DECISIONS.md)).** After the plug-in has read the blocks (D-138), `autocad_set_attributes` and
+  `autocad_apply_attribute_sheet` write their planned cells with the plug-in's new Change operation
+  `write_attributes`: only the cells the modeller changed (D-69), every one in one transaction. A block gone, a tag
+  gone or a cell AutoCAD will not take (a locked layer) now refuses the whole write with "Nothing was changed",
+  where COM wrote the rest and listed the cell as failed. COM stays the fallback: a read over COM, an older plug-in,
+  or a multiline, constant or field attribute the plug-in does not write yet. Tested offline only (both tools run
+  both ways over one fake drawing, answers and attributes compared, and through the real gate); not tested in
+  AutoCAD: live rows BK1-BK7 NOT RUN.
+- **The layer merge is one transaction in the plug-in: all of it or none (2026-11-23,
+  [#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-147](docs/DECISIONS.md)).** `autocad_merge_layers` reads the objects on the old layers with the plug-in's new
+  Read operation `layer_objects` (in the COM read's order, so the preview and counts are the same), then makes the
+  merge with the new Change operation `merge_layers`: the planned objects moved and the empty old layers purged in
+  one transaction. One object that will not move now refuses the whole merge with "Nothing was changed", where COM
+  moved the rest and listed it as failed. COM stays the fallback for each half (an older plug-in, an answer it
+  cannot read as COM's). The padlock, `confirm=true`, the one undo step and Keep or Discard are unchanged. New
+  helper `_shared.faster_change`. Tested offline only (the merge run both ways over one fake drawing, answers and
+  drawings compared, and through the real gate); not tested in AutoCAD: live rows BJ1-BJ7 NOT RUN.
+- **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
+  [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
+  OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end
+  and a zig-zag along one straight line or circle are listed under `rebuild` with the segments going, and the
+  confirm (same `plan_id`, same undo step) sets that polyline's vertices and bulges again from vertices it
+  already had. A spike part way along, an old-style 2D polyline and one whose width changes along it are left,
+  with why. Off by default, so nothing changes for a call without it. Tested offline only; live row AD13 NOT RUN.
 - **The standards check's objects are read by the plug-in in one go (2026-11-23,
   [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
   [D-145](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and

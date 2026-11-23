@@ -77,7 +77,13 @@ AN13 = {
                                "autocad_import_from_drawing. Nothing was left in the drawing.",
 }
 
+AL8_REFUSED = ("PropertyRefused: AutoCAD has no property 'Radius' on this object (AddLine), so it could not be set. "
+               "AutoCAD was not busy, so it was not asked again.")
+AL8 = {"lc.by_hand_line": "L8", "lc.by_hand_set": {"error": AL8_REFUSED, "seconds": 0.05}}
+
 SAMPLES = {
+    "AL8": (AL8, {"lc.by_hand_set": {"error": "OutcomeUnknown: Outcome unknown: AutoCAD went busy part-way through",
+                                     "seconds": 10.2}}),
     "AN1": (AN1, {"autocad_create_styles": ml("LC-AN1-LABEL-50", **{**AN1_ROW, "attachment": "middle"})}),
     "AN2": (AN2, {"lc.read_props": {"StyleName": "LC-AN1-LABEL-50", "TextHeight": 6250.0}}),
     "AN3": (AN3, {"autocad_get_variable": seq({"value": ""}, {"value": "_DOT"})}),
@@ -118,4 +124,4 @@ def test_a_bad_answer_fails(monkeypatch, row):
 def test_every_an_and_al_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(styles.BY_EYE)
     assert not set(CHECKS) & set(styles.BY_EYE)
-    assert {f"AN{n}" for n in range(1, 14)} | {f"AL{n}" for n in range(1, 8)} == rows
+    assert {f"AN{n}" for n in range(1, 14)} | {f"AL{n}" for n in range(1, 10)} == rows

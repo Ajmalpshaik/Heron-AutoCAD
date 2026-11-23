@@ -851,6 +851,47 @@ character by character. Work on a copy of the drawing for the writing rows. **Ev
 | BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
 | BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
 
+## Group BK - Attribute writes made by the plug-in in one transaction: set attributes, apply sheet (D-148) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-148](DECISIONS.md), issue #200). Built and tested offline only
+(`tests/test_plugin_attribute_writes.py` runs both tools both ways over one fake drawing and compares the
+answers and the attributes left; `AttributeWritesTests.cs` what the plug-in reads and answers). The
+plug-in operation `write_attributes` has never run. Needs the plug-in rebuilt and reinstalled from code
+that has it (plug-ins 1.8.0 and 1.8.1 do not: the writes go over COM), and the server restarted. "Both
+ways" means the same call on a second copy of the drawing to a second server started with
+`--no-bridge`; the plug-in's log shows `operation write_attributes`. Work on copies of a real drawing.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BK1 | Title blocks on several sheets: `autocad_set_attributes(values={'REV': 'B'}, block_name=<the title block>)` both ways | The log shows `operation write_attributes`; the same text both ways; every sheet's REV is B; one Ctrl+Z takes all of it back | NOT RUN |
+| BK2 | The same with Ask to Keep on, both ways | Keep or Discard asks once; write down the count of changed objects both ways (the plug-in's transaction and COM's writes may count the block references differently); Discard takes every cell back | NOT RUN |
+| BK3 | Export a sheet (`autocad_export_attribute_sheet`), edit two cells and blank a third in Excel, save: `autocad_apply_attribute_sheet(path=...)` both ways | The same text both ways: only the two edited cells written (D-69), the blank one left; one undo step | NOT RUN |
+| BK4 | A title block whose REV attribute is centred or right-aligned: BK1 with a longer value | The new text sits on the same alignment point both ways (the plug-in's `AdjustAlignment` as COM's TextString) | NOT RUN |
+| BK5 | A title block whose attribute holds a field (the file name): `autocad_set_attributes` on that tag with the plug-in | The plug-in refuses it as a field and the cells are written over COM (the log shows both); write down what COM's write did to the field | NOT RUN |
+| BK6 | A sheet edited on a copy where one block's layer is then locked: `autocad_apply_attribute_sheet(path=...)` with the plug-in, then `--no-bridge` | With the plug-in: the answer says that block would not take the cell and "Nothing was changed"; no attribute changed, no undo step. Over COM: that cell under `failed`, the rest written | NOT RUN |
+| BK7 | Plug-in 1.8.1 installed (no `write_attributes`): BK1 and BK3; then on a plan with 2,000 tagged blocks time a 2,000-cell `autocad_set_attributes` with the new plug-in and over COM | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times) | NOT RUN |
+
+## Group BJ - The layer merge read and made by the plug-in: one transaction, all or none (D-147) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-147](DECISIONS.md), issue #199). Built and tested offline only
+(`tests/test_plugin_merge_layers.py` runs the merge both ways over one fake drawing and compares the
+answers and the drawings left; `LayerMergeTests.cs` what the plug-in reads and writes). The plug-in
+operations `layer_objects` and `merge_layers` have never run. Needs the plug-in rebuilt and reinstalled
+from code that has them (plug-ins 1.8.0 and 1.8.1 do not: the merge goes over COM), and the server
+restarted. "Both ways" means the same call on a second copy of the drawing to a second server started
+with `--no-bridge`; the plug-in's log shows `operation layer_objects` and `operation merge_layers`. Work
+on copies of a real drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BJ1 | A real drawing with two layers to merge, holding objects in model space, on a sheet, inside block definitions and as block attributes, one of them locked and current: `autocad_merge_layers(layers=[...], into=...)` (no `confirm`) both ways | The log shows `operation layer_objects`; the same text both ways, the same counts per layer and place | NOT RUN |
+| BJ2 | The same with `confirm=true`, Ask to Keep on, both ways | The log shows `operation merge_layers`; the same text both ways; every object on the new layer, the old layers gone, the new layer current. Keep or Discard asks once and counts the same number of changed objects both ways (write both); Discard takes all of it back, the layers too | NOT RUN |
+| BJ3 | Merge again on a fresh copy and press Ctrl+Z once | One Ctrl+Z puts every object back on its old layer, the old layers back (the locked one locked) and the old current layer current | NOT RUN |
+| BJ4 | An old layer frozen in a sheet's viewport only (VP Freeze), and one named in a layer filter: merge both ways | Write down which layers each way removes and which it keeps: the plug-in asks AutoCAD's purge, COM tries Delete; a kept one is locked again if it was | NOT RUN |
+| BJ5 | An object AutoCAD will not move (a proxy object from another application on an old layer, if one can be had): merge with the plug-in, then `--no-bridge` | With the plug-in: the answer says that object would not move and "Nothing was changed"; nothing in the drawing moved, no undo step. Over COM: the object is under `failed`, its layer kept, the rest moved | NOT RUN |
+| BJ6 | A block whose attribute definitions were deleted after it was inserted (no ATTSYNC), an attribute on an old layer: merge (no `confirm`) with the plug-in | The read goes to COM (the log shows `layer_objects`, the answer matches `--no-bridge`); write down whether COM's read listed that attribute | NOT RUN |
+| BJ7 | Plug-in 1.8.1 installed (no `layer_objects` or `merge_layers`): BJ1 and BJ2; then on a plan with 50 block definitions and 20,000 objects on the old layers, time BJ2 with the new plug-in and over COM | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times) | NOT RUN |
 ## Group BI - The standards check's object facts the plug-in reads in one go (D-145) (AutoCAD 2027, this PC)
 
 Added on 2026-11-23 ([D-145](DECISIONS.md), issue #196). Built and tested offline only
@@ -966,7 +1007,7 @@ the row that says which cause #41 was. **Every row below is NOT RUN.**
 | AM5 | `autocad_preview(width_px=4000)` and `width_px=640` | Record the `size` and `pixels` AutoCAD chose each time: they are the PNG plotter's biggest and smallest sizes, not yet known here | NOT RUN |
 | AM6 | `autocad_set_3d_view(direction='sw_iso')`, `autocad_preview(detail=2)`; then `autocad_preview(area='view', detail=2)` | First: one picture and `detail_skipped` naming the plan view. Second: refused, naming area='extents' or 'window'; nothing plotted | NOT RUN |
 | AM7 | D-141 (#41, 2026-11-23). Restart the server. On the A1 SLD in Model: `autocad_preview()` with no `detail`; then `autocad_preview(detail=1)`; then on a small detail drawing (not a sheet) `autocad_preview()` | First: 5 pictures, `detail_added` names the sheet and TEXTSIZE, the 2.5 mm text reads in the four close-ups. Second: one picture and a `tip`. Third: one picture, no `detail_added`. If the first still shows only the frame in the overview, record whether the close-ups show the contents (they are windows, the route that showed everything on 2026-10-28) | NOT RUN |
-| AM8 | D-148 (#269, 2026-11-23). Needs the plug-in built from this change; restart the server. In a new drawing with an A1 frame: a line at 100000,100000, erased by hand (ERASE, no ZOOM), then `autocad_preview(detail=1)` | `plotted` is the sheet again, not 100000; `extents_note` says EXTMIN/EXTMAX still reached the erased line and the picture covers what the plug-in measured; the picture shows the sheet full size. With an older plug-in: as AM4 (stale), no error | NOT RUN |
+| AM8 | D-150 (#269, 2026-11-23). Needs the plug-in built from this change; restart the server. In a new drawing with an A1 frame: a line at 100000,100000, erased by hand (ERASE, no ZOOM), then `autocad_preview(detail=1)` | `plotted` is the sheet again, not 100000; `extents_note` says EXTMIN/EXTMAX still reached the erased line and the picture covers what the plug-in measured; the picture shows the sheet full size. With an older plug-in: as AM4 (stale), no error | NOT RUN |
 
 ## Group AH - 3D for MEP: duct runs, pipe spools, flat views, sections, surfaces, meshes, super hatch tiles (AutoCAD 2027, this PC)
 
@@ -1279,10 +1320,12 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 | AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
 | AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
 | AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
+| AL8 | D-149 (#270, 2026-11-23). Restart the server. The runner draws a line straight into model space, then sets `Radius` on it over COM (a property a line does not have) | Within a second or two: `PropertyRefused`, naming `'Radius'` and saying AutoCAD was not busy; never "Outcome unknown", "stayed busy" or "Lost the COM connection" after ten seconds | NOT RUN |
+| AL9 | D-149 (#270). Options dialog open. `autocad_modify_entity` on a line, `layer='0'` | As AL1: "AutoCAD stayed busy ... press Esc" (or the change made once the dialog is closed); never "AutoCAD has no property" or "would not set" | NOT RUN |
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 
-Added on 2026-11-21 for issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
+Added on 2026-11-21 for issues #112, #104, #118 and #114 (row AD13 on 2026-11-23 for #159, [D-146](DECISIONS.md)) ([D-84](DECISIONS.md), [D-85](DECISIONS.md),
 [05 §35](05-known-limits.md#35-overkill-boundary-etransmit-underlays-and-clips-have-their-own-limits)).
 Built and tested offline only (`tests/test_overkill.py`, `tests/test_cleanup_refs.py`); the plug-in
 parts build for all three AutoCAD versions but have never run. Needs the new plug-in installed and
@@ -1302,6 +1345,7 @@ the server restarted. **Every row below is NOT RUN.**
 | AD10 | A saved drawing with a nested xref, a JPG, a PDF underlay, an SHX text style and a .ctb: `autocad_etransmit`. Unzip it on another PC (or rename the project folder) and open the drawing | The zip holds the drawing, both xrefs, the image, the PDF, the .shx, PlotStyles/x.ctb and the report; on the other PC every xref, image, underlay and font is found from the drawing's folder | NOT RUN |
 | AD11 | `autocad_etransmit` on an unsaved drawing; on a saved one with Publish off; with `list_only=true` | Unsaved: refused, "save it first". Publish off: refused naming Publish, no file. list_only: the list, no file written | NOT RUN |
 | AD12 | With the 1.7.0 plug-in still installed: attach a PDF, clip an xref, trace a boundary, eTransmit | Each says the plug-in does not have the operation and to update it; nothing changes in the drawing | NOT RUN |
+| AD13 | Draw a polyline 0,500 > 0,0 > 1000,0 > 400,0 (its tail goes back along the last segment) and one with a spike part way along (0,0 > 10,0 > 10,5 > 10,0 > 20,0). `autocad_overkill(tidy_polylines=true)`, then the same with `confirm=true` and its `plan_id`; then Ctrl+Z once. Also a polyline whose width changes along it, doubled the same way | Dry run: the first under `rebuild` with segment 2 going, the spike and the varying-width one under `left` with why; nothing changed. Confirm: the same handle now 0,500 > 0,0 > 1000,0 (3 vertices, length 1500), no erase question; the spike one unchanged. Ctrl+Z once brings back all 4 vertices | NOT RUN |
 
 ## Group B - AutoCAD 2025 / 2026 (.NET 8 build)
 

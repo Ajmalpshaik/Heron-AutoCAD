@@ -1,4 +1,4 @@
-"""Reads the plug-in does in one go: block counts, lengths and texts, block attributes, standards facts (AU, BB, BE, BI).
+"""Reads and changes the plug-in does in one go: blocks, lengths, texts, attributes, standards, merge (AU-BK).
 
 Run by ``live_check.py``; see ``live_common.py`` for the rules every check keeps.
 Nothing here is measured. Every row's pass is that the plug-in's answer is the same
@@ -58,4 +58,18 @@ BY_EYE: dict[str, str] = {
     "BI3": "needs one of each dimension kind drawn by hand, some on top of each other, and " + _OVER_COM,
     "BI4": "needs the same plan, and " + _OVER_COM,
     "BI5": _OLD + "; then a plan of 20,000 objects timed both ways, and Ctrl+Z pressed by hand",
+    "BJ1": "needs a real drawing with layers to merge in every place an object can be, and " + _OVER_COM,
+    "BJ2": "needs Keep or Discard answered by hand, a second copy of the drawing, and " + _OVER_COM,
+    "BJ3": "needs Ctrl+Z pressed by hand and the layers looked at in the layer manager",
+    "BJ4": "needs a viewport freeze and a layer filter set up by hand, and which layers stay written down both ways",
+    "BJ5": "needs a proxy object from another application, and a second server started with --no-bridge",
+    "BJ6": "needs a block whose attribute definitions were deleted by hand, and what COM's read lists written down",
+    "BJ7": _OLD + "; then a plan with 20,000 objects on the old layers merged and timed both ways",
+    "BK1": "writes attributes on a copy of a real drawing with and without --no-bridge, and Ctrl+Z is pressed by hand",
+    "BK2": "needs Keep or Discard answered by hand and the count written down both ways",
+    "BK3": "needs cells edited in Excel and saved, and " + _OVER_COM,
+    "BK4": "needs a centred title block attribute, and where its text sits looked at both ways",
+    "BK5": "needs a title block attribute holding a field, and what COM's write did to it written down",
+    "BK6": "needs a layer locked by hand on a copy, and a second server started with --no-bridge",
+    "BK7": _OLD + "; then 2,000 cells written and timed both ways",
 }
