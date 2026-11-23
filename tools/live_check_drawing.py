@@ -24,10 +24,12 @@ from autocad_mcp.tools import (
     batch,
     blocks,
     document,
+    draw,
     draw_extra,
     modify,
     query,
     settings,
+    sheets,
     solids,
 )
 
@@ -480,6 +482,31 @@ async def am8_an_erased_far_off_line_no_longer_stretches_the_picture(ctx: Contex
     finally:
         await _back(ctx, name)
 
+async def am9_an_erased_far_off_note_no_longer_stretches_a_sheet_preview(ctx: Context) -> str:
+    """D-154 (#281): on a sheet the plug-in measures the sheet itself, its own overall viewport left out."""
+    name = await lc.new_drawing(ctx)
+    try:
+        made = parse(await sheets.autocad_create_layout(name="LC-AM9", paper_size="A1", orientation="landscape"))
+        expect(made.get("layout") == "LC-AM9", f"the sheet was not made as asked: {str(made)[:160]}")
+        parse(await draw.autocad_draw_rectangle(corner1=[0, 0], corner2=[841, 594], layer="LC-AM9", space="paper"))
+        far = parse(await draw.autocad_draw_line(start=[5000, 3000], end=[5010, 3000], layer="LC-AM9", space="paper"))
+        await by_hand_erase(str(far["handle"]))
+        _, info = await _preview(detail=1)
+        expect(info.get("layout") == "LC-AM9", f"the preview plotted {info.get('layout')}, not the sheet on screen")
+        box = info.get("plotted") or {}
+        expect(box.get("max"), f"the preview says nothing of what it plotted: {info}")
+        top = [round(float(v), 1) for v in box["max"]]
+        expect(top[0] < 1000 and top[1] < 1000,
+               f"after erasing the far line the sheet preview still plotted up to {top}: stale PEXTMIN/PEXTMAX were "
+               "framed (is the plug-in built from this change installed?)")
+        note = str(info.get("extents_note") or "")
+        said = (f"the plug-in's box was used: '{note[:90]}'" if note
+                else "PEXTMIN/PEXTMAX had already shrunk, so no extents_note was needed")
+        return f"after erasing the far line by hand on the sheet, plotted reaches {top}; {said}. The picture itself was not looked at"
+    finally:
+        await _back(ctx, name)
+
+
 async def am5_the_png_plotter_sizes_for_big_and_small(ctx: Context) -> str:
     o = lc.origin("AM5")
     await _draw({"type": "rectangle", "corner1": _at(o, 0, 0), "corner2": _at(o, 841, 594), "layer": "LC-AM5"})
@@ -518,6 +545,8 @@ DRAWING_AM: tuple[Check, ...] = (
           am6_no_close_ups_in_a_3d_view_and_none_of_the_view),
     Check("AM8", "AM", "an erased far-off line no longer stretches the picture",
           am8_an_erased_far_off_line_no_longer_stretches_the_picture),
+    Check("AM9", "AM", "an erased far-off note no longer stretches a sheet preview",
+          am9_an_erased_far_off_note_no_longer_stretches_a_sheet_preview),
 )
 
 EYE_AM: dict[str, str] = {

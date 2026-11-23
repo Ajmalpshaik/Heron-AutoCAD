@@ -63,14 +63,29 @@ namespace Heron.AutoCAD.Addin
             });
         }
 
-        /// <summary>entity_extents: the box round every selected object that has extents.</summary>
+        /// <summary>
+        /// entity_extents: the box round every selected object that has extents.
+        /// With "leave_out_layout_viewports", each sheet's own overall viewport
+        /// (the paper-space view the modeller zooms, whose box is the screen, not
+        /// the sheet) is counted but not measured, and the answer says
+        /// "layout_viewports": "left out" so the server knows this plug-in did it
+        /// (#281, D-154). The floating viewports are measured: they are on the sheet.
+        /// </summary>
         public static RunResult Extents(Document doc, Transaction tr, RunArgs args)
         {
             var tally = new EntityTally();
+            var leaveOut = args.Flag("leave_out_layout_viewports", false);
+            var overall = leaveOut ? OverallViewports(doc, tr) : null;
             foreach (var id in Select(doc, args))
             {
                 double[]? min = null, max = null;
-                if (tr.GetObject(id, OpenMode.ForRead, false) is Entity entity)
+                var found = tr.GetObject(id, OpenMode.ForRead, false);
+                if (overall != null && found is Viewport viewport && (overall.Contains(id) || viewport.Number == 1))
+                {
+                    tally.Skip();
+                    continue;
+                }
+                if (found is Entity entity)
                 {
                     try
                     {
@@ -85,7 +100,28 @@ namespace Heron.AutoCAD.Addin
                 }
                 tally.Measure(min, max);
             }
-            return RunResult.Done(tally.WriteBox);
+            return RunResult.Done(w =>
+            {
+                if (leaveOut) w.WriteString("layout_viewports", "left out");
+                tally.WriteBox(w);
+            });
+        }
+
+        /// <summary>
+        /// Each sheet's own overall viewport: the first of its layout's viewports
+        /// (AutoCAD keeps it first). A sheet never opened has none yet.
+        /// </summary>
+        private static HashSet<ObjectId> OverallViewports(Document doc, Transaction tr)
+        {
+            var ids = new HashSet<ObjectId>();
+            var layouts = (DBDictionary)tr.GetObject(doc.Database.LayoutDictionaryId, OpenMode.ForRead);
+            foreach (DBDictionaryEntry entry in layouts)
+            {
+                if (!(tr.GetObject(entry.Value, OpenMode.ForRead, false) is Layout layout) || layout.ModelType) continue;
+                var viewports = layout.GetViewports();
+                if (viewports != null && viewports.Count > 0) ids.Add(viewports[0]);
+            }
+            return ids;
         }
 
         /// <summary>
