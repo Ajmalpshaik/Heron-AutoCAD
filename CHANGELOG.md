@@ -5,12 +5,22 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
-  [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-145](docs/DECISIONS.md)).** AutoCAD
+  [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
   OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end
   and a zig-zag along one straight line or circle are listed under `rebuild` with the segments going, and the
   confirm (same `plan_id`, same undo step) sets that polyline's vertices and bulges again from vertices it
   already had. A spike part way along, an old-style 2D polyline and one whose width changes along it are left,
   with why. Off by default, so nothing changes for a call without it. Tested offline only; live row AD13 NOT RUN.
+- **The standards check's objects are read by the plug-in in one go (2026-11-23,
+  [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
+  [D-145](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and
+  linetype, overlapping dimensions) ask the plug-in's new Read operation `entity_properties` for every object's
+  handle, class, layer, colour, linetype and a dimension's box, instead of 5-6 COM round trips per object; the
+  rules stay in Python and one loop reads COM objects and the plug-in's rows alike. COM stays the fallback: an
+  older plug-in (1.8.0 and 1.8.1 do not have it), an answer it cannot read as COM's, or a true colour the colour
+  rule needs. Over COM the check now reads colour and linetype only when a rule asks for them. Layers and the
+  reference drawing compare stay COM's. Tested offline only (the check run both ways over one fake drawing and
+  compared as text); not tested in AutoCAD: live rows BI1-BI5 NOT RUN.
 - **Lengthen, and a fillet or chamfer between a line, an arc and a polyline's end (2026-11-23,
   [#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154), [D-144](docs/DECISIONS.md)).** New tool
   `autocad_lengthen` makes a line, an arc or an open polyline longer or shorter at one end: by a distance

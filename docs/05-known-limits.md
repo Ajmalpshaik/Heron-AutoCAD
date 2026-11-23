@@ -590,7 +590,7 @@ From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NE
 
 ## 35. Overkill, boundary, eTransmit, underlays and clips have their own limits
 
-From issues #112, #104, #118, #114 and #159 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-145](DECISIONS.md)); all NOT RUN
+From issues #112, #104, #118, #114 and #159 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-146](DECISIONS.md)); all NOT RUN
 live (NEEDS-CHECKING group AD). The plug-in parts (underlays, xref and underlay clips, boundary,
 eTransmit's file list) need the plug-in **newer than 1.7.0**; an older one answers that it does not
 have the operation, and nothing is sent.
@@ -598,7 +598,7 @@ have the operation, and nothing is sent.
 - **`autocad_overkill` never breaks a polyline.** A polyline is erased only when it is
   an exact copy of another (either direction, any start corner); overlaps between polylines, and a
   loose line lying only partly on one, are listed under `left`. A polyline doubling back on itself is
-  listed too, unless `tidy_polylines=true` is given ([D-145](DECISIONS.md), row AD13): then a
+  listed too, unless `tidy_polylines=true` is given ([D-146](DECISIONS.md), row AD13): then a
   doubled stretch at its end, or a zig-zag along one line or circle between two of its corners, and
   zero-length segments go, by dropping vertices it already has (none moved or added). A spike or a
   doubled stretch part way along stays (one polyline cannot draw it any other way), and so does an
