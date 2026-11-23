@@ -4,6 +4,18 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The palette's Select and Zoom work again when a job made styles or layers (2026-11-23,
+  [#234](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/234), [D-132](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group AZ, and X25) are NOT RUN. The plug-in changed.
+  - Only drawing objects in the space in front are selected and zoomed to. A style, a layer, an object on
+    another layout or the Model tab, or one inside a block definition is left out, and the palette says how
+    many and why ("3 could not be selected: ..."). With none selectable it says so; it never fails the click.
+  - `autocad_show` answers `shown` as what is really selected, and lists the rest in `not_selectable` with
+    a reason. It isolates only when something is selected.
+  - The Keep or Discard question says objects are selected only when they are. Before, the same fault
+    could end the question's work, and the job was then discarded without the box showing (read from
+    the code).
+
 - **A busy AutoCAD is proven not to be a wrong answer in the block, table, light and copy tools, and `autocad_save_view(replace=true)` no longer deletes a layout's view
   (2026-11-23, [#189](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/189),
   [#190](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/190), [D-128](docs/DECISIONS.md)).**

@@ -23,6 +23,46 @@ namespace Heron.AutoCAD.Bridge
 
         public const string ShowNothing = "This job made or changed nothing Heron can show.";
 
+        public const string ShowAllGone = "None of what this job made or changed is in the drawing any more.";
+
+        /// <summary>
+        /// What Select or Zoom says once pressed (#234, D-132): how many were
+        /// selected, and how many could not be and why. Never "selected" for
+        /// what AutoCAD did not select.
+        /// </summary>
+        /// <param name="tooMany">Above 0: that many asked, more than Heron selects at once; nothing was done.</param>
+        /// <param name="selectable">How many can be selected in the space in front.</param>
+        /// <param name="selected">AutoCAD took the selection.</param>
+        /// <param name="zoomed">The view was zoomed to them.</param>
+        public static string Shown(int tooMany, int selectable, bool zoom, bool selected, bool zoomed,
+            int gone, int otherSpace, int insideBlock, int notDrawing)
+        {
+            if (tooMany > 0)
+                return "This job made or changed " + tooMany + " objects, and Heron selects at most " + ShowPick.Most +
+                       " at once. Ask the chat to show them in parts, or by layer.";
+            var notSelectable = otherSpace + insideBlock + notDrawing;
+            var reasons = ShowPick.Reasons(gone, otherSpace, insideBlock, notDrawing);
+            if (selectable == 0)
+            {
+                if (notSelectable == 0) return ShowAllGone;
+                return "Nothing of this job can be selected here: " + reasons + "." +
+                       (otherSpace > 0 ? " Switch to the tab they are on and press again." : "");
+            }
+            var objects = ShowPick.Count(selectable, "object", "objects");
+            string head;
+            if (!selected)
+                head = "AutoCAD would not select the " + objects + " of this job (the reason is in Heron's log)" +
+                       (zoom && zoomed ? (selectable == 1 ? "; the view frames it." : "; the view frames them.") : ".");
+            else if (zoom && zoomed)
+                head = "Zoomed to " + objects + ", selected.";
+            else if (zoom)
+                head = "Selected " + objects + (selectable == 1 ? ", but it has" : ", but they have") + " no size Heron can zoom to.";
+            else
+                head = "Selected " + objects + ".";
+            var leftOut = gone + notSelectable;
+            return leftOut == 0 ? head : head + " " + leftOut + " could not be selected: " + reasons + ".";
+        }
+
         public const string AlreadyUndone = "This job was already undone from this palette.";
 
         public const string UndoOfUndo = "This job was itself an undo. Use Ctrl+Z if you want it back.";

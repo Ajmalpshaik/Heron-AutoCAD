@@ -1296,7 +1296,8 @@ async def autocad_show(
         end_isolation (bool): show everything again.
 
     Returns:
-        str: JSON: {"shown": int, "isolated": bool, "not_found": [str]}
+        str: JSON: {"shown": int, "isolated": bool, "not_found": [str],
+             "not_selectable": [{"handle": str, "reason": str}]}
              or {"isolation_ended": true}
 
     Examples:
@@ -1315,6 +1316,10 @@ async def autocad_show(
         - Handles that are not in the drawing come back in not_found; the rest
           are still shown.
         - Needs Heron's plug-in in AutoCAD (it does the selecting).
+        - Only drawing objects in the space in front are selected; "shown"
+          counts those. The rest come back in not_selectable: "other_space"
+          (switch tabs first), "inside_block", "not_a_drawing_object" (a style
+          or layer). "selection_refused": AutoCAD took none.
     """
     if not end_isolation and not handles:
         raise AutocadError("Give the handles to show, or end_isolation=true to show everything again.")

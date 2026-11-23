@@ -6674,11 +6674,12 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**: Select and Z
 
 **The result to expect.**
 - Claude reads the answer back to you in words; nothing in the drawing changes.
-- Technical shape of the answer: `JSON: {"shown": int, "isolated": bool, "not_found": [str]} or {"isolation_ended": true}`
+- Technical shape of the answer: `JSON: {"shown": int, "isolated": bool, "not_found": [str], "not_selectable": [{"handle": str, "reason": str}]} or {"isolation_ended": true}`
 
 **Limits and versions.**
 - Handles that are not in the drawing come back in not_found; the rest are still shown.
 - Needs Heron's plug-in in AutoCAD (it does the selecting).
+- Only drawing objects in the space in front are selected; "shown" counts those. The rest come back in not_selectable: "other_space" (switch tabs first), "inside_block", "not_a_drawing_object" (a style or layer).
 - The plug-in does part of the work (`show`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
 **Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows M1, O3, AD1).
