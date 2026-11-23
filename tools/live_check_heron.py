@@ -16,6 +16,7 @@ by the same row.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -667,6 +668,109 @@ async def z8_a_long_delay_says_how_it_ended(ctx: Context) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Group V - the dialog watch (D-66), with AutoLISP's alert box as the way in (D-141)
+# ---------------------------------------------------------------------------
+#
+# autocad_send_command refuses OPEN, CLOSE and PURGE (they open a modal box), so those
+# rows could never open the box they test (#213). (alert "...") through autocad_run_lisp
+# is not refused with Admin on, and opens a real modal box in the middle of the job. The
+# alert box has only OK, so the watch's answer is the last one it has: Esc. The box's
+# title is read from the answer, never assumed: AutoCAD names it.
+
+ALERT = '(alert "Heron live check")'
+WATCH_PRESSES = ("Cancel", "No", "Esc")  # D-66: Cancel, else No, else Esc. Never OK, never Yes.
+_CLOSED = re.compile(r"^AutoCAD showed '(?P<title>.*)'; Heron closed it with (?P<button>.+), nothing was kept from that step\.$")
+_ASKED = re.compile(r"^AutoCAD showed '(?P<title>.*)'; Heron pressed (?P<button>.+) on it, as this call asked \(#101\)\.$")
+_STUCK = "If the box is still open in AutoCAD, press Esc on it."
+
+
+def _box_sentences(out: dict[str, Any]) -> list[str]:
+    said = out.get("heron_dialogs")
+    expect(isinstance(said, list) and said, f"the answer names no box (heron_dialogs is {said!r}). {_STUCK}")
+    return [str(line) for line in said]
+
+
+def _closed_by_default(out: dict[str, Any]) -> tuple[str, str]:
+    """(the box's title, the button Heron pressed) from an answer that names one box closed by the watch itself."""
+    lines = _box_sentences(out)
+    expect(len(lines) == 1, f"the answer names {len(lines)} boxes, not 1: {lines}")
+    found = _CLOSED.match(lines[0])
+    expect(found, f"the box is not said as closed by the watch: {lines[0]!r}. {_STUCK}")
+    button = found["button"]
+    expect(button in WATCH_PRESSES, f"the watch pressed {button!r}; it may press only Cancel, No or Esc, never OK or Yes")
+    return found["title"], button
+
+
+def _asked_for(out: dict[str, Any], press: str) -> str:
+    """The title of the one box the call asked Heron to press ``press`` on, once the answer says it did."""
+    lines = _box_sentences(out)
+    expect(len(lines) == 1, f"the answer names {len(lines)} boxes, not 1: {lines}")
+    found = _ASKED.match(lines[0])
+    expect(found and found["button"] == press, f"the box is not said as pressed {press} as asked: {lines[0]!r}. {_STUCK}")
+    return found["title"]
+
+
+async def _alert(**named: str) -> dict[str, Any]:
+    """The alert box opened mid-job; the answer once the watch has dealt with it. A box left open would be a timeout."""
+    out = parse(await advanced.autocad_run_lisp(expression=ALERT, **named))
+    expect(not out.get("timed_out"), f"the job timed out: the alert box was not closed. {_STUCK}")
+    return out
+
+
+async def v1_a_box_mid_job_is_closed_and_named(ctx: Context) -> str:
+    before = (await lc.recheck()).get("active_drawing") or {}
+    out = await _alert()
+    title, button = _closed_by_default(out)
+    busy = await lc.variable("CMDACTIVE")  # a read through the gate: refused while AutoCAD is still held up by a box
+    expect(int(busy or 0) == 0, f"the next call found AutoCAD inside a command (CMDACTIVE {busy})")
+    after = (await lc.recheck()).get("active_drawing") or {}
+    expect(after.get("name") == before.get("name"), f"the active drawing changed: {before.get('name')} -> {after.get('name')}")
+    return (f"AutoLISP's alert box opened mid-job and the answer said 'AutoCAD showed {title!r}; Heron closed it with {button}'; "
+            "the next call worked without pressing Esc and the same drawing was in front. The box was not looked at on screen")
+
+
+async def v4_a_box_never_gets_yes_and_the_change_stays(ctx: Context) -> str:
+    o = lc.origin("V4")
+    (line,) = await _draw({"type": "line", "start": _at(o, 0, 0), "end": _at(o, 1000, 0), "layer": "LC-V4"})
+    before = (await lc.recheck()).get("active_drawing") or {}
+    out = await _alert()
+    title, button = _closed_by_default(out)
+    expect(await lc.exists(line), "the line drawn before the box is gone")
+    after = (await lc.recheck()).get("active_drawing") or {}
+    expect(after.get("name") == before.get("name") and after.get("model_space_entities") == before.get("model_space_entities"),
+           f"the drawing changed: {before} -> {after}")
+    return (f"with a change in the drawing, a box ({title!r}) opened mid-job was closed with {button}, never OK or Yes; the line "
+            "is still there and the same drawing is still open. The 'Save changes?' box itself cannot be opened: CLOSE is "
+            "refused first (D-141)")
+
+
+async def v6_the_log_has_one_dialog_watch_line(ctx: Context) -> str:
+    if not lc.addin_log_lines():
+        raise lc.Refused("not run this time: today's add-in log was not found in %LOCALAPPDATA%\\Heron\\autocad\\logs")
+    mark = len(lc.addin_log_lines())
+    out = await _alert()
+    title, button = _closed_by_default(out)
+    lines = lc.addin_log_lines()
+    new = lines[mark:] if len(lines) >= mark else lines
+    watch = [line for line in new if "dialog watch:" in line]
+    expect(len(watch) == 1, f"the log has {len(watch)} dialog watch lines for this job, not 1: {watch}")
+    expect(watch[0].endswith(f"dialog watch: '{title}' -> {button}"), f"the log line {watch[0]!r} does not say '{title}' -> {button}")
+    bad = [line for line in new if re.search(r"error|exception|could not", line, re.IGNORECASE)]
+    expect(not bad, f"the log has error lines from this job: {bad[:3]}")
+    return f"the add-in log has one line \"dialog watch: '{title}' -> {button}\" for the job, and no error lines among its {len(new)} new ones"
+
+
+async def v7_a_named_button_is_pressed_on_that_box_only(ctx: Context) -> str:
+    title, _ = _closed_by_default(await _alert())
+    pressed = _asked_for(await _alert(expect_box=title, press="OK"), "OK")
+    other = f"{title} (a title that is not this box)"
+    _, button = _closed_by_default(await _alert(expect_box=other, press="OK"))
+    return (f"asked to press OK on {pressed!r}, Heron did and said 'as this call asked'; asked for a box with another title, "
+            f"the alert was still closed with {button}. Admin off (the call refused before anything is sent) was not tried: "
+            "the runner never moves a padlock. PURGE's own box cannot be opened here (D-141)")
+
+
+# ---------------------------------------------------------------------------
 # Group AG - standards against a reference drawing
 # ---------------------------------------------------------------------------
 
@@ -842,6 +946,12 @@ CHECKS: tuple[Check, ...] = (
           frozenset({"no_publish"})),
     Check("U7", "U", "two reports make two pairs of files", u7_two_reports_make_two_pairs, frozenset({"publish"})),
     Check("U10", "U", "a passing standard says what PASS means", u10_a_passing_standard_says_what_pass_means),
+    Check("V1", "V", "a box mid-job is closed and named", v1_a_box_mid_job_is_closed_and_named, frozenset({"admin"})),
+    Check("V4", "V", "a box never gets Yes and the change stays", v4_a_box_never_gets_yes_and_the_change_stays,
+          frozenset({"admin"})),
+    Check("V6", "V", "the log has one dialog watch line", v6_the_log_has_one_dialog_watch_line, frozenset({"admin"})),
+    Check("V7", "V", "a named button is pressed on that box only", v7_a_named_button_is_pressed_on_that_box_only,
+          frozenset({"admin"})),
     Check("W2", "W", "why names Publish and gaps counts the refusal",
           w2_why_names_publish_and_gaps_counts_the_refusal, frozenset({"no_publish"})),
     Check("W3", "W", "why says a flange should run", w3_why_says_a_flange_should_run),
@@ -872,11 +982,6 @@ _HERONSTOP = "needs HERONSTOP typed or Stop Heron now pressed while the job runs
 _PALETTE = "needs a button pressed in the Heron palette, and what it shows is read on screen"
 _RESTART = "needs AutoCAD closed and started again, which the runner cannot do"
 _REGISTRY = "needs the Windows policy key set in an administrator command prompt"
-_REFUSED_FIRST = (
-    "as written it cannot open its box: autocad_send_command refuses {cmd} before sending anything "
-    "(it opens a modal dialog), so the row needs rewriting (issue {issue})"
-)
-DIALOG_ROWS_ISSUE = "#213"
 
 BY_EYE: dict[str, str] = {
     "M1": "needs Changes off, and the grips and the zoom are seen on screen",
@@ -924,13 +1029,9 @@ BY_EYE: dict[str, str] = {
     "T7": "what the Undo drop-down shows is read on screen",
     "U8": "Excel opening the file without a repair message is seen in Excel and a browser",
     "U9": "how the chat words its answer is read in the chat",
-    "V1": _REFUSED_FIRST.format(cmd="OPEN", issue=DIALOG_ROWS_ISSUE),
     "V2": "needs AutoCAD's Options dialog opened by hand and left open",
     "V3": _ASK_TO_KEEP,
-    "V4": _REFUSED_FIRST.format(cmd="CLOSE", issue=DIALOG_ROWS_ISSUE),
     "V5": "the dialog is opened by hand with no Heron job running",
-    "V6": "reads the log of V1, which cannot run as written (issue " + DIALOG_ROWS_ISSUE + ")",
-    "V7": _REFUSED_FIRST.format(cmd="PURGE", issue=DIALOG_ROWS_ISSUE),
     "V8": "needs a plug-in older than 1.7.0 installed",
     "W1": "needs AutoCAD closed, which the runner cannot do",
     "W5": "needs Changes off; the runner works with Changes on",

@@ -5,6 +5,38 @@
 
 ---
 
+## D-141 - The dialog watch's live rows open their box with AutoLISP's alert, not with OPEN, CLOSE or PURGE
+
+**Decided:** 2026-11-23, by session S21 of the 2026-11-23 wave, on the parent session's decision for issue
+[#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213). **Status:** in force; tested offline only
+(`tests/test_live_check_heron.py`), live rows V1, V4, V6 and V7 NOT RUN. Settles how D-66's watch is tested;
+it changes no rule of the watch.
+
+**The gap.** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed `_OPEN`, `_CLOSE` and `_PURGE` through
+`autocad_send_command`. All three are in `DIALOG_COMMANDS`, which Heron refuses before anything is sent, and
+`suppress_dialogs` would have set FILEDIA to 0 anyway. So no live row could make AutoCAD open a box during
+a Heron job.
+
+**The way in.** `autocad_run_lisp('(alert "Heron live check")')` with Admin on. AutoLISP's alert is a real
+modal box, opened in the middle of the job, and `autocad_run_lisp` is not refused for it. The watch's
+rule is unchanged (Cancel, else No, else Esc; never OK, never Yes): the alert has only OK, so it gets Esc.
+- **`DIALOG_COMMANDS` is not loosened.** OPEN, CLOSE and PURGE stay refused.
+- **V1** the box is closed and named in `heron_dialogs`, and the next call works without pressing Esc.
+  **V4** keeps its point (never Yes, the change stays, the drawing stays open) with a line drawn first; the
+  "Save changes?" box itself cannot be reached. **V6** reads the add-in log for exactly one
+  `dialog watch: '<title>' -> Esc` line and no error lines. **V7** reads the box's real title from V1's
+  answer, then `expect_box=<title>, press="OK"` (`autocad_run_lisp` takes both, #101) must say "as this call
+  asked", and a different title must still be closed by the watch. V7's Admin-off refusal is not measured by
+  the runner: it never moves a padlock (D-59).
+- **The title is read, never assumed.** What AutoCAD calls its alert box is not known from here.
+- **The runner** (`tools/live_check_heron.py`) measures these four rows; `live_common.addin_log_lines()` is
+  the one new helper (today's `addin-<UTC date>.log` in `%LOCALAPPDATA%\Heron\autocad\logs`). Each row has a
+  good and a bad recording offline, and extra tests hold the watch to "never OK or Yes".
+- **Not tested in AutoCAD.** If the live run shows the alert answered differently (a title that is empty, a
+  Cancel instead of Esc), that is a finding for D-66, not for this entry.
+
+---
+
 ## D-140 - A sequence with a replace step, and four more write-then-erase tools, get the whole-change question
 
 **Decided:** 2026-11-23, by session S14 of the 2026-11-23 wave ("Yes, next 10"), on issue

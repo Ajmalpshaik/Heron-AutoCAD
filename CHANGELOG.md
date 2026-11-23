@@ -4,6 +4,15 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The dialog watch's live rows get a way in, and the bundle leaves `.pdb` out on Linux too (2026-11-23,
+  [#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213), [#262](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/262),
+  [D-141](docs/DECISIONS.md)).** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed OPEN, CLOSE and PURGE,
+  which Heron refuses before sending, so no box could open. They now use AutoLISP's alert box through
+  `autocad_run_lisp` with Admin on (the watch presses Esc; the box's title is read from the answer) and the
+  runner measures them, each with a good and a bad recording; `DIALOG_COMMANDS` is not loosened. New helper
+  `live_common.addin_log_lines()`. Not tested in AutoCAD: live rows V1, V4, V6, V7 NOT RUN. `build_plugin.py`
+  ignored `*.pdb` with a case-sensitive pattern, so an upper-case `.PDB` was copied on Linux and
+  `test_the_bundle_leaves_pdb_files_out` failed in cloud sessions; the ignore now ignores the letter case on every OS.
 - **Replace-shaped edits D-136 did not cover get the whole-change question (2026-11-23,
   [#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), [D-140](docs/DECISIONS.md)).** A join,
   explode, trim or break run as a step of `autocad_sequence` or a saved command makes the whole call a

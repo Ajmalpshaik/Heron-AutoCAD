@@ -6511,7 +6511,7 @@ Unlike autocad_send_command, this gets a value back. AutoCAD's COM interface has
 - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are rejected before anything is sent, since AutoCAD would otherwise sit waiting for the closing bracket.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10, BA3).
+**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, V1, V7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10, BA3).
 
 ### `autocad_saved_command`
 
