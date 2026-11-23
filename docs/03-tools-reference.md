@@ -200,7 +200,8 @@ step; an object on a locked layer is refused before anything is written. Not pro
 | Tool | Purpose |
 |---|---|
 | `autocad_trim_extend` | TRIM back to cutting edges (a point on the part to cut away) or EXTEND to boundaries (both ends when no point is given). Edges count as drawn. A cut circle becomes an arc |
-| `autocad_fillet_chamfer` | FILLET (radius; 0 = sharp corner) or CHAMFER (two distances, or a distance and an angle) of two lines, or of one polyline's corners (it stays one polyline) |
+| `autocad_fillet_chamfer` | FILLET (radius; 0 = sharp corner) or CHAMFER (two distances, or a distance and an angle) of two lines, a line and an arc, two arcs, the ends of open polylines, or of one polyline's corners (it stays one polyline). A chamfer to an arc is measured along the arc (D-144) |
+| `autocad_lengthen` | LENGTHEN a line, arc or open polyline at one end: by a distance (Delta; negative shortens), to a total length, or by a percent. Arc ends run on round their own circle |
 | `autocad_break_curve` | BREAK one object at a point, or take out the part between two points |
 | `autocad_join_curves` | JOIN lines, arcs and open polylines end to end into one line, arc or polyline (`gap` to close small gaps); the others are erased |
 | `autocad_edit_vertex` | Move a polyline vertex or a line's end; add or remove a polyline vertex (bulges kept) |
