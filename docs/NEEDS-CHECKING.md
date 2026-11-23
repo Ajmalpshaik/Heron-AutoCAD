@@ -881,7 +881,7 @@ were not checked against Autodesk's reference (D-108); each row compares with Au
 |---|---|---|---|
 | AP1 | `autocad_add_construction_line(base=[1000,1000], angle=90)`; then `kind='ray'`, `base=[0,0]`, `through=[300,400]`; then the same in paper space with a sheet tab active (`space='paper'`) | A vertical XLINE through 1000,1000 (LIST says Xline, base point 1000,1000, unit direction 0,1); a RAY from 0,0 towards 300,400 only; the paper one on the sheet. `verified: true` each | NOT RUN |
 | AP2 | A closed polyline 1000 x 500: `autocad_add_region(handles=[it])` | One region (LIST says Region), area 500000, perimeter 3000, centroid 500,250 (MASSPROP agrees); **the polyline is still there** (record it: does COM's AddRegion keep the outline, whatever DELOBJ says?) | NOT RUN |
-| AP3 | Four lines meeting end to end in a square, plus a circle elsewhere: `autocad_add_region(handles=[all five], erase_outlines=true)` | Two regions; the four lines and the circle erased after the modeller's yes (D-50); one Ctrl+Z brings them back and takes the regions away. Then add one loose open line to the handles: **record whether AddRegion ignores it** (Heron erases every outline given, so it goes too). An outline on a locked layer with erase_outlines: refused before any region is made | NOT RUN |
+| AP3 | Four lines meeting end to end in a square, plus a circle elsewhere: `autocad_add_region(handles=[all five], erase_outlines=true)` | Two regions; the four lines and the circle erased after the modeller chooses Keep the change (the whole-change question, D-140); one Ctrl+Z brings them back and takes the regions away. Then add one loose open line to the handles: **record whether AddRegion ignores it** (Heron erases every outline given, so it goes too). An outline on a locked layer with erase_outlines: refused before any region is made | NOT RUN |
 | AP4 | An open polyline; then a text: `autocad_add_region` on each | The polyline: refused with "no region" and AutoCAD's own words, nothing made; the text: refused before AutoCAD is asked | NOT RUN |
 | AP5 | `autocad_add_donut(centers=[[0,0],[500,0]], outside_diameter=150, inside_diameter=100)`; then `outside_diameter=30` (a dot) at 1000,0. Beside them, AutoCAD's own DONUT with the same sizes | Rings and a dot that look the same as DONUT's (LIST of each: closed polyline, 2 vertices, constant width 25 and 15); with FILLMODE 0 the answer has the note and they show as outlines | NOT RUN |
 | AP6 | A line 0,0 to 1000,0: `autocad_divide_curve(segments=4)`; then AutoCAD's own DIVIDE 4 on a copy | Points at 250, 500, 750 (none on the ends), the same as DIVIDE's; with PDMODE 0 the answer has the point-style note | NOT RUN |
@@ -1336,3 +1336,23 @@ and count, or LIST at the spot). **Every row below is NOT RUN.**
 | BC11 | Same xref: `autocad_isolate_layers(layers=["MECH\|M-DUCT"], others="freeze")`, then `autocad_list_layers` | Refused, naming the xref layer and others='off' or 'lock'; nothing changed; no HERON-ISOLATE in the layer states | NOT RUN |
 | BC12 | Ask to Keep on. Start `LINE` and leave it at its prompt; ask Heron to make a multileader style only (its arrow block cannot be selected), press Keep if the job runs (as in AX8); finish your LINE, then look at the palette card and call `autocad_undo_last` | `addin-*.log` shows `show: ... left out of the selection` and no zoom; the card's Undo and `autocad_undo_last` do not blame a zoom (they may still refuse for another reason, named) | NOT RUN |
 | BC13 | A polyline whose width changes along it (PEDIT > Edit vertex > Width on one segment) and a line across it: `autocad_trim_extend` trim it | Still refused in `failed` with "width changes along it" (#212.3 now lets a retryable read error up; this proves a real varying width is not one). Record which error AutoCAD gave in the add-in or server log if any | NOT RUN |
+
+## Group BG - Replace-shaped edits D-136 did not cover: steps of a sequence, and four more tools (D-140) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-140](DECISIONS.md); issue #255). Built and tested offline only
+(`tests/test_gate.py`, `tests/test_sequence.py`, `tests/test_saved_and_release.py`). **Nothing here has
+run in AutoCAD.** Server only (restart the server); the plug-in is the one Group BC needs (it has the
+"Keep the change, or undo the whole change?" box). Changes on, **Ask to Keep off**, the erase question
+on, a scratch drawing with UNDO on (UNDOCTL 5). "As before the job" is as in Group BC. **Every row below
+is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BG1 | Two wall lines A and B end to end: `autocad_sequence` with step 1 `autocad_draw_line` (any line C) and step 2 `autocad_join_curves([A, B])`. The box asks; press **Enter** | The box is "Keep the change, or undo the whole change?". After Enter the drawing is as before the sequence: A and B as they were, **and no line C**; first line NOTHING CHANGED saying Heron undid the whole change | NOT RUN |
+| BG2 | As BG1, press **Keep the change** | Line C and one joined line; B stays erased; first line DONE; `autocad_undo_last` then takes back the whole sequence (C gone, A and B back) | NOT RUN |
+| BG3 | Turn UNDO off (`UNDO` > Control > None), then BG1's sequence. Turn UNDO back on afterwards | REFUSED before anything runs, naming the join step ("its step Join ...") and UNDO off; no line C is drawn | NOT RUN |
+| BG4 | Save BG1's steps as a saved command (`autocad_saved_command` save, A and B as inputs), then run it on two new lines and press Enter | As BG1: the whole saved command is undone, nothing doubled | NOT RUN |
+| BG5 | Two overlapping boxes: `autocad_solid_boolean(operation='union')`, press Enter. Then a plate and a cylinder through it: `subtract`, press Enter | Each time the two solids are back exactly as they were (the first solid at its old volume, no hole, the second there once, not inside a union) | NOT RUN |
+| BG6 | A circle: `autocad_make_block` with its handle (keep_originals left out), press Enter. Then again with `keep_originals=true` | Enter: the circle is back, no insert on it, and no new block in the block list. With keep_originals: no erase box at all | NOT RUN |
+| BG7 | A hanger block and a line: `autocad_associative_array(pattern='path', path=<the line>, count=4)`, press Enter | The hanger is back once, no array left on it | NOT RUN |
+| BG8 | A closed polyline: `autocad_add_region(erase_outlines=true)`, press Enter. Then `erase_outlines` left out | Enter: the polyline is back and no region on it. Left out: no erase box | NOT RUN |

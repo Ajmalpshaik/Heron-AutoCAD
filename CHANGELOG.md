@@ -4,6 +4,14 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Replace-shaped edits D-136 did not cover get the whole-change question (2026-11-23,
+  [#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), [D-140](docs/DECISIONS.md)).** A join,
+  explode, trim or break run as a step of `autocad_sequence` or a saved command makes the whole call a
+  replace job: Heron's UNDO mark first, refused with none, and "Undo the whole change" takes back the whole
+  sequence, not only the erased objects. `autocad_solid_boolean`, `autocad_associative_array`,
+  `autocad_make_block` (in place of the objects) and `autocad_add_region` (with `erase_outlines`) are replace
+  jobs too. The gate now gets each call's arguments from `tool_errors`. Tested offline only; live rows
+  BG1-BG8 NOT RUN.
 - **Tool bugs found by the live-check runner, settled (2026-11-23, [#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218),
   [D-137](docs/DECISIONS.md)).** A super hatch refused after attaching its xref no longer raises the
   keep-erased box (a table record made and erased in one job is no erase, in the plug-in's count).

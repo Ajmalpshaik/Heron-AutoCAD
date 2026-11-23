@@ -5,6 +5,50 @@
 
 ---
 
+## D-140 - A sequence with a replace step, and four more write-then-erase tools, get the whole-change question
+
+**Decided:** 2026-11-23, by session S14 of the 2026-11-23 wave ("Yes, next 10"), on issue
+[#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), found by S10 under D-136. Applies Ajmal's
+D-136 choice ("Undo the whole change"); no new question to him. **Status:** in force; tested offline only
+(`tests/test_gate.py`, `tests/test_sequence.py`, `tests/test_saved_and_release.py`), live rows NOT RUN
+(NEEDS-CHECKING Group BG). Extends D-136, so D-50's erase question changes for these calls only.
+
+**The gap.** D-136's gate knew a replace job by the tool's own name. `autocad_sequence` (and
+`autocad_saved_command`, which runs one) calls each step's body directly inside one job named after the
+sequence, so a join, explode, trim or break run as a step got no mark (Ask to Keep off) and D-50's
+"Bring them back", which leaves both shapes on top of each other.
+
+**The rule now.**
+- **The gate is told the call's arguments.** `tool_errors` binds them with their defaults and passes them
+  to `guarded(args=...)`. `gate.replacing(tool, args)` names the tool in the call that replaces objects,
+  or None.
+- **Steps.** A tool that runs others registers a step reader in `gate.STEPS_OF`: `sequence.steps_of`
+  (the steps, checked by `plan_steps`, each with its tool's defaults) and `saved_commands.steps_of` (a
+  `run`, the saved steps with the inputs filled). A sequence with any replace step is a replace job, as
+  the tool alone is: the mark first with Ask to Keep on or off, **refused before any step runs** when no
+  mark can be put down (the refusal names the step: "Run Several Tools In Order (its step Join ...)"),
+  and the erase question "Keep the change, or undo the whole change?", whose undo goes back to the mark,
+  so it takes back **the whole sequence**, the steps before the join too. Then the gate checks every
+  step's new objects are gone. A sequence's or saved command's check-only `dry_run`, and a step list the
+  tool will refuse anyway, are no replace job (nothing runs; the tool says what is wrong).
+- **Four tools checked (the issue's list), from the code:**
+  - `autocad_solid_boolean`: **added to `REPLACES`.** The first solid is changed in place to the union,
+    the cut or the shared part, and the others are erased. Bringing back only the others leaves them
+    inside a union, or in the hole they cut, and the first solid is not as it was.
+  - `autocad_associative_array`: **added.** The array object holds copies of the sources, which AutoCAD
+    takes in and erases; bringing them back leaves them on top of the array's first item.
+  - `autocad_make_block`: **added when `keep_originals` is false** (its default, `gate.REPLACES_WHEN`).
+    The objects are erased under the new insert; bringing them back doubles them. With
+    `keep_originals=true` nothing is erased and nothing changes.
+  - `autocad_add_region` (the outline tool, AP3): **added when `erase_outlines` is true**. Bringing back
+    the outlines leaves them on the regions' edges. The regions' handles (`"regions"`) now count as new
+    objects that undoing the whole change must take away (`gate._made`).
+- **Unchanged:** every other tool and every sequence without a replace step, word for word (tested).
+  The live-check runner still leaves AC1, AP3 and the AQ rows to an eye: the box now asks the
+  whole-change question, which the runner cannot answer either.
+
+---
+
 ## D-139 - A symbol-table name with a control character in it is refused before anything reaches COM
 
 **Decided:** 2026-11-23, by session S13 of the 2026-11-23 wave ("Yes, next 10"), on issue
