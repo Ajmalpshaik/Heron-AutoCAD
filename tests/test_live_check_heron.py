@@ -294,7 +294,7 @@ Z8 = {
     "autocad_get_variable": {"name": "CMDACTIVE", "value": 0},
 }
 
-# --- V: the dialog watch, with AutoLISP's alert box as the way in (D-141) ------------------------
+# --- V: the dialog watch, with AutoLISP's alert box as the way in (D-142) ------------------------
 
 BOX_ESC = "AutoCAD showed 'AutoCAD'; Heron closed it with Esc, nothing was kept from that step."
 BOX_OK = "AutoCAD showed 'AutoCAD'; Heron closed it with OK, nothing was kept from that step."
@@ -578,7 +578,7 @@ class TestTheDialogWatchRowsHoldTheWatchToItsRules:
 def test_every_heron_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(heron.BY_EYE)
     assert not set(CHECKS) & set(heron.BY_EYE)
-    assert {"V1", "V4", "V6", "V7"} <= set(CHECKS), "the dialog rows are measured through the alert box (D-141)"
+    assert {"V1", "V4", "V6", "V7"} <= set(CHECKS), "the dialog rows are measured through the alert box (D-142)"
     assert not {"V1", "V4", "V6", "V7"} & set(heron.BY_EYE)
     assert {"V2", "V3", "V5", "V8"} <= set(heron.BY_EYE)
     assert {lc.group_of(r) for r in rows} >= {"AG", "AJ", "RV"}

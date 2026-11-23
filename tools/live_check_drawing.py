@@ -498,6 +498,7 @@ DRAWING_AM: tuple[Check, ...] = (
 
 EYE_AM: dict[str, str] = {
     "AM1": "needs the A1 automation room SLD from 2026-10-28 and an eye on what the picture shows",
+    "AM7": "needs the A1 automation room SLD and an eye on whether the close-ups show its text (D-141)",
 }
 
 

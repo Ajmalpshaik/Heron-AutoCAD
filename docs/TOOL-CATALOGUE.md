@@ -4,7 +4,7 @@
 
 Every one of Heron's **199** tools, in plain words, grouped by the job it does. For each tool: what it does, the problem it solves, where to find it, how to use it step by step, what it needs from you, the result to expect, its limits, and whether anyone has seen it work in a real AutoCAD.
 
-> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **155** NOT RUN, **1** FAIL, **24** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
+> **Read this first.** Nothing here claims a tool works in AutoCAD. The *Live proof* line of each tool is copied from [NEEDS-CHECKING](NEEDS-CHECKING.md), the one register of what was run for real. Today: **4** tools PASS, **15** PARTLY, **156** NOT RUN, **0** FAIL, **24** have no row at all. A PASS means a real AutoCAD, in the version named, gave the result the row expects; a build or an offline test is not a proof.
 
 ## How Heron's tools work (the same for every tool)
 
@@ -98,7 +98,7 @@ Every one of Heron's **199** tools, in plain words, grouped by the job it does. 
 | [`autocad_create_drawing`](#autocad_create_drawing) | Files and drawings | none: changes only what is on screen | NO ROW |
 | [`autocad_create_hatch_pattern`](#autocad_create_hatch_pattern) | Drawing and coordinates | Changes + Publish | NOT RUN |
 | [`autocad_create_layer`](#autocad_create_layer) | Layers and linetypes | Changes | NOT RUN |
-| [`autocad_create_layout`](#autocad_create_layout) | Sheets and printing | Changes | FAIL |
+| [`autocad_create_layout`](#autocad_create_layout) | Sheets and printing | Changes | NOT RUN |
 | [`autocad_create_linetype`](#autocad_create_linetype) | Layers and linetypes | Changes + Publish | NOT RUN |
 | [`autocad_create_material`](#autocad_create_material) | 3D, lights and rendering set-up | Changes | NOT RUN |
 | [`autocad_create_styles`](#autocad_create_styles) | Text, labels and tables | Changes | NOT RUN |
@@ -4179,7 +4179,7 @@ Returns the sheet's arithmetic worked out — paper size, frame, the corner a ti
 - copy_from naming a layout that is not there lists the ones that are.
 - The plug-in does part of the work (`create_layout`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **FAIL**: a live row failed and has not passed since (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22). Do not rely on it.
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D8, D9, J5, AF1, AF3, AF11, AF17, AF19, AF21, AF22).
 
 ### `autocad_list_layouts`
 
@@ -6415,7 +6415,7 @@ Use after drawing something, to check it looks right before reporting it done. P
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AH1, AR1).
+**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AM7, AH1, AR1).
 
 ### `autocad_project_notes`
 

@@ -668,7 +668,7 @@ async def z8_a_long_delay_says_how_it_ended(ctx: Context) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Group V - the dialog watch (D-66), with AutoLISP's alert box as the way in (D-141)
+# Group V - the dialog watch (D-66), with AutoLISP's alert box as the way in (D-142)
 # ---------------------------------------------------------------------------
 #
 # autocad_send_command refuses OPEN, CLOSE and PURGE (they open a modal box), so those
@@ -741,7 +741,7 @@ async def v4_a_box_never_gets_yes_and_the_change_stays(ctx: Context) -> str:
            f"the drawing changed: {before} -> {after}")
     return (f"with a change in the drawing, a box ({title!r}) opened mid-job was closed with {button}, never OK or Yes; the line "
             "is still there and the same drawing is still open. The 'Save changes?' box itself cannot be opened: CLOSE is "
-            "refused first (D-141)")
+            "refused first (D-142)")
 
 
 async def v6_the_log_has_one_dialog_watch_line(ctx: Context) -> str:
@@ -767,7 +767,7 @@ async def v7_a_named_button_is_pressed_on_that_box_only(ctx: Context) -> str:
     _, button = _closed_by_default(await _alert(expect_box=other, press="OK"))
     return (f"asked to press OK on {pressed!r}, Heron did and said 'as this call asked'; asked for a box with another title, "
             f"the alert was still closed with {button}. Admin off (the call refused before anything is sent) was not tried: "
-            "the runner never moves a padlock. PURGE's own box cannot be opened here (D-141)")
+            "the runner never moves a padlock. PURGE's own box cannot be opened here (D-142)")
 
 
 # ---------------------------------------------------------------------------

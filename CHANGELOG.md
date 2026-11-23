@@ -6,13 +6,24 @@ Newest first. Dates are when the change was made.
 
 - **The dialog watch's live rows get a way in, and the bundle leaves `.pdb` out on Linux too (2026-11-23,
   [#213](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/213), [#262](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/262),
-  [D-141](docs/DECISIONS.md)).** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed OPEN, CLOSE and PURGE,
+  [D-142](docs/DECISIONS.md)).** Rows V1, V4, V6 and V7 of NEEDS-CHECKING group V typed OPEN, CLOSE and PURGE,
   which Heron refuses before sending, so no box could open. They now use AutoLISP's alert box through
   `autocad_run_lisp` with Admin on (the watch presses Esc; the box's title is read from the answer) and the
   runner measures them, each with a good and a bad recording; `DIALOG_COMMANDS` is not loosened. New helper
   `live_common.addin_log_lines()`. Not tested in AutoCAD: live rows V1, V4, V6, V7 NOT RUN. `build_plugin.py`
   ignored `*.pdb` with a case-sensitive pattern, so an upper-case `.PDB` was copied on Linux and
   `test_the_bundle_leaves_pdb_files_out` failed in cloud sessions; the ignore now ignores the letter case on every OS.
+- **Sheet-tab and preview bugs (2026-11-23, [#39](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/39),
+  [#40](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/40), [#41](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/41),
+  [D-141](docs/DECISIONS.md)).** `autocad_create_layout` over COM no longer answers "Outcome unknown: AutoCAD
+  went busy" for a sheet it made: the page setup set `CustomScale`, which a layout does not have
+  (`SetCustomScale` now, also for the PDF export), and centred a layout plot, which AutoCAD refuses; the
+  plot style table now gets written. `autocad_status` on a sheet tab reads the space and tab from TILEMODE
+  and CTAB, says `viewport_active` when the sheet's viewport is active, and never fails on the caption or
+  version; `space="paper"` draws on the sheet on screen even when COM's active layout lags it; a COM error
+  in the gate's first look is an answer, not a bare "Exception occurred". `autocad_preview` of a whole
+  sheet whose text cannot read in one picture adds the four close-ups by itself (`detail_added`;
+  `detail=1` for one picture). Tested offline only; live rows D8, D20, D33 and AM7 NOT RUN.
 - **Replace-shaped edits D-136 did not cover get the whole-change question (2026-11-23,
   [#255](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/255), [D-140](docs/DECISIONS.md)).** A join,
   explode, trim or break run as a step of `autocad_sequence` or a saved command makes the whole call a
