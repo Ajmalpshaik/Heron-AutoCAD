@@ -1064,6 +1064,22 @@ scratch metric drawing. **Every row below is NOT RUN.**
 | AN12 | AN1 with a plug-in built before this change | Refused: "Heron in AutoCAD does not have the operation 'multileader_style'. Update Heron ..."; nothing changed. With a text style in the same call: the text style is made and the multileader row carries that message | NOT RUN |
 | AN13 | `autocad_add_table(position=[0,0], rows=[["A"]], style="NOPE")`, then `autocad_add_multileader(landing=[500,500], arrows=[[0,0]], text="X", style="NOPE")` | Each refused: "no ... style called 'NOPE' ... Make it with autocad_create_styles ... Nothing was left in the drawing." No empty table or bare leader in model space (`autocad_list_entities`), #191 | NOT RUN |
 
+## Group AX - The palette's Undo and the UNDO mark, answers after a restore (D-130) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-130](DECISIONS.md); issues #206, #209, #244). Built and tested offline only
+(bridge tests and Python tests). **Nothing here has run in AutoCAD.** The plug-in changed: build and
+install it first. Changes on. Use a scratch drawing with UNDO on (UNDOCTL 5). **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AX1 | Ask to Keep on. Draw a line with Heron and press Keep. Open the Heron palette and press Undo on its card | The line goes; nothing drawn before it goes; `addin-*.log` says `palette undo: ... (_.UNDO _Back)` | NOT RUN |
+| AX2 | Ask to Keep on. Draw a circle by hand. Start `LINE` in AutoCAD and leave it at its prompt, then ask Heron to draw a rectangle (if the job runs, press Keep), then finish your LINE | The palette's Undo for the rectangle, if offered, is `_.UNDO 1` in the log, never `_Back`; your circle and your line stay | NOT RUN |
+| AX3 | As AX2, but press Discard | The answer says AutoCAD was in a command when the job began, not "UNDO is off (UNDOCTL)" | NOT RUN |
+| AX4 | Ask to Keep off. Erase 4 objects with Heron (`autocad_delete_entities`) and answer "bring them back" | First line NOTHING CHANGED, saying all 4 were brought back; `heron_changes` erased 0; `autocad_activity` says erased 0; `autocad_undo_last` says there is nothing to undo | NOT RUN |
+| AX5 | Ask to Keep off. A Heron job that erases some objects and adds others (for example a trim that erases a piece and makes a new one), answer "bring them back", then look at the palette card | First line DONE with erased 0; the card has no Undo button; `autocad_undo_last` says there is nothing to undo; the restored objects stay | NOT RUN |
+| AX6 | Ask to Keep on. Draw a line with Heron and Keep. Then ask Heron to move a handle that does not exist (it refuses). Then `autocad_undo_last` | It says there is nothing to undo; the line stays | NOT RUN |
+| AX7 | After AX3 or any OUTCOME UNKNOWN job, `autocad_gaps` | That job's advice says to look at the drawing (or remove by hand), never "Press Esc, then try again" | NOT RUN |
+
 ## Group AY - Installer and release polish (D-131) (a shared Windows server, not this PC)
 
 | Row | Do | Pass looks like | Result |

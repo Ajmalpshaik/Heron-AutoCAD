@@ -130,6 +130,26 @@ public class ActivityLogTests
     }
 
     [Fact]
+    public void After_the_erase_question_brought_objects_back_one_step_is_refused_and_hidden()
+    {
+        // #244: the restore is an undo step after the job; UNDO 1 would erase them again.
+        Job("j1", added: 2);
+        _log.BroughtBack("j1");
+        Assert.Equal(PaletteTexts.UndoAfterRestore, _log.CanUndo("j1", Clean()).Reason);
+        Assert.False(PaletteRows.Buttons(_log.Entries[0], newest: true).Undo);
+    }
+
+    [Fact]
+    public void After_a_restore_a_real_mark_still_goes_back_past_it_to_the_job()
+    {
+        Job("j1", ask: true, added: 2);
+        _log.BroughtBack("j1");
+        var verdict = _log.CanUndo("j1", Clean());
+        Assert.True(verdict.Allowed, verdict.Reason);
+        Assert.Equal("_.UNDO _Back ", verdict.Command);
+    }
+
+    [Fact]
     public void Without_a_mark_a_heron_zoom_since_refuses_because_one_step_would_be_the_zoom()
     {
         Job("j1");
@@ -395,6 +415,8 @@ public class ActivityLogTests
     [InlineData("marked, view since")]
     [InlineData("unmarked, view since")]
     [InlineData("asked, not marked, view since")]
+    [InlineData("brought back")]
+    [InlineData("marked, brought back")]
     [InlineData("erase only")]
     [InlineData("undone here")]
     [InlineData("not newest")]
@@ -416,6 +438,8 @@ public class ActivityLogTests
             case "made nothing": Job(id, added: 0); break;
             case "marked, view since": Job(id, ask: true); Job("v1", Risk.View); break;
             case "asked, not marked, view since": Job(id, ask: true, marked: false); Job("v1", Risk.View); break;
+            case "brought back": Job(id, added: 2); _log.BroughtBack(id); break;
+            case "marked, brought back": Job(id, ask: true, added: 2); _log.BroughtBack(id); break;
             case "unmarked, view since": Job(id); Job("v1", Risk.View); break;
             case "erase only":
                 _log.Begin(new JobInfo { Job = id, Tool = "t", Risk = Risk.Change, Drawing = Dwg }, At);

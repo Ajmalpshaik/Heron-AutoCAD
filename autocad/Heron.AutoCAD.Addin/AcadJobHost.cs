@@ -168,7 +168,13 @@ namespace Heron.AutoCAD.Addin
             {
                 DialogGuard.Watch.Resume();
             }
-            if (asked && answer != null) return answer;
+            if (asked && answer != null)
+            {
+                // Brought back after the job: the palette's one-step Undo would now be that restore (#244).
+                if (answer.Answer != "keep_erased") Activity.BroughtBack(request.Job);
+                return answer;
+            }
+            Activity.BroughtBack(request.Job);
             // Could not even ask: put them back, on the main thread, as soon as AutoCAD is free.
             IdleQueue.Post(() =>
             {

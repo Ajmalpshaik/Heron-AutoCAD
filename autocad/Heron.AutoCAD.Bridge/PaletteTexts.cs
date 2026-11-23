@@ -53,6 +53,9 @@ namespace Heron.AutoCAD.Bridge
         public const string UndoViewsSince =
             "Heron zoomed or showed objects after this job, and Heron put no UNDO mark down before it, so one step back would undo the zoom instead. Use Ctrl+Z until it is gone.";
 
+        public const string UndoAfterRestore =
+            "Heron brought objects this job erased back after it, and put no UNDO mark down before it, so one step back would erase them again instead of undoing the job. Use Ctrl+Z if you want it gone.";
+
         public static string Undone(string summary) => "Undone: " + summary + ".";
 
         public static string UndoLeft(int left) =>

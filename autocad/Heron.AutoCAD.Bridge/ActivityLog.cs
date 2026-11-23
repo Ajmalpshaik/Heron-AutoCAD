@@ -159,6 +159,22 @@ namespace Heron.AutoCAD.Bridge
             Changed?.Invoke();
         }
 
+        /// <summary>
+        /// The erase question brought this job's erased objects back, or is about
+        /// to (#244). That restore is an undo step of its own after the job, so
+        /// one step back would erase them again instead of undoing the job.
+        /// </summary>
+        public void BroughtBack(string job)
+        {
+            lock (_gate)
+            {
+                var entry = Find(job);
+                if (entry == null) return;
+                entry.BroughtBack = true;
+            }
+            Changed?.Invoke();
+        }
+
         /// <summary>May the palette select or zoom to what this job made or changed?</summary>
         public ShowVerdict CanShow(string job, string activeDrawing)
         {
@@ -207,6 +223,7 @@ namespace Heron.AutoCAD.Bridge
                 if (facts.UndoControl < 0 || (facts.UndoControl & 1) == 0 || (facts.UndoControl & 2) != 0)
                     return UndoVerdict.No(PaletteTexts.UndoOff);
                 if (!entry.Marked && entry.ViewsSince > 0) return UndoVerdict.No(PaletteTexts.UndoViewsSince);
+                if (!entry.Marked && entry.BroughtBack) return UndoVerdict.No(PaletteTexts.UndoAfterRestore);
                 return new UndoVerdict
                 {
                     Allowed = true,
@@ -251,6 +268,8 @@ namespace Heron.AutoCAD.Bridge
         public string[] ShownHandles { get; set; } = new string[0];
         /// <summary>Zooms and shows by Heron since it ended: each is an undo step of its own.</summary>
         public int ViewsSince { get; set; }
+        /// <summary>The erase question brought its erased objects back: an undo step after the job (#244).</summary>
+        public bool BroughtBack { get; set; }
         public bool Undone { get; set; }
 
         /// <summary>One line, in plain words: "made 3, changed 1, erased 0".</summary>
