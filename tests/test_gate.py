@@ -403,6 +403,16 @@ def test_a_kept_job_without_a_mark_counts_the_questions_zoom(env):
     assert gate.last_change()["marked"] is False and gate.last_change()["views_since"] == 1
 
 
+def test_a_tiled_viewport_split_after_a_change_counts_as_a_step_since(env):
+    # D-140: the split stays a View job, like ZOOM and set_3d_view, which write the same *Active
+    # viewport records. Its own undo step is counted, so "undo the last change" never undoes the split.
+    env["undo_on"] = False
+    call(make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')[0])
+    assert gate.last_change()["views_since"] == 0
+    call(make_tool("autocad_tiled_viewports", '{"tiles": 2}', writes=False)[0])
+    assert gate.last_change()["views_since"] == 1
+
+
 def test_a_kept_job_with_a_mark_is_undone_back_to_it(env):
     FakeBridge.ask_to_keep = True
     draw, _ = make_tool("autocad_draw_line", '{"created": true, "handle": "2A"}')

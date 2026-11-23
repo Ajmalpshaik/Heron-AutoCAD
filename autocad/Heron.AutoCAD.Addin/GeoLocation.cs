@@ -72,43 +72,43 @@ namespace Heron.AutoCAD.Addin
 
             var made = id.IsNull;
             GeoLocationData geo;
-            var inTransaction = true;
             if (made)
             {
-                geo = new GeoLocationData { BlockTableRecordId = SymbolUtilityServices.GetBlockModelSpaceId(db) };
-                geo.PostToDb();
+                // AutoCAD adds the location itself (PostToDb). It must then join this
+                // transaction, so an abort takes it back and a commit is one undo step
+                // with the rest; if it will not, it is taken off at once (D-140, #258).
+                var fresh = new GeoLocationData { BlockTableRecordId = SymbolUtilityServices.GetBlockModelSpaceId(db) };
+                var posted = false;
                 try
                 {
-                    tr.AddNewlyCreatedDBObject(geo, true);
+                    PostedObject.Post("the geographic location",
+                        () =>
+                        {
+                            fresh.PostToDb();
+                            posted = true;
+                        },
+                        () => tr.AddNewlyCreatedDBObject(fresh, true),
+                        () =>
+                        {
+                            fresh.EraseFromDb();
+                            fresh.Dispose();
+                        },
+                        HeronLog.Error);
                 }
-                catch (System.Exception ex) when (ex is AcException || ex is InvalidOperationException)
+                catch (System.Exception) when (!posted)
                 {
-                    // Posted outside the transaction: a refusal below erases it by hand.
-                    inTransaction = false;
+                    // Never in the drawing: free the unused object, and let AutoCAD's error answer.
+                    fresh.Dispose();
+                    throw;
                 }
+                geo = fresh;
             }
             else
             {
                 geo = (GeoLocationData)tr.GetObject(id, OpenMode.ForWrite);
             }
 
-            string form;
-            try
-            {
-                form = Place(geo, system, units, metresPerUnit, point, latitude, longitude, elevation, north);
-            }
-            catch (System.Exception) when (made && !inTransaction)
-            {
-                try
-                {
-                    geo.EraseFromDb();
-                }
-                catch (System.Exception ex)
-                {
-                    HeronLog.Error("Erasing a half-made geographic location", ex);
-                }
-                throw;
-            }
+            var form = Place(geo, system, units, metresPerUnit, point, latitude, longitude, elevation, north);
 
             return RunResult.Done(w =>
             {
