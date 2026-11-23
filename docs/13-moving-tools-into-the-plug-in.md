@@ -69,6 +69,9 @@ session is changing it.
 | 8 ([#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199)) | ~~`autocad_merge_layers`~~ **moved**, see above | | | |
 | 9 ([#200](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/200)) | ~~`autocad_apply_attribute_sheet`, `autocad_set_attributes` (the writes)~~ **moved**, see above | | | |
 
+All nine ranked tools are moved (the last three on 2026-11-23: D-145, D-147, D-148); each still waits for
+its live rows. What is left of #74 is the list below, none of it ranked.
+
 Not ranked, because the gain is small: `autocad_list_layers` (9 per layer; drawings rarely have
 more than a few hundred), `autocad_list_styles`, `autocad_xref_tree`, and the single-object draw
 and modify tools.
