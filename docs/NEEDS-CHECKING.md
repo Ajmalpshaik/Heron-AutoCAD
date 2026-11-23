@@ -851,6 +851,27 @@ character by character. Work on a copy of the drawing for the writing rows. **Ev
 | BE9 | Plug-in 1.8.1 installed (no `block_attributes`): BE1 and BE4; then on a plan with 2,000 tagged blocks time `autocad_extract_attributes()` with the new plug-in and over COM; then draw a line yourself, run BE1, press Ctrl+Z once | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times); the Ctrl+Z takes away **your line**: the read left no undo step | NOT RUN |
 | BE10 | A title block whose attributes hold fields (a sheet number, a date, the file name): `autocad_extract_attributes(block_name=...)` both ways, then `autocad_set_attributes(values={'REV': 'B'}, dry_run=true)` both ways | The same text both ways: .NET's `TextString` of a field attribute matches COM's (the field's shown value), so no field is planned as a change it is not | NOT RUN |
 
+## Group BK - Attribute writes made by the plug-in in one transaction: set attributes, apply sheet (D-148) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-148](DECISIONS.md), issue #200). Built and tested offline only
+(`tests/test_plugin_attribute_writes.py` runs both tools both ways over one fake drawing and compares the
+answers and the attributes left; `AttributeWritesTests.cs` what the plug-in reads and answers). The
+plug-in operation `write_attributes` has never run. Needs the plug-in rebuilt and reinstalled from code
+that has it (plug-ins 1.8.0 and 1.8.1 do not: the writes go over COM), and the server restarted. "Both
+ways" means the same call on a second copy of the drawing to a second server started with
+`--no-bridge`; the plug-in's log shows `operation write_attributes`. Work on copies of a real drawing.
+**Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BK1 | Title blocks on several sheets: `autocad_set_attributes(values={'REV': 'B'}, block_name=<the title block>)` both ways | The log shows `operation write_attributes`; the same text both ways; every sheet's REV is B; one Ctrl+Z takes all of it back | NOT RUN |
+| BK2 | The same with Ask to Keep on, both ways | Keep or Discard asks once; write down the count of changed objects both ways (the plug-in's transaction and COM's writes may count the block references differently); Discard takes every cell back | NOT RUN |
+| BK3 | Export a sheet (`autocad_export_attribute_sheet`), edit two cells and blank a third in Excel, save: `autocad_apply_attribute_sheet(path=...)` both ways | The same text both ways: only the two edited cells written (D-69), the blank one left; one undo step | NOT RUN |
+| BK4 | A title block whose REV attribute is centred or right-aligned: BK1 with a longer value | The new text sits on the same alignment point both ways (the plug-in's `AdjustAlignment` as COM's TextString) | NOT RUN |
+| BK5 | A title block whose attribute holds a field (the file name): `autocad_set_attributes` on that tag with the plug-in | The plug-in refuses it as a field and the cells are written over COM (the log shows both); write down what COM's write did to the field | NOT RUN |
+| BK6 | A sheet edited on a copy where one block's layer is then locked: `autocad_apply_attribute_sheet(path=...)` with the plug-in, then `--no-bridge` | With the plug-in: the answer says that block would not take the cell and "Nothing was changed"; no attribute changed, no undo step. Over COM: that cell under `failed`, the rest written | NOT RUN |
+| BK7 | Plug-in 1.8.1 installed (no `write_attributes`): BK1 and BK3; then on a plan with 2,000 tagged blocks time a 2,000-cell `autocad_set_attributes` with the new plug-in and over COM | 1.8.1 answers over COM with no error and the same text; the new plug-in is clearly faster (write both times) | NOT RUN |
+
 ## Group BJ - The layer merge read and made by the plug-in: one transaction, all or none (D-147) (AutoCAD 2027, this PC)
 
 Added on 2026-11-23 ([D-147](DECISIONS.md), issue #199). Built and tested offline only
@@ -1298,8 +1319,8 @@ of a heavy realistic 3D drawing. **Every row below is NOT RUN.**
 | AL5 | `autocad_create_layer` for a new name while drawing tabs are switched by hand for 10 s (as Q1, held longer) | Either the layer is made or "AutoCAD stayed busy"; never "Could not create layer ... Call was rejected by callee" | NOT RUN |
 | AL6 | During a busy spell part-way through a long edit (`autocad_modify_entity` on 50 objects, switch tabs while it runs) | OUTCOME UNKNOWN - look at the drawing; one Ctrl+Z takes it all back, any layers it unlocked locked again | NOT RUN |
 | AL7 | `autocad_add_viewport` on a sheet while a REGEN keeps AutoCAD busy | Object snaps (OSMODE) are as they were afterwards, whatever the answer | NOT RUN |
-| AL8 | D-148 (#270, 2026-11-23). Restart the server. The runner draws a line straight into model space, then sets `Radius` on it over COM (a property a line does not have) | Within a second or two: `PropertyRefused`, naming `'Radius'` and saying AutoCAD was not busy; never "Outcome unknown", "stayed busy" or "Lost the COM connection" after ten seconds | NOT RUN |
-| AL9 | D-148 (#270). Options dialog open. `autocad_modify_entity` on a line, `layer='0'` | As AL1: "AutoCAD stayed busy ... press Esc" (or the change made once the dialog is closed); never "AutoCAD has no property" or "would not set" | NOT RUN |
+| AL8 | D-149 (#270, 2026-11-23). Restart the server. The runner draws a line straight into model space, then sets `Radius` on it over COM (a property a line does not have) | Within a second or two: `PropertyRefused`, naming `'Radius'` and saying AutoCAD was not busy; never "Outcome unknown", "stayed busy" or "Lost the COM connection" after ten seconds | NOT RUN |
+| AL9 | D-149 (#270). Options dialog open. `autocad_modify_entity` on a line, `layer='0'` | As AL1: "AutoCAD stayed busy ... press Esc" (or the change made once the dialog is closed); never "AutoCAD has no property" or "would not set" | NOT RUN |
 
 ## Group AD - Overkill, boundary, eTransmit, underlays and clips (AutoCAD 2027, this PC)
 

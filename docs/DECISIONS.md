@@ -5,7 +5,7 @@
 
 ---
 
-## D-148 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
+## D-149 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
 [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270) (found by S16 under D-141). **Status:** in
@@ -41,6 +41,39 @@ rows AL8 (measured by the runner) and AL9 NOT RUN.
 - **Not chosen:** telling them apart by the words (there is nothing in them), or by asking AutoCAD
   whether it is busy just after (it can be free a moment later, and a busy set would then be called a
   refusal).
+
+---
+
+## D-148 - Attribute writes are made by the plug-in in one transaction: only the planned cells, all of them or none
+
+**Decided:** 2026-11-23, by session S20 of the 2026-11-23 wave, on issue #200 (rank 9 of #74), under
+D-114. **Status:** in force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BK).
+`autocad_set_attributes` and `autocad_apply_attribute_sheet` write their planned cells with the plug-in's
+new Change operation `write_attributes`; COM stays the fallback. The rules:
+(1) **Only the cells the server planned (D-69).** The plan is made as before, from the read (D-138): the
+cells the modeller changed, nothing else. The server sends each as [handle, tag, text]; the plug-in
+writes exactly those, each setting every attribute with that tag on that block reference (the tag
+matched exactly, as the COM loop's `==`), and puts text that is not left-aligned back on its alignment
+point (`AdjustAlignment`, as COM's TextString does). Nothing to write sends nothing (no undo step, D-62).
+(2) **One transaction, all or none.** A block gone since the read, a tag it no longer has, or an
+attribute AutoCAD will not take (a locked layer) refuses the whole write: the transaction is aborted and
+the answer is the plug-in's refusal, ending "Nothing was changed." Over COM, `autocad_apply_attribute_sheet`
+lists such a cell under `failed` and writes the rest; that half-written sheet is what this move takes
+away. A refused write is never made again over COM.
+(3) **Only after a plug-in read.** The write is offered to the plug-in only when the plug-in read the
+blocks (the tool holds `ComRefs` then). A read over COM means a block or attribute the plug-in is not
+trusted for (D-138: multiline, constant, attributes and definition disagreeing), and COM writes it as
+before. The plug-in also refuses, with the words `AttributeWritePlan.UseCom`, a multiline or constant
+attribute, one holding a field (what .NET's TextString does to a field is not looked at yet, BK5), or more
+than 100,000 cells; it has changed nothing then, and the server writes every cell over COM.
+(4) **The same answer, the same job.** The answer is built from the plan either way, so a write that
+lands gives the same text as COM's; the tools stay Change jobs in one UNDO mark, the operation is at
+Change (the Changes padlock holds it, a Bridge test), and Keep or Discard counts AutoCAD's own events
+(D-50), which BK2 compares live. A report that does not count every cell is "Outcome unknown".
+(5) **Older plug-ins.** One without `write_attributes` (1.8.0, 1.8.1, or built before this) says so,
+and the cells are written over COM by handle, as D-138 left them. The writes use D-147's
+`_shared.faster_change`. Rejected: having the plug-in work out which cells changed (two copies of D-69's
+rules), and writing over COM what a refused write left (the half-written sheet again).
 
 ---
 

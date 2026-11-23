@@ -96,7 +96,7 @@ class OutcomeUnknown(AutocadError):
 
 
 class PropertyRefused(AutocadError, AttributeError):
-    """AutoCAD answered that this object has no such property, or will not take the value (#270, D-148).
+    """AutoCAD answered that this object has no such property, or will not take the value (#270, D-149).
 
     pywin32 gives both as "Property 'Item.CustomScale' can not be set.", the same
     words a busy AutoCAD gives, so they used to be asked again for ten seconds and
@@ -208,7 +208,7 @@ def is_busy(exc: BaseException) -> bool:
 
 
 def explain_set_failure(obj: object, prop: str, value: object, failure: AttributeError) -> None:
-    """Ask the object again why pywin32 could not set ``prop``, and say so (#270, D-148).
+    """Ask the object again why pywin32 could not set ``prop``, and say so (#270, D-149).
 
     Called only with pywin32's "Property '<x>' can not be set." AttributeError,
     which hides the HRESULT. The object is asked for the name's id, and when it

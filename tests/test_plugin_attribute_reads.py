@@ -190,6 +190,11 @@ class FakePlugin:
         self.calls.append((operation, json.loads(json.dumps(args))))  # what goes over the pipe
         if self.fail:
             raise self.fail
+        if operation == "write_attributes":
+            # As a plug-in from between D-138 and D-148: it reads, the writes go over COM
+            # (test_plugin_attribute_writes.py has the plug-in's own write).
+            raise BridgeRefused("Heron in AutoCAD does not have the operation 'write_attributes'. Update Heron so "
+                                "both sides match. Nothing was sent to AutoCAD.")
         assert operation == OPERATION, operation
         # The plug-in reads the drawing as it is now (after any earlier write over COM).
         now = {ref.Handle: ref for ref in self.doc.objects}
@@ -609,7 +614,8 @@ class TestThroughTheRealGate:
             gated.bridge.calls = []
             gated.runs.clear()
             text = asyncio.run(text_tools.autocad_set_attributes(**options))
-            assert gated.runs == [OPERATION]
+            # After a plug-in read, the write is offered to it too (D-148); this one has none, so COM writes.
+            assert gated.runs == [OPERATION] + (["write_attributes"] if writes and answers else [])
             assert (gated.doc.com_selections == 0) == answers
             found[answers] = (text, list(gated.bridge.calls), gated.values(), gated.doc.undo_marks)
         assert found[True] == found[False]
