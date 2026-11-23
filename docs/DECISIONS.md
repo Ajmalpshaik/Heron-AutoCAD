@@ -5,6 +5,29 @@
 
 ---
 
+## D-139 - A symbol-table name with a control character in it is refused before anything reaches COM
+
+**Decided:** 2026-11-23, by session S13 of the 2026-11-23 wave ("Yes, next 10"), on issue
+[#249](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/249), found by S7 under D-133. **Status:** in
+force; tested offline only, live rows NOT RUN (NEEDS-CHECKING Group BF).
+
+`validate_name` (acad/tables.py) refused `< > / \ " : ; ? * | , = and the backtick, and stripped the ends, but a line break,
+tab, Esc, NUL, DEL or other control character inside a name passed. It now calls the shared
+`refuse_control(name, "<kind> name")` from `acad/lisp.py` (D-133, not copied) **first, on the raw name**:
+`strip()` would drop a trailing newline or tab unseen. The refusal is the D-133 sentence ("The layer name
+holds a line break, which cannot be typed into AutoCAD's command line ... Nothing was typed.").
+
+**Callers read (every `validate_name` call site, plus `ensure_layer` and `ensure_linetype`, which validate
+inside):** all go through `validate_name`, so all are now covered. None types the name at the command line
+or quotes it into LISP: layers, convert (unmatched_layer, off_layer_0), draw_extra, materials, pdf_import,
+settings (text, dimension and other styles), sheets (layout; its only SendCommand is MVIEW with numbers),
+superhatch (block holder), views (camera view; the save-view typing site already had its own check),
+xrefs. No caller needed a change. One note outside these callers: `autocad_super_hatch`'s `layer` is
+passed to the plug-in without `validate_name`; it is not typed or LISP-quoted, so it is left for the parent
+to decide.
+
+---
+
 ## D-134 - Lengths and texts are read by the plug-in in one go, dressed as the COM objects they stand for
 
 **Decided:** 2026-11-23, by session S8 of the 2026-11-23 wave ("Yes, next 10"), on issues #195 and

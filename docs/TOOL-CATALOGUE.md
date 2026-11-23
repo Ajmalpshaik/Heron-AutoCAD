@@ -2562,7 +2562,7 @@ A dimension style is built the way AutoCAD's own API requires: the DIM variables
 - The drawing's own DIM variables are put back even if a style fails.
 - The plug-in does part of the work (`multileader_style`, `table_style`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, AN1, AN3, AN5, AN7, AN13, AZ1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows D23, BF2, AN1, AN3, AN5, AN7, AN13, AZ1).
 
 ### `autocad_find_replace_text`
 
@@ -3776,7 +3776,7 @@ Safe to call repeatedly: an existing layer is updated with whatever properties y
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q1, T2, T4, AL5).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows Q1, T2, T4, BF1, BF2, AL5).
 
 ### `autocad_create_linetype`
 

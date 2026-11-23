@@ -768,6 +768,17 @@ when the plug-in read it. **Every row below is NOT RUN.**
 | AU7 | A MINSERT, a block placed on a sheet (layout) and an xref: `autocad_count_blocks()` and `autocad_list_blocks()` both ways | Each is counted the same both ways (the sheet's block included in both) | NOT RUN |
 | AU8 | Draw a line yourself, run AU1 and AU4, then press Ctrl+Z once | The Ctrl+Z takes away **your line**: the reads left no undo step | NOT RUN |
 
+## Group BF - Names refuse control characters (D-139) (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-139](DECISIONS.md); issue #249). Built and tested offline only
+(`tests/test_offline.py` `TestNameValidation`). **Nothing here has run in AutoCAD.** Server only (restart
+the server). Changes on. Use a scratch drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| BF1 | `autocad_create_layer(name="A\nB")` (a real line break), then with a real tab and a real Esc | Each is refused at once: "The layer name holds a line break (a tab, an Esc character), which cannot be typed into AutoCAD's command line ... Nothing was typed."; no layer is made | NOT RUN |
+| BF2 | `autocad_create_layer(name="A-WALL")`, then `autocad_create_styles` with a text style named `TXT-1` | Both made as before | NOT RUN |
+
 ## Group BB - Lengths and texts the plug-in reads in one go: total_length, measure, count_text, find_text (D-134) (AutoCAD 2027, this PC)
 
 Added on 2026-11-23 ([D-134](DECISIONS.md), issues #195 and #197). Built and tested offline only

@@ -271,6 +271,23 @@ class TestNameValidation:
             validate_name(bad)
 
 
+    @pytest.mark.parametrize(
+        "bad", ["A\nB", "A\tB", "A\x1bB", "A\x00B", "A\x7fB", "A\rB", "A-WALL\n", "\tA-WALL"]
+    )
+    def test_rejects_control_characters(self, bad):
+        # #249: a trailing or leading one would be stripped unseen, so it is checked first.
+        with pytest.raises(AutocadError, match="cannot be typed into AutoCAD's command line"):
+            validate_name(bad, "layer")
+
+    def test_control_refusal_names_the_kind(self):
+        with pytest.raises(AutocadError, match="text style name holds a line break"):
+            validate_name("A\nB", "text style")
+
+    def test_accepts_unicode_names(self):
+        assert validate_name("\u0637\u0628\u0642\u0629-1") == "\u0637\u0628\u0642\u0629-1"
+        assert validate_name("Caf\u00e9_3") == "Caf\u00e9_3"
+
+
 class TestDispatchFailureHeuristic:
     """The AttributeError heuristic decides retry vs. hard failure, so it has
     to separate pywin32's COM errors from ordinary Python ones exactly."""
