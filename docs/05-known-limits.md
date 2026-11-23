@@ -585,8 +585,11 @@ From [D-102](DECISIONS.md), issue #41; NOT RUN live (NEEDS-CHECKING group AM).
 - `plotted` comes from EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a layout), read after a regen. AutoCAD
   shrinks them only on ZOOM Extents. Since [D-151](DECISIONS.md) (#269), in model space, the plug-in
   measures the objects themselves; when its box is well inside EXTMIN/EXTMAX, that box is plotted as a
-  window and `extents_note` says so. A sheet layout, no plug-in or an older one still uses the variables
-  (AM4, AM8 NOT RUN).
+  window and `extents_note` says so. Since [D-154](DECISIONS.md) (#281) a sheet layout is measured the
+  same way against PEXTMIN/PEXTMAX, by the sheet's own name, with the sheet's overall viewport (the
+  paper-space view, whose box is the screen) left out; the floating viewports count. No plug-in, or one
+  built before D-154 (it does not say it left the viewport out), still uses the variables
+  (AM4, AM8, AM9 NOT RUN).
 - Close-ups need a plan view in the world UCS (or a window you give): in a 3D view the plan box does
   not match the picture, so they are skipped with the reason.
 

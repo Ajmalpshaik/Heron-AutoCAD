@@ -5,6 +5,40 @@
 
 ---
 
+## D-154 - A sheet's extents preview measures the sheet through the plug-in, its own overall viewport left out
+
+**Decided:** 2026-11-23, by session S23 of the 2026-11-23 wave, for issue
+[#281](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/281) (found by S22 under D-151). **Status:** in
+force; extends D-151 from model space to sheet layouts and keeps D-114's COM fallback. Tested offline only
+(`tests/test_preview_sheet_extents.py`; the plug-in change is built, not run); live row AM9 NOT RUN.
+**Needs the plug-in built from this change**; an older one previews a sheet as before.
+
+- **The gap.** PEXTMIN/PEXTMAX go stale the same way EXTMIN/EXTMAX do (they shrink only on ZOOM Extents or
+  All). D-151's 410 filter can measure a sheet, but every sheet holds one viewport of its own: the overall
+  paper-space viewport, the view the modeller zooms and pans. Its box is the screen, not the sheet, so a box
+  with it in would be wrong both ways (bigger when zoomed out, pulled to the view when zoomed in).
+- **The rule.** Leave out that one viewport, keep everything else on the sheet. PEXTMIN/PEXTMAX leave it out
+  too, so the two boxes compare like for like. The floating viewports stay in: their frames and the model
+  they show are on the sheet. The plug-in's `entity_extents` takes `leave_out_layout_viewports`: a viewport
+  that is first in its layout's `GetViewports()` (AutoCAD keeps the overall one first) or is number 1 (the
+  overall one of the sheet on screen) is counted but not measured, and the answer says
+  `"layout_viewports": "left out"`. The selection is AutoCAD's own `SelectAll` with `[[410, <sheet>]]`, as D-151.
+- **The preview.** On a sheet `_extents_box` reads PEXTMIN/PEXTMAX and asks for that read with the sheet's
+  own name. A layout name is a wildcard pattern in a filter (a comma splits it, a dot matches any
+  punctuation), so each of `#@.*?~[],` and the backquote itself is escaped with a backquote; not tested in AutoCAD
+  (AM9 asks for one such name by eye). Then exactly D-151's rule: only a box well inside (an edge more than
+  1 % in) is used, plotted as a window, with an `extents_note` naming PEXTMIN/PEXTMAX and the sheet. A box
+  that agrees or is bigger (a frame on a frozen layer) changes nothing.
+- **Fallback.** No plug-in, or one older than 410: `faster_read` answers None, PEXTMIN/PEXTMAX as before.
+  A plug-in with 410 but built before this change ignores the flag, so its box would hold the screen's
+  viewport: its answer lacks `layout_viewports`, so it is not used. The echo is the version check, as
+  `count_entities`'s `"space": "model"` is (#193).
+- **Not chosen:** leaving out every viewport (a sheet of viewports alone would then measure as nothing),
+  plotting the layout's paper instead of extents (that is not what `area='extents'` asks), a wildcard type
+  filter `~VIEWPORT` (the same loss), and a ZOOM Extents first (it changes the modeller's view, D-151).
+
+---
+
 ## D-153 - A get of a member the object lacks is asked about once, only after it failed, and answered at once; a busy one is still asked again
 
 **Decided:** 2026-11-23, by session S23 of the 2026-11-23 wave, for issue

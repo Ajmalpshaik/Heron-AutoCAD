@@ -260,6 +260,18 @@ AM8 = {
     "own.by_hand_erase": None,
 }
 
+AM9_PLOTTED = {"area": "extents", "layout": "LC-AM9", "size": "Sun Hi-Res (1600.00 x 1280.00 Pixels)",
+               "pixels": [1600, 1280], "plotted": {"min": [0.0, 0.0], "max": [841.0, 594.0], "width": 841.0, "height": 594.0}}
+AM9 = {
+    **SHEET,
+    "autocad_create_layout": {"created": True, "layout": "LC-AM9", "paper": {"paper": [841.0, 594.0]}},
+    "autocad_draw_rectangle": done({"created": True, "handle": "F"}),
+    "autocad_draw_line": done({"created": True, "handle": "FAR"}),
+    "autocad_preview": preview({**AM9_PLOTTED, "extents_note": "PEXTMIN/PEXTMAX still reach ... ZOOM Extents."}),
+    "own.by_hand_erase": None,
+}
+
+
 def sized(width: int, height: int) -> Raw:
     return preview({"area": "window", "layout": "Model", "size": f"Sun Hi-Res ({width}.00 x {height}.00 Pixels)",
                     "pixels": [width, height]})
@@ -307,6 +319,8 @@ SAMPLES: dict[str, tuple[dict, dict]] = {
     "AM4": (AM4, {"autocad_preview": seq(preview(plotted("AM4", 841, 594)), preview(plotted("AM4", 841, 594)))}),
     "AM5": (AM5, {"autocad_preview": seq(sized(640, 480), sized(3200, 2400))}),
     "AM8": (AM8, {"autocad_preview": preview(plotted("AM8", 100010, 100000))}),
+    "AM9": (AM9, {"autocad_preview": preview({**AM9_PLOTTED, "plotted": {"min": [0.0, 0.0], "max": [5010.0, 3000.0],
+                                                                       "width": 5010.0, "height": 3000.0}})}),
     "AM6": (AM6, {"autocad_preview": seq(
         sheet_preview("AM6", 2),
         AM6["autocad_preview"].items[1],
@@ -356,7 +370,7 @@ def test_every_check_has_a_recording():
 def test_every_row_is_scripted_or_by_eye_once():
     rows = [*CHECKS, *drawing.BY_EYE]
     assert len(rows) == len(set(rows))
-    want = {f"AP{n}" for n in range(1, 12)} | {f"AM{n}" for n in range(1, 9)}  # AM7: D-141; AM8: D-151
+    want = {f"AP{n}" for n in range(1, 12)} | {f"AM{n}" for n in range(1, 10)}  # AM7: D-141; AM8: D-151; AM9: D-154
     assert set(rows) == want
     assert all(len(why.split()) >= 4 for why in drawing.BY_EYE.values())
 

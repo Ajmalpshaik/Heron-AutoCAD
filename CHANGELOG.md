@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **A sheet's extents preview no longer frames an object that was erased (2026-11-23,
+  [#281](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/281), [D-154](docs/DECISIONS.md)).** As D-151 did
+  for model space: on a sheet layout `autocad_preview()` now asks the plug-in to measure what is on the sheet
+  (DXF 410 with the sheet's name), leaving out the sheet's own overall viewport (the paper-space view, whose box
+  is the screen, not the sheet); the floating viewports count. When that box is well inside PEXTMIN/PEXTMAX the
+  picture is a window over it and `extents_note` says why. No plug-in, or one built before this change: as
+  before. Needs the new plug-in. Tested offline only; live row AM9 NOT RUN (the runner measures it).
 - **Reading a property an object does not have is answered at once, not as a lost connection (2026-11-23,
   [#280](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/280), [D-153](docs/DECISIONS.md)).** As D-149 did
   for sets: pywin32 gives "AutoCAD.AcDbLine.Radius" both when AutoCAD is busy and when the object has no such

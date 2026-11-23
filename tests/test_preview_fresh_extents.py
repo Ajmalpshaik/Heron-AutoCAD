@@ -105,10 +105,12 @@ async def test_nothing_measured_is_extmin_extmax_as_before(preview):
     assert info["plotted"]["max"] == [100010.0, 100000.0]
 
 
-async def test_a_paper_layout_is_not_measured_by_the_plug_in(preview):
+async def test_a_paper_layout_is_measured_as_a_sheet_not_as_model_space(preview):
+    # D-154 (#281) measures sheets too, by their own name and without their overall viewport.
+    # A plug-in answer that does not say it left the viewport out is not used: PEXTMIN/PEXTMAX as before.
     doc, asked = preview(measured=SHEET, model=False)
     info = _info(await document.autocad_preview(detail=1))
-    assert asked == []
+    assert asked == [("entity_extents", {"filter": [[410, "Sheet-01"]], "leave_out_layout_viewports": True})]
     assert info["plotted"]["max"] == [420.0, 297.0]
 
 
