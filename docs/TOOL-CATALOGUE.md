@@ -705,7 +705,7 @@ Coordinates are in the drawing's own units — call autocad_status first if you 
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows L5, L7, V3, W5, RV3, BG1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows L5, L7, V3, W5, AQ16, RV3, BG1).
 
 ### `autocad_draw_multiline`
 
@@ -1435,7 +1435,7 @@ The pieces are new objects; the original is erased, so Heron asks the modeller "
 ### `autocad_fillet_chamfer`
 
 **What it does.** Round a corner with an arc (fillet) or cut it straight (chamfer): two objects, or a polyline's corners.
-Two lines: each is trimmed or extended to the arc's tangent point (or the chamfer's end), and the new arc or line takes the first line's layer, colour and linetype. A line and an arc, two arcs, or the ends of open polylines are met the same way (the arc is run on round its circle where it has to be; a polyline keeps all but its end segment and stays one polyline). AutoCAD's own CHAMFER takes straight objects only, so a chamfer to an arc is measured along the arc, from the corner (D-143).
+Two lines: each is trimmed or extended to the arc's tangent point (or the chamfer's end), and the new arc or line takes the first line's layer, colour and linetype. A line and an arc, two arcs, or the ends of open polylines are met the same way (the arc is run on round its circle where it has to be; a polyline keeps all but its end segment and stays one polyline). AutoCAD's own CHAMFER takes straight objects only, so a chamfer to an arc is measured along the arc, from the corner (D-144).
 
 **The problem it solves.**
 - "put a 150 radius on that duct corner" -> operation='fillet', the two lines, radius=150.
@@ -2910,7 +2910,7 @@ After the workbook behind a linked table was edited and saved, this reads it aga
 **Limits and versions.**
 - The plug-in does part of the work (`update_table_links`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC8).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AC8, AQ17).
 
 
 ## Dimensions
@@ -5105,7 +5105,7 @@ AutoCAD's online map (GEOMAP) then shows under the drawing, and the sun follows 
 - A drawing with no units, an unknown coordinate system, or a place AutoCAD reads back wrong is refused, and nothing is changed.
 - The plug-in does part of the work (`set_geo_location`); it needs plug-in **1.8.1** or newer. An older plug-in refuses it and nothing is sent.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ11, AQ12, AQ13).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ11, AQ12, AQ13, AQ15).
 
 ### `autocad_get_geo_location`
 
@@ -6786,7 +6786,7 @@ Each new viewport starts from the view on screen now; click in one to make it cu
 - A split AutoCAD built another way than asked is a warning with what it did build.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ6, AQ7).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AQ6, AQ7, AQ16).
 
 ### `autocad_undo_last`
 
@@ -6820,7 +6820,7 @@ On the Heron tab: **Heron tab > Heron > Heron palette > Activity**, the Undo but
 - Refused when Heron made no change in this chat, when the drawing is another one, when anything changed since, when Heron zoomed or ran a command since (with Ask to Keep off), or with a plug-in older than 1.5.0.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1, AX4, AX5, AX6, AX8, BC1, BC3, BC12, BG2).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows O5, O6, O7, X10, Z1, AQ16, AX4, AX5, AX6, AX8, BC1, BC3, BC12, BG2).
 
 ### `autocad_use_autocad`
 

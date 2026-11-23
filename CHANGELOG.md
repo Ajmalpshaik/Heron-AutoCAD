@@ -5,7 +5,7 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **Lengthen, and a fillet or chamfer between a line, an arc and a polyline's end (2026-11-23,
-  [#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154), [D-143](docs/DECISIONS.md)).** New tool
+  [#154](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/154), [D-144](docs/DECISIONS.md)).** New tool
   `autocad_lengthen` makes a line, an arc or an open polyline longer or shorter at one end: by a distance
   (`delta`, negative shortens), to a `total` length or by a `percent`, at the end nearer `points` or `end`.
   An arc end runs on round its own circle; a shorter polyline is cut back over its corners, arcs kept.
@@ -15,6 +15,16 @@ Newest first. Dates are when the change was made.
   (the angle method is refused). Two lines answer as before. Worked out in `acad/edit2d.py`, written over
   COM, no plug-in change. 200 tools. Tested offline only; live rows BH1-BH11 NOT RUN (the runner measures
   BH1-BH9 in `tools/live_check_lengthen.py`).
+- **A plug-in job that changed nothing leaves no undo step; the geographic location stays inside the
+  job (2026-11-23, [#80](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/80),
+  [#258](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/258), [D-143](docs/DECISIONS.md)).** Every plug-in
+  operation's transaction is watched with AutoCAD's own events; one that opened, added or erased no object
+  and changed no variable is aborted like a read instead of committed. A new geographic location that
+  AutoCAD will not take into the job's transaction is taken off again and the job refused, instead of being
+  left in the drawing outside it; if it cannot be taken off, the answer says it may still be there.
+  `autocad_tiled_viewports` stays a View job (the reason is in D-143), with a test that its own undo step is
+  counted after a change. The server's empty undo group is still open, as issue #263 (live row T7). Tested
+  offline only; live rows AQ15-AQ17 NOT RUN. Needs the new plug-in.
 - **`autocad_set_attributes(csv_path=...)` reads a semicolon CSV (2026-11-23,
   [#259](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/259)).** A CSV saved by Excel on a PC whose list
   separator is a semicolon was read as one column whose heading was the whole header line, so no row matched

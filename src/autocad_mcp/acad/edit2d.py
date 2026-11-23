@@ -887,7 +887,7 @@ def chamfer_lines(
 # curves are met as if they ran on, as AutoCAD's FILLET does with TRIM mode on; each keeps the
 # part on one side of the corner, and the part nearer the corner is trimmed or extended to the
 # tangent point (fillet) or to a distance along the curve (chamfer; AutoCAD's CHAMFER takes
-# straight objects only, so a distance along an arc is Heron's own rule, D-143).
+# straight objects only, so a distance along an arc is Heron's own rule, D-144).
 
 
 def _one_segment(path: Path, name: str) -> Segment:

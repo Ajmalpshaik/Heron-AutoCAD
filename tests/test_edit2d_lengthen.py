@@ -1,4 +1,4 @@
-"""Lengthen, and fillet or chamfer between a line, an arc and a polyline's end (issue #154, D-143).
+"""Lengthen, and fillet or chamfer between a line, an arc and a polyline's end (issue #154, D-144).
 
 The geometry of acad/edit2d.py checked without AutoCAD. Each answer is checked against a
 number a draftsman could measure, worked out here by hand from the drawing's own figures

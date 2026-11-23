@@ -1,7 +1,7 @@
 """The everyday 2D edits: trim, extend, lengthen, fillet, chamfer, break, join, move a
 vertex, stretch, explode, draw order, match properties and groups.
 
-Issues #103, #49, #105, #111, #110 and #154 (D-78, D-79, D-143). The new shape is worked out
+Issues #103, #49, #105, #111, #110 and #154 (D-78, D-79, D-144). The new shape is worked out
 in plain Python (acad/edit2d.py, tested without AutoCAD) and written back by
 setting each object's own points over COM. Nothing is typed on AutoCAD's command
 line, so no command is ever left waiting for a pick (known limit 21). Each call
@@ -638,7 +638,7 @@ async def autocad_fillet_chamfer(
     polylines are met the same way (the arc is run on round its circle where
     it has to be; a polyline keeps all but its end segment and stays one
     polyline). AutoCAD's own CHAMFER takes straight objects only, so a
-    chamfer to an arc is measured along the arc, from the corner (D-143). One
+    chamfer to an arc is measured along the arc, from the corner (D-144). One
     polyline: each corner between two straight segments becomes an arc
     (bulge) or a short straight; a corner next to an arc, or on a segment too
     short, is skipped and said. One undo step.

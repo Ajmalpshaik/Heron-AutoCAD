@@ -1,4 +1,4 @@
-"""The 2D edit tools against fake COM objects (issues #103, #49, #105, #111, #110, #154; D-78, D-79, D-143).
+"""The 2D edit tools against fake COM objects (issues #103, #49, #105, #111, #110, #154; D-78, D-79, D-144).
 
 The geometry itself is checked in test_edit2d_geometry.py. Here: that each tool
 reads the right objects, writes the shape back through the object's own
@@ -1029,7 +1029,7 @@ def test_infinity_is_not_a_lineweight_or_a_transparency(given):
         props.transparency_value(given)
 
 
-# ---- lengthen (#154, D-143) -----------------------------------------------------------------------
+# ---- lengthen (#154, D-144) -----------------------------------------------------------------------
 
 
 def test_lengthen_grows_the_end_nearest_the_point_and_keeps_the_handle(doc):
@@ -1099,7 +1099,7 @@ def test_lengthen_checks_its_arguments(doc):
     assert "twice" in refusal(edit2d.autocad_lengthen([pipe.Handle, pipe.Handle.lower()], "delta", 5))
 
 
-# ---- fillet and chamfer between a line, an arc and a polyline's end (#154, D-143) --------------------
+# ---- fillet and chamfer between a line, an arc and a polyline's end (#154, D-144) --------------------
 
 
 def test_fillet_a_line_and_an_arc_trims_both_and_adds_a_tangent_arc(doc):
