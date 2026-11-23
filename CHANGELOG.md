@@ -4,6 +4,16 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The live-check runner covers groups AF, AI, AK, AR, AT and AY, part 1 of
+  [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222) (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
+  New files `tools/live_check_sheets.py` (AF), `live_check_drawtools.py` (AI), `live_check_solids.py` (AR),
+  `live_check_standards.py` (AT) and `live_check_setup.py` (AK, AY), each with an offline test holding a good and
+  a bad recording per check. 28 rows are measured from the tools' own answers (AF2, AF4; AI1-AI6, AI8,
+  AI10-AI13; AR1-AR11; AT3, AT5, AT7, AT8) and the other 51 have their reason: the setup program, the
+  installer on a shared server, anything that erases or needs Ask to Keep on, a plug-in older than the change,
+  the office standard's own file, or a look at the screen. AT5 and AT7 run only on a PC with no office layer
+  standard and are said as not run this time on one that has it. No rule is new (no D-135), no tool changed.
+  **Run only against recorded answers, never in AutoCAD.**
 - **A layer, style, block, view or other table name with a line break, tab or Esc in it is refused
   (2026-11-23, [#249](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/249), [D-139](docs/DECISIONS.md)).**
   `validate_name` now refuses any control character, on the name as given (before the ends are
