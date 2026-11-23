@@ -222,6 +222,8 @@ through AutoCAD's .NET API ([D-40](DECISIONS.md)). The server sends
 | `edit_spline_fit_points` | `autocad_edit_spline` | `Spline.SetFitPointAt`, `InsertFitPointAt`, `RemoveFitPointAt`, then the fit points read back against the plan ([D-97](DECISIONS.md)) |
 | `count_entities` (Read) | `autocad_list_entities(summary_only=true)`; with `space: model`, `autocad_drawing_report`'s count (#193) | `Editor.SelectAll` with the same DXF filter COM uses; each object's class and layer ([D-114](DECISIONS.md)) |
 | `entity_extents` (Read) | `autocad_get_extents(layer=...)` | `Editor.SelectAll`, `Entity.GeometricExtents` ([D-114](DECISIONS.md)) |
+| `block_references` (Read) | `autocad_count_blocks` (#192) | `Editor.SelectAll` with COM's INSERT filter; each reference's real name (`DynamicBlockTableRecord`), layer and `DynamicBlockReferencePropertyCollection`, each value with its type; with `nested`, the block references in every definition that is not a layout or an xref ([D-127](DECISIONS.md)) |
+| `block_definitions` (Read) | `autocad_list_blocks` (#194) | Each named `BlockTableRecord`: items, `IsFromExternalReference` and `PathName`, `IsDynamicBlock`, attribute tags; with `counts`, the references per real name ([D-127](DECISIONS.md)) |
 | `multileader_style` | `autocad_create_styles(multileader_styles=...)` | `MLeaderStyle`, `PostMLeaderStyleToDb`; the rules in `Bridge/StylePlans.cs` ([D-104](DECISIONS.md)) |
 | `table_style` | `autocad_create_styles(table_styles=...)` | `TableStyle.SetTextHeight` / `SetAlignment` per row type, `PostTableStyleToDatabase` |
 | `attach_underlay` | `autocad_attach_underlay` (PDF, DWF, DGN) | `PdfDefinition` / `DwfDefinition` / `DgnDefinition` in the drawing's dictionary, loaded, and a `PdfReference` / `DwfReference` / `DgnReference` ([D-84](DECISIONS.md)) |
@@ -235,7 +237,9 @@ If no answer comes within 300 s the result is "Outcome unknown": the operation m
 **Reads the plug-in does faster than COM (plug-in 1.8.0, [D-114](DECISIONS.md)).** `count_entities`
 and `entity_extents` are not "COM has no call for it": COM can do them, but one round trip per
 object. With an older plug-in, or one that cannot do the read, the tool reads over COM instead and
-gives the same answer; a stop or "Outcome unknown" is said, not read again. Which tools come next:
+gives the same answer; a stop or "Outcome unknown" is said, not read again. `block_references` and
+`block_definitions` came after 1.8.1 ([D-127](DECISIONS.md)): 1.8.0 and 1.8.1 say they do not have
+them, and the two block tools read over COM. Which tools come next:
 [13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
 
 ## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)

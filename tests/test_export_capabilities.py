@@ -147,6 +147,11 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
     listing = by_name["autocad_list_entities"]["plugin"]
     assert listing["role"] == "when_there" and listing["operations"] == ["count_entities"]
     assert listing["faster_from"] == READS_SINCE
+    # The block reads came after 1.8.1, in a release not named yet: no "faster from" version (D-127).
+    for name, operation in (("autocad_count_blocks", "block_references"), ("autocad_list_blocks", "block_definitions")):
+        blocks = by_name[name]["plugin"]
+        assert blocks["role"] == "when_there" and blocks["operations"] == [operation], name
+        assert "faster_from" not in blocks, name
     assert by_name["autocad_batch_draw"]["plugin"]["role"] == "when_there"  # quiet input when it is there
     assert by_name["autocad_sequence"]["plugin"]["runs_other_tools"] is True
     # A keyword's value is not an operation: saved commands have an action called "show".

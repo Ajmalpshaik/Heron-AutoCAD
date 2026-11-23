@@ -39,8 +39,10 @@ There are three kinds of gain:
 | `autocad_list_entities(summary_only=true)` | `count_entities` | about three round trips per object in the drawing | plug-in 1.8.0, D-114 |
 | `autocad_get_extents(layer=...)` | `entity_extents` | about two round trips per object on the layer | plug-in 1.8.0, D-114 |
 | `autocad_drawing_report` (the model space count) | `count_entities` with `space: model` and the same 50,000 cut-off | two round trips per model space object | plug-in 1.8.0, [#193](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/193) |
+| `autocad_count_blocks` | `block_references` (with `nested` for `include_nested`); each dynamic property value sent with its type | about 5 per block reference + 3 per dynamic property; with `include_nested`, 2-4 per item of every definition | the release after 1.8.1, [#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192), [D-127](DECISIONS.md) |
+| `autocad_list_blocks` | `block_definitions` (with `counts` for `include_counts`) | 2-3 per block reference, about 7 per definition, 2-3 per item inside every definition | the release after 1.8.1, [#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194), [D-127](DECISIONS.md) |
 
-Live checks: Group AS in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
+Live checks: Groups AS and AU in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
 
 ## Ranked: what to move next
 
@@ -51,9 +53,9 @@ session is changing it.
 
 | Rank (issue) | Tool | COM round trips today | What it risks | Area |
 |---|---|---|---|---|
-| 1 ([#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192)) | `autocad_count_blocks` | About 5 per block reference + 3 per dynamic property; with `include_nested`, 2-4 per item of every block definition | Dynamic property values must come back as the same type COM gives (distance, flip state, list choice), or a count by size splits in two | Take-off |
+| 1 ([#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192)) | ~~`autocad_count_blocks`~~ **moved**, see above | | | |
 | 2 ([#193](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/193)) | ~~`autocad_drawing_report`~~ **moved**, see above | | | |
-| 3 ([#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194)) | `autocad_list_blocks` (`include_counts`, on by default) | 2-3 per block reference, about 7 per definition, 2-3 per **item inside every definition** | Counts by real (effective) name, as COM gives it | Layers and blocks |
+| 3 ([#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194)) | ~~`autocad_list_blocks`~~ **moved**, see above | | | |
 | 4 ([#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195)) | `autocad_total_length`, `autocad_measure(layer=...)` | About 7-10 per curve (type, layer, up to 3 length tries, closed, area); splines and ellipses 4-5 more | The length of a spline or ellipse must match the server's own calculation to the last digit | Take-off, query |
 | 5 ([#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196)) | `autocad_check_standards` (entity rules) | 6 per object up to 20,000, plus 9 per layer | The rules stay in Python; only the facts move. The files and standards session is changing this file now: a later wave | Files and standards |
 | 6 ([#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197)) | `autocad_count_text`, `autocad_find_text` | 2 per text; 3 + 2 per attribute per block reference | Text read the same way (mtext formatting codes left as COM leaves them) | Text |

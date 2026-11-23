@@ -12,17 +12,23 @@ without AutoCAD; the tools only gather that data over COM.
 from __future__ import annotations
 
 import fnmatch
+from collections.abc import Callable, Iterable
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
 from ..acad.curves import curve_length
 from ..acad.entities import resolve_handle
-from ..acad.selection import discard_selection_set, iter_selection, select_filtered
+from ..acad.selection import (
+    discard_selection_set,
+    filter_pairs,
+    iter_selection,
+    select_filtered,
+)
 from ..core.connection import get_doc, require_idle, run
 from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
-from ._shared import before_after, same_value
+from ._shared import before_after, faster_read, same_value
 
 BlockGroup = Literal["name", "name_layer", "name_visibility", "name_properties"]
 LengthGroup = Literal["layer", "type", "none"]
@@ -170,21 +176,125 @@ def _plain(value: Any) -> Any:
     return value
 
 
-def _describe_ref(ref: Any) -> dict[str, Any]:
+Property = tuple[str, Callable[[], Any], Callable[[], Any]]
+
+
+def block_ref(block: str, layer: str, properties: Iterable[Property]) -> dict[str, Any]:
+    """One placed block as count_blocks takes it, read over COM or by the plug-in (D-127).
+
+    properties are (name, read_only, value) in AutoCAD's order, the last two
+    as calls, so COM reads a flag or a value only when it is needed. The
+    visibility state is the property whose name starts Visibility; the others
+    kept are those the modeller can change, except Origin.
+    """
     visibility = None
-    properties: dict[str, Any] = {}
-    for prop in _dynamic_properties(ref):
-        name = str(prop.PropertyName)
+    found: dict[str, Any] = {}
+    for name, read_only, value in properties:
         if name.lower().startswith("visibility"):
-            visibility = _plain(prop.Value)
-        elif not prop.ReadOnly and name.lower() != "origin":
-            properties[name] = _plain(prop.Value)
-    return {
-        "block": str(getattr(ref, "EffectiveName", None) or ref.Name),
-        "layer": str(ref.Layer),
-        "visibility": visibility,
-        "properties": properties,
-    }
+            visibility = _plain(value())
+        elif not read_only() and name.lower() != "origin":
+            found[name] = _plain(value())
+    return {"block": block, "layer": layer, "visibility": visibility, "properties": found}
+
+
+def _describe_ref(ref: Any) -> dict[str, Any]:
+    properties = (
+        (str(prop.PropertyName), lambda prop=prop: prop.ReadOnly, lambda prop=prop: prop.Value)
+        for prop in _dynamic_properties(ref)
+    )
+    return block_ref(str(getattr(ref, "EffectiveName", None) or ref.Name), str(ref.Layer), properties)
+
+
+class NotTheSame(ValueError):
+    """The plug-in's answer cannot give the same count as COM: read it over COM instead."""
+
+
+class _NoValue(Exception):
+    """AutoCAD would not give this value; over COM the reference is then skipped."""
+
+
+def plugin_value(kind: Any, value: Any) -> Any:
+    """A dynamic property's value as COM gives it, from the plug-in's [kind, value] (D-127).
+
+    The plug-in's JSON writes a whole-number distance as 50, which reads back
+    as an int while COM gives 50.0; the kind turns it back, so a count by size
+    does not split in two.
+    """
+    if kind == "real" and isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    if kind == "int" and isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if kind == "text" and isinstance(value, str):
+        return value
+    if kind == "point" and isinstance(value, list):
+        return [plugin_value("real", axis) for axis in value]
+    if kind == "none":
+        return None
+    if kind == "error":
+        raise _NoValue
+    raise NotTheSame(f"a dynamic property value of kind {kind!r}")  # "other": only COM gives it the same way
+
+
+def refs_from_plugin(read: dict[str, Any], nested: bool) -> list[dict[str, Any]]:
+    """The references count_blocks counts, from the plug-in's block_references (#192).
+
+    Built with block_ref, as the COM path builds them, then expand_nested over
+    the plug-in's children. NotTheSame when the answer is not one this server
+    reads the same way as COM.
+    """
+    refs = read.get("refs")
+    if not isinstance(refs, list) or (nested and not isinstance(read.get("children"), list)):
+        raise NotTheSame("an answer without its refs, or without the children asked for")
+    out: list[dict[str, Any]] = []
+    for block, layer, properties in refs:
+        given = (
+            (str(name), lambda flag=read_only: bool(flag), lambda kind=kind, value=value: plugin_value(kind, value))
+            for name, read_only, kind, value in properties
+        )
+        try:
+            out.append(block_ref(str(block), str(layer), given))
+        except _NoValue:
+            continue  # over COM, a value AutoCAD would not give skips the reference
+    if nested:
+        children: dict[str, list[tuple[str, str]]] = {}
+        for parent, inside in read["children"]:
+            children.setdefault(str(parent), []).extend((str(block), str(layer)) for block, layer in inside)
+        out = expand_nested(out, children)
+    return out
+
+
+def _plugin_refs(layer: str | None, nested: bool) -> list[dict[str, Any]] | None:
+    """Every placed block, read by the plug-in in one go (#192); None: read them over COM."""
+    args: dict[str, Any] = {"filter": [[code, value] for code, value in filter_pairs("insert", layer)]}
+    if nested:
+        args["nested"] = True
+    read = faster_read("block_references", args)
+    if read is None:
+        return None
+    try:
+        return refs_from_plugin(read, nested)
+    except (TypeError, ValueError, KeyError):  # NotTheSame, or an answer of the wrong shape
+        return None
+
+
+def _com_refs(layer: str | None, nested: bool) -> list[dict[str, Any]]:
+    """Every placed block over COM: about five round trips each, and three per dynamic property."""
+    doc = get_doc()
+    sel = select_filtered(doc, entity_type="insert", layer=layer)
+    refs: list[dict[str, Any]] = []
+    try:
+        for ref in iter_selection(sel):
+            try:
+                row = _describe_ref(ref)
+            except BaseException as exc:  # noqa: BLE001 - not a block reference after all
+                raise_if_busy(exc)
+                continue
+            refs.append(row)
+    finally:
+        discard_selection_set(doc)
+    if nested:  # walk every top-level block: a DESK can sit inside a ROOM
+        refs = expand_nested(refs, _children(doc))
+    return refs
 
 
 @mcp.tool(name="autocad_count_blocks", **tool_meta("Count Blocks", read_only=True, idempotent=True))
@@ -214,21 +324,9 @@ async def autocad_count_blocks(
     """
 
     def work() -> list[dict[str, Any]]:
-        doc = get_doc()
-        sel = select_filtered(doc, entity_type="insert", layer=layer)
-        refs: list[dict[str, Any]] = []
-        try:
-            for ref in iter_selection(sel):
-                try:
-                    row = _describe_ref(ref)
-                except BaseException as exc:  # noqa: BLE001 - not a block reference after all
-                    raise_if_busy(exc)
-                    continue
-                refs.append(row)
-        finally:
-            discard_selection_set(doc)
-        if include_nested:  # walk every top-level block: a DESK can sit inside a ROOM
-            refs = expand_nested(refs, _children(doc))
+        refs = _plugin_refs(layer, include_nested)
+        if refs is None:
+            refs = _com_refs(layer, include_nested)
         if block_name:
             refs = [r for r in refs if fnmatch.fnmatch(r["block"].lower(), block_name.lower())]
         return refs

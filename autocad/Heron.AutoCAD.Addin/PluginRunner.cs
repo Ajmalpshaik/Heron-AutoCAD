@@ -158,6 +158,8 @@ namespace Heron.AutoCAD.Addin
             {
                 case "count_entities": return EntityReads.Count(doc, tr, args);
                 case "entity_extents": return EntityReads.Extents(doc, tr, args);
+                case "block_references": return BlockReads.References(doc, tr, args);
+                case "block_definitions": return BlockReads.Definitions(doc, tr, args);
                 case "solid_topology": return SolidOperations.Topology(db, tr, args);
                 case "loft": return SolidOperations.Loft(db, tr, args);
                 case "fillet_edges": return SolidOperations.Fillet(db, tr, args);

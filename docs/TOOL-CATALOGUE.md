@@ -3290,9 +3290,9 @@ Dynamic blocks are counted by their real name, not the *U names AutoCAD gives th
 - Technical shape of the answer: `JSON: {"total": n, "rows": [{"block", ..., "count"}]}`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows A26 passed in AutoCAD 2027; the rest are NOT RUN (rows A26, W7).
+**Live proof.** **PARTLY**: rows A26 passed in AutoCAD 2027; the rest are NOT RUN (rows A26, W7, AU1, AU2, AU3, AU6, AU7).
 
 ### `autocad_export_attribute_sheet`
 
@@ -3473,9 +3473,9 @@ Use this before autocad_insert_block to get exact names, and to see what attribu
 - Technical shape of the answer: `JSON: {"count": int, "blocks": [{"name": str, "entity_count": int, # entities in the definition "instances": int, # times placed in the drawing "is_xref": bool, "dynamic": bool, # a dynamic block "attribute_tags": [str], "path": str}]} # ...`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows A28 passed in AutoCAD 2027; the rest are NOT RUN (rows A28, AC2).
+**Live proof.** **PARTLY**: rows A28 passed in AutoCAD 2027; the rest are NOT RUN (rows A28, AC2, AU4, AU6, AU7).
 
 ### `autocad_make_block`
 
