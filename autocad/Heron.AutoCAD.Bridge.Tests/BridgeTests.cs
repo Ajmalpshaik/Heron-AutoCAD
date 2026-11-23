@@ -341,6 +341,18 @@ public class ProtocolTests
         var end = Assert.Single(_host.Ended);
         Assert.Equal(412, end.Ms);
         Assert.True(end.Ok);
+        Assert.False(end.Marked); // an older server says nothing: never taken as marked (#206)
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData("true", false)] // only a JSON true counts
+    public void End_carries_the_servers_own_word_on_the_undo_mark(object marked, bool expected)
+    {
+        Send(Begin("change"));
+        Send(new { op = "end", token = Token, conversation = "chat-a", job = "j1", ok = true, outcome = "done", summary = "Draw Line", ms = 5, marked });
+        Assert.Equal(expected, Assert.Single(_host.Ended).Marked);
     }
 
     private object Ask(string conversation = "chat-a") => new

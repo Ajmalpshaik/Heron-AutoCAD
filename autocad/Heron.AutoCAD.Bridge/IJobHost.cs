@@ -103,6 +103,13 @@ namespace Heron.AutoCAD.Bridge
         public string Outcome { get; set; } = "";
         public string Summary { get; set; } = "";
         public int Ms { get; set; }
+        /// <summary>
+        /// The server says it put an UNDO mark down before this job (#206). False
+        /// when it said not, or did not say (an older server): never guessed from
+        /// Ask to Keep, because the server skips the mark when AutoCAD is in a
+        /// command or will not answer, and UNDO Back would then go past the job.
+        /// </summary>
+        public bool Marked { get; set; }
     }
 
     public sealed class KeepRequest

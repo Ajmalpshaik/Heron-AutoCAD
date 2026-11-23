@@ -4,6 +4,28 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **The palette's Undo stops at the job's own UNDO mark, and three wrong answers are fixed (2026-11-23,
+  [#206](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/206),
+  [#209](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/209),
+  [#244](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/244), [D-130](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group AX) are NOT RUN.
+  - The server tells the plug-in at the end of each job whether it really put its UNDO mark down. The
+    palette's Undo goes back to the mark (`UNDO Back`) only then, and does one step (`UNDO 1`)
+    otherwise. Before, it guessed from Ask to Keep. With AutoCAD in a command the server puts no mark
+    down, so Back went past the job and took earlier work with it.
+  - A busy AutoCAD while Heron reads UNDOCTL is never taken for "UNDO off". A Discard that cannot run
+    gives the real reason: AutoCAD was in a command, UNDOCTL could not be read, or UNDO is off.
+  - After the erase question brought objects back, the first line no longer says "erased". All back,
+    and nothing else changed, is NOTHING CHANGED with a note; `heron_changes` and the activity list
+    count only what is still erased.
+  - After that restore, neither `autocad_undo_last` nor the palette's one-step Undo is offered: one step
+    back would erase the objects again (#244). The same goes for a job asked Keep or Discard with no
+    mark down: the question's zoom is the last step.
+  - `autocad_undo_last` no longer says "undone" after undoing nothing. Before, a later job that put a
+    mark down and wrote nothing could be the step it undid.
+  - `autocad_gaps` no longer advises "try again" for an unknown outcome or a failed Discard. Doing the
+    job again is what can do it twice.
+
 - **Text sent to AutoLISP can no longer break out of its string, and a LISP error is answered at once
   (2026-11-23, [#207](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/207),
   [#157](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/157), [D-129](docs/DECISIONS.md)).**

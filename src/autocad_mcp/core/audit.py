@@ -50,7 +50,9 @@ def record(**fields: Any) -> None:
 
 # Why a call did not finish, as one word from this list, worked out from the
 # message the chat saw. Only the word is kept, never the message: a message can
-# name layers, handles or files. First match wins.
+# name layers, handles or files. First match wins, so "Outcome unknown" and a
+# failed Discard come before "busy": their messages often say AutoCAD was busy,
+# and "try again" is the one thing not to do after them (#209).
 _REASON_SIGNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("stopped", ("HERONSTOP",)),
     ("not_connected", ("not connected to Heron", "Press the Heron button", "Press Heron in AutoCAD")),
@@ -61,14 +63,14 @@ _REASON_SIGNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("in_use", ("in use by another chat",)),
     ("old_plugin", ("or newer in AutoCAD", "plug-in older than", "Update Heron so both sides match",
                     "bridge protocol")),  # fmt: skip
+    ("outcome_unknown", ("Outcome unknown",)),
+    ("discard_failed", ("Discard not possible", "Discard failed", "Discard did not take")),
     ("autocad_busy", ("did not answer within", "did not get to the request", "Press Esc", "busy",
                       "middle of a command")),
     ("no_autocad", ("No running AutoCAD", "Could not start AutoCAD", "Lost the COM connection",
                     "could not reach the AutoCAD", "has no drawing open", "no AutoCAD")),
-    ("outcome_unknown", ("Outcome unknown",)),
     ("bad_input", ("Invalid input",)),
     ("autocad_rejected", ("AutoCAD rejected the operation",)),
-    ("discard_failed", ("Discard not possible", "Discard failed", "Discard did not take")),
     ("no_dry_run", ("A dry run is not possible",)),
 )
 

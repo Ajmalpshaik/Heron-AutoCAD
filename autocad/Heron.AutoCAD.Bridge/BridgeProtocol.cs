@@ -257,6 +257,8 @@ namespace Heron.AutoCAD.Bridge
                 Outcome = Str(root, "outcome"),
                 Summary = Str(root, "summary"),
                 Ms = root.TryGetProperty("ms", out var ms) && ms.ValueKind == JsonValueKind.Number ? ms.GetInt32() : 0,
+                // Only a plain true: an older server sends nothing, and gets no UNDO Back (#206).
+                Marked = root.TryGetProperty("marked", out var marked) && marked.ValueKind == JsonValueKind.True,
             };
             lock (_running) _running.Remove(end.Job);
             try

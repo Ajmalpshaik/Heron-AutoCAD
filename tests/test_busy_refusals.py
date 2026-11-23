@@ -329,6 +329,78 @@ def test_a_job_whose_undo_mark_stayed_busy_is_refused_in_words(monkeypatch):
     assert [c for c in FakeBridge.calls if c[0] == "end"], "the plug-in's job is still ended"
 
 
+# --- the gate's UNDO mark: busy goes up, and the reason for no mark is kept (#206) --------
+
+
+@pytest.fixture
+def gate_marking(monkeypatch):
+    """_mark() through the real retry loop, on a drawing whose answers each test sets."""
+    from autocad_mcp.core import gate
+
+    clock = [0.0]
+    monkeypatch.setattr(connection.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(connection.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+    monkeypatch.setattr(gate, "_no_mark", "")
+
+    async def run(fn):
+        return connection._with_retry(fn)
+
+    sent: list[str] = []
+    doc = Obj(SendCommand=sent.append, values={"UNDOCTL": 5, "CMDACTIVE": 0})
+    doc.GetVariable = lambda name: doc.values[name]
+    monkeypatch.setattr(gate, "run", run)
+    monkeypatch.setattr(gate, "get_app", lambda: Obj(ActiveDocument=doc))
+    return gate, doc, sent
+
+
+def test_the_mark_is_put_down_at_the_command_prompt_with_undo_on(gate_marking):
+    import asyncio
+
+    gate, _, sent = gate_marking
+    assert asyncio.run(gate._mark()) is True
+    assert sent == ["_.UNDO _Mark "] and gate._no_mark == ""
+
+
+@pytest.mark.parametrize("values,why", [
+    ({"UNDOCTL": 5, "CMDACTIVE": 1}, "in_command"),
+    ({"UNDOCTL": 0, "CMDACTIVE": 0}, "undo_off"),
+    ({"UNDOCTL": 7, "CMDACTIVE": 0}, "undo_off"),  # one step only: a mark means nothing
+])  # fmt: skip
+def test_no_mark_keeps_the_real_reason(gate_marking, values, why):
+    import asyncio
+
+    gate, doc, sent = gate_marking
+    doc.values = values
+    assert asyncio.run(gate._mark()) is False
+    assert sent == [] and gate._no_mark == why
+
+
+def test_a_variable_that_cannot_be_read_is_no_mark_said_as_unread(gate_marking):
+    import asyncio
+
+    gate, doc, sent = gate_marking
+    doc.GetVariable = missing
+    assert asyncio.run(gate._mark()) is False
+    assert sent == [] and gate._no_mark == "unread"
+    assert "could not read UNDOCTL" in gate._no_mark_reason()[0]
+
+
+@pytest.mark.parametrize("error", [SERVER_FAULT, NO_SUCH_MEMBER])
+def test_any_retryable_error_goes_up_and_is_never_taken_for_no_mark(gate_marking, error):
+    # #206: before, only a busy refusal went up; a server fault or a lost member was "no mark".
+    import asyncio
+
+    gate, doc, sent = gate_marking
+
+    def fails(name):
+        raise error
+
+    doc.GetVariable = fails
+    with pytest.raises(AutocadError):
+        asyncio.run(gate._mark())
+    assert sent == []
+
+
 # --- the small readers the tools share: a refusal goes up, a missing property gives the default --
 
 GETTER_READERS = [
