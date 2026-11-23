@@ -20,7 +20,12 @@ namespace Heron.AutoCAD.Addin
     ///   the 2D "background" it gives back is the view, hidden lines removed.
     /// * section_plane: a section plane through the modeller's points, kept in
     ///   the drawing, and its 2D section (cut outlines, hatch, what is seen
-    ///   beyond) made as a block.
+    ///   beyond) made as a block. A jogged section line (several legs) is laid
+    ///   out leg by leg (JoggedSection, D-150).
+    ///
+    /// Hidden lines in a flat view (D-150): the view is generated twice, hidden
+    /// lines off and then on, and what the second adds (ObscuredLines) goes on
+    /// its own layer with the HIDDEN linetype.
     ///
     /// Main thread, inside PluginRunner's lock and one transaction: the
     /// temporary section planes are erased in the same transaction, and a
@@ -56,6 +61,8 @@ namespace Heron.AutoCAD.Addin
             if (!(gap > 0)) gap = Math.Max(size * 0.25, 1.0);
             var space = ModelSpace(db, tr);
             var tangents = args.Flag("tangent_edges", false);
+            var hiddenLines = args.Flag("hidden_lines", false);
+            HiddenStyle? hiddenStyle = hiddenLines ? HiddenLayer(db, tr, args.Text("hidden_layer").Trim()) : null;
 
             // join: one temporary union of copies, so a solid hides what is behind it.
             var temporary = new List<Entity>();
@@ -87,6 +94,8 @@ namespace Heron.AutoCAD.Addin
             }
 
             var lines = new Dictionary<string, List<Entity>>();
+            var obscured = new HashSet<Entity>();
+            var hiddenCounts = new Dictionary<string, int>();
             var extents = new Dictionary<string, double[]>();
             var lying = new SortedSet<string>();
             var empty = new List<string>();
@@ -106,14 +115,34 @@ namespace Heron.AutoCAD.Addin
                 {
                     section.Erase();
                 }
-                var flat = LayFlat(found, origin, right, up, forward, out var where, ref dropped);
-                if (flat.Count == 0)
+                var hidden = new HashSet<Entity>();
+                if (hiddenLines)
                 {
+                    // Again with hidden lines on: what that adds to the visible lines is hidden.
+                    var all = new List<Entity>();
+                    var again = NewSection(db, space, tr, origin, right, up, forward, size, cut: false, hatch: false, background: true, tangents, hiddenLines: true);
+                    try
+                    {
+                        foreach (var source in sources) Generate(again, source, all, cut: false, hatch: false, background: true, tangents, out _);
+                    }
+                    finally
+                    {
+                        again.Erase();
+                    }
+                    foreach (var entity in Obscured(all, found, origin, right, up, size)) hidden.Add(entity);
+                    found.AddRange(hidden);
+                }
+                var flat = LayFlat(found, origin, right, up, forward, out var where, ref dropped, hidden);
+                if (flat.Count(e => !hidden.Contains(e)) == 0)
+                {
+                    foreach (var entity in flat) entity.Dispose();
                     empty.Add(name);
                     continue;
                 }
                 lying.Add(where.ToString().ToLowerInvariant());
                 lines[name] = flat;
+                obscured.UnionWith(hidden);
+                if (hiddenLines) hiddenCounts[name] = flat.Count(hidden.Contains);
                 extents[name] = Extents(flat);
             }
             foreach (var entity in temporary) entity.Erase();
@@ -133,9 +162,10 @@ namespace Heron.AutoCAD.Addin
                 if (blocks.Has(blockName)) throw new RunRefusal("There is already a block called '" + blockName + "'. Give another name.");
                 var place = places[name];
                 var insert = new Point3d(origin0[0] + place[0], origin0[1] + place[1], origin0[2]);
-                var reference = Insert(db, tr, space, blockName, lines[name], insert, args);
+                var reference = Insert(db, tr, space, blockName, lines[name], insert, args, obscured, hiddenStyle);
                 var e = extents[name];
-                made.Add((name, reference, blockName, new[] { insert.X + e[0], insert.Y + e[1], insert.X + e[2], insert.Y + e[3] }, lines[name].Count));
+                made.Add((name, reference, blockName, new[] { insert.X + e[0], insert.Y + e[1], insert.X + e[2], insert.Y + e[3] },
+                    lines[name].Count(l => !obscured.Contains(l))));
             }
             return RunResult.Done(w =>
             {
@@ -153,6 +183,7 @@ namespace Heron.AutoCAD.Addin
                     foreach (var v in view.box) w.WriteNumberValue(Math.Round(v, 6));
                     w.WriteEndArray();
                     w.WriteNumber("lines", view.count);
+                    if (hiddenLines) w.WriteNumber("hidden_lines", hiddenCounts.TryGetValue(view.view, out var n) ? n : 0);
                     w.WriteEndObject();
                 }
                 w.WriteEndArray();
@@ -163,16 +194,44 @@ namespace Heron.AutoCAD.Addin
                 w.WriteBoolean("joined", temporary.Count > 0);
                 WriteTexts(w, "laid_flat_from", lying);
                 if (dropped > 0) w.WriteNumber("dropped", dropped);
+                if (hiddenStyle != null)
+                {
+                    w.WriteString("hidden_layer", hiddenStyle.Layer);
+                    w.WriteString("hidden_linetype", hiddenStyle.OnTheLines ? "HIDDEN" : "ByLayer");
+                    if (hiddenStyle.MadeLayer) w.WriteBoolean("hidden_layer_made", true);
+                }
                 StyleNotes(db, tr, args, w);
             });
         }
 
         public static RunResult SectionPlaneOp(Database db, Transaction tr, RunArgs args)
         {
+            var corners = Points(args.Element("section_line"));
             var points = Points(args.Element("points"));
             var look = args.Numbers("look_towards");
-            var error = SectionMath.Plane(points, look.Length > 0 ? look : null, out var plane);
-            if (error != null) throw new RunRefusal(error);
+            JoggedSection? jogged = null;
+            var plane = new SectionPlane();
+            if (corners.Count > 0)
+            {
+                // A jogged section line: corners in plan, each leg a vertical cut (D-150).
+                var bad = JoggedSection.Build(corners, look.Length > 0 ? look : null, out jogged);
+                if (bad != null) throw new RunRefusal(bad);
+                var j = jogged!;
+                plane = new SectionPlane
+                {
+                    Origin = j.Origin,
+                    Along = j.Legs[0].Along,
+                    Vertical = JoggedSection.Up,
+                    Forward = j.Forward,
+                    Right = j.Right,
+                    Up = JoggedSection.Up,
+                };
+            }
+            else
+            {
+                var error = SectionMath.Plane(points, look.Length > 0 ? look : null, out plane);
+                if (error != null) throw new RunRefusal(error);
+            }
             var at = InsertPoint(args);
             var space = ModelSpace(db, tr);
             var handles = args.Texts("handles");
@@ -203,7 +262,9 @@ namespace Heron.AutoCAD.Addin
             else if (blocks.Has(name)) throw new RunRefusal("There is already a block called '" + name + "'. Give another name, or leave it out.");
             Validate(name);
 
-            var section = NewSection(db, space, tr, plane.Origin, plane.Along, plane.Vertical, plane.Forward, size, cut: true, hatch, background, tangents: false);
+            var section = jogged != null
+                ? NewSection(db, space, tr, Line(jogged), Vec(JoggedSection.Up), Vec(jogged.Forward), cut: true, hatch, background, tangents: false)
+                : NewSection(db, space, tr, plane.Origin, plane.Along, plane.Vertical, plane.Forward, size, cut: true, hatch, background, tangents: false);
             var found = new List<Entity>();
             var cut = 0;
             foreach (var source in sources)
@@ -212,7 +273,11 @@ namespace Heron.AutoCAD.Addin
                 if (cutThis) cut++;
             }
             var dropped = 0;
-            var flat = LayFlat(found, plane.Origin, plane.Right, plane.Up, plane.Forward, out var where, ref dropped);
+            var onJogs = 0;
+            Lying where;
+            var flat = jogged != null
+                ? LayJogged(found, jogged, size, out where, ref dropped, ref onJogs)
+                : LayFlat(found, plane.Origin, plane.Right, plane.Up, plane.Forward, out where, ref dropped);
             if (flat.Count == 0)
                 throw new RunRefusal("The plane neither cuts nor sees any of the " + sources.Count + " solid(s). Check the points and the side it looks at (look_towards).");
             var e = Extents(flat);
@@ -254,18 +319,36 @@ namespace Heron.AutoCAD.Addin
                 RunDrawing.WritePoint(w, "up", plane.Up[0], plane.Up[1], plane.Up[2]);
                 w.WriteString("laid_flat_from", where.ToString().ToLowerInvariant());
                 if (dropped > 0) w.WriteNumber("dropped", dropped);
+                if (jogged != null)
+                {
+                    w.WriteNumber("legs", jogged.Legs.Count);
+                    w.WriteNumber("jogs", jogged.Jogs);
+                    if (onJogs > 0) w.WriteNumber("left_out_on_jogs", onJogs);
+                }
                 StyleNotes(db, tr, args, w);
             });
         }
 
-        /// <summary>A 2D section plane, resident (its settings live in the drawing), showing only what was asked for.</summary>
+        /// <summary>A straight 2D section plane through origin along a line, resident (its settings live in the drawing).</summary>
         private static Section NewSection(Database db, BlockTableRecord space, Transaction tr, double[] origin, double[] along, double[] vertical,
-            double[] forward, double size, bool cut, bool hatch, bool background, bool tangents)
+            double[] forward, double size, bool cut, bool hatch, bool background, bool tangents, bool hiddenLines = false)
         {
             var start = new Point3d(origin[0], origin[1], origin[2]);
-            var line = new Vector3d(along[0], along[1], along[2]) * Math.Max(size, 1.0);
-            var section = new Section(new Point3dCollection { start, start + line }, new Vector3d(vertical[0], vertical[1], vertical[2]),
-                new Vector3d(forward[0], forward[1], forward[2]));
+            var line = Vec(along) * Math.Max(size, 1.0);
+            return NewSection(db, space, tr, new Point3dCollection { start, start + line }, Vec(vertical), Vec(forward), cut, hatch, background,
+                tangents, hiddenLines);
+        }
+
+        /// <summary>
+        /// A 2D section plane through a section line of one or more legs,
+        /// showing only what was asked for. Hidden lines (of what is seen
+        /// beyond) are off unless asked; a flat view asks for them on its
+        /// second pass only.
+        /// </summary>
+        private static Section NewSection(Database db, BlockTableRecord space, Transaction tr, Point3dCollection line, Vector3d vertical,
+            Vector3d forward, bool cut, bool hatch, bool background, bool tangents, bool hiddenLines = false)
+        {
+            var section = new Section(line, vertical, forward);
             section.SetDatabaseDefaults(db);
             section.State = SectionState.Plane;
             space.AppendEntity(section);
@@ -279,7 +362,7 @@ namespace Heron.AutoCAD.Addin
             settings.SetVisibility(Flat, SectionGeometry.IntersectionFill, cut && hatch);
             settings.SetHatchVisibility(Flat, SectionGeometry.IntersectionFill, cut && hatch);
             settings.SetVisibility(Flat, SectionGeometry.BackgroundGeometry, background);
-            settings.SetHiddenLine(Flat, SectionGeometry.BackgroundGeometry, false);
+            settings.SetHiddenLine(Flat, SectionGeometry.BackgroundGeometry, hiddenLines);
             settings.SetVisibility(Flat, SectionGeometry.ForegroundGeometry, false);
             settings.SetVisibility(Flat, SectionGeometry.CurveTangencyLines, tangents);
             return section;
@@ -326,7 +409,8 @@ namespace Heron.AutoCAD.Addin
         /// already they are only moved; spread out each curve is projected onto
         /// the plane first, and anything else is dropped and counted.
         /// </summary>
-        private static List<Entity> LayFlat(List<Entity> lines, double[] origin, double[] right, double[] up, double[] forward, out Lying where, ref int dropped)
+        private static List<Entity> LayFlat(List<Entity> lines, double[] origin, double[] right, double[] up, double[] forward, out Lying where, ref int dropped,
+            ISet<Entity>? marked = null)
         {
             var o = new Point3d(origin[0], origin[1], origin[2]);
             var r = new Vector3d(right[0], right[1], right[2]);
@@ -365,10 +449,12 @@ namespace Heron.AutoCAD.Addin
                     catch (AcException)
                     {
                         // A curve seen end on projects to a point: nothing to draw.
+                        marked?.Remove(entity);
                         entity.Dispose();
                         dropped++;
                         continue;
                     }
+                    if (marked != null && marked.Remove(entity)) marked.Add(piece);
                     entity.Dispose();
                 }
                 piece.TransformBy(toSheet);
@@ -376,6 +462,252 @@ namespace Heron.AutoCAD.Addin
             }
             return flat;
         }
+
+        /// <summary>
+        /// A jogged section's lines laid flat leg by leg (JoggedSection): a line
+        /// on a leg is turned flat by that leg's own move, so every leg sits
+        /// beside the one before at true size; a line on a jog is left out and
+        /// counted; a line on no leg (something seen beyond) is projected onto
+        /// the leg it is seen through first. Lines AutoCAD already laid flat at
+        /// one level are only moved, as for a straight section.
+        /// </summary>
+        private static List<Entity> LayJogged(List<Entity> lines, JoggedSection jogged, double size, out Lying where, ref int dropped, ref int onJogs)
+        {
+            var tolerance = 1e-6 * Math.Max(1.0, size);
+            var points = lines.Select(PointsOf).ToList();
+            where = jogged.Where(points, tolerance);
+            var flat = new List<Entity>();
+            if (where == Lying.Flat)
+            {
+                var e = Extents3(lines);
+                var move = Matrix3d.Displacement(new Vector3d(-(e[0] + e[3]) / 2, -(e[1] + e[4]) / 2, -e[2]));
+                foreach (var entity in lines)
+                {
+                    entity.TransformBy(move);
+                    flat.Add(entity);
+                }
+                return flat;
+            }
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var entity = lines[i];
+                var piece = entity;
+                var leg = jogged.LegOf(points[i], tolerance);
+                if (leg >= 0 && jogged.Legs[leg].IsJog)
+                {
+                    entity.Dispose();
+                    onJogs++;
+                    continue;
+                }
+                if (leg < 0)
+                {
+                    var middle = points[i].Count > 0 ? points[i][points[i].Count / 2] : null;
+                    leg = middle == null ? -1 : jogged.Behind(middle, tolerance);
+                    if (leg < 0 || !(entity is Curve curve))
+                    {
+                        entity.Dispose();
+                        dropped++;
+                        continue;
+                    }
+                    var l = jogged.Legs[leg];
+                    try
+                    {
+                        piece = curve.GetOrthoProjectedCurve(new Plane(Pt(l.Start), Vec(l.Forward)));
+                    }
+                    catch (AcException)
+                    {
+                        entity.Dispose();
+                        dropped++;
+                        continue;
+                    }
+                    entity.Dispose();
+                }
+                piece.TransformBy(LegToSheet(jogged.Legs[leg]));
+                flat.Add(piece);
+            }
+            return flat;
+        }
+
+        /// <summary>A leg's own move onto the sheet: its line along X from its place across the section, up along Y, never mirrored.</summary>
+        private static Matrix3d LegToSheet(SectionLeg leg) =>
+            Matrix3d.AlignCoordinateSystem(Pt(leg.Start), Vec(leg.Right), Vector3d.ZAxis, Vec(leg.Forward).Negate(),
+                new Point3d(leg.Offset, 0, 0), Vector3d.XAxis, Vector3d.YAxis, Vector3d.ZAxis);
+
+        /// <summary>Points along a line to find its leg by; a hatch, by the middle of its box (on its plane, as it is flat).</summary>
+        private static IList<double[]> PointsOf(Entity entity)
+        {
+            if (entity is Curve curve) return Samples(curve).ToList();
+            try
+            {
+                var box = entity.GeometricExtents;
+                return new List<double[]>
+                {
+                    new[] { (box.MinPoint.X + box.MaxPoint.X) / 2, (box.MinPoint.Y + box.MaxPoint.Y) / 2, (box.MinPoint.Z + box.MaxPoint.Z) / 2 },
+                };
+            }
+            catch (AcException)
+            {
+                return new List<double[]>();
+            }
+        }
+
+        private static Point3dCollection Line(JoggedSection jogged)
+        {
+            var line = new Point3dCollection { Pt(jogged.Legs[0].Start) };
+            foreach (var leg in jogged.Legs) line.Add(Pt(leg.End));
+            return line;
+        }
+
+        /// <summary>
+        /// The lines of the second pass (hidden lines on) that the visible lines
+        /// do not cover: the hidden ones (ObscuredLines). Measured in the view's
+        /// own 2D, so a hidden edge right behind a visible one is not drawn
+        /// twice. The covered ones are thrown away.
+        /// </summary>
+        private static List<Entity> Obscured(List<Entity> all, List<Entity> visible, double[] origin, double[] right, double[] up, double size)
+        {
+            var o = origin;
+            double[] Flat2(Point3d p)
+            {
+                var d = new[] { p.X - o[0], p.Y - o[1], p.Z - o[2] };
+                return new[] { SectionMath.Dot(d, right), SectionMath.Dot(d, up) };
+            }
+            var cover = visible.OfType<Curve>().Select(c => (IList<double[]>)CoverPoints(c).Select(Flat2).ToList()).ToList();
+            var fractions = ObscuredLines.ProbeFractions();
+            var probes = all.Select(e => (IList<double[]>)(e is Curve c ? ProbePoints(c, fractions).Select(Flat2).ToList() : new List<double[]>())).ToList();
+            var hidden = ObscuredLines.Hidden(probes, cover, ObscuredLines.Tolerance(size));
+            var kept = new List<Entity>();
+            for (var i = 0; i < all.Count; i++)
+            {
+                if (hidden[i]) kept.Add(all[i]);
+                else all[i].Dispose();
+            }
+            return kept;
+        }
+
+        /// <summary>Points along a visible line to measure against: a straight line's ends, a polyline's corners, a curve closely.</summary>
+        private static IEnumerable<Point3d> CoverPoints(Curve curve)
+        {
+            var points = new List<Point3d>();
+            try
+            {
+                if (curve is Line line)
+                {
+                    points.Add(line.StartPoint);
+                    points.Add(line.EndPoint);
+                    return points;
+                }
+                double from = curve.StartParam, to = curve.EndParam;
+                if (curve is Polyline polyline)
+                {
+                    for (var i = 0; i < polyline.NumberOfVertices; i++)
+                    {
+                        points.Add(polyline.GetPoint3dAt(i));
+                        if (i + 1 >= polyline.NumberOfVertices && !polyline.Closed) break;
+                        if (polyline.GetSegmentType(i) != SegmentType.Arc) continue;
+                        for (var k = 1; k < 32; k++) points.Add(curve.GetPointAtParameter(i + k / 32.0));
+                    }
+                    if (polyline.Closed && polyline.NumberOfVertices > 0) points.Add(polyline.GetPoint3dAt(0));
+                    return points;
+                }
+                for (var k = 0; k <= ObscuredLines.CoverSamples; k++)
+                    points.Add(curve.GetPointAtParameter(from + (to - from) * k / ObscuredLines.CoverSamples));
+            }
+            catch (AcException)
+            {
+                // A curve AutoCAD cannot walk covers nothing.
+            }
+            return points;
+        }
+
+        /// <summary>Points along a line of the second pass, never at its ends.</summary>
+        private static IEnumerable<Point3d> ProbePoints(Curve curve, double[] fractions)
+        {
+            var points = new List<Point3d>();
+            try
+            {
+                double from = curve.StartParam, to = curve.EndParam;
+                foreach (var t in fractions) points.Add(curve.GetPointAtParameter(from + (to - from) * t));
+            }
+            catch (AcException)
+            {
+                // No probes: it is not drawn as hidden.
+            }
+            return points;
+        }
+
+        /// <summary>The hidden lines' layer and linetype.</summary>
+        private sealed class HiddenStyle
+        {
+            public string Layer { get; set; } = "HIDDEN";
+            public ObjectId LayerId { get; set; }
+            public ObjectId Linetype { get; set; }
+            /// <summary>The layer's own linetype is continuous, so the lines carry HIDDEN themselves.</summary>
+            public bool OnTheLines { get; set; }
+            public bool MadeLayer { get; set; }
+        }
+
+        /// <summary>
+        /// The layer for hidden lines (HIDDEN unless named), made with the HIDDEN
+        /// linetype if missing; the linetype loaded from acadiso.lin (a metric
+        /// drawing) or acad.lin if the drawing does not have it. A layer already
+        /// there keeps its settings: if its linetype is continuous, the hidden
+        /// lines carry HIDDEN themselves so they still show dashed.
+        /// </summary>
+        private static HiddenStyle HiddenLayer(Database db, Transaction tr, string name)
+        {
+            var style = new HiddenStyle { Layer = name.Length > 0 ? name : "HIDDEN" };
+            style.Linetype = HiddenLinetype(db, tr);
+            var layers = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
+            if (layers.Has(style.Layer))
+            {
+                style.LayerId = layers[style.Layer];
+                var record = (LayerTableRecord)tr.GetObject(style.LayerId, OpenMode.ForRead);
+                style.OnTheLines = record.LinetypeObjectId == db.ContinuousLinetype;
+                return style;
+            }
+            try
+            {
+                SymbolUtilityServices.ValidateSymbolName(style.Layer, false);
+            }
+            catch (AcException)
+            {
+                throw new RunRefusal("'" + style.Layer + "' cannot be a layer name.");
+            }
+            layers.UpgradeOpen();
+            var made = new LayerTableRecord { Name = style.Layer, LinetypeObjectId = style.Linetype };
+            style.LayerId = layers.Add(made);
+            tr.AddNewlyCreatedDBObject(made, true);
+            style.MadeLayer = true;
+            return style;
+        }
+
+        private static ObjectId HiddenLinetype(Database db, Transaction tr)
+        {
+            const string Name = "HIDDEN";
+            var types = (LinetypeTable)tr.GetObject(db.LinetypeTableId, OpenMode.ForRead);
+            if (types.Has(Name)) return types[Name];
+            var files = db.Measurement == MeasurementValue.Metric ? new[] { "acadiso.lin", "acad.lin" } : new[] { "acad.lin", "acadiso.lin" };
+            foreach (var file in files)
+            {
+                try
+                {
+                    db.LoadLineTypeFile(Name, file);
+                }
+                catch (AcException)
+                {
+                    continue;
+                }
+                types = (LinetypeTable)tr.GetObject(db.LinetypeTableId, OpenMode.ForRead);
+                if (types.Has(Name)) return types[Name];
+            }
+            throw new RunRefusal("AutoCAD could not load the HIDDEN linetype from acadiso.lin or acad.lin, so hidden lines cannot be shown dashed. " +
+                                 "Make the hidden layer with linetype HIDDEN first (autocad_create_layer), or flatten without hidden lines.");
+        }
+
+        private static Point3d Pt(double[] p) => new Point3d(p[0], p[1], p[2]);
+
+        private static Vector3d Vec(double[] v) => new Vector3d(v[0], v[1], v[2]);
 
         private static IEnumerable<double[]> Samples(Curve curve)
         {
@@ -455,7 +787,8 @@ namespace Heron.AutoCAD.Addin
         }
 
         /// <summary>A new block of the lines (layer 0, ByBlock, as a block should be) and one reference to it.</summary>
-        private static BlockReference Insert(Database db, Transaction tr, BlockTableRecord space, string name, List<Entity> lines, Point3d at, RunArgs args)
+        private static BlockReference Insert(Database db, Transaction tr, BlockTableRecord space, string name, List<Entity> lines, Point3d at, RunArgs args,
+            ISet<Entity>? hidden = null, HiddenStyle? hiddenStyle = null)
         {
             Validate(name);
             var blocks = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForWrite);
@@ -466,6 +799,15 @@ namespace Heron.AutoCAD.Addin
             {
                 holder.AppendEntity(entity);
                 tr.AddNewlyCreatedDBObject(entity, true);
+                if (hiddenStyle != null && hidden != null && hidden.Contains(entity))
+                {
+                    // A hidden line on its own layer, dashed, so it can be turned off or plotted lighter.
+                    entity.LayerId = hiddenStyle.LayerId;
+                    entity.ColorIndex = 256;
+                    if (hiddenStyle.OnTheLines) entity.LinetypeId = hiddenStyle.Linetype;
+                    else entity.Linetype = "ByLayer";
+                    continue;
+                }
                 entity.LayerId = db.LayerZero;
                 entity.ColorIndex = 0;
             }
