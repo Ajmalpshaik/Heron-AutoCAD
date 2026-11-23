@@ -345,8 +345,15 @@ group AL).
 **A property AutoCAD will not set ([D-149](DECISIONS.md), #270).** pywin32 says "can not be set" for a
 busy AutoCAD and for a real refusal alike. The server asks the object again itself: no such property, or
 a value turned down, is answered at once as an error naming the property; busy is asked again. If AutoCAD
-is busy at the first try and free for the second ask, the set is simply done. A *read* of a property the
-object does not have is not changed. NOT RUN live (NEEDS-CHECKING AL8, AL9).
+is busy at the first try and free for the second ask, the set is simply done. NOT RUN live (NEEDS-CHECKING
+AL8, AL9).
+
+**A member an object does not have, read ([D-153](DECISIONS.md), #280).** The same for a *read*: pywin32
+says "AutoCAD.AcDbLine.Radius" for a busy AutoCAD and for a line that has no Radius alike. Only after a
+read has failed, the server asks the object for the name once: not there is an error at once naming it
+(`MemberMissing`, still "not there" to `hasattr` and `getattr` defaults); busy is asked again. A kind of
+object seen to lack a name is remembered, so a loop over many lines asks only once. NOT RUN live
+(NEEDS-CHECKING AL10, AL11).
 
 **Which command AutoCAD is in ([D-77](DECISIONS.md), #47).** A busy answer's first line now names
 it ("it is still in the HATCH command"), from the plug-in's command tracker, with what the plug-in

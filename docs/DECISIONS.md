@@ -5,6 +5,49 @@
 
 ---
 
+## D-153 - A get of a member the object lacks is asked about once, only after it failed, and answered at once; a busy one is still asked again
+
+**Decided:** 2026-11-23, by session S23 of the 2026-11-23 wave, for issue
+[#280](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/280) (found by S22 under D-149). **Status:** in
+force; does for gets what D-149 did for sets, and narrows D-100's reading of pywin32's get error the same
+way. Read in the code and pywin32's `dynamic.py`; no AutoCAD here. Tested offline only
+(`tests/test_member_missing.py`); live rows AL10 (measured by the runner) and AL11 NOT RUN.
+
+- **The gap.** pywin32's late-bound `__getattr__` answers a member it cannot resolve with
+  `AutoCAD.AcDbLine.Radius` (`<owner>.<name>`): `GetIDsOfNames` failed, and pywin32 drops why. A busy
+  AutoCAD and a line that has no Radius read the same, so `is_dispatch_failure` took both for busy: a tool
+  bug that read a missing member was asked again for ten seconds, the pointer dropped each time, then
+  "Lost the COM connection".
+- **Now.** `connection.check_member_gets` wraps `win32com.client.CDispatch.__getattr__` once, at import.
+  **A get that works is not looked at** (one Python frame, no COM call): the diagnosis runs only in the
+  `except` of a get that already failed, never before one. Only pywin32's own `<owner>.<name>` message,
+  for that name, is looked into (`errors.explain_get_failure`); a dunder name (pywin32 gives just the
+  name) or Python's "has no attribute" goes up as it is. The object is asked for the name's id once:
+  `DISP_E_UNKNOWNNAME` / `DISP_E_MEMBERNOTFOUND` is the new `MemberMissing` ("AutoCAD has no property or
+  method 'Radius' on this object (IAcadLine) ... was not busy"). Busy, a dead pointer, an id found after
+  all, or anything unclear: pywin32's error goes up as it is, retried exactly as before. The get is never
+  re-run here (the retry loop does that, as before).
+- **`MemberMissing` is an `AutocadError` and an `AttributeError`.** So `hasattr` is False and
+  `getattr(obj, name, default)` gives the default, as before; `is_dispatch_failure`, `is_retryable` and
+  `is_busy` are all False for it, so `_with_retry` gives it at once, keeps the connection, and after a
+  write began it is a plain error, not "Outcome unknown". While AutoCAD is busy, `hasattr` is False and a
+  default is taken exactly as before (D-100's rule for those fallbacks is unchanged).
+- **The cost of a miss.** `getattr(entity, "Closed", False)` over a thousand lines would ask AutoCAD a
+  second time for each. So a name `GetIDsOfNames` itself said is not there is remembered per kind of
+  object (`_username_`, e.g. `IAcadLine`; an interface's members never change), at most 1,024 pairs, and
+  the next miss is `MemberMissing` with no COM call. An object of unknown kind (`<unknown>`) is never
+  remembered. A busy miss is never remembered.
+- **Callers checked.** `_with_retry`; the hatch fallback in `draw.py` (`AddHatch` always exists on a
+  space, and a busy `AddHatch` still reads as a dispatch failure: unchanged); every `raise_if_busy` (it
+  never counted this error); the `except AttributeError` and `getattr` default readers (unchanged, it is
+  an AttributeError); `except AutocadError` fallbacks now also take a missing member, as they take
+  `PropertyRefused`. The offline stand-in `win32com.client.CDispatch` gains a pywin32-shaped
+  `__getattr__` so the install itself is tested on Linux.
+- **Not chosen:** asking for the id before every get (doubles every COM read), telling the two apart by
+  the words (there is nothing in them), and leaving it as it was (the issue: a bug read as a crash).
+
+---
+
 ## D-151 - An extents preview in model space measures the objects through the plug-in when EXTMIN/EXTMAX are stale
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue

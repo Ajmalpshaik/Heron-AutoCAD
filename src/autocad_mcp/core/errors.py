@@ -26,6 +26,8 @@ import pythoncom
 # turns the value down: pywin32 drops the HRESULT either way. So the server asks
 # the object again itself (explain_set_failure, installed by core/connection.py)
 # and a real refusal becomes PropertyRefused, which is never retried (#270).
+# The get message is looked into the same way, but only once a get has failed
+# (explain_get_failure): a member the object does not have is MemberMissing (#280).
 _COM_MEMBER_PATH = re.compile(r"^[\w<>. ]+\.[A-Za-z_]\w*$")
 _COM_SET_FAILURE = re.compile(r"^Property '[^']+' can ?not be set\.?$")
 
@@ -124,6 +126,27 @@ class PropertyRefused(AutocadError, AttributeError):
         super().__init__(text)
 
 
+class MemberMissing(AutocadError, AttributeError):
+    """AutoCAD answered that this object has no such property or method (#280, D-153).
+
+    pywin32 gives a failed get as "AutoCAD.AcDbLine.Radius", the same words a busy
+    AutoCAD gives, so a tool that read a member its object lacks was asked again
+    for ten seconds and ended as "Lost the COM connection". This one AutoCAD
+    answered: it is a plain error at once, naming the member. It is still an
+    AttributeError, so ``hasattr`` and ``getattr(obj, name, default)`` read it as
+    "not there", exactly as before.
+    """
+
+    def __init__(self, owner: str, member: str) -> None:
+        self.owner = owner
+        self.member = member
+        super().__init__(
+            f"AutoCAD has no property or method '{member}' on this object ({owner}), so it "
+            "could not be read. AutoCAD was not busy, so it was not asked again. This is a "
+            "gap in Heron: report it with this message."
+        )
+
+
 class StaleDispatchError(Exception):
     """The cached COM pointer stopped answering; retry with a fresh one.
 
@@ -158,8 +181,8 @@ def is_dispatch_failure(exc: BaseException) -> bool:
     """
     if isinstance(exc, StaleDispatchError):
         return True
-    if isinstance(exc, PropertyRefused):
-        return False  # AutoCAD answered: no such property, or not this value (#270)
+    if isinstance(exc, (PropertyRefused, MemberMissing)):
+        return False  # AutoCAD answered: no such member, or not this value (#270, #280)
     if hresult_of(exc) in DEAD_POINTER_HRESULTS:
         return True
     if isinstance(exc, AttributeError):
@@ -241,6 +264,48 @@ def explain_set_failure(obj: object, prop: str, value: object, failure: Attribut
         if not isinstance(exc, pythoncom.com_error) or is_retryable(exc):
             raise failure from None
         raise PropertyRefused(owner, prop, com_message(exc)) from exc
+
+
+# Members an interface was seen to lack, so a second miss costs no COM call
+# (getattr(entity, "Closed", False) over a thousand lines). Only names
+# GetIDsOfNames itself said are not there; an interface's members never change.
+_KNOWN_MISSING: set[tuple[str, str]] = set()
+_KNOWN_MISSING_MAX = 1024
+_NO_OWNER = {"", "?", "<unknown>"}
+
+
+def explain_get_failure(obj: object, name: str, failure: AttributeError) -> None:
+    """Ask the object once why pywin32 could not get ``name``, and say so (#280, D-153).
+
+    Called only after a get failed, never before one. Only pywin32's own
+    "<owner>.<name>" AttributeError is looked into; any other (a dunder name,
+    Python's "has no attribute") goes up as it is. The object is asked for the
+    name's id:
+
+    - no such name: MemberMissing naming it (still an AttributeError);
+    - busy, a dead pointer, an id found after all, or anything unclear:
+      ``failure`` goes up as it is, so the retry loop asks again, as before.
+    """
+    message = str(failure).strip()
+    if not message.endswith("." + name) or not _COM_MEMBER_PATH.match(message):
+        raise failure
+    state = getattr(obj, "__dict__", {})
+    ole = state.get("_oleobj_")
+    owner = str(state.get("_username_") or "?")
+    if ole is None:
+        raise failure
+    key = (owner, name)
+    if key in _KNOWN_MISSING:
+        raise MemberMissing(owner, name) from None
+    try:
+        ole.GetIDsOfNames(name)
+    except BaseException as exc:  # noqa: BLE001 - only a clear "no such name" changes the answer
+        if hresult_of(exc) in NO_MEMBER_HRESULTS and not is_retryable(exc):
+            if owner not in _NO_OWNER and len(_KNOWN_MISSING) < _KNOWN_MISSING_MAX:
+                _KNOWN_MISSING.add(key)
+            raise MemberMissing(owner, name) from None
+        raise failure from None
+    raise failure  # the name is there after all: it was busy a moment ago
 
 
 def raise_if_busy(exc: BaseException) -> None:

@@ -23,7 +23,13 @@ class VARIANT:
 
 
 class CDispatch:
-    pass
+    """pywin32's late-bound object, as far as the server wraps it: an unknown member
+    is the same AttributeError dynamic.CDispatch.__getattr__ gives ("<owner>.<name>")."""
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_") and name.endswith("_"):
+            raise AttributeError(name)
+        raise AttributeError(f"{self.__dict__.get('_username_', '<unknown>')}.{name}")
 
 
 def Dispatch(*args: Any, **kwargs: Any) -> Any:  # noqa: N802 - pywin32's own name
