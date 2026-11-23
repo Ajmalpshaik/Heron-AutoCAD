@@ -1337,6 +1337,7 @@ RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
     "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "AS", "RV",
     "AF", "AI", "AK", "AR", "AT", "AY", "AU", "AV", "AW", "AX", "AZ", "BA", "BB", "BC", "BD", "BE", "BF",
+    "BG",
 )
 
 CHANGES_OFF = (

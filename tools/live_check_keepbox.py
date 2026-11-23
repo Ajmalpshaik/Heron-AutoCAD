@@ -1,4 +1,4 @@
-"""Live checks for the palette, the Keep and erase questions, busy refusals and selecting objects (groups AV, AX, AZ, BC).
+"""Live checks for the palette, the Keep and erase questions, busy refusals and selecting objects (groups AV, AX, AZ, BC, BG).
 
 Run by ``live_check.py``; see ``live_common.py`` for the rules every check keeps.
 Almost every row here is a box answered by a person (Keep, Discard, Enter, Esc, a
@@ -143,4 +143,13 @@ BY_EYE: dict[str, str] = {
     "BC10": "needs a drawing with an xref that has a MECH|M-DUCT layer, and layer 0 current",
     "BC11": "needs a drawing with an xref that has a MECH|M-DUCT layer, and the layer states read",
     "BC12": _PALETTE + "; a LINE is left at its prompt on purpose",
+    # Group BG (D-140): every row is a replace job, whose whole-change question a person answers.
+    "BG1": "the sequence's join erases a line, so " + _BOX + " (Enter)",
+    "BG2": "the sequence's join erases a line, so " + _BOX + " (Keep the change), and autocad_undo_last is then called",
+    "BG3": "needs UNDO turned off by hand (UNDO > Control > None) and back on, and the runner never changes UNDO",
+    "BG4": "the saved command's join erases a line, so " + _BOX + " (Enter)",
+    "BG5": "a union and a subtract erase the second solid, so " + _BOX + " (Enter)",
+    "BG6": "the block made in place erases the circle, so " + _BOX + " (Enter)",
+    "BG7": "the array takes the hanger in, which erases it, so " + _BOX + " (Enter)",
+    "BG8": "erase_outlines erases the polyline, so " + _BOX + " (Enter)",
 }

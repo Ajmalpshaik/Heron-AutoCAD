@@ -10,8 +10,8 @@ Newest first. Dates are when the change was made.
   replace job: Heron's UNDO mark first, refused with none, and "Undo the whole change" takes back the whole
   sequence, not only the erased objects. `autocad_solid_boolean`, `autocad_associative_array`,
   `autocad_make_block` (in place of the objects) and `autocad_add_region` (with `erase_outlines`) are replace
-  jobs too. The gate now gets each call's arguments from `tool_errors`. Tested offline only; live rows
-  BG1-BG8 NOT RUN.
+  jobs too. The gate now gets each call's arguments from `tool_errors`. The runner gives each BG row its
+  reason (a person answers the box). Tested offline only; live rows BG1-BG8 NOT RUN.
 - **The live-check runner covers groups AU, AV, AW, AX, AZ, BA, BB, BC, BD, BE and BF, part 2 of
   [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222), which it closes (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
   New files `tools/live_check_textsafety.py` (AW, BA, BF), `live_check_keepbox.py` (AV, AX, AZ, BC) and
