@@ -125,6 +125,9 @@ namespace Heron.AutoCAD.Addin
             try
             {
                 if (Counts(e.DBObject)) AcadJobHost.Counter.Appended(e.DBObject.Handle.ToString());
+                // A table record made in the job (an xref attached, its layers) is not
+                // "added", but its erase in the same job must not be an erase either (#218).
+                else if (e.DBObject is SymbolTableRecord) AcadJobHost.Counter.RecordMade(e.DBObject.Handle.ToString());
             }
             catch (System.Exception)
             {

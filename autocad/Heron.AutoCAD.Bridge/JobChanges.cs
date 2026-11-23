@@ -32,6 +32,9 @@ namespace Heron.AutoCAD.Bridge
         private bool _outside;
         private bool _before;
         private readonly HashSet<string> _added = new HashSet<string>();
+        // Table records (a block, a layer, a style) made in this job: not counted as added,
+        // and so not as erased either when the same job takes them away again (#218).
+        private readonly HashSet<string> _madeRecords = new HashSet<string>();
         private readonly HashSet<string> _modified = new HashSet<string>();
         private readonly List<string> _erased = new List<string>();
         private readonly HashSet<string> _erasedSet = new HashSet<string>();
@@ -55,6 +58,7 @@ namespace Heron.AutoCAD.Bridge
                     return;
                 }
                 _added.Clear();
+                _madeRecords.Clear();
                 _modified.Clear();
                 _erased.Clear();
                 _erasedSet.Clear();
@@ -103,6 +107,18 @@ namespace Heron.AutoCAD.Bridge
                 if (_job != null) _added.Add(handle);
         }
 
+        /// <summary>
+        /// A table record (a block definition, a layer, a style) was made in this job.
+        /// It is not counted as added (only drawn objects are), but an erase of it in
+        /// the same job is "never made", as for a scratch object: an xref the super
+        /// hatch attached and detached again on a refusal is no erase to ask about.
+        /// </summary>
+        public void RecordMade(string handle)
+        {
+            lock (_gate)
+                if (_job != null) _madeRecords.Add(handle);
+        }
+
         public void Modified(string handle)
         {
             lock (_gate)
@@ -121,6 +137,8 @@ namespace Heron.AutoCAD.Bridge
                     if (erased) _added.Remove(handle);
                     return;
                 }
+                // A table record made in this job: its erase and un-erase are both its own.
+                if (_madeRecords.Contains(handle)) return;
                 if (erased)
                 {
                     _modified.Remove(handle);

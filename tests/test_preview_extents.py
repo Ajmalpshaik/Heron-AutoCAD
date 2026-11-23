@@ -216,6 +216,27 @@ class TestDetailGivesCloseUpsOfTheSameArea:
         assert len(doc.Plot.calls) == 1
         assert "plan" in _info(result)["detail_skipped"]
 
+    @pytest.mark.parametrize(
+        "view",
+        [{"view_dir": (-1.0, -1.0, 1.0)}, {"worlducs": 0}, {"twist": 0.5}],
+        ids=["iso view", "turned UCS", "twisted view"],
+    )
+    async def test_detail_on_a_window_out_of_plan_gives_the_window_alone_and_says_why(self, make_doc, view):
+        # #218 item 4: D-102 skips close-ups out of plan; a window was split all the same.
+        doc = make_doc(view_dir=view.get("view_dir", (0.0, 0.0, 1.0)))
+        doc.vars.update(WORLDUCS=view.get("worlducs", 1), VIEWTWIST=view.get("twist", 0.0))
+        result = await document.autocad_preview(area="window", corner1=[0, 0], corner2=[400, 200], detail=2)
+        assert len(doc.Plot.calls) == 1
+        assert doc.ActiveLayout.state["windows"] == [([0.0, 0.0], [400.0, 200.0])]
+        info = _info(result)
+        assert "detail" not in info and "plan" in info["detail_skipped"]
+
+    async def test_detail_on_a_sheet_window_still_splits_it_in_any_model_view(self, make_doc):
+        # A paper layout is always flat: the 3D view of model space does not matter there.
+        doc = make_doc(model=False, view_dir=(-1.0, -1.0, 1.0))
+        await document.autocad_preview(area="window", corner1=[0, 0], corner2=[400, 200], detail=2)
+        assert len(doc.Plot.calls) == 5
+
     async def test_the_page_setup_is_put_back_after_the_close_ups(self, make_doc):
         doc = make_doc()
         before = {k: v for k, v in doc.ActiveLayout.state.items() if k != "windows"}

@@ -4,6 +4,19 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Tool bugs found by the live-check runner, settled (2026-11-23, [#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218),
+  [D-137](docs/DECISIONS.md)).** A super hatch refused after attaching its xref no longer raises the
+  keep-erased box (a table record made and erased in one job is no erase, in the plug-in's count).
+  `autocad_preview` skips close-ups of a window in a 3D view or a turned UCS, as D-102 said.
+  `autocad_table_from_excel` reads a semicolon CSV from a European Excel in its columns (one separator
+  helper, shared with the attribute sheet). `autocad_copy_from_drawing` refuses a handle that names no
+  drawn object in the source and names each source object's type and layer (`source_objects`).
+  `autocad_super_hatch` checks its layer name before anything is sent. Three were not bugs (the
+  dimension run, the table-link answer, a line's flatness), said in D-137. Six register rows reworded.
+  Tested offline only; live rows BD1-BD6 NOT RUN.
+- **Gate test order ([#254](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/254)).** `gate.reset()`
+  forgets why the last job had no UNDO mark, so `tests/test_answers.py` then `tests/test_gate.py` pass in
+  either order.
 - **The live-check runner covers groups AF, AI, AK, AR, AT and AY, part 1 of
   [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222) (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
   New files `tools/live_check_sheets.py` (AF), `live_check_drawtools.py` (AI), `live_check_solids.py` (AR),
