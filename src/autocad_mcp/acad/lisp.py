@@ -69,24 +69,92 @@ CHUNK_LIMIT = 600
 QUIET_CHUNK_LIMIT = 1500
 
 
+class UnsendableText(ValueError):
+    """A character that has no safe way into text sent to AutoCAD; the message says which and what to do."""
+
+
+# AutoLISP's own short escapes inside a string literal. Every other character
+# below 0x20, and DEL, is written as a three-digit octal escape (backslash,
+# 0, 3, 3 for Esc): three digits always, so a digit that follows in the text
+# can never join the escape.
+_SHORT_ESCAPES = {"\n": "\\n", "\r": "\\r", "\t": "\\t"}
+
+
+def _refused_character(char: str) -> str | None:
+    """Why ``char`` can never be put in text sent to AutoCAD, or None when it can (#207).
+
+    NUL ends a LISP string. The C1 controls (U+0080 to U+009F, NEL among them),
+    the line and paragraph separators (U+2028, U+2029) and a lone surrogate have
+    no octal escape (AutoLISP's stop at 0377) and no safe meaning on the command
+    line, so they are refused. Every other character, accented letters, Arabic
+    and Malayalam included, is sent as it is.
+    """
+    code = ord(char)
+    if code == 0:
+        return "a NUL character"
+    if 0x80 <= code <= 0x9F or code in (0x2028, 0x2029) or 0xD800 <= code <= 0xDFFF:
+        return f"the control character U+{code:04X}"
+    return None
+
+
+def is_control(char: str) -> bool:
+    """True for a character typed into AutoCAD as a key press, not as text: below 0x20, or DEL."""
+    return ord(char) < 0x20 or ord(char) == 0x7F
+
+
+def escape_control(text: str, what: str = "text") -> str:
+    """``text`` with every control character written as an AutoLISP escape, to sit inside a string literal (#207).
+
+    Typed into AutoCAD, a raw newline is Enter and a raw Esc cancels the
+    half-typed expression, so a text value holding one could end its string and
+    have what follows read as new input. Newline, return and tab become
+    backslash-n, -r and -t; any other character below 0x20, and DEL, becomes a
+    three-digit octal escape. Backslash and quote are left to the caller.
+    Raises UnsendableText for a character that has no escape.
+    """
+    out: list[str] = []
+    for char in text:
+        reason = _refused_character(char)
+        if reason:
+            raise UnsendableText(f"The {what} holds {reason}, which cannot be sent to AutoCAD. Take it out and try again.")
+        if char in _SHORT_ESCAPES:
+            out.append(_SHORT_ESCAPES[char])
+        elif is_control(char):
+            out.append(f"\\{ord(char):03o}")
+        else:
+            out.append(char)
+    return "".join(out)
+
+
 def lisp_string(value: str) -> str:
     """Quote a Python string as an AutoLISP string literal.
 
     Backslashes and double quotes both need escaping, and text destined for a
     drawing routinely contains them — Windows paths, dimension overrides,
-    inch marks.
+    inch marks. Control characters are escaped too (#207): a text value must
+    never be able to end its string, or the expression, and have the rest
+    typed into AutoCAD as new input. A character with no escape (NUL, the C1
+    controls) is refused with a plain message, before anything is sent.
     """
     escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
+    try:
+        return f'"{escape_control(escaped)}"'
+    except UnsendableText as exc:
+        raise AutocadError(f"{exc} Nothing was sent.") from None
 
 
 def lisp_path(path: str) -> str:
     """Quote a filesystem path for AutoLISP.
 
     AutoLISP accepts forward slashes on Windows and they avoid the escaping
-    problem entirely, so backslashes are converted rather than escaped.
+    problem entirely, so backslashes are converted rather than escaped. A
+    quote or a control character is escaped as in ``lisp_string`` (#207).
     """
-    return f'"{str(path).replace(chr(92), "/")}"'
+    escaped = str(path).replace(chr(92), "/").replace('"', '\\"')
+    try:
+        return f'"{escape_control(escaped, "path")}"'
+    except UnsendableText as exc:
+        raise AutocadError(f"{exc} Nothing was sent.") from None
 
 
 def lisp_number(value: float) -> str:

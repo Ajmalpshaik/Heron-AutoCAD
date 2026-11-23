@@ -229,6 +229,20 @@ async def autocad_import_pdf(
         restore = _restore_note(not_put_back + _put_back(doc, changed))
 
         by_number = {r["number"]: r for r in runs}
+        broken = next((r for r in runs if r.get("error") and r["number"] <= pdf.COMMAND_PIECE), None)
+        if broken:
+            # AutoCAD raised a LISP error up to the command (#157): its message, never read as a result below.
+            where = f"piece {broken['number']} of {len(forms)}"
+            if broken["number"] < pdf.COMMAND_PIECE:
+                raise AutocadError(
+                    f"AutoCAD reported a LISP error before PDFIMPORT started ({broken['error']}; {where}), "
+                    "so nothing was imported." + restore
+                )
+            raise AutocadError(
+                f"Outcome unknown: AutoCAD reported a LISP error ({broken['error']}; {where}) while PDFIMPORT "
+                "was being sent, so part of the page may have come in. Look with autocad_preview and press "
+                "Ctrl+Z if something did." + restore
+            )
         command = by_number.get(pdf.COMMAND_PIECE)
         if command is None or command["value"] == advanced.LISP_SENTINEL:
             if command is None or not command["sent"]:
@@ -247,7 +261,10 @@ async def autocad_import_pdf(
                 ) + restore
             )
 
-        values = {n: str(r["value"]) for n, r in by_number.items() if r["value"] != advanced.LISP_SENTINEL}
+        values = {
+            n: str(r["value"]) for n, r in by_number.items()
+            if r["value"] != advanced.LISP_SENTINEL and not r.get("error")
+        }
         answer: dict[str, Any] = {
             "path": resolved,
             "page": page,

@@ -915,6 +915,31 @@ start Claude again. Server only: no plug-in build is needed. **Every row below i
 | AG14 | Padlocks: Publish OFF. `autocad_share_checklist(share="office_list")` | Refused by the plug-in (Publish padlock); nothing written to the share | NOT RUN |
 | AG15 | `autocad_why(job="read the layers of a DXF file")` with AutoCAD closed | `can_run: true`, the tool `autocad_read_file`, no "press Heron" reason | NOT RUN |
 
+## Group AW - Run LISP: control characters in text, and a LISP error answered at once (AutoCAD 2027, this PC)
+
+Added on 2026-11-23 ([D-129](DECISIONS.md); issues #207 and #157). Built and tested offline with COM
+stand-ins (`tests/test_lisp_control_chars.py`, `tests/test_run_lisp_errors.py`, `tests/test_pdf_import.py`):
+the escaping, the wrapper's text, the answer and its first line. **Nothing here has run in AutoCAD.**
+Server only; no plug-in build. Admin on for the `autocad_run_lisp` rows, Changes on for the drawing ones.
+Use a scratch drawing. **Every row below is NOT RUN.**
+
+| Row | Do | Pass looks like | Result |
+|---|---|---|---|
+| AW1 | `autocad_run_lisp('(+ 1 nil)')` | Back in about 1 s (not 10 s) with `lisp_error` = AutoCAD's own words (for example `bad argument type: numberp: nil`), `result` null, `timed_out` false; first line NOTHING CHANGED; `Command:` is free and the next call works | NOT RUN |
+| AW2 | Five `defun`s of about 600 characters each, then `(car 5)` as the last form, in one call | Back in about 1 s; the note names the piece that stopped (piece 6 of 6 or the one holding `(car 5)`) and says what ran before it; the `defun`s before it exist (`(type f0)`); the first line is not DONE | NOT RUN |
+| AW3 | `autocad_run_lisp('(no-such-function 1)')` | `lisp_error` names the missing function; `timed_out` false | NOT RUN |
+| AW4 | A complete command inside the new wrapper: `autocad_run_lisp('(command "_.CIRCLE" "0,0" "10")')`, then `(command "_.LINE" "0,0" "10,10" "")` | Each draws its object, `timed_out` false, no `lisp_error`, no `cancelled_command`; one Ctrl+Z takes each away. **If a `(command ...)` inside it behaves differently on 2027 (draws nothing, hangs, or answers an error), stop and record it: this is what the issue warned about** | NOT RUN |
+| AW5 | J4 again, on this build: `autocad_run_lisp('(command "_.CAMERA" "0,0,0" "1,1,1")')` with running snaps on | `cancelled_command: "CAMERA"`, AutoCAD free, OSMODE as it was | NOT RUN |
+| AW6 | An error with a command left open: `autocad_run_lisp('(progn (command "_.LINE" "0,0") (car 5))')` | `lisp_error` and `cancelled_command: "LINE"` both in the answer, the note says both; AutoCAD free (no prompt left); the next call works | NOT RUN |
+| AW7 | An expression AutoLISP may not read although the brackets balance, such as `(setq a '(1 . 2 3))`; run `(+ 1 2)` first so the call before it has a result | Record what comes back: a `lisp_error`, or a timeout. It must **never** be `3` (the call before it) | NOT RUN |
+| AW8 | `autocad_run_lisp('(setq *error* (lambda (m) (setq heron-h m)))')`, then `autocad_run_lisp('(car 5)')`, then `autocad_run_lisp('heron-h')` | Record whether the handler ran. Expected: it did not (the catch answers first), and `lisp_error` is given. If a routine of the office depends on its handler, note which | NOT RUN |
+| AW9 | A single form of 1,700 characters (`(setq a (list 1 1 1 ...))`), then one of 1,800 | The first runs and answers at once; the second is refused with "split it" before anything is sent | NOT RUN |
+| AW10 | `autocad_import_pdf` of a page, as AO2 | Imports as before; the wrapper change did not alter it | NOT RUN |
+| AW11 | `autocad_batch_draw` with one text op whose text holds a real ESC, a tab, a newline and `5" pipe`, a backslash and a quote (send it as JSON `"A\u001bB\tC\nD 5\" E\\F"`) | One TEXT object is made holding that text literally, and **nothing else ran** (no program started, no other object made, `Command:` free); look at it with `autocad_get_entity` | NOT RUN |
+| AW12 | The same with Malayalam, Arabic and accented text in a text op | The text is drawn as sent (a style with a font that has the letters); record anything that looks changed | NOT RUN |
+| AW13 | A text op with a NUL character (JSON `"\u0000"`) and one with U+0085 | Refused before anything is sent, naming the character; nothing drawn | NOT RUN |
+| AW14 | `autocad_run_lisp` with a string holding a real line break: `(strlen "a` newline `b")` | `3`, not a stuck prompt | NOT RUN |
+
 ## Group AT - The office layer standard: the CSV, the import, the check and the remap (AutoCAD 2027, this PC)
 
 Added on 2026-11-22 ([D-120](DECISIONS.md); issue #70). Built and tested offline

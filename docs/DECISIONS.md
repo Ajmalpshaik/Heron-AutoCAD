@@ -5,6 +5,43 @@
 
 ---
 
+## D-129 - Text sent to AutoLISP has every control character escaped; a LISP error is answered at once
+
+**Decided:** 2026-11-23, by session S3 of the 2026-11-23 wave ("Yes, next 10"). **Status:** in force; both parts tested offline only, live rows NOT RUN (NEEDS-CHECKING Group AW). Issues [#207](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/207) and [#157](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/157).
+
+**Control characters (#207).** `lisp_string` escaped only backslash and quote, and its output is typed
+into AutoCAD. A text value holding ESC ESC `(startapp ...)` newline could cancel the half-typed
+expression and have the rest read as new input. Now every character below 0x20, and DEL, is written as an
+AutoLISP escape: `\n`, `\r`, `\t`, and three-digit octal for the rest (`\033`; three digits always, so a
+digit after it cannot join it). NUL, the C1 controls (U+0080 to U+009F), U+2028, U+2029 and a lone
+surrogate have no octal escape (AutoLISP's stop at 0377) and no safe meaning on the command line:
+they are **refused** with a plain message, nothing sent. All other Unicode (accents, Arabic,
+Malayalam, Chinese, emoji) passes through as it did. The fix sits in `lisp_string`, so the batch tools
+and `autocad_import_pdf` are covered at once; `lisp_path` got the same guard. The code of
+`autocad_run_lisp` itself is guarded the same way in `acad/lisp_forms.py`: a control character inside a
+string becomes an escape (a multi-line string in one's own code now works instead of typing Enter into
+the command line), one outside a string, or a backslash right before one, is refused.
+*Not done:* other tools that type text into the command line through `SendCommand` without
+`lisp_string` were not reviewed (see the issue filed for them).
+
+**LISP errors (#157).** The wrapper runs the code inside `vl-catch-all-apply` and writes the error
+message to USERS1 behind the marker `~E~ `, in the same place a result goes. Chosen over the issue's
+second variable because the server then reads one variable, as before: no extra read or set on a
+busy AutoCAD, and every stand-in and busy-retry test keeps its shape. `send_lisp_pieces` stops at that
+piece; the answer has `lisp_error` (AutoCAD's words), `result: null`, `timed_out: false`, the piece
+number and what ran before it; `chunks_finished` does not count it; the first line is NOTHING CHANGED
+when the plug-in counted nothing, else OUTCOME UNKNOWN, never DONE (`core/answers.py`).
+`autocad_import_pdf` reads the same marker: an error up to its command is a plain refusal, never read as
+an import. The cancel of a command left open, and USERS2, are unchanged and still written before USERS1,
+so an error with a command left open reports both. The first form of the wrapper clears `heron:r` and
+`heron:c`, so an expression AutoLISP cannot read can no longer hand back the previous call's value.
+**One cost, decided:** the wrapper grew from about 244 to about 460 characters, and a ~2,400-character
+call is known to answer only after the wait (known limit 3). `FORM_MAX_CHARS` went from 2,000 to 1,750
+so the longest text sent stays no longer than before; a form of 1,750 to 2,000 characters is now
+refused with "split it" instead of sent.
+**Not proven:** a `(command ...)` inside `vl-catch-all-apply` (the issue warned it differs on some
+versions) and a routine's own `*error*` handler, which the catch bypasses (NEEDS-CHECKING AW4, AW8).
+
 ## D-01 - Python server, AutoLISP for bulk work
 
 **Decided:** 2026-08-25. **Status:** in force.

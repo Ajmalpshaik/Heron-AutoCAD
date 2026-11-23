@@ -478,7 +478,7 @@ Use this whenever you are drawing more than about ten things — a floor plan, a
 - If AutoCAD rejects individual operations (locked layer, degenerate geometry), "failed" counts them and "created" reflects what did land.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows A8c, A22, A21 passed in AutoCAD 2027; the rest are NOT RUN (rows A8c, A22, A21, D4, D7, E36, N8, AJ6, AJ7, AJ8, AI4, AI5, AI6, AI7, S1).
+**Live proof.** **PARTLY**: rows A8c, A22, A21 passed in AutoCAD 2027; the rest are NOT RUN (rows A8c, A22, A21, D4, D7, E36, N8, AW11, AJ6, AJ7, AJ8, AI4, AI5, AI6, AI7, S1).
 
 ### `autocad_convert_points`
 
@@ -973,7 +973,7 @@ For the vendor's general arrangement, the consultant's layout or an old drawing 
 - If AutoCAD is still asking when every answer is given, the command is cancelled and the answer says so.
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AO2, AO4, AO7, AO8).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AO2, AO4, AO7, AO8, AW10).
 
 ### `autocad_make_shape`
 
@@ -1491,7 +1491,7 @@ Two lines: each is trimmed or extended to the arc's tangent point (or the chamfe
 **Limits and versions.**
 - The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
 
-**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AI12, AL1).
+**Live proof.** **NOT RUN**: built and tested offline, never run in AutoCAD (rows AW11, AI12, AL1).
 
 ### `autocad_get_extents`
 
@@ -6501,15 +6501,15 @@ Unlike autocad_send_command, this gets a value back. AutoCAD's COM interface has
 **The result to expect.**
 - One line first (DONE, NOTHING CHANGED, REFUSED or OUTCOME UNKNOWN), then what was made or changed.
 - A save, an export, a command or AutoLISP cannot be tried with `dry_run`: a file written or a command run cannot be taken back.
-- Technical shape of the answer: `JSON: {"expression": str, "result": str, "timed_out": bool, "cancelled_command": str (only when one was left open), "note": str, "chunks": int and "chunks_finished": int (only when it was cut)} "result" is the last form's value rendered as ...`
+- Technical shape of the answer: `JSON: {"expression": str, "result": str, "timed_out": bool, "lisp_error": str (only when the code raised a LISP error), "cancelled_command": str (only when one was left open), "note": str, "chunks": int and "chunks_finished": int (only ...`
 
 **Limits and versions.**
-- Reports timed_out=true if AutoCAD never wrote a result, which usually means the expression raised a LISP error or is waiting for input.
+- A LISP error is answered at once: "lisp_error" holds AutoCAD's own message, "result" is null and the note names the piece that stopped (#157). The pieces after it are not sent.
+- Reports timed_out=true if AutoCAD never wrote a result, which usually means the expression is waiting for input or still running.
 - Unbalanced parentheses or quotes, or text outside a ( ... ) form, are rejected before anything is sent, since AutoCAD would otherwise sit waiting for the closing bracket.
-- One top-level form over LISP_MAX_CHARS (2,000) characters is refused, never cut: AutoCAD drops longer command-line text without a word.
 - Uses the plug-in for speed when it can; otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, S10).
+**Live proof.** **PARTLY**: rows J1 passed in AutoCAD 2027; the rest are NOT RUN (rows D30, F23, J1, J4, Q2, R7, Z2, Z8, AF23, AW1, AW3, AW4, AW5, AW6, AW8, AW14, S10).
 
 ### `autocad_saved_command`
 

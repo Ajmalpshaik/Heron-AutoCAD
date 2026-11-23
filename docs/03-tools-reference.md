@@ -229,7 +229,7 @@ step; an object on a locked layer is refused before anything is written. Not pro
 | Tool | Purpose |
 |---|---|
 | `autocad_send_command` | Any AutoCAD command, such as an add-in's (TRIM and FILLET have their own tools now, above). `expect_box` + `press`: the one button to press on one box the command will ask, every other box still cancelled ([D-74](DECISIONS.md)). An UNDO, U, REDO, MREDO or OOPS is never sent twice by a busy retry ([D-76](DECISIONS.md)) |
-| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Long code, or several top-level forms, is cut between the forms into pieces under 700 characters, run in order as one undo step; one form over 2,000 characters is refused ([D-76](DECISIONS.md), [05 §3](05-known-limits.md#3-long-autolisp-fails-silently)). `expect_box` + `press` as for send_command |
+| `autocad_run_lisp` | Evaluate AutoLISP **and get the result back**. Long code, or several top-level forms, is cut between the forms into pieces under 700 characters, run in order as one undo step; one form over 1,750 characters is refused ([D-76](DECISIONS.md), [05 §3](05-known-limits.md#3-long-autolisp-fails-silently)). A LISP error is answered at once, with AutoCAD's own message in `lisp_error` and the piece that stopped ([D-129](DECISIONS.md)). `expect_box` + `press` as for send_command |
 | `autocad_purge` | Remove unused blocks, layers, linetypes, styles |
 | `autocad_regen` | Regenerate the display |
 | `autocad_audit` | Check and repair the drawing database |

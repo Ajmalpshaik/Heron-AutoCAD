@@ -148,7 +148,7 @@ class TestLength:
         assert len(doc.sent) == 1
 
     def test_the_schema_says_the_same_limit(self):
-        assert advanced.LISP_MAX_CHARS == 2000
+        assert advanced.LISP_MAX_CHARS == 1750
 
     def test_a_timeout_warns_that_the_expression_may_still_have_run(self, make, monkeypatch):
         make(result=advanced.LISP_SENTINEL)
