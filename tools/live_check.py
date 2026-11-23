@@ -42,13 +42,16 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import live_check_blocks  # noqa: E402
+import live_check_bugfixes  # noqa: E402
 import live_check_cleanup  # noqa: E402
 import live_check_drawing  # noqa: E402
 import live_check_drawtools  # noqa: E402
 import live_check_edits  # noqa: E402
 import live_check_heron  # noqa: E402
+import live_check_keepbox  # noqa: E402
 import live_check_layers  # noqa: E402
 import live_check_mep3d  # noqa: E402
+import live_check_plugin_reads  # noqa: E402
 import live_check_reads  # noqa: E402
 import live_check_render  # noqa: E402
 import live_check_ribbon2  # noqa: E402
@@ -57,6 +60,7 @@ import live_check_sheets  # noqa: E402
 import live_check_solids  # noqa: E402
 import live_check_standards  # noqa: E402
 import live_check_styles  # noqa: E402
+import live_check_textsafety  # noqa: E402
 import live_common as lc  # noqa: E402
 from live_common import (  # noqa: E402
     Check,
@@ -1318,7 +1322,8 @@ MODULES = (
     live_check_edits, live_check_layers, live_check_blocks, live_check_render, live_check_drawing,
     live_check_mep3d, live_check_styles, live_check_ribbon2, live_check_cleanup,
     live_check_reads, live_check_sheets, live_check_drawtools, live_check_solids, live_check_standards,
-    live_check_setup, live_check_heron,
+    live_check_setup, live_check_plugin_reads, live_check_keepbox, live_check_textsafety,
+    live_check_bugfixes, live_check_heron,
 )
 
 CHECKS: tuple[Check, ...] = OWN_CHECKS + tuple(c for m in MODULES for c in m.CHECKS)
@@ -1331,7 +1336,7 @@ BY_EYE: dict[str, str] = {**OWN_BY_EYE, **{row: why for m in MODULES for row, wh
 RUNNER_GROUPS = (
     "D", "E", "F", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AE",
     "AD", "AG", "AH", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "AS", "RV",
-    "AF", "AI", "AK", "AR", "AT", "AY",
+    "AF", "AI", "AK", "AR", "AT", "AY", "AU", "AV", "AW", "AX", "AZ", "BA", "BB", "BC", "BD", "BE", "BF",
 )
 
 CHANGES_OFF = (

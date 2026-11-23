@@ -12,6 +12,17 @@ Newest first. Dates are when the change was made.
   `autocad_make_block` (in place of the objects) and `autocad_add_region` (with `erase_outlines`) are replace
   jobs too. The gate now gets each call's arguments from `tool_errors`. Tested offline only; live rows
   BG1-BG8 NOT RUN.
+- **The live-check runner covers groups AU, AV, AW, AX, AZ, BA, BB, BC, BD, BE and BF, part 2 of
+  [#222](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/222), which it closes (2026-11-23, follows [D-118](docs/DECISIONS.md)).**
+  New files `tools/live_check_textsafety.py` (AW, BA, BF), `live_check_keepbox.py` (AV, AX, AZ, BC) and
+  `live_check_plugin_reads.py` (AU, BB, BE) and `live_check_bugfixes.py` (BD), each with an offline test holding a good and a bad recording per
+  check. 18 rows are measured: AW1-AW4, AW9, AW11-AW14, BA1, BA2, BF1, BF2, AV6, AZ6, BC13, BD4 and BD6. The other 70
+  have their reason: the plug-in reads (AU, BB, BE) are compared with a second `--no-bridge` server, which the
+  runner does not start; the palette, Keep and erase boxes, Ask to Keep on, UNDO off, the Options dialog, HERONSTOP
+  and any command left open on purpose are a person's. AV6, AZ6 and BA2 need the Model tab in front and say "not
+  run this time" with a sheet in front (the runner never switches tab). With part 1 every group of the register
+  on main except the older A, B, C, G-L and S is the runner's (245 measured, 334 with a reason). `tests/test_live_check_render.py` also gets the recordings for AE2's `-VIEW _Restore` path (S11), good and bad. No rule is new
+  (no D-135), no tool changed. **Run only against recorded answers, never in AutoCAD.**
 - **Tool bugs found by the live-check runner, settled (2026-11-23, [#218](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/218),
   [D-137](docs/DECISIONS.md)).** A super hatch refused after attaching its xref no longer raises the
   keep-erased box (a table record made and erased in one job is no erase, in the plug-in's count).
