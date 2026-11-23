@@ -24,7 +24,7 @@ from ..acad import props
 from ..acad.curves import read_path
 from ..acad.entities import read_attributes, resolve_handle, short_type
 from ..core.connection import get_doc, require_idle, run
-from ..core.errors import AutocadError, com_message, raise_if_busy
+from ..core.errors import AutocadError, com_message, is_retryable, raise_if_busy
 from ..core.registry import dumps, mcp, tool_errors, tool_meta, undo_mark
 from ..core.variants import apoint, double_array, object_array
 from ._shared import (
@@ -100,7 +100,12 @@ def _path(entity: Any, allowed: dict[str, str] = TARGETS) -> geo.Path:
 
 
 def _width(entity: Any) -> float:
-    """A polyline's one width (0 for none); refused when it changes along the polyline."""
+    """A polyline's one width (0 for none); refused when it changes along the polyline.
+
+    A read AutoCAD turned away because it was busy or stuck (any retryable
+    error, not only the busy refusal) goes up as it is (#212): it says nothing
+    about the widths, so it is never "width changes along it".
+    """
     if _name(entity) != "AcDbPolyline":
         return 0.0
     varying = AutocadError(
@@ -110,14 +115,16 @@ def _width(entity: Any) -> float:
     try:
         width = float(entity.ConstantWidth)
     except BaseException as exc:  # noqa: BLE001 - AutoCAD has no one width to give
-        raise_if_busy(exc)
+        if is_retryable(exc):
+            raise
         raise varying from exc
     count = len(_path(entity)["bulges"])
     for i in range(count):
         try:
             start, end = entity.GetWidth(i)
         except BaseException as exc:  # noqa: BLE001 - cannot read it: trust ConstantWidth
-            raise_if_busy(exc)
+            if is_retryable(exc):
+                raise
             break
         if abs(float(start) - width) > 1e-9 or abs(float(end) - width) > 1e-9:
             raise varying
@@ -273,7 +280,7 @@ def _finish(result: dict[str, Any], failed: list[dict[str, str]]) -> dict[str, A
 # ---- trim and extend ---------------------------------------------------------------------
 
 
-@mcp.tool(name="autocad_trim_extend", **tool_meta("Trim or Extend"))
+@mcp.tool(name="autocad_trim_extend", **tool_meta("Trim or Extend", destructive=True))
 @tool_errors
 async def autocad_trim_extend(
     operation: Annotated[
@@ -321,7 +328,9 @@ async def autocad_trim_extend(
 
     Works in plan on lines, arcs and polylines (a polyline arc is cut on its
     arc; a closed polyline cut twice opens there; a circle becomes an arc,
-    and the circle is erased, so Heron asks the modeller first, D-50). Edges
+    and the circle is erased, so Heron asks the modeller "Keep the change, or
+    undo the whole change?": anything but Keep puts the drawing back as it was,
+    D-136). Edges
     count as drawn, not as if they ran on (EDGEMODE 0). Pieces left after a trim
     are the object itself plus copies of it, so layer, colour and data stay.
     An object on a locked layer is refused before anything is written. One undo step.
@@ -648,7 +657,7 @@ async def autocad_fillet_chamfer(
 # ---- break and join ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="autocad_break_curve", **tool_meta("Break at a Point"))
+@mcp.tool(name="autocad_break_curve", **tool_meta("Break at a Point", destructive=True))
 @tool_errors
 async def autocad_break_curve(
     handle: Annotated[str, Field(description="The line, arc, circle or polyline to break.")],
@@ -673,7 +682,8 @@ async def autocad_break_curve(
 
     A closed polyline broken at one point opens there; a circle needs two
     points and becomes an arc (the circle is erased, so Heron asks the modeller
-    first, D-50). Pieces are the object itself plus copies of it, so layer,
+    "Keep the change, or undo the whole change?": anything but Keep puts the
+    drawing back as it was, D-136). Pieces are the object itself plus copies of it, so layer,
     colour and data stay. One undo step.
 
     Returns:
@@ -718,7 +728,7 @@ async def autocad_break_curve(
     return dumps(await run(work))
 
 
-@mcp.tool(name="autocad_join_curves", **tool_meta("Join"))
+@mcp.tool(name="autocad_join_curves", **tool_meta("Join", destructive=True))
 @tool_errors
 async def autocad_join_curves(
     handles: Annotated[
@@ -748,7 +758,8 @@ async def autocad_join_curves(
     Lines in one straight line become one line; arcs of one circle one arc;
     anything else one polyline, closed when the run comes back to its start.
     Vertices inside a polyline are kept. The others are erased, so Heron asks
-    the modeller to keep them erased (D-50). A branch, a gap or a closed piece is
+    the modeller "Keep the change, or undo the whole change?": anything but
+    Keep puts the drawing back as it was (D-136). A branch, a gap or a closed piece is
     refused, saying where. One undo step.
 
     Returns:
@@ -1105,7 +1116,8 @@ async def autocad_explode(
     """Explode blocks, polylines and other compound objects into the pieces they are made of.
 
     The pieces are new objects; the original is erased, so Heron asks the
-    modeller to keep it erased (D-50). A block with attributes is skipped
+    modeller "Keep the change, or undo the whole change?": anything but Keep
+    puts the drawing back as it was (D-136). A block with attributes is skipped
     unless allow_attribute_loss is true (exploded, AutoCAD shows each
     attribute's tag, not its value). One undo step.
 

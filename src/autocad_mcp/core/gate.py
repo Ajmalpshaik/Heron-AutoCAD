@@ -12,6 +12,9 @@ Order for one call:
    it will ask Keep or Discard afterwards.
 4. If it will ask, put an UNDO mark down first, so Discard can go back to
    exactly here: the job, the zoom to it, layers a batch made, all of it.
+   A tool that replaces objects (join, explode, trim, break) always gets the
+   mark, and is refused when it cannot: its erase question undoes the whole
+   job back to it (D-136).
 5. Run the tool.
 6. If the call really wrote and the plug-in asks, Discard means UNDO Back to
    the mark, then check the new objects are gone before saying so.
@@ -97,6 +100,20 @@ _last_change: dict[str, Any] | None = None
 MOST_HANDLES = 200
 # Undoes Heron's own last change: no UNDO mark, no Keep or Discard, no erase question about it.
 UNDOES = {"autocad_undo_last"}
+# Replace objects: they write the new shape, then erase the old one (D-136, #208). Bringing back
+# only the erased object would leave the old and the new shape on top of each other, so their
+# erase question is "Keep the change, or undo the whole change?", and anything but a clear keep
+# goes back to Heron's UNDO mark. So they always get a mark first, Ask to Keep on or off.
+REPLACES = {"autocad_join_curves", "autocad_explode", "autocad_trim_extend", "autocad_break_curve"}
+REPLACE_NEEDS_UNDO = (
+    "{what} replaces objects: it writes the new shape, then erases the old one. Heron puts an UNDO "
+    "mark down first, so that 'Undo the whole change' can put the drawing back exactly as it was, "
+    "and here it could not: {why}. Nothing was sent to AutoCAD. {fix}, then try again."
+)
+WHOLE_UNDONE = (
+    "Undone: {why}, so Heron undid the whole change. The drawing is back exactly as it was before "
+    "'{what}': the new shape is gone and what it replaced is back. Nothing was kept."
+)
 _last_drawing: str | None = None
 # Where the plug-in's drawing log stood when Heron checked _last_drawing (#48), or None.
 _checked_mark: Mark | None = None
@@ -551,7 +568,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
 
         ok, outcome, result = False, "failed", None
         counted: dict[str, Any] | None = None
-        wrote = marked = brought_back = asked_keep = False
+        wrote = marked = brought_back = asked_keep = keep_zoomed = False
         # Status reads the drawing found above: where the drawing log stood
         # then is its mark, so a close during the call is not swallowed (#48).
         mark_before = await _mark_now(job, pid) if tool == STATUS_TOOL else None
@@ -567,13 +584,21 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                         facts = answers.Facts(result, ok=False, outcome=outcome, refused_by_heron=True)
                         result = answers.with_line(result, answers.line(facts))
                     return result
-            elif job and job.ask_to_keep and risk is Risk.CHANGE and tool not in UNDOES:
+            elif job and (job.ask_to_keep or tool in REPLACES) and risk is Risk.CHANGE and tool not in UNDOES:
                 try:
                     marked = await _mark()
                 except AutocadError as exc:
                     # AutoCAD stayed busy before the job began: nothing was sent (D-100).
                     result = f"Error: {exc}"
                     facts = answers.Facts(result, ok=False, outcome="failed", busy=True)
+                    return answers.with_line(result, answers.line(facts))
+                if not marked and tool in REPLACES:
+                    # With no mark, "Undo the whole change" could not put the drawing back, and
+                    # bringing back only the erased objects would leave both shapes (D-136).
+                    why, fix = _no_mark_reason()
+                    outcome = "refused"
+                    result = "Error: " + REPLACE_NEEDS_UNDO.format(what=job.title, why=why, fix=fix)
+                    facts = answers.Facts(result, ok=False, outcome=outcome, refused_by_heron=True)
                     return answers.with_line(result, answers.line(facts))
 
             writes_before = connection.write_count()
@@ -640,6 +665,13 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
                     job, result if isinstance(result, str) else text, marked
                 )
                 ok = outcome != "failed"
+                # The question's zoom is an undo step after the job, only if it really ran (D-136).
+                keep_zoomed = getattr(job.bridge, "keep_zoomed", True) is not False
+            elif counted and counted["erased"] > 0 and tool in REPLACES and marked:
+                # A replace job: keep the change, or undo the whole of it back to the mark (D-136).
+                result, whole, counted, said = await _ask_whole(job, result, text, counted, ok)
+                if whole:
+                    outcome, ok = whole, whole != "failed"
             elif counted and counted["erased"] > 0:
                 # Anything erased gets a human yes, whatever Ask to Keep says (D-50),
                 # unless the modeller turned the erase question off in Settings:
@@ -675,7 +707,7 @@ async def guarded(tool: str, work: Callable[[], Awaitable[Any]], dry_run: bool =
             _record(tool, risk, drawing, ok, outcome, started, message)
             _remember(
                 tool, risk, drawing, ok, outcome, started, job, result, counted, wrote, marked, dry_run,
-                brought_back=brought_back, zoomed=asked_keep,
+                brought_back=brought_back, zoomed=asked_keep and keep_zoomed,
             )
             if companion.enabled():
                 companion.write(companion_state())  # the Companion page, once the chat asked for it (D-71)
@@ -858,17 +890,7 @@ async def _ask_erase(
     now, brought_back = counted, False
     line: tuple[str | None, str] | None = None
     if said == "keep_erased" and answer.get("asked") is False:
-        # Never "the modeller chose": nobody was asked (D-50, D-62).
-        where = (
-            "off on this PC by the administrator setting (AskBeforeErasing = 0, D-123)"
-            if answer.get("off_by") == "policy"
-            else "off in Heron's Settings"
-        )
-        note = (
-            f"The job erased {erased} object(s) and they stay erased without asking: "
-            f"the erase question ({ERASE_QUESTION_NAME}) is {where}. "
-            "Tell the modeller what was erased; Ctrl+Z in AutoCAD brings them back."
-        )
+        note = _not_asked_note(erased, answer)
     elif said == "keep_erased":
         note = f"The modeller chose to keep the {erased} erased object(s) erased."
     elif said == "restored":
@@ -908,6 +930,126 @@ async def _ask_erase(
             "Tell the modeller, and look at the drawing."
         )
     return (_with_note(result, note) if isinstance(result, str) else result), now, line, brought_back
+
+
+def _not_asked_note(erased: int, answer: dict[str, Any]) -> str:
+    """The erase question is off: the objects stay erased, and nobody was asked (D-50, D-62, D-123)."""
+    # Never "the modeller chose": nobody was asked.
+    where = (
+        "off on this PC by the administrator setting (AskBeforeErasing = 0, D-123)"
+        if answer.get("off_by") == "policy"
+        else "off in Heron's Settings"
+    )
+    return (
+        f"The job erased {erased} object(s) and they stay erased without asking: "
+        f"the erase question ({ERASE_QUESTION_NAME}) is {where}. "
+        "Tell the modeller what was erased; Ctrl+Z in AutoCAD brings them back."
+    )
+
+
+def _made(text: str) -> list[str]:
+    """Every handle a replace job says it made: what undoing the whole change must take away (D-136)."""
+    found = _created(text)
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "new_handles" and isinstance(value, list):
+                    found.extend(str(h) for h in value)
+                elif key == "replaced_by" and isinstance(value, str):
+                    found.append(value)
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(_payload(text))
+    return list(dict.fromkeys(found))
+
+
+async def _ask_whole(
+    job: Job, result: Any, text: str, counted: dict[str, Any], ok: bool
+) -> tuple[Any, str | None, dict[str, Any], tuple[str | None, str] | None]:
+    """The erase question for a job that replaced objects, which holds Heron's UNDO mark (D-136, #208).
+
+    Join, explode, and a circle trimmed or broken into an arc write the new
+    shape, then erase the old one. Bringing back only what was erased would
+    leave both shapes on top of each other, so the modeller is asked "Keep the
+    change, or undo the whole change?". Only a clear keep keeps. Every other
+    answer (Enter, Esc, the box closed, no answer in time, an older plug-in
+    that brought the objects back, a plug-in that could not be heard) goes back
+    to the mark with UNDO Back, as Discard and autocad_undo_last do, and then
+    checks that what the job made is gone and what it erased is back.
+    Returns (result, the outcome, or None to leave the job's own, the counts,
+    and the plain line's word and reason).
+    """
+    erased = int(counted["erased"])
+    beat = progress.start(lambda seconds: ERASE_WAITING.format(count=erased, seconds=int(seconds)))
+    try:
+        answer = await asyncio.to_thread(job.bridge.ask_erase, job.id, job.title, True)
+    finally:
+        progress.stop(beat)
+    said = answer.get("answer")
+    if said == "nothing_erased":
+        return result, None, counted, None
+    if said == "keep_erased":
+        note = (
+            _not_asked_note(erased, answer)
+            if answer.get("asked") is False
+            else f"The modeller chose Keep the change: the new shape stays and the {erased} object(s) it replaced stay erased."
+        )
+        return (_with_note(result, note) if isinstance(result, str) else result), None, counted, None
+    if said == "undo_whole" and answer.get("message"):
+        why = str(answer["message"]).strip().rstrip(".")
+    elif said in ("undo_whole", "restored"):
+        # "restored": a plug-in older than D-136 brought them back; UNDO Back goes past that too.
+        why = "the modeller did not choose Keep the change"
+    else:
+        why = "Heron could not hear the modeller's answer, and only a clear keep keeps"
+    try:
+        await _discard()
+        left = await _still_there(_made(text))
+        wanted = [str(h) for h in counted.get("erased_handles", [])]
+        back = await _still_there(wanted)
+    except AutocadError as exc:
+        return (
+            f"Error: Undo the whole change failed, so the change may still be in the drawing: {exc}",
+            "failed",
+            counted,
+            (
+                answers.OUTCOME_UNKNOWN,
+                f"{why}, but going back to Heron's UNDO mark failed, so the change may still be in the "
+                "drawing: look at it before anything else.",
+            ),
+        )
+    missing = [h for h in wanted if h not in back]
+    if left or missing:
+        parts = []
+        if left:
+            parts.append(f"these new objects are still there: {', '.join(left)}")
+        if missing:
+            parts.append(f"these erased ones are not back: {', '.join(missing)}")
+        found = "; ".join(parts)
+        return (
+            f"Error: Undo the whole change did not take: {found}. Look at the drawing and fix it by hand if needed.",
+            "failed",
+            counted,
+            (
+                answers.OUTCOME_UNKNOWN,
+                f"{why}, and Heron went back to its UNDO mark, but the drawing is not as it was ({found}): "
+                "look at it before anything else.",
+            ),
+        )
+    undone = WHOLE_UNDONE.format(why=why, what=job.title)
+    line = (
+        answers.NOTHING_CHANGED,
+        f"{why}, so Heron undid the whole change: the drawing is back exactly as it was before the job.",
+    )
+    if not ok:
+        # The tool failed part-way after it erased: its own error stays, the job stays failed.
+        return (_with_note(result, undone) if isinstance(result, str) else result), None, counted, line
+    return undone, "discarded", counted, line
 
 
 def _remember(

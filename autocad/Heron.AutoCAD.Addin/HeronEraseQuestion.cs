@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Heron.AutoCAD.Bridge;
 using AcApp = Autodesk.AutoCAD.ApplicationServices.Application;
 using S = Heron.AutoCAD.Addin.HeronWindowStyle;
 
@@ -14,7 +15,12 @@ namespace Heron.AutoCAD.Addin
     /// after every job that erased something, whether Ask to Keep is on or off
     /// (D-50), because a chat could otherwise approve its own delete. Enter,
     /// Esc, closing the box or no answer in time all bring them back: only a
-    /// clear "keep them erased" erases. Main thread only. Not shown at all
+    /// clear "keep them erased" erases. For a job that replaced objects (join,
+    /// explode, a circle trimmed or broken into an arc) the server asks for the
+    /// whole-change question instead (D-136): "Keep the change, or undo the
+    /// whole change?", whose default undoes the whole job, so the old and the
+    /// new shape are never left on top of each other. The words are
+    /// <see cref="EraseWords"/>, tested offline. Main thread only. Not shown at all
     /// while the modeller has turned the erase question off in Settings: the
     /// bridge answers "kept, not asked" itself (BridgeProtocol.AskErase).
     /// </summary>
@@ -23,10 +29,12 @@ namespace Heron.AutoCAD.Addin
         public const string Title = "Heron erased objects";
         private const double CardWidth = 460;
 
-        /// <summary>keep_erased | restore</summary>
-        public static string Ask(string summary, int count)
+        /// <summary>keep_erased | restore (a whole-change question: keep_erased | undo_whole)</summary>
+        public static string Ask(string summary, int count, bool whole = false)
         {
-            var answer = "restore";
+            var words = EraseWords.For(count, whole, HeronActions.EraseQuestionName);
+            var fallback = whole ? EraseWords.UndoWhole : "restore";
+            var answer = fallback;
             S.Shell? shell = null;
             void Answer(string what)
             {
@@ -36,7 +44,7 @@ namespace Heron.AutoCAD.Addin
 
             var headline = new TextBlock
             {
-                Text = count == 1 ? "Heron erased 1 object." : "Heron erased " + count + " objects.",
+                Text = words.Headline,
                 FontFamily = new FontFamily(S.BodyFont),
                 FontSize = 20,
                 FontWeight = FontWeights.SemiBold,
@@ -45,12 +53,12 @@ namespace Heron.AutoCAD.Addin
             };
             var what = S.Body(summary, S.TextSecondary, 13);
             what.Margin = new Thickness(0, 6, 0, 0);
-            var note = S.Body("Nothing is erased for good until you say so.", S.TextMuted, 12);
+            var note = S.Body(words.Note, S.TextMuted, 12);
             note.Margin = new Thickness(0, 6, 0, 4);
 
-            var back = Choice("Bring them back", "Every object this job erased comes back as it was. The rest of the job stays.");
-            var keep = Choice("Keep them erased", "They stay erased, with the rest of the job.");
-            back.Click += (s, e) => Answer("restore");
+            var back = Choice(words.DefaultChoice, words.DefaultNote);
+            var keep = Choice(words.KeepChoice, words.KeepNote);
+            back.Click += (s, e) => Answer(fallback);
             keep.Click += (s, e) => Answer("keep_erased");
             back.IsDefault = true;
             back.IsCancel = true;
@@ -67,14 +75,12 @@ namespace Heron.AutoCAD.Addin
             top.Children.Add(choices);
             var body = new StackPanel();
             body.Children.Add(top);
-            body.Children.Add(S.Footer(S.Body(
-                "Esc or closing this window brings them back. To stop this question, turn off \""
-                + HeronActions.EraseQuestionName + "\" in Settings.", S.TextMuted, 12)));
+            body.Children.Add(S.Footer(S.Body(words.Footer, S.TextMuted, 12)));
 
-            shell = S.Build(Title, CardWidth, body, S.AccentColour, () => Answer("restore"));
+            shell = S.Build(Title, CardWidth, body, S.AccentColour, () => Answer(fallback));
             var window = shell.Window;
             var deadline = new System.Windows.Threading.DispatcherTimer { Interval = HeronKeepQuestion.Deadline };
-            deadline.Tick += (s, e) => { deadline.Stop(); Answer("restore"); };
+            deadline.Tick += (s, e) => { deadline.Stop(); Answer(fallback); };
             window.Loaded += (s, e) =>
             {
                 deadline.Start();

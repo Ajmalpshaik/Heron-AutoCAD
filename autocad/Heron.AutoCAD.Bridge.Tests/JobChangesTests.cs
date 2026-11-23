@@ -144,6 +144,65 @@ public class EraseProtocolTests
     }
 
     [Fact]
+    public void A_whole_change_question_answers_undo_whole_for_anything_but_keep()
+    {
+        // D-136: a replace job (join, explode, a cut circle). The server undoes the whole job.
+        Begin("change");
+        _host.Report = new ChangeReport { Erased = 1, ErasedHandles = new[] { "B" }, AllErasedHandles = new[] { "B" } };
+        _host.EraseReply = new EraseAnswer { Answer = "something odd", Restored = 1 };
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "Join", whole = true });
+        Assert.Equal(EraseWords.UndoWhole, reply.GetProperty("answer").GetString());
+        Assert.Equal(0, reply.GetProperty("restored").GetInt32());
+        Assert.True(_host.EraseAsked[0].Whole);
+    }
+
+    [Fact]
+    public void A_whole_change_question_still_keeps_on_a_clear_keep()
+    {
+        Begin("change");
+        _host.Report = new ChangeReport { Erased = 1, AllErasedHandles = new[] { "B" } };
+        _host.EraseReply = new EraseAnswer { Answer = "keep_erased" };
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "Join", whole = true });
+        Assert.Equal("keep_erased", reply.GetProperty("answer").GetString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData("true")] // only a JSON true counts
+    public void Without_whole_the_question_is_the_usual_one(object whole)
+    {
+        Begin("change");
+        _host.Report = new ChangeReport { Erased = 1, AllErasedHandles = new[] { "B" } };
+        _host.EraseReply = new EraseAnswer { Answer = "restored", Restored = 1 };
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "x", whole });
+        Assert.Equal("restored", reply.GetProperty("answer").GetString());
+        Assert.False(_host.EraseAsked[0].Whole);
+    }
+
+    [Fact]
+    public void A_whole_change_question_that_throws_is_still_undo_whole()
+    {
+        Begin("change");
+        _host.Report = new ChangeReport { Erased = 1, AllErasedHandles = new[] { "B" } };
+        _host.EraseThrows = true;
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "Join", whole = true });
+        Assert.Equal(EraseWords.UndoWhole, reply.GetProperty("answer").GetString());
+        Assert.Contains("could not ask", reply.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void With_the_erase_question_off_a_whole_change_is_kept_unasked_too()
+    {
+        Begin("change");
+        _config.AskBeforeErasing = false;
+        _host.Report = new ChangeReport { Erased = 1, AllErasedHandles = new[] { "B" } };
+        var reply = Send(new { op = "ask_erase", token = Token, conversation = "chat-a", job = "j1", summary = "Join", whole = true });
+        Assert.Equal("keep_erased", reply.GetProperty("answer").GetString());
+        Assert.False(reply.GetProperty("asked").GetBoolean());
+        Assert.Empty(_host.EraseAsked);
+    }
+
+    [Fact]
     public void Keep_erased_is_kept()
     {
         Begin("change");

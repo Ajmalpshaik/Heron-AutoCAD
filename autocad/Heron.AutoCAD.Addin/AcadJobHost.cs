@@ -91,19 +91,26 @@ namespace Heron.AutoCAD.Addin
                     // throw here used to end this work, and the job was then
                     // discarded without the question being asked.
                     var count = 0;
+                    var zoomed = false;
                     if (doc != null)
                     {
                         try
                         {
-                            count = Showing.SelectAndZoom(doc, request.Handles).Count;
+                            var shown = Showing.SelectAndZoom(doc, request.Handles);
+                            count = shown.Count;
+                            zoomed = shown.Zoomed;
                         }
                         catch (Exception ex)
                         {
+                            // Cannot tell whether the zoom ran before the throw: take it as run.
+                            zoomed = true;
                             HeronLog.Error("Keep question: select and zoom", ex);
                         }
                     }
                     // That zoom is an undo step after the job: an unmarked one-step Undo would undo it (D-130).
-                    if (doc != null) Activity.ShownForKeep(request.Job);
+                    // Only a zoom that really ran counts (D-136): nothing selectable, or a refused select, is none.
+                    request.Zoomed = zoomed;
+                    Activity.ShownForKeep(request.Job, zoomed);
                     return HeronKeepQuestion.Ask(request.Summary, count);
                 }, KeepWait, out answer);
             }
@@ -172,8 +179,11 @@ namespace Heron.AutoCAD.Addin
             {
                 asked = IdleQueue.TryInvoke(() =>
                 {
-                    var choice = HeronEraseQuestion.Ask(request.Summary, request.Handles.Length);
+                    var choice = HeronEraseQuestion.Ask(request.Summary, request.Handles.Length, request.Whole);
                     if (choice == "keep_erased") return new EraseAnswer { Answer = "keep_erased" };
+                    // A replace job (D-136): the server goes back to its UNDO mark. Bringing the
+                    // erased objects back here would leave the old shape on top of the new one.
+                    if (request.Whole) return new EraseAnswer { Answer = EraseWords.UndoWhole };
                     var doc = AcApp.DocumentManager.MdiActiveDocument;
                     var back = doc == null ? 0 : HeronEraseQuestion.Restore(doc, request.Handles);
                     HeronLog.Write("brought back " + back + " of " + request.Handles.Length + " erased object(s)");
@@ -187,9 +197,13 @@ namespace Heron.AutoCAD.Addin
             if (asked && answer != null)
             {
                 // Brought back after the job: the palette's one-step Undo would now be that restore (#244).
-                if (answer.Answer != "keep_erased") Activity.BroughtBack(request.Job);
+                if (answer.Answer == "restored") Activity.BroughtBack(request.Job);
                 return answer;
             }
+            // A replace job that could not be asked: the server undoes the whole job (D-136). Never
+            // queue a restore here: one that ran after the undo, or after an undo that failed,
+            // could leave the old shape on top of the new one.
+            if (request.Whole) return new EraseAnswer { Answer = EraseWords.UndoWhole, Message = "Heron could not show the question in time." };
             Activity.BroughtBack(request.Job);
             // Could not even ask: put them back, on the main thread, as soon as AutoCAD is free.
             IdleQueue.Post(() =>

@@ -274,13 +274,14 @@ namespace Heron.AutoCAD.Bridge
 
         private string AskKeep(JsonElement root, string conversation)
         {
-            if (!_config().AskBeforeKeeping) return Answer("keep");
+            // Not asked, so nothing was zoomed: no undo step stands after the job (D-136).
+            if (!_config().AskBeforeKeeping) return KeepAnswer("keep", false);
             lock (_grantGate)
             {
                 if (_grantConversation == conversation && _clock() - _grantLast < KeepGrantIdle)
                 {
                     _grantLast = _clock();
-                    return Answer("keep");
+                    return KeepAnswer("keep", false);
                 }
                 _grantConversation = null;
             }
@@ -291,9 +292,10 @@ namespace Heron.AutoCAD.Bridge
                     if (item.ValueKind == JsonValueKind.String) handles.Add(item.GetString() ?? "");
 
             string answer;
+            var request = new KeepRequest { Job = Str(root, "job"), Summary = Str(root, "summary"), Handles = handles.ToArray() };
             try
             {
-                answer = _host.AskKeep(new KeepRequest { Job = Str(root, "job"), Summary = Str(root, "summary"), Handles = handles.ToArray() });
+                answer = _host.AskKeep(request);
             }
             catch (Exception)
             {
@@ -306,8 +308,20 @@ namespace Heron.AutoCAD.Bridge
                     _grantConversation = conversation;
                     _grantLast = _clock();
                 }
-            return Answer(answer);
+            return KeepAnswer(answer, request.Zoomed);
         }
+
+        /// <summary>
+        /// The Keep answer, and whether the question really zoomed (D-136): that
+        /// zoom is an undo step after the job, so with no mark the chat's one-step
+        /// undo refuses only when it ran. An older plug-in does not say; the
+        /// server then takes it as zoomed.
+        /// </summary>
+        private static string KeepAnswer(string answer, bool zoomed) => Ok(w =>
+        {
+            w.WriteString("answer", answer);
+            w.WriteBoolean("zoomed", zoomed);
+        });
 
         /// <summary>
         /// Drawing input with echo off, so a batch does not flood the command
@@ -460,6 +474,10 @@ namespace Heron.AutoCAD.Bridge
         /// modeller turned the erase question off in Settings (only their click
         /// can, D-59), they stay erased unasked and the answer says so
         /// ("asked": false), so the chat cannot pass it off as the modeller's yes.
+        /// With "whole": true (a job that replaced objects, D-136) the question is
+        /// "Keep the change or undo the whole change", nothing is brought back
+        /// here, and anything but a clear keep answers "undo_whole": the server
+        /// then goes back to its own UNDO mark.
         /// </summary>
         private string AskErase(JsonElement root, string conversation)
         {
@@ -480,16 +498,21 @@ namespace Heron.AutoCAD.Bridge
                     w.WriteNumber("restored", 0);
                 });
             }
+            // Only a plain true: an older server sends nothing, and gets the usual question (D-136).
+            var whole = root.TryGetProperty("whole", out var wholeFlag) && wholeFlag.ValueKind == JsonValueKind.True;
             EraseAnswer answer;
             try
             {
-                answer = _host.AskErase(new EraseRequest { Job = Str(root, "job"), Summary = Str(root, "summary"), Handles = report.AllErasedHandles });
+                answer = _host.AskErase(new EraseRequest { Job = Str(root, "job"), Summary = Str(root, "summary"), Handles = report.AllErasedHandles, Whole = whole });
             }
             catch (Exception ex)
             {
-                answer = new EraseAnswer { Answer = "restored", Restored = 0, Message = "Heron in AutoCAD could not ask or put them back: " + ex.Message };
+                answer = whole
+                    ? new EraseAnswer { Answer = EraseWords.UndoWhole, Message = "Heron in AutoCAD could not ask: " + ex.Message }
+                    : new EraseAnswer { Answer = "restored", Restored = 0, Message = "Heron in AutoCAD could not ask or put them back: " + ex.Message };
             }
-            var said = answer?.Answer == "keep_erased" ? "keep_erased" : "restored";
+            // Anything but a clear keep: the objects come back, or (whole) the server undoes the whole job.
+            var said = answer?.Answer == "keep_erased" ? "keep_erased" : whole ? EraseWords.UndoWhole : "restored";
             return Ok(w =>
             {
                 w.WriteString("answer", said);
@@ -591,8 +614,6 @@ namespace Heron.AutoCAD.Bridge
 
         private static string Str(JsonElement root, string name) =>
             root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
-
-        private static string Answer(string answer) => Ok(w => w.WriteString("answer", answer));
 
         private static string Refuse(string refusedBy, string message) => Write(w =>
         {

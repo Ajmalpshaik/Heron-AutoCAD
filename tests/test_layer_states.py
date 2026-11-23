@@ -83,6 +83,31 @@ class TestIsolatePlan:
         plan = isolate_plan(self.LAYERS, ["M-PIPE", "M-DUCT"], "0", "freeze")
         assert plan["make_current"] == "M-PIPE"
 
+    # #212.1: AutoCAD will not make an xref's layer current.
+    XREF_LAYERS = [row("0"), row("M-DUCT"), row("MECH|M-DUCT"), row("MECH|M-PIPE")]
+
+    def test_the_first_kept_layer_of_this_drawings_own_becomes_current(self):
+        plan = isolate_plan(self.XREF_LAYERS, ["MECH|M-DUCT", "M-DUCT"], "0")
+        assert plan["make_current"] == "M-DUCT"
+
+    def test_only_xref_layers_kept_with_off_leaves_the_current_layer_alone(self):
+        plan = isolate_plan(self.XREF_LAYERS, ["MECH|M-DUCT"], "0", "off")
+        assert plan["make_current"] is None
+        assert self.changes(plan)[("0", "on")] is False  # turned off with the rest, still current
+
+    def test_only_xref_layers_kept_with_freeze_is_refused(self):
+        with pytest.raises(ValueError, match="xref") as caught:
+            isolate_plan(self.XREF_LAYERS, ["MECH|M-DUCT", "MECH|M-PIPE"], "0", "freeze")
+        assert "others='off'" in str(caught.value)
+
+    def test_only_xref_layers_kept_with_freeze_is_fine_when_the_current_layer_is_kept(self):
+        plan = isolate_plan(self.XREF_LAYERS + [row("MECH|X")], ["MECH|M-DUCT"], "MECH|M-DUCT", "freeze")
+        assert plan["make_current"] is None
+
+    def test_only_xref_layers_kept_with_lock_never_hands_over(self):
+        plan = isolate_plan(self.XREF_LAYERS, ["MECH|M-DUCT"], "0", "lock")
+        assert plan["make_current"] is None
+
     def test_a_layer_given_twice_is_kept_once(self):
         assert isolate_plan(self.LAYERS, ["M-DUCT", "m-duct"], "0")["kept"] == ["M-DUCT"]
 
@@ -239,6 +264,20 @@ class Doc:
 
     def EndUndoMark(self):  # noqa: N802 - COM name
         pass
+
+
+class XrefDoc(Doc):
+    """As AutoCAD: neither a frozen layer nor an xref's layer (``XREF|LAYER``) can be made current."""
+
+    @property
+    def ActiveLayer(self):  # noqa: N802 - COM name
+        return self._active
+
+    @ActiveLayer.setter
+    def ActiveLayer(self, layer):  # noqa: N802 - COM name
+        if layer.Freeze or "|" in layer.Name:
+            raise RuntimeError("Invalid layer")
+        self._active = layer
 
 
 class FakePlugin:
@@ -439,6 +478,23 @@ class TestIsolateTool:
         cad.holder["doc"] = doc = self.doc()
         assert "M-GAS" in error(layer_states.autocad_isolate_layers(layers=["M-GAS"]))
         assert cad.calls == [] and all(la.LayerOn for la in doc.Layers.items if la.Name != "A-WALL")
+
+    def xref_doc(self):
+        return XrefDoc([Layer("0"), Layer("M-DUCT"), Layer("MECH|M-DUCT")])
+
+    def test_isolating_an_xref_layer_never_makes_it_current(self, cad):
+        # #212.1: it used to try, AutoCAD refused, and HERON-ISOLATE was already saved.
+        cad.holder["doc"] = doc = self.xref_doc()
+        out = call(layer_states.autocad_isolate_layers(layers=["MECH|M-DUCT"]))
+        assert doc.ActiveLayer.Name == "0" and out["current_layer"] == "0"
+        assert [la.Name for la in doc.Layers.items if not la.LayerOn] == ["0", "M-DUCT"]
+
+    def test_isolating_only_xref_layers_frozen_is_refused_before_the_state_is_saved(self, cad):
+        cad.holder["doc"] = doc = self.xref_doc()
+        text = error(layer_states.autocad_isolate_layers(layers=["MECH|M-DUCT"], others="freeze"))
+        assert "xref" in text and "Nothing was changed" in text
+        assert cad.calls == [] and ISOLATE_STATE not in cad.states
+        assert not any(la.Freeze for la in doc.Layers.items)
 
 
 class TestMergeTool:

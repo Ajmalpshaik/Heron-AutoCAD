@@ -134,17 +134,32 @@ public class ActivityLogTests
     {
         // D-130: the Keep question zooms to the job; with no mark, UNDO 1 would undo that zoom.
         _log.Begin(new JobInfo { Job = "j1", Tool = "autocad_draw_line", Risk = Risk.Change, Drawing = Dwg, AskToKeep = true }, At);
-        _log.ShownForKeep("j1");
+        _log.ShownForKeep("j1", zoomed: true);
         _log.End(new JobEnd { Job = "j1", Ok = true, Outcome = "done", Marked = false }, new ChangeReport { Added = 1, AddedHandles = new[] { "A" } });
         Assert.Equal(PaletteTexts.UndoViewsSince, _log.CanUndo("j1", Clean()).Reason);
         Assert.False(PaletteRows.Buttons(_log.Entries[0], newest: true).Undo);
     }
 
     [Fact]
+    public void Asked_to_keep_with_no_zoom_and_no_mark_one_step_is_offered()
+    {
+        // D-136 (refines D-130): nothing selectable, or the select refused, means no zoom ran and no
+        // undo step stands after the job, so the palette must not blame a zoom that never happened.
+        _log.Begin(new JobInfo { Job = "j1", Tool = "autocad_draw_line", Risk = Risk.Change, Drawing = Dwg, AskToKeep = true }, At);
+        _log.ShownForKeep("j1", zoomed: false);
+        _log.End(new JobEnd { Job = "j1", Ok = true, Outcome = "done", Marked = false }, new ChangeReport { Added = 1, AddedHandles = new[] { "A" } });
+        Assert.Equal(0, _log.Entries[0].ViewsSince);
+        var verdict = _log.CanUndo("j1", Clean());
+        Assert.True(verdict.Allowed, verdict.Reason);
+        Assert.Equal("_.UNDO 1 ", verdict.Command);
+        Assert.True(PaletteRows.Buttons(_log.Entries[0], newest: true).Undo);
+    }
+
+    [Fact]
     public void Asked_to_keep_and_marked_the_questions_zoom_is_inside_the_mark()
     {
         _log.Begin(new JobInfo { Job = "j1", Tool = "autocad_draw_line", Risk = Risk.Change, Drawing = Dwg, AskToKeep = true }, At);
-        _log.ShownForKeep("j1");
+        _log.ShownForKeep("j1", zoomed: true);
         _log.End(new JobEnd { Job = "j1", Ok = true, Outcome = "done", Marked = true }, new ChangeReport { Added = 1, AddedHandles = new[] { "A" } });
         Assert.Equal("_.UNDO _Back ", _log.CanUndo("j1", Clean()).Command);
     }
