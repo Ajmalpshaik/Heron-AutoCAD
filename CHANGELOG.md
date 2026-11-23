@@ -4,6 +4,14 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Reading a property an object does not have is answered at once, not as a lost connection (2026-11-23,
+  [#280](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/280), [D-153](docs/DECISIONS.md)).** As D-149 did
+  for sets: pywin32 gives "AutoCAD.AcDbLine.Radius" both when AutoCAD is busy and when the object has no such
+  member, so a read of a line's Radius by mistake was asked again for ten seconds and came out as "Lost the COM
+  connection". Only after a read has failed, the server now asks the object for the name: not there is a plain
+  error at once naming it ("AutoCAD has no property or method 'Radius' on this object ... AutoCAD was not
+  busy"); a busy AutoCAD is still asked again. `hasattr` and `getattr` defaults read it as "not there", as
+  before. Server only. Tested offline only; live rows AL10 (the runner measures it) and AL11 NOT RUN.
 - **An extents preview no longer frames an object that was erased (2026-11-23,
   [#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269), [D-151](docs/DECISIONS.md)).** AutoCAD shrinks
   EXTMIN/EXTMAX only on ZOOM Extents, so after an erase `autocad_preview()` could still reach the erased object

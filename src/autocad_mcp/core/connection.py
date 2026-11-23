@@ -32,6 +32,7 @@ from .errors import (
     OutcomeUnknown,
     StaleDispatchError,
     com_message,
+    explain_get_failure,
     explain_set_failure,
     is_dispatch_failure,
     is_retryable,
@@ -79,6 +80,35 @@ def check_property_sets(cls: Any) -> None:
 
 
 check_property_sets(win32com.client.CDispatch)
+
+
+def check_member_gets(cls: Any) -> None:
+    """Make a get of a member the object lacks say so, instead of reading as a busy AutoCAD (#280, D-153).
+
+    pywin32's late-bound object answers a member it cannot resolve with
+    "AutoCAD.AcDbLine.Radius", busy or not. Wrapped here, only a get that has
+    already failed is looked into (``errors.explain_get_failure``): one the
+    object does not have becomes MemberMissing at once, an AttributeError still,
+    so ``hasattr`` and ``getattr`` defaults are unchanged. A busy AutoCAD goes up
+    as before and is asked again. A get that works costs one Python frame, no
+    COM call. Safe to call twice.
+    """
+    plain = getattr(cls, "__getattr__", None)
+    if plain is None or getattr(plain, "heron_checked", False):
+        return
+
+    def __getattr__(self: Any, name: str) -> Any:  # noqa: N807 - it is the method
+        try:
+            return plain(self, name)
+        except AttributeError as failure:
+            explain_get_failure(self, name, failure)
+            raise  # explain_get_failure always raises; this is never reached
+
+    __getattr__.heron_checked = True  # type: ignore[attr-defined]
+    cls.__getattr__ = __getattr__
+
+
+check_member_gets(win32com.client.CDispatch)
 
 class _ComWorker:
     """Runs every COM call on one dedicated apartment thread.
