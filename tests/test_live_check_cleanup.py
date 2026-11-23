@@ -51,12 +51,26 @@ AD11 = {
     "lc.save_scratch": SAVED,
     "lc.files_in": seq(["live-check.dwg"], ["live-check.dwg"]),
 }
+AD13_BEFORE = {"handle": "PL", "type": "polyline", "vertex_count": 4, "length": 2100.0,
+               "vertices": [P("AD13", 0, 500)[:2], P("AD13", 0, 0)[:2], P("AD13", 1000, 0)[:2], P("AD13", 400, 0)[:2]]}
+AD13_AFTER = {"handle": "PL", "type": "polyline", "vertex_count": 3, "length": 1500.0,
+              "vertices": [P("AD13", 0, 500)[:2], P("AD13", 0, 0)[:2], P("AD13", 1000, 0)[:2]]}
+AD13 = {
+    "autocad_batch_draw": {"created": 1, "handles": ["PL"]},
+    "autocad_overkill": seq(
+        {"confirmed": False, "plan_id": "p13", "erase_count": 0, "rebuild_count": 1, "rebuild": [
+            {"handle": "PL", "type": "polyline", "segments_going": [{"segment": 2, "why": "drawn twice"}]}]},
+        {"confirmed": True, "plan_id": "p13", "erase_count": 0, "rebuild_count": 1, "note": "rebuilt 1 polyline(s)"},
+    ),
+    "autocad_get_entity": seq(AD13_BEFORE, AD13_AFTER),
+}
 
 SAMPLES = {
     "AD1": (AD1, {"autocad_overkill": {"confirmed": False, "plan_id": "p1", "erase": [
         {"handle": "B", "type": "line", "reason": "an exact copy", "kept": "A"}]}}),
     "AD8": (AD8, {"autocad_get_entity": {"handle": "G1", "type": "region", "area": 12_000_000.0}}),
     "AD11": (AD11, {"lc.files_in": seq(["live-check.dwg"], ["live-check.dwg", "live-check - transmittal.zip"])}),
+    "AD13": (AD13, {"autocad_get_entity": seq(AD13_BEFORE, AD13_BEFORE)}),
 }
 
 CHECKS = {c.row: c for c in cleanup.CHECKS}
@@ -82,4 +96,4 @@ def test_a_bad_answer_fails(monkeypatch, row):
 def test_every_ad_row_is_measured_or_excused_once():
     rows = set(CHECKS) | set(cleanup.BY_EYE)
     assert not set(CHECKS) & set(cleanup.BY_EYE)
-    assert rows == {f"AD{n}" for n in range(1, 13)}
+    assert rows == {f"AD{n}" for n in range(1, 14)}

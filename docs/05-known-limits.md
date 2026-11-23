@@ -342,7 +342,7 @@ variables back, pressing Esc on the way to the real error, a redraw after the wo
 waits. Each is named with its reason in `tests/test_busy_sweep.py`. NOT RUN live (NEEDS-CHECKING
 group AL).
 
-**A property AutoCAD will not set ([D-146](DECISIONS.md), #270).** pywin32 says "can not be set" for a
+**A property AutoCAD will not set ([D-147](DECISIONS.md), #270).** pywin32 says "can not be set" for a
 busy AutoCAD and for a real refusal alike. The server asks the object again itself: no such property, or
 a value turned down, is answered at once as an error naming the property; busy is asked again. If AutoCAD
 is busy at the first try and free for the second ask, the set is simply done. A *read* of a property the
@@ -596,14 +596,20 @@ From [D-104](DECISIONS.md) and [D-105](DECISIONS.md) (#68); all NOT RUN live (NE
 
 ## 35. Overkill, boundary, eTransmit, underlays and clips have their own limits
 
-From issues #112, #104, #118 and #114 ([D-84](DECISIONS.md), [D-85](DECISIONS.md)); all NOT RUN
+From issues #112, #104, #118, #114 and #159 ([D-84](DECISIONS.md), [D-85](DECISIONS.md), [D-146](DECISIONS.md)); all NOT RUN
 live (NEEDS-CHECKING group AD). The plug-in parts (underlays, xref and underlay clips, boundary,
 eTransmit's file list) need the plug-in **newer than 1.7.0**; an older one answers that it does not
 have the operation, and nothing is sent.
 
-- **`autocad_overkill` never breaks or changes a polyline.** A polyline is erased only when it is
-  an exact copy of another (either direction, any start corner); overlaps on polylines, a polyline
-  doubling back on itself, and a loose line lying only partly on one are listed under `left`.
+- **`autocad_overkill` never breaks a polyline.** A polyline is erased only when it is
+  an exact copy of another (either direction, any start corner); overlaps between polylines, and a
+  loose line lying only partly on one, are listed under `left`. A polyline doubling back on itself is
+  listed too, unless `tidy_polylines=true` is given ([D-146](DECISIONS.md), row AD13): then a
+  doubled stretch at its end, or a zig-zag along one line or circle between two of its corners, and
+  zero-length segments go, by dropping vertices it already has (none moved or added). A spike or a
+  doubled stretch part way along stays (one polyline cannot draw it any other way), and so does an
+  old-style 2D polyline, one whose width changes along it, and one segment lying over another far
+  away in the same polyline.
   Widths are not compared. Only lines, arcs, circles and polylines lying flat in plan (normal +Z)
   are looked at; a line with its ends at two heights, a curve-fit or spline-fit 2D polyline, and
   anything else are counted as skipped. Arcs that together go all the way round are left (one arc

@@ -5,7 +5,7 @@
 
 ---
 
-## D-146 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
+## D-147 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
 [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270) (found by S16 under D-141). **Status:** in
@@ -41,6 +41,36 @@ rows AL8 (measured by the runner) and AL9 NOT RUN.
 - **Not chosen:** telling them apart by the words (there is nothing in them), or by asking AutoCAD
   whether it is busy just after (it can be free a moment later, and a busy set would then be called a
   refusal).
+
+---
+
+## D-146 - Overkill may rebuild a polyline that goes back over itself, from its own vertices, when asked
+
+**Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue
+[#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159). **Status:** in force; changes D-84's "a
+polyline is never broken or changed" for this one case; tested offline only, live row AD13 NOT RUN.
+
+- **Asked for, never by default.** `autocad_overkill(tidy_polylines=true)` is OVERKILL's "optimize segments
+  within polylines". Without it nothing about a polyline changes from D-84.
+- **Only from its own vertices.** A vertex is dropped, never moved or added (`acad/overkill.tidy_polyline`):
+  zero-length segments go, and a run of segments one after another on one straight line (or one circle)
+  that goes back over itself becomes one segment from where it comes in to where it goes on. At an open
+  polyline's free end, the end moves to the run's far end (an existing vertex). So the shape on paper is
+  the same, drawn once, and a loose line erased as "lies on polyline" still lies on it.
+- **What it leaves, with why:** a run that goes back over itself part way along (a spike, or the polyline
+  coming in from the middle of the doubled stretch): one polyline cannot draw that without the doubling,
+  and breaking it in two is not one safe step. Arcs going all the way round one circle; a closed polyline
+  lying all on one line; an old-style 2D polyline; one whose width changes along it (read only for the
+  polyline to rebuild, as the 2D edits read it, D-78). Segments far apart in one polyline lying over each
+  other, and two polylines over each other, stay as D-84 lists them.
+- **Same rules as the rest of Overkill:** listed first (`rebuild`, with the segments going and any new
+  segment), the `plan_id` covers it, the confirm sets the same polyline's vertices and bulges again (same
+  handle, its one width kept) inside the one undo step. A rebuild erases nothing, so on its own it brings
+  no erase question (D-50).
+
+Rejected: merging straight runs that only go one way (vertices in a straight line that draw nothing
+twice), which the issue did not ask for and which would change polylines that are not doubled; and
+breaking a polyline in two where it doubles back part way along.
 
 ---
 

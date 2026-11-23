@@ -5,13 +5,20 @@ Newest first. Dates are when the change was made.
 ## Unreleased
 
 - **A property AutoCAD will not set is answered at once, not as a busy AutoCAD (2026-11-23,
-  [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-146](docs/DECISIONS.md)).** pywin32 gives
+  [#270](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/270), [D-147](docs/DECISIONS.md)).** pywin32 gives
   "Property '...' can not be set." both when AutoCAD is busy and when the object has no such property or turns
   the value down, so a real refusal was asked again for ten seconds and came out as "Outcome unknown: AutoCAD
   went busy" (that was #40). The server now asks the object itself: a property it does not have, or a value it
   refuses, is a plain error at once naming the property ("AutoCAD has no property 'CustomScale' on this
   object ... AutoCAD was not busy"); a busy AutoCAD is still asked again as before. Server only. Tested offline
   only; live rows AL8 (the runner measures it) and AL9 NOT RUN.
+- **`autocad_overkill(tidy_polylines=true)` tidies a polyline that goes back over itself (2026-11-23,
+  [#159](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/159), [D-146](docs/DECISIONS.md)).** AutoCAD
+  OVERKILL's "optimize segments within polylines": zero-length segments, a doubled stretch at a polyline's end
+  and a zig-zag along one straight line or circle are listed under `rebuild` with the segments going, and the
+  confirm (same `plan_id`, same undo step) sets that polyline's vertices and bulges again from vertices it
+  already had. A spike part way along, an old-style 2D polyline and one whose width changes along it are left,
+  with why. Off by default, so nothing changes for a call without it. Tested offline only; live row AD13 NOT RUN.
 - **The standards check's objects are read by the plug-in in one go (2026-11-23,
   [#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196), part of [#74](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/74),
   [D-145](docs/DECISIONS.md)).** `autocad_check_standards`' entity rules (nothing on layer 0, ByLayer colour and
