@@ -18,7 +18,7 @@ namespace Heron.AutoCAD.Bridge
         }
 
         public int Code { get; }
-        /// <summary>The type, layer or block name (AutoCAD's wildcards work).</summary>
+        /// <summary>The type, layer, block name or space (AutoCAD's wildcards work).</summary>
         public string? Text { get; }
         /// <summary>The colour number, for code 62.</summary>
         public int? Number { get; }
@@ -27,7 +27,9 @@ namespace Heron.AutoCAD.Bridge
     /// <summary>
     /// The filter of a read over the whole drawing (D-114). Only what the
     /// server's COM selection filters on is taken (type, layer, block name,
-    /// colour), so the plug-in selects exactly the objects COM would.
+    /// colour), so the plug-in selects exactly the objects COM would, and the
+    /// space (DXF 410: "Model" or a sheet's name), so a preview can measure
+    /// model space alone (#269, D-151). Plug-ins 1.8.1 and older refuse 410.
     /// </summary>
     public static class EntityFilter
     {
@@ -35,8 +37,9 @@ namespace Heron.AutoCAD.Bridge
         public const int BlockName = 2;
         public const int Layer = 8;
         public const int Color = 62;
+        public const int Space = 410;
 
-        private const string Only = "Heron in AutoCAD filters a read only by type, layer, block name and colour.";
+        private const string Only = "Heron in AutoCAD filters a read only by type, layer, block name and colour, and by space (410).";
 
         /// <summary>The pairs; none at all selects everything. A refusal for anything else.</summary>
         public static IReadOnlyList<FilterPair> Parse(JsonElement filter)
@@ -55,6 +58,7 @@ namespace Heron.AutoCAD.Bridge
                     case Type:
                     case BlockName:
                     case Layer:
+                    case Space:
                         var text = value.ValueKind == JsonValueKind.String ? (value.GetString() ?? "") : "";
                         if (text.Trim().Length == 0) throw new RunRefusal(Only);
                         pairs.Add(new FilterPair(dxf, text, null));

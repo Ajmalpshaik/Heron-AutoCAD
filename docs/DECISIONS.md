@@ -5,6 +5,36 @@
 
 ---
 
+## D-151 - An extents preview in model space measures the objects through the plug-in when EXTMIN/EXTMAX are stale
+
+**Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
+[#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269) (found by S16 under D-141). **Status:** in
+force; finishes what D-141 left ("not done: measuring the extents afresh") and keeps D-114's COM fallback.
+Tested offline only (`tests/test_preview_fresh_extents.py`, Bridge `EntityReadsTests`); live row AM8 NOT
+RUN. **Needs the plug-in built from this change**; an older one previews as before.
+
+- **The gap.** EXTMIN/EXTMAX shrink only on ZOOM Extents or All, not on a regen as D-102 assumed. After an
+  erase, `autocad_preview(area='extents')` could still frame the erased object: `plotted` far too big, the
+  sheet small in the picture, and the close-ups of D-141 split the wrong box.
+- **The plug-in's filter takes a space.** `EntityFilter.Parse` (Bridge `EntityTally.cs`) now takes DXF
+  410 with a name ("Model" or a sheet's name), beside type, layer, block name and colour. The plug-in
+  already selects with AutoCAD's own `SelectAll(filter)`, which knows 410, so the Addin is unchanged. An
+  empty or non-text space is refused, as an empty layer is.
+- **The preview.** In model space, in a plan view of the world UCS (as before), `_extents_box` reads
+  EXTMIN/EXTMAX and asks the plug-in's `entity_extents` with `[[410, "Model"]]`. **Only when the
+  plug-in's box lies inside EXTMIN/EXTMAX with an edge more than 1 % of the bigger side in** are they
+  taken to be stale: that box is `plotted`, the sheet check and the close-ups use it, the overview is
+  plotted as a **window** over it (AutoCAD's own Extents plot would frame the stale box), and
+  `extents_note` says so. A box that agrees, or a bigger one (an object on a frozen layer, which a plot
+  leaves out, or a text box a little off), changes nothing: AutoCAD's Extents plot as before.
+- **No plug-in, or an older one:** `faster_read` answers None (an older plug-in refuses 410 as its own
+  refusal, which is an AutocadError there), so EXTMIN/EXTMAX are used exactly as before. No version
+  constant was added: the refusal itself is the version check, as for NEWER_READS.
+- **Not changed:** a sheet layout's PEXTMIN/PEXTMAX (the issue is model space; a sheet's box would hold
+  its viewports, which needs its own thought), `autocad_get_extents`, and every other extents read.
+- **Not chosen:** a ZOOM Extents before the preview (it changes the modeller's view, and the zoom is an
+  undo step), and trusting the plug-in's box always (a frozen layer's object would stretch the picture
+  the way #41 did).
 ## D-150 - eTransmit's packed copies point at the files beside them, rewritten by the plug-in in a side database
 
 **Decided:** 2026-11-23, by session S18 of the 2026-11-23 wave, on issue
@@ -32,6 +62,9 @@ saved paths are not rewritten"; tested offline only, live rows AD14 and AD15 NOT
 
 Rejected: rewriting the paths in the modeller's own drawing (its file is the one thing never to change), and
 AutoCAD's transmittal COM library (still never tried here, D-85).
+
+---
+
 ## D-149 - A property AutoCAD will not set is asked about once and answered at once; a busy one is still asked again
 
 **Decided:** 2026-11-23, by session S22 of the 2026-11-23 wave, for issue
@@ -177,6 +210,9 @@ polyline is never broken or changed" for this one case; tested offline only, liv
 Rejected: merging straight runs that only go one way (vertices in a straight line that draw nothing
 twice), which the issue did not ask for and which would change polylines that are not doubled; and
 breaking a polyline in two where it doubles back part way along.
+
+---
+
 
 ---
 

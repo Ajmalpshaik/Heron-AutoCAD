@@ -4,6 +4,13 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **An extents preview no longer frames an object that was erased (2026-11-23,
+  [#269](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/269), [D-151](docs/DECISIONS.md)).** AutoCAD shrinks
+  EXTMIN/EXTMAX only on ZOOM Extents, so after an erase `autocad_preview()` could still reach the erased object
+  and show the sheet small. In model space the preview now asks the plug-in to measure the objects themselves
+  (its `entity_extents` filter takes the space, DXF 410); when that box is well inside EXTMIN/EXTMAX the picture
+  is a window over it and `extents_note` says why. No plug-in, or an older one: as before. Needs the new
+  plug-in. Tested offline only; live row AM8 NOT RUN (the runner measures it).
 - **`autocad_etransmit` points the packed drawings at the files beside them (2026-11-23,
   [#160](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/160), [D-150](docs/DECISIONS.md)).** As eTransmit
   does, the xref, image and PDF / DWF / DGN underlay paths saved in the packed drawing and each packed xref

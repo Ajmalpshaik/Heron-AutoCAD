@@ -6450,9 +6450,9 @@ Use after drawing something, to check it looks right before reporting it done. P
 - Technical shape of the answer: `The PNG image (then one per close-up, top left first), then JSON: {"area", "layout", "size", "pixels", "plotted": {"min", "max", "width", "height"}, "smallest_clear_text", "detail": [{"picture", "part", "corner1", "corner2"}] ...`
 
 **Limits and versions.**
-- The plug-in only guards it (padlocks, Keep or Discard); the work itself is done over COM.
+- Uses the plug-in for speed when it can (from plug-in 1.8.0); otherwise it does the same job over COM.
 
-**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AM7, AH1, AR1).
+**Live proof.** **PARTLY**: rows A13 passed in AutoCAD 2027; the rest are NOT RUN (rows A13, A31, D31, E34, F20, J6, M6, AF22, AF24, BD3, AM1, AM2, AM4, AM5, AM6, AM7, AM8, AH1, AR1).
 
 ### `autocad_project_notes`
 
