@@ -165,9 +165,9 @@ Patterns, and radial, diametric and angular dimensions, stay with `autocad_add_h
 | `autocad_list_entities` | Filter by type, layer, block or colour; paginated; summary mode (counted by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
 | `autocad_get_entity` | All properties and bounding box of one entity |
 | `autocad_get_selection` | What you have selected in AutoCAD right now |
-| `autocad_find_text` | Search text, mtext and block attributes |
+| `autocad_find_text` | Search text, mtext and block attributes (read by the plug-in in one go, COM for an older one, [D-134](DECISIONS.md)) |
 | `autocad_get_extents` | Bounding box of the drawing or one layer (a layer measured by the plug-in in one go, COM for an older one, [D-114](DECISIONS.md)) |
-| `autocad_measure` | Point-to-point distance, or total length / area of entities or a layer |
+| `autocad_measure` | Point-to-point distance, or total length / area of entities or a layer (a layer read by the plug-in in one go, COM for an older one, [D-134](DECISIONS.md)) |
 | `autocad_drawing_report` | A received drawing in one read: units, layers (off / frozen / locked), blocks, xrefs, text and dimension styles, linetypes, sheets with their paper, model-space counts by type (up to 50,000; counted by the plug-in in one go, COM for an older one, #193) |
 
 ## Modifying (Change)
@@ -242,9 +242,9 @@ alternative, because a dialog blocks COM until a person closes it.
 | Tool | Level | Purpose |
 |---|---|---|
 | `autocad_count_blocks` | Read | Count blocks by real name (dynamic too); group by name, layer, visibility or properties; `include_nested` (read by the plug-in in one go, COM for an older one, [D-127](DECISIONS.md)) |
-| `autocad_total_length` | Read | Total length per layer or type, area of closed shapes; splines and ellipses measured |
+| `autocad_total_length` | Read | Total length per layer or type, area of closed shapes; splines and ellipses measured (read by the plug-in in one go, COM for an older one, [D-134](DECISIONS.md)) |
 | `autocad_get_dynamic_properties` | Read | A dynamic block's properties: value, allowed choices, read-only |
-| `autocad_count_text` | Read | Count text / tag values (`source`, `tag`, `pattern`), optional `sum_numeric` |
+| `autocad_count_text` | Read | Count text / tag values (`source`, `tag`, `pattern`), optional `sum_numeric` (read by the plug-in in one go, COM for an older one, [D-134](DECISIONS.md)) |
 | `autocad_polyline_info` | Read | Vertices, segments (arcs: centre, radius, sweep), total, area, centroid |
 | `autocad_select_connected` | Read | A whole run joined end to end: handles, total length, open ends |
 | `autocad_list_layouts` | Read | Layouts in tab order with plotter, paper, object count |

@@ -104,10 +104,10 @@ OLD_EXPECT = (
 # count_entities and entity_extents. An older one is read over COM instead.
 READS_SINCE = "1.8.0"
 # Reads in one go that came after 1.8.0, in a release whose number is not known
-# yet (D-127): the block counts. Plug-ins 1.8.0 and 1.8.1 say they do not have
-# them, and the tool reads over COM. Once released, they leave this set and the
-# release that carries them is named.
-NEWER_READS = frozenset({"block_references", "block_definitions"})
+# yet: the block counts (D-127), and lengths and texts (D-134). Plug-ins 1.8.0
+# and 1.8.1 say they do not have them, and the tool reads over COM. Once
+# released, they leave this set and the release that carries them is named.
+NEWER_READS = frozenset({"block_references", "block_definitions", "entity_lengths", "entity_texts"})
 RUN_UNKNOWN = (
     "Outcome unknown: Heron in AutoCAD did not answer within {seconds:.0f} s, so the operation may "
     "still have run (one Ctrl+Z reverses it). Look at the drawing before trying again. (details: {details})"

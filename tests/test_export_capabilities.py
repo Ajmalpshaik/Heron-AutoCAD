@@ -152,6 +152,16 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
         blocks = by_name[name]["plugin"]
         assert blocks["role"] == "when_there" and blocks["operations"] == [operation], name
         assert "faster_from" not in blocks, name
+    # So did the length and text reads (D-134).
+    for name, operation in (
+        ("autocad_total_length", "entity_lengths"),
+        ("autocad_measure", "entity_lengths"),
+        ("autocad_count_text", "entity_texts"),
+        ("autocad_find_text", "entity_texts"),
+    ):
+        reads = by_name[name]["plugin"]
+        assert reads["role"] == "when_there" and reads["operations"] == [operation], name
+        assert "faster_from" not in reads, name
     assert by_name["autocad_batch_draw"]["plugin"]["role"] == "when_there"  # quiet input when it is there
     assert by_name["autocad_sequence"]["plugin"]["runs_other_tools"] is True
     # A keyword's value is not an operation: saved commands have an action called "show".

@@ -41,8 +41,10 @@ There are three kinds of gain:
 | `autocad_drawing_report` (the model space count) | `count_entities` with `space: model` and the same 50,000 cut-off | two round trips per model space object | plug-in 1.8.0, [#193](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/193) |
 | `autocad_count_blocks` | `block_references` (with `nested` for `include_nested`); each dynamic property value sent with its type | about 5 per block reference + 3 per dynamic property; with `include_nested`, 2-4 per item of every definition | the release after 1.8.1, [#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192), [D-127](DECISIONS.md) |
 | `autocad_list_blocks` | `block_definitions` (with `counts` for `include_counts`) | 2-3 per block reference, about 7 per definition, 2-3 per item inside every definition | the release after 1.8.1, [#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194), [D-127](DECISIONS.md) |
+| `autocad_total_length`, `autocad_measure(layer=...)` | `entity_lengths` (with `classes` for the curves `total_length` measures); a spline or an ellipse sent as its definition, measured by the server | about 7-10 per curve; splines and ellipses 4-5 more; `measure` 3-4 per object on the layer | the release after 1.8.1, [#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195), [D-134](DECISIONS.md) |
+| `autocad_count_text`, `autocad_find_text` | `entity_texts` (one filter per kind: text, mtext, block references); mtext with its formatting codes | 2 per text; 3 + 2 per attribute per block reference | the release after 1.8.1, [#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197), [D-134](DECISIONS.md) |
 
-Live checks: Groups AS and AU in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
+Live checks: Groups AS, AU and BB in [NEEDS-CHECKING](NEEDS-CHECKING.md), all NOT RUN.
 
 ## Ranked: what to move next
 
@@ -56,9 +58,9 @@ session is changing it.
 | 1 ([#192](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/192)) | ~~`autocad_count_blocks`~~ **moved**, see above | | | |
 | 2 ([#193](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/193)) | ~~`autocad_drawing_report`~~ **moved**, see above | | | |
 | 3 ([#194](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/194)) | ~~`autocad_list_blocks`~~ **moved**, see above | | | |
-| 4 ([#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195)) | `autocad_total_length`, `autocad_measure(layer=...)` | About 7-10 per curve (type, layer, up to 3 length tries, closed, area); splines and ellipses 4-5 more | The length of a spline or ellipse must match the server's own calculation to the last digit | Take-off, query |
+| 4 ([#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195)) | ~~`autocad_total_length`, `autocad_measure(layer=...)`~~ **moved**, see above | | | |
 | 5 ([#196](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/196)) | `autocad_check_standards` (entity rules) | 6 per object up to 20,000, plus 9 per layer | The rules stay in Python; only the facts move. The files and standards session is changing this file now: a later wave | Files and standards |
-| 6 ([#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197)) | `autocad_count_text`, `autocad_find_text` | 2 per text; 3 + 2 per attribute per block reference | Text read the same way (mtext formatting codes left as COM leaves them) | Text |
+| 6 ([#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197)) | ~~`autocad_count_text`, `autocad_find_text`~~ **moved**, see above | | | |
 | 7 ([#198](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/198)) | `autocad_extract_attributes`, `autocad_export_attribute_sheet` and the read half of `autocad_set_attributes` / `autocad_apply_attribute_sheet` | About 7-9 + 2 per attribute, per block reference | Attribute order, invisible and constant ones, the layout each insert is on | Blocks and attributes |
 | 8 ([#199](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/199)) | `autocad_merge_layers` | Every item of every block definition (2-3), then one write per moved object | A **change**: gains one transaction (all moved or none), and must keep the Keep or Discard count right | Layers |
 | 9 ([#200](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/200)) | `autocad_apply_attribute_sheet`, `autocad_set_attributes` (the writes) | 3 + one per attribute per changed cell, up to 10,000 changes | A **change**: one transaction, so a failure half way leaves nothing half-written | Blocks and attributes |

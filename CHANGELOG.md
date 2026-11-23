@@ -4,6 +4,19 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+- **Lengths and texts read by the plug-in in one go (2026-11-23, [#195](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/195),
+  [#197](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/197), [D-134](docs/DECISIONS.md)).**
+  `autocad_total_length` and `autocad_measure(layer=...)` ask the plug-in's new Read operation
+  `entity_lengths`, and `autocad_count_text` and `autocad_find_text` ask `entity_texts`, instead of
+  7-10 COM round trips per curve and 2 per text (3 + 2 per attribute per block). The server reads the
+  plug-in's facts with the same code it reads COM with, keeping only what COM gives for each class (a
+  full ellipse still has no area in the take-off, a circle still adds no length in `measure`); splines
+  and ellipses are still measured by the server from their definitions, and mtext keeps its formatting
+  codes. COM stays the fallback, with the same answer: plug-ins 1.8.0 and 1.8.1 do not have these
+  operations, and a class, number or attribute the server is not sure of sends the whole read to COM.
+  **Tested offline only** (`tests/test_plugin_length_text_reads.py` runs all four tools both ways over
+  one fake drawing and compares the text; `EntityFactsTests.cs` the plug-in side). Live rows BB1-BB10
+  NOT RUN.
 - **A busy AutoCAD is proven not to be a wrong answer in the block, table, light and copy tools, and `autocad_save_view(replace=true)` no longer deletes a layout's view
   (2026-11-23, [#189](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/189),
   [#190](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/190), [D-128](docs/DECISIONS.md)).**

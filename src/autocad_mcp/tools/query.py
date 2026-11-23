@@ -33,6 +33,8 @@ from ..core.errors import AutocadError, raise_if_busy
 from ..core.registry import dumps, mcp, to_aci, tool_errors, tool_meta
 from ..core.variants import point_to_list
 from ._shared import faster_read
+from .takeoff import plugin_lengths
+from .text_tools import plugin_texts
 
 # Listing every entity in a large drawing would swamp the agent's context, so
 # results are paginated and this is the ceiling on one page.
@@ -476,63 +478,66 @@ async def autocad_find_text(
     needle = query.strip().lower()
 
     def work() -> dict[str, Any]:
-        doc = get_doc()
         matches: list[dict[str, Any]] = []
+        kinds = ["text", "mtext"] + (["block"] if include_attributes else [])
+        # Every text and every attribute is looked at: the plug-in reads them in
+        # one go, as the COM objects they stand for (D-134), and the same loop
+        # below reads them; COM, a round trip per property, only for an older one.
+        found = plugin_texts([filter_pairs(kind) for kind in kinds], kinds)
 
-        def scan(type_filter: str) -> None:
-            sel = select_filtered(doc, type_filter, name=f"MCP_FIND_{type_filter}")
-            try:
-                for entity in iter_selection(sel):
-                    if len(matches) >= limit:
-                        return
-                    if type_filter == "block":
-                        if not include_attributes:
-                            return
-                        try:
-                            if not bool(entity.HasAttributes):
-                                continue
-                            attributes = entity.GetAttributes()
-                        except BaseException as exc:  # noqa: BLE001
-                            raise_if_busy(exc)
+        def scan(type_filter: str, entities: Iterable[Any]) -> None:
+            for entity in entities:
+                if len(matches) >= limit:
+                    return
+                if type_filter == "block":
+                    try:
+                        if not bool(entity.HasAttributes):
                             continue
-                        for att in attributes:
-                            value = str(att.TextString)
-                            if needle in value.lower():
-                                matches.append(
-                                    {
-                                        "handle": str(entity.Handle),
-                                        "type": "block",
-                                        "layer": str(entity.Layer),
-                                        "text": value,
-                                        "position": point_to_list(
-                                            entity.InsertionPoint
-                                        ),
-                                        "source": "attribute",
-                                        "attribute_tag": str(att.TagString),
-                                        "block_name": str(entity.Name),
-                                    }
-                                )
-                                break
-                    else:
-                        value = str(entity.TextString)
+                        attributes = entity.GetAttributes()
+                    except BaseException as exc:  # noqa: BLE001
+                        raise_if_busy(exc)
+                        continue
+                    for att in attributes:
+                        value = str(att.TextString)
                         if needle in value.lower():
                             matches.append(
                                 {
                                     "handle": str(entity.Handle),
-                                    "type": type_filter,
+                                    "type": "block",
                                     "layer": str(entity.Layer),
                                     "text": value,
                                     "position": point_to_list(entity.InsertionPoint),
-                                    "source": type_filter,
+                                    "source": "attribute",
+                                    "attribute_tag": str(att.TagString),
+                                    "block_name": str(entity.Name),
                                 }
                             )
-            finally:
-                discard_selection_set(doc, f"MCP_FIND_{type_filter}")
+                            break
+                else:
+                    value = str(entity.TextString)
+                    if needle in value.lower():
+                        matches.append(
+                            {
+                                "handle": str(entity.Handle),
+                                "type": type_filter,
+                                "layer": str(entity.Layer),
+                                "text": value,
+                                "position": point_to_list(entity.InsertionPoint),
+                                "source": type_filter,
+                            }
+                        )
 
-        scan("text")
-        scan("mtext")
-        if include_attributes:
-            scan("block")
+        if found is not None:
+            for kind, entities in zip(kinds, found, strict=True):
+                scan(kind, entities)
+        else:
+            doc = get_doc()
+            for kind in kinds:
+                sel = select_filtered(doc, kind, name=f"MCP_FIND_{kind}")
+                try:
+                    scan(kind, iter_selection(sel))
+                finally:
+                    discard_selection_set(doc, f"MCP_FIND_{kind}")
 
         return {
             "query": query,
@@ -747,11 +752,16 @@ async def autocad_measure(
         if mode == "handles":
             targets = [resolve_handle(doc, h) for h in handles]
         else:
-            sel = select_filtered(doc, None, layer, None, None)
-            try:
-                targets = list(iter_selection(sel))
-            finally:
-                discard_selection_set(doc)
+            # Every object on the layer is read: the plug-in in one go, as the
+            # COM objects they stand for (D-134); COM, a few round trips each,
+            # only for an older plug-in or a class it cannot stand for.
+            targets = plugin_lengths(filter_pairs(None, layer, None, None))
+            if targets is None:
+                sel = select_filtered(doc, None, layer, None, None)
+                try:
+                    targets = list(iter_selection(sel))
+                finally:
+                    discard_selection_set(doc)
             if not targets:
                 raise AutocadError(
                     f"Layer '{layer}' has no entities on it. Check the name with "

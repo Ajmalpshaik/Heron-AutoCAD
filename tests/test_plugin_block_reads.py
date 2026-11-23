@@ -478,9 +478,11 @@ class TestBothSidesKnowTheBlockReads:
             assert f'["{name}"] = Risk.Read' in listed, name
             assert f'case "{name}":' in runner, name
 
-    def test_the_server_asks_only_for_those(self):
+    def test_the_server_asks_for_both_and_names_them_newer(self):
+        # takeoff.py asks for entity_lengths too (D-134): tests/test_plugin_length_text_reads.py holds that one.
         asked = set()
         for module in ("takeoff.py", "layers.py"):
             source = (ROOT / "src" / "autocad_mcp" / "tools" / module).read_text(encoding="utf-8")
             asked |= set(re.findall(r'faster_read\("(\w+)"', source))
-        assert asked == set(OPERATIONS) == set(NEWER_READS)
+        assert set(OPERATIONS) <= asked and set(OPERATIONS) <= set(NEWER_READS)
+        assert asked - set(OPERATIONS) == {"entity_lengths"}
