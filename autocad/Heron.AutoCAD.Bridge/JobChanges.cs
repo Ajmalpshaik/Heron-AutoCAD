@@ -173,11 +173,18 @@ namespace Heron.AutoCAD.Bridge
         public string Job { get; set; } = "";
         public string Summary { get; set; } = "";
         public string[] Handles { get; set; } = new string[0];
+        /// <summary>
+        /// The job replaced objects (join, explode, a circle trimmed or broken into
+        /// an arc) and the server holds its UNDO mark (D-136): ask "Keep the change
+        /// or undo the whole change", and bring nothing back here. The server undoes
+        /// the whole job on any answer but a clear keep.
+        /// </summary>
+        public bool Whole { get; set; }
     }
 
     public sealed class EraseAnswer
     {
-        /// <summary>keep_erased | restored</summary>
+        /// <summary>keep_erased | restored | undo_whole (only for a <see cref="EraseRequest.Whole"/> question)</summary>
         public string Answer { get; set; } = "restored";
         public int Restored { get; set; }
         public string Message { get; set; } = "";

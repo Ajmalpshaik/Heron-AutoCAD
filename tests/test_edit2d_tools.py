@@ -449,6 +449,46 @@ def test_a_polyline_with_changing_widths_is_refused(doc):
     assert "width changes" in out["failed"][0]["reason"]
 
 
+SERVER_FAULT = -2147417851  # RPC_E_SERVERFAULT: retryable, but not the busy refusal itself
+
+
+class _FailingWidth(Poly):
+    """A polyline whose width read fails the way a busy or stuck AutoCAD fails it."""
+
+    fail_with: BaseException | None = None
+    fail_on = "ConstantWidth"
+
+    def __getattribute__(self, name):
+        if name == type(self).fail_on and type(self).fail_with is not None:
+            raise type(self).fail_with
+        return super().__getattribute__(name)
+
+
+@pytest.mark.parametrize("member", ["ConstantWidth", "GetWidth"])
+def test_a_retryable_width_read_goes_up_not_as_width_changes(doc, member):
+    # #212.3: a busy AutoCAD read as "width changes along it" was a false refusal.
+    import pythoncom
+
+    class Stuck(_FailingWidth):
+        fail_with = pythoncom.com_error(SERVER_FAULT, "The server threw an exception.", None, None)
+        fail_on = member
+
+    run = Stuck(doc, [(0, 0), (100, 0)], width=4.0)
+    with pytest.raises(pythoncom.com_error):
+        edit2d._width(run)
+
+
+def test_a_width_read_that_is_not_retryable_still_says_width_changes(doc):
+    import pythoncom
+
+    class NoWidth(_FailingWidth):
+        fail_with = pythoncom.com_error(-2147024809, "The parameter is incorrect.", None, None)  # E_INVALIDARG
+
+    run = NoWidth(doc, [(0, 0), (100, 0), (100, 50)])
+    with pytest.raises(edit2d.AutocadError, match="width changes"):
+        edit2d._width(run)
+
+
 def test_a_polyline_keeps_its_one_width(doc):
     run = Poly(doc, [(0, 0), (100, 0)], width=4.0)
     wall = Line(doc, (40, -10, 0), (40, 10, 0))

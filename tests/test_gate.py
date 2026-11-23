@@ -52,8 +52,12 @@ class FakeBridge:
         FakeBridge.calls.append(("changes", job))
         return FakeBridge.counted
 
-    def ask_erase(self, job, summary):
+    erase_whole: list = []
+
+    def ask_erase(self, job, summary, *whole):
+        # Every other tool asks with exactly (job, summary), as before D-136; a replace job adds True.
         FakeBridge.calls.append(("ask_erase", job, summary))
+        FakeBridge.erase_whole.append(whole)
         return FakeBridge.erase_answer
 
     boxes: list = []
@@ -73,10 +77,14 @@ def env(monkeypatch):
     FakeBridge.calls = []
     FakeBridge.counted = None
     FakeBridge.erase_answer = {"answer": "restored", "restored": 0}
+    FakeBridge.erase_whole = []
     FakeBridge.boxes = []
     FakeBridge.dialogs_asked = []
     FakeBridge.marked_at_end = []
-    state = {"drawing": r"C:\a.dwg", "marks": 0, "discards": 0, "undo_on": True, "left": []}
+    # "left": new objects a Discard did not take away. "back_on_undo": erased objects that UNDO Back
+    # brings back, so they are "there" after a Discard (D-136).
+    state = {"drawing": r"C:\a.dwg", "marks": 0, "discards": 0, "undo_on": True, "left": [],
+             "there": set(), "back_on_undo": set()}
 
     async def probe():
         return 1234, state["drawing"]
@@ -87,9 +95,10 @@ def env(monkeypatch):
 
     async def discard():
         state["discards"] += 1
+        state["there"] |= state["back_on_undo"]
 
     async def still_there(handles):
-        return [h for h in handles if h in state["left"]]
+        return [h for h in handles if h in state["left"] or h in state["there"]]
 
     monkeypatch.setattr(gate, "Bridge", FakeBridge)
     monkeypatch.setattr(gate, "_probe", probe)
@@ -658,7 +667,7 @@ def test_a_change_whose_erase_was_all_brought_back_is_nothing_changed(env):
 def test_all_brought_back_but_something_was_also_made_is_done_with_none_erased(env):
     FakeBridge.counted = {"added": 2, "modified": 0, "erased": 3, "erased_handles": ["A", "B", "C"]}
     FakeBridge.erase_answer = {"answer": "restored", "restored": 3}
-    tool, _ = make_tool("autocad_trim_extend", '{"done": true}')
+    tool, _ = make_tool("autocad_fillet_chamfer", '{"done": true}')
     assert answers.split(call(tool))[0] == (
         "DONE - 2 added, 0 changed, 0 erased. The modeller had all 3 erased object(s) brought back."
     )
@@ -715,7 +724,7 @@ def test_after_any_restore_undo_last_has_nothing_to_undo(env, restored):
     # One UNDO step back could be the plug-in's restore, and erase them again (#209).
     FakeBridge.counted = {"added": 1, "modified": 0, "erased": 4, "erased_handles": ["A", "B", "C", "D"]}
     FakeBridge.erase_answer = {"answer": "restored", "restored": restored}
-    tool, _ = make_tool("autocad_trim_extend", '{"created": true, "handle": "2A"}')
+    tool, _ = make_tool("autocad_fillet_chamfer", '{"created": true, "handle": "2A"}')
     call(tool)
     assert gate.last_change() is None
 
@@ -857,3 +866,189 @@ def test_an_older_or_unreachable_plug_in_gives_no_boxes(monkeypatch):
 
     monkeypatch.setattr(Bridge, "call", unreachable)
     assert Bridge(1).dialogs("j1") == []
+
+
+# ---------------------------------------------------------------------------
+# Tools that replace objects: keep the change, or undo the whole change (D-136, #208)
+# ---------------------------------------------------------------------------
+
+JOINED = '{"joined": 2, "handle": "1A", "kind": "line", "removed": ["1B"]}'
+JOIN_COUNT = {"added": 0, "modified": 1, "erased": 1, "erased_handles": ["1B"]}
+CUT_CIRCLE = '{"operation": "trim", "done": 1, "objects": [{"handle": "C1", "replaced_by": "A9"}]}'
+CIRCLE_COUNT = {"added": 1, "modified": 0, "erased": 1, "erased_handles": ["C1"]}
+EXPLODED = '{"exploded": 1, "objects": [{"handle": "B1", "type": "block", "new_handles": ["P1", "P2"]}]}'
+EXPLODE_COUNT = {"added": 2, "modified": 0, "erased": 1, "erased_handles": ["B1"]}
+
+REPLACE_JOBS = [
+    ("autocad_join_curves", JOINED, JOIN_COUNT),
+    ("autocad_explode", EXPLODED, EXPLODE_COUNT),
+    ("autocad_trim_extend", CUT_CIRCLE, CIRCLE_COUNT),
+    ("autocad_break_curve", '{"handle": "C1", "replaced_by": "A9", "pieces": 1}', CIRCLE_COUNT),
+]
+
+NOT_KEPT = [
+    {"answer": "undo_whole", "restored": 0, "asked": True},  # the box: Undo, Enter, Esc, closed, no answer
+    {"answer": "undo_whole", "restored": 0, "asked": True, "message": "Heron could not show the question in time."},
+    {"answer": "restored", "restored": 1, "asked": True},  # a plug-in older than D-136 brought them back
+    {"answer": "unknown", "restored": 0},  # the plug-in could not be heard
+]
+
+
+def replace_job(env, tool, result, counted):
+    FakeBridge.counted = dict(counted)
+    env["back_on_undo"] = set(counted["erased_handles"])
+    made, _ = make_tool(tool, result)
+    return made
+
+
+@pytest.mark.parametrize("tool, result, counted", REPLACE_JOBS)
+@pytest.mark.parametrize("answer", NOT_KEPT)
+def test_every_answer_but_keep_undoes_the_whole_replace_job(env, tool, result, counted, answer):
+    FakeBridge.erase_answer = dict(answer)
+    whole = call(replace_job(env, tool, result, counted))
+    # The mark went down with Ask to Keep off, the question was the whole-change one, and the
+    # drawing went back to the mark: nothing is left doubled.
+    assert env["marks"] == 1 and env["discards"] == 1
+    assert FakeBridge.erase_whole == [(True,)]
+    first, rest = answers.split(whole)
+    assert first.startswith("NOTHING CHANGED - "), first
+    assert "Heron undid the whole change" in first and "back exactly as it was" in first
+    assert rest.startswith("Undone: ") and "Nothing was kept" in rest
+    assert ends()[-1][3] == "discarded" and FakeBridge.marked_at_end == [True]
+    assert gate.last_change() is None  # undone already: nothing left for autocad_undo_last
+    assert gate.activity()[0]["outcome"] == "discarded"
+
+
+@pytest.mark.parametrize("tool, result, counted", REPLACE_JOBS)
+def test_keep_the_change_keeps_it_and_says_so(env, tool, result, counted):
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0, "asked": True}
+    whole = call(replace_job(env, tool, result, counted))
+    assert env["discards"] == 0
+    first, rest = answers.split(whole)
+    assert first.startswith("DONE - "), first
+    assert "chose Keep the change" in json.loads(rest)["heron_note"]
+    last = gate.last_change()
+    assert last is not None and last["marked"] is True  # undo_last goes back to the mark
+
+
+def test_the_erase_question_off_keeps_a_replace_job_unasked(env):
+    FakeBridge.erase_answer = {"answer": "keep_erased", "restored": 0, "asked": False}
+    note = json.loads(answered(call(replace_job(env, *REPLACE_JOBS[0])), "DONE"))["heron_note"]
+    assert env["discards"] == 0 and "without asking" in note and "chose" not in note
+
+
+def test_a_replace_job_with_no_mark_possible_is_refused_before_anything_is_sent(env, monkeypatch):
+    env["undo_on"] = False
+    monkeypatch.setattr(gate, "_no_mark", gate.NO_MARK_UNDO_OFF)
+    FakeBridge.counted = dict(JOIN_COUNT)
+    join, runs = make_tool("autocad_join_curves", JOINED)
+    whole = call(join)
+    assert runs == [] and env["discards"] == 0
+    first, rest = answers.split(whole)
+    assert first.startswith("REFUSED - "), first
+    assert "replaces objects" in rest and "Undo the whole change" in rest and "Turn UNDO on" in rest
+    assert not any(c[0] == "ask_erase" for c in FakeBridge.calls)
+    assert ends()[-1][3] == "refused"
+
+
+def test_an_undo_whole_that_could_not_go_back_is_outcome_unknown(env, monkeypatch):
+    FakeBridge.erase_answer = {"answer": "undo_whole", "restored": 0, "asked": True}
+
+    async def busy():
+        raise AutocadError("AutoCAD stayed busy.")
+
+    monkeypatch.setattr(gate, "_discard", busy)
+    whole = call(replace_job(env, *REPLACE_JOBS[0]))
+    first, rest = answers.split(whole)
+    assert first.startswith("OUTCOME UNKNOWN - "), first
+    assert "look at it" in first and rest.startswith("Error: Undo the whole change failed")
+    assert gate.last_change() is None
+
+
+def test_a_new_shape_still_there_after_the_undo_is_outcome_unknown(env):
+    FakeBridge.erase_answer = {"answer": "undo_whole", "restored": 0, "asked": True}
+    env["left"] = ["A9"]
+    first = answers.split(call(replace_job(env, *REPLACE_JOBS[2])))[0]
+    assert first.startswith("OUTCOME UNKNOWN - ") and "A9" in first
+
+
+def test_an_erased_object_not_back_after_the_undo_is_outcome_unknown(env):
+    FakeBridge.erase_answer = {"answer": "undo_whole", "restored": 0, "asked": True}
+    tool = replace_job(env, *REPLACE_JOBS[1])
+    env["back_on_undo"] = set()  # UNDO Back did not bring the exploded block back
+    first = answers.split(call(tool))[0]
+    assert first.startswith("OUTCOME UNKNOWN - ") and "B1" in first
+
+
+def test_a_replace_job_that_erased_nothing_is_not_asked_and_stays_undoable(env):
+    FakeBridge.counted = {"added": 0, "modified": 1, "erased": 0, "erased_handles": []}
+    trim, _ = make_tool("autocad_trim_extend", '{"operation": "trim", "done": 1, "objects": [{"handle": "L1"}]}')
+    answered(call(trim), "DONE")
+    assert env["marks"] == 1 and not any(c[0] == "ask_erase" for c in FakeBridge.calls)
+    assert gate.last_change()["marked"] is True
+
+
+def test_a_replace_job_with_ask_to_keep_on_gets_keep_or_discard_as_before(env):
+    FakeBridge.ask_to_keep = True
+    FakeBridge.counted = dict(JOIN_COUNT)
+    call(make_tool("autocad_join_curves", JOINED)[0])
+    asked = [c[0] for c in FakeBridge.calls]
+    assert "ask_keep" in asked and "ask_erase" not in asked and env["marks"] == 1
+
+
+def test_every_other_tools_erase_question_is_unchanged(env):
+    # No mark with Ask to Keep off, the usual question, and the plug-in's restore stands.
+    FakeBridge.counted = dict(ERASED_4)
+    FakeBridge.erase_answer = {"answer": "restored", "restored": 4, "asked": True}
+    first = answers.split(call(make_tool("autocad_delete_entities", '{"deleted": 4}')[0]))[0]
+    assert env["marks"] == 0 and env["discards"] == 0
+    assert FakeBridge.erase_whole == [()]  # asked with (job, summary) only, as before D-136
+    assert first.startswith("NOTHING CHANGED - the job erased 4 object(s)")
+
+
+# ---- the Keep question's zoom, only when it ran (D-136, refines D-130) -----------------------
+
+
+@pytest.mark.parametrize("zoomed, views", [(False, 0), (True, 1)])
+def test_an_unmarked_keep_question_counts_its_zoom_only_when_it_ran(env, monkeypatch, zoomed, views):
+    FakeBridge.ask_to_keep = True
+    env["undo_on"] = False  # no mark: UNDO 1 would undo the question's zoom, if there was one
+    monkeypatch.setattr(FakeBridge, "keep_zoomed", zoomed, raising=False)
+    call(make_tool("autocad_draw_line")[0])
+    assert gate.last_change()["views_since"] == views
+
+
+def test_a_plug_in_that_does_not_say_is_taken_as_having_zoomed(env):
+    FakeBridge.ask_to_keep = True
+    env["undo_on"] = False
+    call(make_tool("autocad_draw_line")[0])
+    assert gate.last_change()["views_since"] == 1
+
+
+# ---- the bridge's side of it ---------------------------------------------------------------
+
+
+def test_bridge_ask_erase_sends_whole_only_when_asked(monkeypatch):
+    from autocad_mcp.core.bridge import Bridge
+
+    sent: list[dict] = []
+
+    def fake(self, op, **fields):
+        sent.append(fields)
+        return {"ok": True, "answer": "undo_whole", "asked": True, "erased": 1, "restored": 0}
+
+    monkeypatch.setattr(Bridge, "call", fake)
+    assert Bridge(1).ask_erase("j1", "Join", True)["answer"] == "undo_whole"
+    assert sent[-1]["whole"] is True
+    Bridge(1).ask_erase("j1", "Delete")
+    assert "whole" not in sent[-1]  # every other tool's request is as it was
+
+
+def test_bridge_ask_keep_reads_whether_the_question_zoomed(monkeypatch):
+    from autocad_mcp.core.bridge import Bridge
+
+    bridge = Bridge(1)
+    monkeypatch.setattr(Bridge, "call", lambda self, op, **fields: {"ok": True, "answer": "keep", "zoomed": False})
+    assert bridge.ask_keep("j1", "x", []) == "keep" and bridge.keep_zoomed is False
+    monkeypatch.setattr(Bridge, "call", lambda self, op, **fields: {"ok": True, "answer": "keep"})
+    assert bridge.ask_keep("j1", "x", []) == "keep" and bridge.keep_zoomed is True  # an older plug-in

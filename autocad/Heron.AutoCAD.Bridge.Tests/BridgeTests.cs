@@ -201,9 +201,12 @@ public class FakeHost : IJobHost
 
     public void Begin(JobInfo job) => Begun.Add(job);
     public void End(JobEnd end) => Ended.Add(end);
+    /// <summary>What the host says about its zoom; null says nothing, as an older host.</summary>
+    public bool? KeepZoomed { get; set; }
     public string AskKeep(KeepRequest request)
     {
         Asked.Add(request);
+        if (KeepZoomed.HasValue) request.Zoomed = KeepZoomed.Value;
         return Answer;
     }
 
@@ -245,9 +248,11 @@ public class FakeHost : IJobHost
 
     public List<EraseRequest> EraseAsked { get; } = new();
     public EraseAnswer EraseReply { get; set; } = new() { Answer = "restored", Restored = 0 };
+    public bool EraseThrows { get; set; }
     public EraseAnswer AskErase(EraseRequest request)
     {
         EraseAsked.Add(request);
+        if (EraseThrows) throw new InvalidOperationException("the box failed");
         return EraseReply;
     }
 }
@@ -374,6 +379,31 @@ public class ProtocolTests
         _host.Answer = "discard";
         Assert.Equal("discard", Send(Ask()).GetProperty("answer").GetString());
         Assert.Equal(new[] { "2A" }, Assert.Single(_host.Asked).Handles);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_keep_answer_says_whether_the_question_really_zoomed(bool zoomed)
+    {
+        // D-136 (refines D-130): with nothing selectable or a refused select there is no zoom,
+        // so no undo step stands after the job for the chat's one-step undo to blame.
+        _config.AskBeforeKeeping = true;
+        _host.KeepZoomed = zoomed;
+        Assert.Equal(zoomed, Send(Ask()).GetProperty("zoomed").GetBoolean());
+    }
+
+    [Fact]
+    public void A_host_that_does_not_say_is_taken_as_having_zoomed()
+    {
+        _config.AskBeforeKeeping = true;
+        Assert.True(Send(Ask()).GetProperty("zoomed").GetBoolean());
+    }
+
+    [Fact]
+    public void Not_asked_means_nothing_was_zoomed()
+    {
+        Assert.False(Send(Ask()).GetProperty("zoomed").GetBoolean());
     }
 
     [Fact]

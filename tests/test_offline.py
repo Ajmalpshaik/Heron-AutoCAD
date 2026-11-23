@@ -366,6 +366,11 @@ class TestToolSurface:
             "autocad_delete_layer",
             "autocad_send_command",
             "autocad_run_lisp",
+            # They erase what they replace (#212): the joined pieces, an exploded original, a cut circle.
+            "autocad_trim_extend",
+            "autocad_break_curve",
+            "autocad_join_curves",
+            "autocad_explode",
         ):
             assert by_name[name].annotations.destructive_hint is True, name
 

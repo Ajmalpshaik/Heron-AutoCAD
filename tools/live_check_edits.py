@@ -471,9 +471,9 @@ EDITS_AA: tuple[Check, ...] = (
 )
 
 EYE_AA: dict[str, str] = {
-    "AA3": "trimming the circle erases it, so Heron asks you to keep it erased (D-50) and the runner cannot answer",
-    "AA10": "join erases the joined pieces, so Heron asks you to keep them erased (D-50)",
-    "AA13": "explode erases the block, so Heron asks you to keep it erased (D-50)",
+    "AA3": "trimming the circle erases it, so Heron asks 'Keep the change, or undo the whole change?' (D-136) and the runner cannot answer",
+    "AA10": "join erases the joined pieces, so Heron asks 'Keep the change, or undo the whole change?' (D-136)",
+    "AA13": "explode erases the block, so Heron asks 'Keep the change, or undo the whole change?' (D-136)",
     "AA14": "which object shows in front is seen on screen; no tool reads the draw order back",
     "AA20": "needs AutoCAD 2025 / 2026 and 2021-2024 machines, which are not here",
 }

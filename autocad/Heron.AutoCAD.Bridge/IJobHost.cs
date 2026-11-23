@@ -44,7 +44,10 @@ namespace Heron.AutoCAD.Bridge
         /// <summary>
         /// "This job erased N objects: keep them erased, or bring them back?"
         /// Called on a pipe thread; may wait for the modeller. Anything but a
-        /// clear "keep erased" brings them back.
+        /// clear "keep erased" brings them back. With <see cref="EraseRequest.Whole"/>
+        /// (a job that replaced objects, D-136) it asks "keep the change, or undo
+        /// the whole change", brings nothing back, and answers "undo_whole" for
+        /// anything but a clear keep: the server goes back to its UNDO mark.
         /// </summary>
         EraseAnswer AskErase(EraseRequest request);
 
@@ -117,6 +120,12 @@ namespace Heron.AutoCAD.Bridge
         public string Job { get; set; } = "";
         public string Summary { get; set; } = "";
         public string[] Handles { get; set; } = new string[0];
+        /// <summary>
+        /// Set by the host: the question really zoomed to the job (D-136), an undo
+        /// step after it. True until the host says otherwise, so a host that does
+        /// not say is taken as having zoomed, the safe side for a one-step undo.
+        /// </summary>
+        public bool Zoomed { get; set; } = true;
     }
 
     public sealed class RunRequest

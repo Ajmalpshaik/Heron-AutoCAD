@@ -93,8 +93,12 @@ def isolate_plan(
     unlocked when the others are locked, so they are the ones you can edit):
     that is ``reveal``, done first, because AutoCAD will not make a frozen layer
     current. Then a current layer that would be hidden hands over to the first
-    kept layer, since AutoCAD will not freeze the current layer. Then ``hide``:
-    every other layer off, frozen or locked. ``changes`` is the two together.
+    kept layer of this drawing's own, since AutoCAD will not freeze the current
+    layer, and will not make an xref's layer (``XREF|LAYER``) current (#212).
+    With only xref layers kept, others='off' leaves the current layer as it is
+    (it is turned off with the rest), and others='freeze' is refused here,
+    before anything is saved or changed. Then ``hide``: every other layer off,
+    frozen or locked. ``changes`` is the two together.
     """
     if others not in ("off", "freeze", "lock"):
         raise ValueError("others must be off, freeze or lock")
@@ -130,8 +134,15 @@ def isolate_plan(
         else:
             want(hide, layer, "locked", True)
     hides_current = others in ("off", "freeze") and str(current).casefold() not in kept_keys
+    own = [name for name in kept if "|" not in name]
+    if hides_current and not own and others == "freeze":
+        raise ValueError(
+            f"every layer kept belongs to an xref ({', '.join(kept)}), and AutoCAD will neither make an xref's "
+            f"layer current nor freeze the current layer '{current}'. Use others='off' or others='lock', or "
+            "keep one of this drawing's own layers too"
+        )
     return {"kept": kept, "reveal": reveal, "hide": hide, "changes": reveal + hide,
-            "make_current": kept[0] if hides_current else None}
+            "make_current": own[0] if hides_current and own else None}
 
 
 def escape_wildcards(name: str) -> str:
@@ -272,8 +283,8 @@ async def autocad_layer_states(
     Examples:
         - Use when: "save the layers as they are now as COORDINATION".
         - Use when: "put the layers back to the ISSUE-PLOT state".
-        - Use when: "which layer states does this drawing have?" — that is
-          autocad_list_layers.
+        - Don't use when: "which layer states does this drawing have?" — that is
+          autocad_list_layers, which lists them.
         - Don't use when: you only want to hide a few layers for a moment —
           autocad_isolate_layers, or autocad_set_layer_state for one layer.
 
@@ -340,8 +351,10 @@ async def autocad_isolate_layers(
     you started.
 
     The kept layers are turned on and thawed (and unlocked with others='lock').
-    If the current layer would be hidden, the first kept layer becomes current.
-    One undo step.
+    If the current layer would be hidden, the first kept layer of this
+    drawing's own becomes current (AutoCAD will not make an xref layer such as
+    MECH|M-DUCT current). With only xref layers kept, others='off' leaves the
+    current layer as it is, turned off with the rest. One undo step.
 
     Args:
         action (str): isolate or unisolate.
@@ -366,6 +379,10 @@ async def autocad_isolate_layers(
     Error Handling:
         - 'unisolate' with nothing isolated by Heron says so and changes nothing.
         - A layer name the drawing has not got is refused before anything changes.
+        - others='freeze' with only xref layers kept, and the current layer
+          among the ones to hide, is refused before anything is saved or
+          changed: AutoCAD can neither make an xref layer current nor freeze
+          the current layer.
     """
     if action == "isolate" and not handles and not layers:
         raise AutocadError("Say what to keep: 'handles' of objects on those layers, or 'layers' by name.")

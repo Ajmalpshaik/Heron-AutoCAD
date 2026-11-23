@@ -163,9 +163,13 @@ namespace Heron.AutoCAD.Bridge
         /// The Keep or Discard question selected and zoomed to this job (D-130).
         /// That zoom is an undo step of its own after the job, as a Heron zoom
         /// after it is: with no mark, one step back would undo the zoom.
+        /// Only when the zoom really ran (D-136): with nothing selectable, a
+        /// selection AutoCAD refused or a zoom that failed, no undo step stands
+        /// after the job, and the palette's Undo must not blame one.
         /// </summary>
-        public void ShownForKeep(string job)
+        public void ShownForKeep(string job, bool zoomed)
         {
+            if (!zoomed) return;
             lock (_gate)
             {
                 var entry = Find(job);

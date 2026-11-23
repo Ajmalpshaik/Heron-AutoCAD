@@ -198,6 +198,8 @@ class Bridge:
     def __init__(self, pid: int) -> None:
         self.pid = pid
         self.drawing_seq_at_begin: int | None = None
+        # Did the last Keep or Discard question zoom (D-136)? True until the plug-in says not.
+        self.keep_zoomed = True
 
     def find(self) -> dict | None:
         """The address file, or None when this AutoCAD is not connected.
@@ -535,25 +537,31 @@ class Bridge:
             )
         return found
 
-    def ask_erase(self, job: str, summary: str) -> dict:
+    def ask_erase(self, job: str, summary: str, whole: bool = False) -> dict:
         """Ask the modeller about what the job erased; the plug-in brings them back unless kept.
 
-        {"answer": "keep_erased" | "restored" | "nothing_erased" | "unknown", "restored": int,
-        "asked": bool}. "unknown" means the plug-in could not be asked: the objects may still
+        {"answer": "keep_erased" | "restored" | "undo_whole" | "nothing_erased" | "unknown",
+        "restored": int, "asked": bool}. "unknown" means the plug-in could not be asked: the objects may still
         be erased. "asked" is False only when the plug-in kept them erased without asking,
         because the erase question is off (D-50, D-123); then "off_by" says who turned it off:
         "settings" (the modeller's click) or "policy" (this PC's administrator key). A plug-in
         of 1.8.0 or older does not say, and always asked.
+
+        ``whole``: the job replaced objects and Heron holds its UNDO mark (D-136). The plug-in
+        asks "Keep the change, or undo the whole change?", brings nothing back, and answers
+        "undo_whole" for anything but a clear keep; the caller then goes back to its mark. An
+        older plug-in ignores it and brings them back ("restored").
         """
+        extra = {"whole": True} if whole else {}
         try:
-            reply = self.call("ask_erase", timeout=KEEP_TIMEOUT, job=job, summary=summary)
+            reply = self.call("ask_erase", timeout=KEEP_TIMEOUT, job=job, summary=summary, **extra)
         except AutocadError:
             return {"answer": "unknown", "restored": 0}
         if reply.get("ok") is not True:
             return {"answer": "unknown", "restored": 0}
         answer = reply.get("answer")
         result = {
-            "answer": answer if answer in {"keep_erased", "restored", "nothing_erased"} else "unknown",
+            "answer": answer if answer in {"keep_erased", "restored", "undo_whole", "nothing_erased"} else "unknown",
             "restored": int(reply.get("restored", 0)),
             "asked": reply.get("asked") is not False,
         }
@@ -568,13 +576,18 @@ class Bridge:
 
         Only a clear "discard" may undo anything: a broken pipe is not the
         modeller saying no, so it comes back as "unknown" and the change stays.
+        Sets ``keep_zoomed``: False only when the plug-in said its question did
+        not zoom (D-136), so no undo step stands after the job; an older plug-in
+        does not say, and is taken as having zoomed.
         """
+        self.keep_zoomed = True
         try:
             reply = self.call(
                 "ask_keep", timeout=KEEP_TIMEOUT, job=job, summary=summary, handles=handles
             )
         except AutocadError:
             return "unknown"
+        self.keep_zoomed = reply.get("zoomed") is not False
         answer = reply.get("answer")
         return answer if answer in {"keep", "discard", "keep_rest"} else "unknown"
 
