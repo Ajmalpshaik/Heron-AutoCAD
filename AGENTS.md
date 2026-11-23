@@ -48,7 +48,7 @@ once, read only).
   COM. Only the batch through the plug-in's quiet input may send pieces up to the `quietLimit` its
   ping says, at most 1,500 ([D-98](docs/DECISIONS.md)).
   `autocad_run_lisp` cuts longer code between its top-level forms itself, and refuses one form over
-  2,000 ([05 §3](docs/05-known-limits.md#3-long-autolisp-fails-silently), D-76).
+  1,750 ([05 §3](docs/05-known-limits.md#3-long-autolisp-fails-silently), D-76).
 - **Never draw parts as loose lines or fake a leader**: [07 drafting rules](docs/07-drafting-rules.md).
 - **Never copy Lee Mac's code into this public repository**: ideas only, re-implemented and credited ([D-26](docs/DECISIONS.md), [08](docs/08-lee-mac-study.md)).
 - **Never draw before `autocad_status` on that drawing.** It gives the units; the gate refuses changes until it has run ([D-19](docs/DECISIONS.md)).

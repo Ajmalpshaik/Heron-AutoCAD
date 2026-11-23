@@ -4,7 +4,24 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
-Nothing yet.
+- **Text sent to AutoLISP can no longer break out of its string, and a LISP error is answered at once
+  (2026-11-23, [#207](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/207),
+  [#157](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/157), [D-129](docs/DECISIONS.md)).**
+  Tested offline only: the live rows (NEEDS-CHECKING Group AW) are NOT RUN.
+  - Every control character in text that goes into an AutoLISP string (batch text, MTEXT, layer and
+    style names, paths, PDF import) is written as an escape (`\n`, `\r`, `\t`, `\033`...), so an ESC
+    or a line break in a text value can no longer end the string and run the rest as new input. NUL
+    and the characters U+0080 to U+009F, U+2028 and U+2029 are refused with a plain message; accents,
+    Arabic, Malayalam and other Unicode text pass as before. The code of `autocad_run_lisp` gets the
+    same guard: a line break inside a string is an escape, a control character outside one is refused.
+  - `autocad_run_lisp` runs the code inside `vl-catch-all-apply`, so a LISP error is answered at once
+    with AutoCAD's own message in `lisp_error` and the piece number, instead of after the 10 s wait.
+    The pieces after it are not sent. The first line is NOTHING CHANGED, or OUTCOME UNKNOWN when
+    something was counted, never DONE. `autocad_import_pdf` reads the same marker.
+  - A single form over 1,750 characters (it was 2,000) is refused: the wrapper grew by about 200
+    characters and the text sent must stay no longer than before.
+  - Not proven in AutoCAD: a `(command ...)` inside the new wrapper (AW4), and a routine's own `*error*`
+    handler, which the catch bypasses (AW8).
 
 ## 1.8.1 - 2026-11-22 - The setup connects the Claude app (#233)
 

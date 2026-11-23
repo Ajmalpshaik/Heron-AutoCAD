@@ -21,7 +21,8 @@ reconnect the MCP server) after changing anything in `src/`.
 
 `autocad_run_lisp` expressions near 3,600 characters fail with no error. Keep chunks under about
 700 characters. On 2026-11-09 (AutoCAD 2027) a ~3,000-character `defun` block arrived as nothing,
-while calls under 2,000 worked all day, so `autocad_run_lisp` refused anything over 2,000. A
+while calls under 2,000 worked all day, so `autocad_run_lisp` refused anything over 2,000 (over 1,750
+since [D-129](DECISIONS.md): the wrapper that catches a LISP error added about 200 characters). A
 ~2,400-character call ran but its result came after the 10 s wait and it reported a timeout: the
 timeout note says to count what landed before sending it again.
 
@@ -34,10 +35,13 @@ DONE never comes and the batch ends after its 60 s wait. Press Esc and read the 
 
 **Since [D-76](DECISIONS.md) (2026-11-21)** the server cuts long code itself, between its top-level
 forms, into pieces under 700 characters, run in order as one undo step. What is left:
-- **One form over 2,000 characters is still refused**, never cut: make helpers with `defun` as
-  separate top-level forms. At most 12,000 characters and 20 pieces a call.
-- **A piece that fails stops the rest**, after the pieces before it ran. A LISP error is still found
-  only by the 10 s wait running out, so a mistake in piece 5 takes 10 s to report.
+- **One form over 1,750 characters is still refused** (2,000 before [D-129](DECISIONS.md)), never
+  cut: make helpers with `defun` as separate top-level forms. At most 12,000 characters and 20
+  pieces a call.
+- **A piece that fails stops the rest**, after the pieces before it ran. Since D-129 a LISP error
+  is answered at once, with AutoCAD's own message and the piece number (`lisp_error` in the answer;
+  NEEDS-CHECKING AW1, AW2, NOT RUN). Only a piece that waits for input, or runs very long, still
+  ends in the 10 s wait.
 - **A command split over two top-level forms** can land in two pieces: the first is cancelled
   ([§21](#21-a-command-left-open-by-autolisp-blocks-everything)) and the rest is not sent. Keep a
   `(command ...)` and all its answers in one form.
@@ -235,6 +239,12 @@ result means the expression has to be written again, complete. Long code is sent
 ([§3](#3-long-autolisp-fails-silently)): a command is cancelled at the end of its piece and the
 pieces after it are not sent, so keep each `(command ...)` whole inside one top-level form.
 
+**Since D-129 the expression runs inside `vl-catch-all-apply`** (#157), so a LISP error is caught
+and answered at once. Two things change with that, both NOT RUN live (NEEDS-CHECKING AW4, AW8): a
+`(command ...)` inside it is expected to behave as before but is not proven on AutoCAD 2027, and a
+routine's own `*error*` handler is not called for an error raised inside the call (the error is
+caught first). If a command was running when the error came, it is still cancelled and named.
+
 ## 22. Lights, materials, the saved 3D view and the render set-up have their own limits
 
 - `autocad_add_light` and `autocad_create_material` need plug-in **1.4.0** or newer; an older one
@@ -313,7 +323,8 @@ yet is also re-run for up to 10 s. What is left:
   a box that was already open when the job began is still yours to close.
 - **Run LISP.** `autocad_run_lisp` waits through refused reads for its full 10 s ([D-58](DECISIONS.md)).
   A "timed out" that says AutoCAD stayed busy means the expression was sent and probably ran. Its
-  first line is OUTCOME UNKNOWN, not DONE, since [D-77](DECISIONS.md).
+  first line is OUTCOME UNKNOWN, not DONE, since [D-77](DECISIONS.md). A LISP error does not wait:
+  it is answered at once with AutoCAD's message ([D-129](DECISIONS.md)).
 
 All three are NOT RUN live (NEEDS-CHECKING group Q).
 

@@ -20,11 +20,16 @@ are kept exactly as written. Pure text work: tested offline.
 
 from __future__ import annotations
 
+from .lisp import UnsendableText, escape_control, is_control
+
 # A piece is kept under this, like a chunk written by hand ("keep chunks under
-# about 700 characters", AGENTS.md). The wrapper adds about 300 more.
+# about 700 characters", AGENTS.md). The wrapper adds about 460 more.
 CHUNK_CHARS = 700
-# One form may stand alone up to this: what a single call has always taken.
-FORM_MAX_CHARS = 2000
+# One form may stand alone up to this. It was 2,000 until the wrapper grew to about 460
+# characters (#157): a form this long plus the wrapper stays no longer than the 2,244
+# characters that went before, since a ~2,400-character call answered only after the wait
+# (known limit 3).
+FORM_MAX_CHARS = 1750
 
 PROGN = "(progn "
 
@@ -78,7 +83,7 @@ def split_forms(text: str) -> list[str]:
             if depth == 0:
                 raise LispTextError(_outside(text, i))
             end = _string_end(text, i)
-            put(text[i : end + 1])
+            put(_safe_string(text[i : end + 1]))
             i = end + 1
             continue
         if char == "(":
@@ -106,7 +111,7 @@ def split_forms(text: str) -> list[str]:
         start = i
         while i < size and not text[i].isspace() and text[i] not in '()";':
             i += 1
-        put(text[start:i])
+        put(_safe_atom(text[start:i]))
 
     if depth:
         raise LispTextError(
@@ -116,6 +121,49 @@ def split_forms(text: str) -> list[str]:
     if not forms:
         raise LispTextError("There is no AutoLISP form in the text: it must have at least one '( ... )'.")
     return forms
+
+
+def _safe_string(literal: str) -> str:
+    """A string literal with its control characters written as AutoLISP escapes (#207).
+
+    Typed into AutoCAD, a raw line break or Esc inside a string would end the
+    expression there and have the rest read as new input. A backslash right
+    before a control character has no clear meaning and is refused.
+    """
+    out: list[str] = []
+    i = 0
+    while i < len(literal):
+        char = literal[i]
+        if char == "\\" and i + 1 < len(literal):
+            if is_control(literal[i + 1]):
+                raise LispTextError(
+                    "A string holds a backslash right before a line break or other control "
+                    "character. Write the escape (backslash and n for a line break) instead."
+                )
+            out.append(literal[i : i + 2])
+            i += 2
+            continue
+        try:
+            out.append(escape_control(char, "code"))
+        except UnsendableText as exc:
+            raise LispTextError(str(exc)) from None
+        i += 1
+    return "".join(out)
+
+
+def _safe_atom(atom: str) -> str:
+    """An atom, refused when it holds a control character: nothing outside a string may be one."""
+    for char in atom:
+        if is_control(char):
+            raise LispTextError(
+                f"The code holds a control character (code {ord(char)}) outside a string. "
+                "Take it out; only strings may hold one, as an escape (backslash and n for a line break)."
+            )
+    try:
+        escape_control(atom, "code")
+    except UnsendableText as exc:
+        raise LispTextError(str(exc)) from None
+    return atom
 
 
 def _string_end(text: str, start: int) -> int:
