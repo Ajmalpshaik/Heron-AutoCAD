@@ -8,14 +8,15 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-24 (release v1.9.0 prepared, D-155)
+## Latest - 2026-11-24 (release v1.9.0 published, D-155)
 
 The owner asked for the release. One PR prepared it: **plug-in 1.9.0, server 1.11.0**, 200 tools; the
 CHANGELOG's Unreleased became `## 1.9.0` with a plain-words summary; the reads after 1.8.1 left
 `bridge.NEWER_READS` (now empty) for `bridge.READS_1_9` (`"1.9.0"`), so the manifest and the catalogue say
-"from plug-in 1.9.0" (D-155). The COM fallback for a 1.8.x plug-in is unchanged. **Tag `v1.9.0` and the
-GitHub release are the parent session's job**, after a build-only check; whether it is marked Latest is
-its call. **Nothing in 1.9.0 has been run in AutoCAD; unsigned (#164).**
+"from plug-in 1.9.0" (D-155). The COM fallback for a 1.8.x plug-in is unchanged. **Published 2026-11-24:** a
+build-only run of `release.yml` on `42be86a` was green, then the annotated tag `v1.9.0` was pushed on that
+commit; its build made `HeronAutoCAD-1.9.0-setup.exe`, `HeronAutoCAD-1.9.0-win64.zip` and `checksums.txt`,
+and the release is a **full release, marked Latest** (the owner's choice for 1.8.0 and 1.8.1). **Nothing in 1.9.0 has been run in AutoCAD; unsigned (#164).**
 **Next (on this PC, on the owner's word):** install v1.9.0 (plug-in and server together), restart the
 server, then the live rows in the order the entry below gives.
 
