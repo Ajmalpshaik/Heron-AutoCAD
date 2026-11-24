@@ -22,7 +22,7 @@ What is new or fixed for a draftsman, in short:
   AutoCAD, instead of one question per object. An older plug-in still gives the same answer, just
   slower. Attribute writes and the layer merge are all or nothing.
 - **Previews show what is there.** A model or sheet preview no longer frames an object that was
-  erased.
+  erased. This one needs the 1.9.0 plug-in: with an older one the preview is as before.
 - **Undo you can trust.** Join, explode, trim, break and the other edits that replace objects ask
   "Keep the change, or undo the whole change?"; the palette's Undo stops at the job's own mark; a job
   that changed nothing leaves no undo step.
@@ -46,8 +46,9 @@ The entries below give each change in full.
   space filter (DXF 410) of the preview's extents read goes with them. `NEWER_READS` is empty again,
   for the next reads. The capability manifest and `docs/TOOL-CATALOGUE.md` now say "from plug-in
   1.9.0" for the tools that use them (the preview too), instead of no version. Nothing a tool does
-  changed: a 1.8.x plug-in is still asked, says it does not have the read, and the tool reads over
-  COM with the same answer (D-114). Tested offline only.
+  changed: a 1.8.x plug-in is still asked and says it does not have the read. The seven reads then
+  go over COM with the same answer (D-114); the preview then frames EXTMIN/EXTMAX as before, which
+  can still reach an erased object. Tested offline only.
 - **A sheet's extents preview no longer frames an object that was erased (2026-11-23,
   [#281](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/281), [D-154](docs/DECISIONS.md)).** As D-151 did
   for model space: on a sheet layout `autocad_preview()` now asks the plug-in to measure what is on the sheet

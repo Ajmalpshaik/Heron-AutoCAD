@@ -109,9 +109,11 @@ READS_SINCE = "1.8.0"
 # moves (D-147), and the space filter (DXF 410) on these reads (#269, D-151).
 # Plug-ins 1.8.0 and 1.8.1 say they do not have the operations, and refuse 410
 # as the operation's own refusal ("filters a read only by ..."); either way
-# _shared.faster_read answers None and the tool reads over COM, with the same
-# answer (D-114). Such a plug-in is still asked: one built from source between
-# 1.8.1 and 1.9.0 says 1.8.1 and may have them.
+# _shared.faster_read answers None. For the seven reads the tool then reads
+# over COM, with the same answer (D-114); the extents preview, which uses 410,
+# then frames EXTMIN/EXTMAX (or PEXTMIN/PEXTMAX) as before 1.9.0, which can
+# still reach an erased object (D-151, D-154). Such a plug-in is still asked:
+# one built from source between 1.8.1 and 1.9.0 says 1.8.1 and may have them.
 READS_1_9_SINCE = "1.9.0"
 READS_1_9 = frozenset({"block_references", "block_definitions", "entity_lengths", "entity_texts", "block_attributes",
                        "entity_properties", "layer_objects"})

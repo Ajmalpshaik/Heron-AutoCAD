@@ -251,10 +251,11 @@ gives the same answer; a stop or "Outcome unknown" is said, not read again. **Pl
 ([D-134](DECISIONS.md)), `block_attributes` ([D-138](DECISIONS.md)), `entity_properties`
 ([D-145](DECISIONS.md)) and `layer_objects` ([D-147](DECISIONS.md)), and the space filter (DXF 410)
 on `entity_extents` that the preview uses ([D-151](DECISIONS.md), [D-154](DECISIONS.md)). Plug-ins
-1.8.0 and 1.8.1 say they do not have them (they refuse 410 as the read's own refusal), and the block,
-length, text, attribute, standards, merge and preview tools then read over COM, with the same
-answer. The server still asks a 1.8.x plug-in: one built from source between 1.8.1 and 1.9.0 says
-1.8.1 and may have them. Which tools come next:
+1.8.0 and 1.8.1 say they do not have them (they refuse 410 as the read's own refusal). The block,
+length, text, attribute, standards and merge tools then read over COM, with the same answer. The
+extents preview then frames EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a sheet) as before, which can still
+reach an object that was erased: that fix needs plug-in 1.9.0. The server still asks a 1.8.x
+plug-in: one built from source between 1.8.1 and 1.9.0 says 1.8.1 and may have them. Which tools come next:
 [13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
 
 ## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)

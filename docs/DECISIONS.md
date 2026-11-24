@@ -29,8 +29,10 @@ parent session after it merges. **Nothing in this release has been run in AutoCA
   or a space filter pair `[410, ...]` in its code (the extents preview); `"1.8.0"` (`READS_SINCE`) for the
   others; none while a read is in `NEWER_READS`. `docs/TOOL-CATALOGUE.md` says "(from plug-in 1.9.0)".
 - **The fallback is unchanged (D-114).** A 1.8.x plug-in, or one without the operation, is still asked;
-  it says it does not have the read (or refuses 410 as the read's own refusal), `faster_read` answers None,
-  and the tool reads over COM with the same answer. The round trip is not skipped for a plug-in older
+  it says it does not have the read (or refuses 410 as the read's own refusal), and `faster_read` answers
+  None. For the seven reads the tool then reads over COM with the same answer. The extents preview is
+  the exception: it then frames EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a sheet) as before 1.9.0, which can
+  still reach an erased object, so that fix (D-151, D-154) needs plug-in 1.9.0. The round trip is not skipped for a plug-in older
   than 1.9.0: one built from source between 1.8.1 and 1.9.0 says 1.8.1 and has some of these reads, and
   the live rows that compare the two paths would then see only COM.
 
