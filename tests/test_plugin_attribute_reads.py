@@ -28,7 +28,7 @@ import pytest
 from autocad_mcp.acad import xlsx
 from autocad_mcp.acad.selection import filter_pairs
 from autocad_mcp.core import bridge
-from autocad_mcp.core.bridge import NEWER_READS, OLD_PLUGIN, READS_SINCE, BridgeRefused
+from autocad_mcp.core.bridge import OLD_PLUGIN, READS_1_9, READS_SINCE, BridgeRefused
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.tools import _shared, attribute_sheet, standards, text_tools
 
@@ -641,4 +641,4 @@ class TestBothSidesKnowTheRead:
     def test_the_server_asks_for_it_and_names_it_newer(self):
         source = (ROOT / "src" / "autocad_mcp" / "tools" / "text_tools.py").read_text(encoding="utf-8")
         assert OPERATION in set(re.findall(r'faster_read\("(\w+)"', source))
-        assert OPERATION in NEWER_READS
+        assert OPERATION in READS_1_9

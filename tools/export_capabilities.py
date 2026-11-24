@@ -52,6 +52,8 @@ MANIFEST_VERSION = 1
 DOES_WORK = frozenset({"in_plugin", "plugin_runner"})
 WHEN_THERE = frozenset({"faster_read", "faster_change", "plugin_read", "quiet_sender", "quiet_limit", "dialog_expecter", "plugin_version"})
 SIGNALS = DOES_WORK | WHEN_THERE
+# The DXF group code of a read's space filter ("Model" or a sheet's name): plug-in 1.9.0 and newer (D-151, D-155).
+SPACE_FILTER = 410
 # The gate and the pipe: every tool goes through them, so they say nothing about one tool.
 GATE_MODULES = frozenset({"autocad_mcp.core.gate", "autocad_mcp.core.bridge"})
 # A tool that looks other tools up by name and runs them: what those need, it needs.
@@ -212,10 +214,27 @@ class CodeMap:
             names.update(s for s in strings if isinstance(s, str) and s in known)
         return sorted(names)
 
+    def filters_by_space(self, seen: set[tuple[str, str]]) -> bool:
+        """True when a function a tool reaches writes a space filter pair, ``[410, ...]`` (D-151)."""
+        return any(
+            isinstance(pair, ast.List)
+            and pair.elts
+            and isinstance(pair.elts[0], ast.Constant)
+            and pair.elts[0].value == SPACE_FILTER
+            for where, what in seen
+            if (node := self.functions[where].get(what)) is not None
+            for pair in ast.walk(node)
+        )
+
 
 def plugin_use(code: CodeMap, function: Any, known: set[str], release: str) -> dict[str, Any]:
     """What a tool needs of the plug-in, from its own code."""
-    from autocad_mcp.core.bridge import NEWER_READS, READS_SINCE
+    from autocad_mcp.core.bridge import (
+        NEWER_READS,
+        READS_1_9,
+        READS_1_9_SINCE,
+        READS_SINCE,
+    )
 
     original = inspect.unwrap(function)
     signals, seen = code.reach(original.__module__, original.__name__)
@@ -231,9 +250,16 @@ def plugin_use(code: CodeMap, function: Any, known: set[str], release: str) -> d
         "version_needed": release if role == "operations" else None,
         "runs_other_tools": RUNS_TOOLS in signals,
     }
-    # A read not yet in a release names no plug-in it is faster from (D-127).
-    if "faster_read" in signals and not set(use["operations"]) & NEWER_READS:
-        use["faster_from"] = READS_SINCE
+    # The plug-in a read is faster from: the newest release among the reads the tool makes (D-155).
+    # A read not yet in a release names none (D-127).
+    if "faster_read" in signals:
+        reads = set(use["operations"])
+        if reads & NEWER_READS:
+            pass
+        elif reads & READS_1_9 or code.filters_by_space(seen):
+            use["faster_from"] = READS_1_9_SINCE
+        else:
+            use["faster_from"] = READS_SINCE
     return use
 
 

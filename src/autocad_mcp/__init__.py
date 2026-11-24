@@ -5,6 +5,6 @@ copy of AutoCAD already open on this machine: what Claude draws appears live on
 screen, and what the user has open is what Claude reads.
 """
 
-__version__ = "1.10.2"
+__version__ = "1.11.0"
 
 __all__ = ["__version__"]

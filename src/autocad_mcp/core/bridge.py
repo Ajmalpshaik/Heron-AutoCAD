@@ -103,17 +103,23 @@ OLD_EXPECT = (
 # The first plug-in that reads a whole drawing itself, in one go (D-114):
 # count_entities and entity_extents. An older one is read over COM instead.
 READS_SINCE = "1.8.0"
-# Reads in one go that came after 1.8.0, in a release whose number is not known
-# yet: the block counts (D-127), lengths and texts (D-134), block attributes
-# (D-138), the standards check's object facts (D-145) and the objects a layer
-# merge moves (D-147). Plug-ins 1.8.0 and 1.8.1 say they do not have them, and
-# the tool reads over COM. Once released, they leave this set and the release
-# that carries them is named.
-# The space filter (DXF 410) on these reads came later too (#269, D-151): 1.8.1 and older refuse
-# it as the operation's own refusal ("filters a read only by ..."), and _shared.faster_read then
-# answers None, so the tool reads over COM.
-NEWER_READS = frozenset({"block_references", "block_definitions", "entity_lengths", "entity_texts", "block_attributes",
-                         "entity_properties", "layer_objects"})
+# The release that carries the reads in one go that came after 1.8.1 (D-155):
+# the block counts (D-127), lengths and texts (D-134), block attributes (D-138),
+# the standards check's object facts (D-145) and the objects a layer merge
+# moves (D-147), and the space filter (DXF 410) on these reads (#269, D-151).
+# Plug-ins 1.8.0 and 1.8.1 say they do not have the operations, and refuse 410
+# as the operation's own refusal ("filters a read only by ..."); either way
+# _shared.faster_read answers None and the tool reads over COM, with the same
+# answer (D-114). Such a plug-in is still asked: one built from source between
+# 1.8.1 and 1.9.0 says 1.8.1 and may have them.
+READS_1_9_SINCE = "1.9.0"
+READS_1_9 = frozenset({"block_references", "block_definitions", "entity_lengths", "entity_texts", "block_attributes",
+                       "entity_properties", "layer_objects"})
+# Reads in one go that came after the newest release, in a release whose number
+# is not known yet: a tool that uses one names no plug-in it is faster from.
+# Once released, they leave this set and the release that carries them is
+# named, as READS_1_9 was.
+NEWER_READS: frozenset[str] = frozenset()
 RUN_UNKNOWN = (
     "Outcome unknown: Heron in AutoCAD did not answer within {seconds:.0f} s, so the operation may "
     "still have run (one Ctrl+Z reverses it). Look at the drawing before trying again. (details: {details})"

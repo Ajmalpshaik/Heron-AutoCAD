@@ -8,7 +8,18 @@
 
 > **"Read docs/HANDOVER.md in Heron-AutoCAD and carry on."**
 
-## Latest - 2026-11-23 (wave 3: S14-S23, D-140 to D-154; the open-issue sweep)
+## Latest - 2026-11-24 (release v1.9.0 prepared, D-155)
+
+The owner asked for the release. One PR prepared it: **plug-in 1.9.0, server 1.11.0**, 200 tools; the
+CHANGELOG's Unreleased became `## 1.9.0` with a plain-words summary; the reads after 1.8.1 left
+`bridge.NEWER_READS` (now empty) for `bridge.READS_1_9` (`"1.9.0"`), so the manifest and the catalogue say
+"from plug-in 1.9.0" (D-155). The COM fallback for a 1.8.x plug-in is unchanged. **Tag `v1.9.0` and the
+GitHub release are the parent session's job**, after a build-only check; whether it is marked Latest is
+its call. **Nothing in 1.9.0 has been run in AutoCAD; unsigned (#164).**
+**Next (on this PC, on the owner's word):** install v1.9.0 (plug-in and server together), restart the
+server, then the live rows in the order the entry below gives.
+
+## Earlier - 2026-11-23 (wave 3: S14-S23, D-140 to D-154; the open-issue sweep)
 
 The owner asked for every open issue to be worked through in nested cloud sessions. One parent cloud
 session ran ten nested sessions, at most three at a time; each merged its own PRs with `python`,

@@ -245,12 +245,16 @@ If no answer comes within 300 s the result is "Outcome unknown": the operation m
 **Reads the plug-in does faster than COM (plug-in 1.8.0, [D-114](DECISIONS.md)).** `count_entities`
 and `entity_extents` are not "COM has no call for it": COM can do them, but one round trip per
 object. With an older plug-in, or one that cannot do the read, the tool reads over COM instead and
-gives the same answer; a stop or "Outcome unknown" is said, not read again. `block_references` and
-`block_definitions` came after 1.8.1 ([D-127](DECISIONS.md)): 1.8.0 and 1.8.1 say they do not have
-them, and the two block tools read over COM. `entity_lengths` and `entity_texts` came after 1.8.1 too
-([D-134](DECISIONS.md)): the length and text tools read over COM with 1.8.0 and 1.8.1. So did
-`block_attributes` ([D-138](DECISIONS.md)): with 1.8.0 and 1.8.1 the four attribute tools read over COM. And
-`entity_properties` ([D-145](DECISIONS.md)): with 1.8.0 and 1.8.1 the standards check reads its objects over COM. Which tools come next:
+gives the same answer; a stop or "Outcome unknown" is said, not read again. **Plug-in 1.9.0**
+([D-155](DECISIONS.md)) carries the reads that came after 1.8.1: `block_references` and
+`block_definitions` ([D-127](DECISIONS.md)), `entity_lengths` and `entity_texts`
+([D-134](DECISIONS.md)), `block_attributes` ([D-138](DECISIONS.md)), `entity_properties`
+([D-145](DECISIONS.md)) and `layer_objects` ([D-147](DECISIONS.md)), and the space filter (DXF 410)
+on `entity_extents` that the preview uses ([D-151](DECISIONS.md), [D-154](DECISIONS.md)). Plug-ins
+1.8.0 and 1.8.1 say they do not have them (they refuse 410 as the read's own refusal), and the block,
+length, text, attribute, standards, merge and preview tools then read over COM, with the same
+answer. The server still asks a 1.8.x plug-in: one built from source between 1.8.1 and 1.9.0 says
+1.8.1 and may have them. Which tools come next:
 [13 - Moving tools into the plug-in](13-moving-tools-into-the-plug-in.md).
 
 ## 6b. Drawing events (plug-in, [D-98](DECISIONS.md), #48)

@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from autocad_mcp.core import bridge
-from autocad_mcp.core.bridge import NEWER_READS, OLD_PLUGIN, READS_SINCE, BridgeRefused
+from autocad_mcp.core.bridge import OLD_PLUGIN, READS_1_9, READS_SINCE, BridgeRefused
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.tools import _shared, layers, takeoff
 
@@ -484,5 +484,5 @@ class TestBothSidesKnowTheBlockReads:
         for module in ("takeoff.py", "layers.py"):
             source = (ROOT / "src" / "autocad_mcp" / "tools" / module).read_text(encoding="utf-8")
             asked |= set(re.findall(r'faster_read\("(\w+)"', source))
-        assert set(OPERATIONS) <= asked and set(OPERATIONS) <= set(NEWER_READS)
+        assert set(OPERATIONS) <= asked and set(OPERATIONS) <= READS_1_9
         assert asked - set(OPERATIONS) == {"entity_lengths"}
