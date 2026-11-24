@@ -28,7 +28,7 @@ import pytest
 
 from autocad_mcp.acad.selection import filter_pairs
 from autocad_mcp.core import bridge
-from autocad_mcp.core.bridge import NEWER_READS, OLD_PLUGIN, READS_SINCE, BridgeRefused
+from autocad_mcp.core.bridge import OLD_PLUGIN, READS_1_9, READS_SINCE, BridgeRefused
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.tools import _shared, query, takeoff, text_tools
 
@@ -626,4 +626,4 @@ class TestBothSidesKnowTheReads:
         for module in ("takeoff.py", "query.py", "text_tools.py"):
             source = (ROOT / "src" / "autocad_mcp" / "tools" / module).read_text(encoding="utf-8")
             asked |= set(re.findall(r'faster_read\("(\w+)"', source))
-        assert set(OPERATIONS) <= asked and set(OPERATIONS) <= NEWER_READS
+        assert set(OPERATIONS) <= asked and set(OPERATIONS) <= READS_1_9

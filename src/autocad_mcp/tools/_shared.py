@@ -280,7 +280,10 @@ def faster_read(operation: str, args: dict[str, Any]) -> dict[str, Any] | None:
     over COM and answers the same, when the plug-in is not in this job
     (--no-bridge), is older than READS_SINCE, does not have the operation,
     or could not read it. The modeller's stop, a padlock and "Outcome
-    unknown" are raised, never hidden behind a second, slower read.
+    unknown" are raised, never hidden behind a second, slower read. A read of
+    plug-in 1.9.0 (bridge.READS_1_9, D-155) is still asked of a 1.8.x plug-in,
+    which says itself that it does not have it: one built from source before
+    1.9.0 was named says 1.8.1 and may have it.
     """
     runner = plugin_runner()
     if runner is None or older(plugin_version(), READS_SINCE):

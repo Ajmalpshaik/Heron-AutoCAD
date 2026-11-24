@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from autocad_mcp.core import bridge
-from autocad_mcp.core.bridge import NEWER_READS, OLD_PLUGIN, READS_SINCE, BridgeRefused
+from autocad_mcp.core.bridge import OLD_PLUGIN, READS_1_9, READS_SINCE, BridgeRefused
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.tools import _shared, standards
 
@@ -366,7 +366,7 @@ class TestBothSidesKnowTheRead:
     def test_the_server_asks_for_it_and_names_it_newer(self):
         source = (ROOT / "src" / "autocad_mcp" / "tools" / "standards.py").read_text(encoding="utf-8")
         assert OPERATION in set(re.findall(r'faster_read\("(\w+)"', source))
-        assert OPERATION in NEWER_READS
+        assert OPERATION in READS_1_9
 
     def test_the_box_test_is_the_same_text_on_both_sides(self):
         facts = (ROOT / "autocad" / "Heron.AutoCAD.Bridge" / "StandardFacts.cs").read_text(encoding="utf-8")

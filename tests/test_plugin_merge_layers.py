@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from autocad_mcp.core import bridge
-from autocad_mcp.core.bridge import NEWER_READS, OLD_PLUGIN, READS_SINCE, BridgeRefused
+from autocad_mcp.core.bridge import OLD_PLUGIN, READS_1_9, READS_SINCE, BridgeRefused
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.tools import _shared, layer_states
 
@@ -560,4 +560,4 @@ class TestBothSidesKnowTheOperations:
         source = (ROOT / "src" / "autocad_mcp" / "tools" / "layer_states.py").read_text(encoding="utf-8")
         assert READ in set(re.findall(r'faster_read\("(\w+)"', source))
         assert CHANGE in set(re.findall(r'faster_change\("(\w+)"', source))
-        assert READ in NEWER_READS
+        assert READ in READS_1_9

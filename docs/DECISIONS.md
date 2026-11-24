@@ -5,6 +5,37 @@
 
 ---
 
+## D-155 - Release v1.9.0: plug-in 1.9.0, server 1.11.0; the reads after 1.8.1 are named for plug-in 1.9.0
+
+**Decided:** 2026-11-24, when the owner asked for the release ("do the realese also") after waves 1 to 3
+(D-127 to D-154). **Status:** in force. Prepared in one PR; the tag and the GitHub release are made by the
+parent session after it merges. **Nothing in this release has been run in AutoCAD**: every change since
+1.8.1 is tested offline only, and its live rows are NOT RUN. **Not code-signed**, by the owner's decision
+(#164, D-99).
+
+- **Versions.** The plug-in goes to **1.9.0** (`autocad/Directory.Build.props`) and the server to
+  **1.11.0** (`pyproject.toml`, `autocad_mcp.__version__`, the MCP server's own version): both changed
+  after 1.8.1, the plug-in with new operations (the reads below, `merge_layers`, `write_attributes`,
+  `retarget_pack_paths`, the 410 filter, the no-op abort), so each takes a minor step. The tool count is
+  200 (`autocad_lengthen` is new).
+- **The reads are named.** The reads in one go that came after 1.8.1 sat in `bridge.NEWER_READS`, "in a
+  release whose number is not known yet". They ship in plug-in 1.9.0, so they move to `bridge.READS_1_9`
+  with `READS_1_9_SINCE = "1.9.0"`: `block_references`, `block_definitions` (D-127), `entity_lengths`,
+  `entity_texts` (D-134), `block_attributes` (D-138), `entity_properties` (D-145) and `layer_objects`
+  (D-147). The space filter (DXF 410) on these reads (D-151, D-154) is 1.9.0's too. `NEWER_READS` stays,
+  empty, for reads that come after 1.9.0.
+- **What the manifest says.** `tools/export_capabilities.py` gives each tool that reads through the
+  plug-in the newest release among its reads: `faster_from: "1.9.0"` for a tool using a `READS_1_9` read,
+  or a space filter pair `[410, ...]` in its code (the extents preview); `"1.8.0"` (`READS_SINCE`) for the
+  others; none while a read is in `NEWER_READS`. `docs/TOOL-CATALOGUE.md` says "(from plug-in 1.9.0)".
+- **The fallback is unchanged (D-114).** A 1.8.x plug-in, or one without the operation, is still asked;
+  it says it does not have the read (or refuses 410 as the read's own refusal), and `faster_read` answers
+  None. For the seven reads the tool then reads over COM with the same answer. The extents preview is
+  the exception: it then frames EXTMIN/EXTMAX (PEXTMIN/PEXTMAX on a sheet) as before 1.9.0, which can
+  still reach an erased object, so that fix (D-151, D-154) needs plug-in 1.9.0. The round trip is not skipped for a plug-in older
+  than 1.9.0: one built from source between 1.8.1 and 1.9.0 says 1.8.1 and has some of these reads, and
+  the live rows that compare the two paths would then see only COM.
+
 ## D-154 - A sheet's extents preview measures the sheet through the plug-in, its own overall viewport left out
 
 **Decided:** 2026-11-23, by session S23 of the 2026-11-23 wave, for issue

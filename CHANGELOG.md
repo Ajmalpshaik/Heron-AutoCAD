@@ -4,6 +4,51 @@ Newest first. Dates are when the change was made.
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.9.0 - 2026-11-24 - Faster reads, safer undo, and the fixes since 1.8.1
+
+**Heron AI for AutoCAD plug-in 1.9.0, with server 1.11.0 inside.** Prepared for tag `v1.9.0` with
+`HeronAutoCAD-1.9.0-setup.exe`, `HeronAutoCAD-1.9.0-win64.zip` and `checksums.txt`, built by
+`release.yml` from the tagged code. It carries three waves of work merged after 1.8.1 (D-127 to D-154)
+and the one new tool, `autocad_lengthen` (200 tools). **Everything in it is tested offline only; none
+of it has been run in AutoCAD: its live rows are NOT RUN.** Not code-signed, by the owner's decision
+(#164). Install the new plug-in with the new server: many of the changes need both.
+
+What is new or fixed for a draftsman, in short:
+
+- **Faster on big drawings.** Block counts and block lists, lengths and texts, block attributes (read
+  and written), the standards check and the layer merge are done by the plug-in in one go inside
+  AutoCAD, instead of one question per object. An older plug-in still gives the same answer, just
+  slower. Attribute writes and the layer merge are all or nothing.
+- **Previews show what is there.** A model or sheet preview no longer frames an object that was
+  erased. This one needs the 1.9.0 plug-in: with an older one the preview is as before.
+- **Undo you can trust.** Join, explode, trim, break and the other edits that replace objects ask
+  "Keep the change, or undo the whole change?"; the palette's Undo stops at the job's own mark; a job
+  that changed nothing leaves no undo step.
+- **New and better tools.** `autocad_lengthen` (new); fillet and chamfer between lines, arcs and a
+  polyline's end; overkill can tidy a polyline that goes back over itself; flat views can show
+  hidden lines; a section line can jog; eTransmit points packed drawings at the files beside them;
+  `autocad_set_attributes` reads a semicolon CSV.
+- **Clear answers instead of "busy".** A property AutoCAD will not set, or one an object does not
+  have, is said at once instead of after ten seconds as a busy AutoCAD.
+- **Safer typing into AutoCAD.** Names, command text and AutoLISP text with a line break, tab or Esc
+  in them are refused or made safe before they reach AutoCAD.
+- **Palette and sheets.** The palette's Select and Zoom work again after a multileader style was made;
+  sheet tabs, the paper scale and the status read are more robust.
+- **Setup.** Only your own AutoCAD stops the setup; `checksums.txt` has plain line endings.
+
+The entries below give each change in full.
+
+- **The reads after 1.8.1 are named for plug-in 1.9.0 (2026-11-24, [D-155](docs/DECISIONS.md)).**
+  `bridge.READS_1_9` holds `block_references`, `block_definitions`, `entity_lengths`, `entity_texts`,
+  `block_attributes`, `entity_properties` and `layer_objects`, with `READS_1_9_SINCE = "1.9.0"`; the
+  space filter (DXF 410) of the preview's extents read goes with them. `NEWER_READS` is empty again,
+  for the next reads. The capability manifest and `docs/TOOL-CATALOGUE.md` now say "from plug-in
+  1.9.0" for the tools that use them (the preview too), instead of no version. Nothing a tool does
+  changed: a 1.8.x plug-in is still asked and says it does not have the read. The seven reads then
+  go over COM with the same answer (D-114); the preview then frames EXTMIN/EXTMAX as before, which
+  can still reach an erased object. Tested offline only.
 - **A sheet's extents preview no longer frames an object that was erased (2026-11-23,
   [#281](https://github.com/Ajmalpshaik/Heron-AutoCAD/issues/281), [D-154](docs/DECISIONS.md)).** As D-151 did
   for model space: on a sheet layout `autocad_preview()` now asks the plug-in to measure what is on the sheet

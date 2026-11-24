@@ -1,9 +1,9 @@
 # Heron AI for AutoCAD - Documentation index
 
-> **Status, 2026-11-22:** the server passes its offline tests and the plug-in builds for AutoCAD
+> **Status, 2026-11-24:** the server passes its offline tests and the plug-in builds for AutoCAD
 > 2021-2027. **Only AutoCAD 2027 has been checked live**, and only for the rows marked PASS in
 > [NEEDS-CHECKING](NEEDS-CHECKING.md) (most of group A, a few rows of D, J and L). The first
-> GitHub release (v1.8.0) installs and its plug-in loads in AutoCAD 2027 (v1.8.1 fixes its Claude connection, #233); most of its tools are not
+> GitHub release (v1.8.0) installs and its plug-in loads in AutoCAD 2027 (v1.8.1 fixed its Claude connection, #233; v1.9.0 carries the fixes and plug-in reads made since, none of them run in AutoCAD yet); most of its tools are not
 > yet checked in AutoCAD. AutoCAD
 > 2021-2026 have no machine yet (groups B and C). The README's install table says the same per piece.
 > Where work stopped: [HANDOVER](HANDOVER.md).

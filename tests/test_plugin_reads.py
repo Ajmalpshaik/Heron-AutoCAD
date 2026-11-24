@@ -24,7 +24,15 @@ import pytest
 from autocad_mcp.acad.entities import OBJECT_NAME_MAP, short_type, short_type_name
 from autocad_mcp.acad.selection import ENTITY_TYPE_ALIASES, build_filter, filter_pairs
 from autocad_mcp.core import bridge, gate
-from autocad_mcp.core.bridge import OLD_PLUGIN, READS_SINCE, BridgeRefused, older
+from autocad_mcp.core.bridge import (
+    NEWER_READS,
+    OLD_PLUGIN,
+    READS_1_9,
+    READS_1_9_SINCE,
+    READS_SINCE,
+    BridgeRefused,
+    older,
+)
 from autocad_mcp.core.errors import AutocadError
 from autocad_mcp.tools import _shared, query
 
@@ -336,6 +344,15 @@ class TestVersions:
         shipped = re.search(r"<Version>([\d.]+)</Version>", props).group(1)
         # Either the release that carries them is not out yet (1.7.0), or it is READS_SINCE or later.
         assert older("1.7.0", READS_SINCE) and (shipped == "1.7.0" or not older(shipped, READS_SINCE))
+
+    def test_the_plugin_built_here_carries_the_reads_its_release_is_named_for(self):
+        # D-155: the reads after 1.8.1 are named for plug-in 1.9.0, so the plug-in built here is 1.9.0 or later,
+        # and 1.8.0 and 1.8.1 come before it (they are read over COM, as they always were).
+        props = (ROOT / "autocad" / "Directory.Build.props").read_text(encoding="utf-8")
+        built = re.search(r"<Version>([\d.]+)</Version>", props).group(1)
+        assert READS_1_9_SINCE == "1.9.0" and not older(built, READS_1_9_SINCE)
+        assert older("1.8.1", READS_1_9_SINCE) and older(READS_SINCE, READS_1_9_SINCE)
+        assert not READS_1_9 & NEWER_READS
 
     def test_the_job_gives_the_plugin_version_from_its_address_file(self, monkeypatch):
         class FakeBridge:

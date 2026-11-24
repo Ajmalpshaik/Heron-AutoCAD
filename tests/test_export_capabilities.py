@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from autocad_mcp.core.bridge import READS_SINCE
+from autocad_mcp.core import bridge
+from autocad_mcp.core.bridge import READS_1_9, READS_1_9_SINCE, READS_SINCE
 from autocad_mcp.core.registry import mcp
 from autocad_mcp.core.risk import Risk, risk_of
 from autocad_mcp.tools import register_all
@@ -146,12 +147,15 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
     assert line == {"role": "gate", "operations": [], "version_needed": None, "runs_other_tools": False}
     listing = by_name["autocad_list_entities"]["plugin"]
     assert listing["role"] == "when_there" and listing["operations"] == ["count_entities"]
-    assert listing["faster_from"] == READS_SINCE
-    # The block reads came after 1.8.1, in a release not named yet: no "faster from" version (D-127).
+    assert listing["faster_from"] == READS_SINCE == "1.8.0"
+    # A read over the whole drawing without a space filter stays a 1.8.0 one.
+    assert by_name["autocad_get_extents"]["plugin"]["faster_from"] == READS_SINCE
+    assert by_name["autocad_drawing_report"]["plugin"]["faster_from"] == READS_SINCE
+    # The block reads came after 1.8.1, in plug-in 1.9.0 (D-127, D-155).
     for name, operation in (("autocad_count_blocks", "block_references"), ("autocad_list_blocks", "block_definitions")):
         blocks = by_name[name]["plugin"]
         assert blocks["role"] == "when_there" and blocks["operations"] == [operation], name
-        assert "faster_from" not in blocks, name
+        assert blocks["faster_from"] == READS_1_9_SINCE == "1.9.0", name
     # So did the length and text reads (D-134).
     for name, operation in (
         ("autocad_total_length", "entity_lengths"),
@@ -161,29 +165,60 @@ def test_known_tools_need_what_their_code_asks_of_the_plugin(by_name):
     ):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == [operation], name
-        assert "faster_from" not in reads, name
+        assert reads["faster_from"] == READS_1_9_SINCE, name
     # And the block attribute reads, the two writing tools' too: their writes stay COM's (D-138).
     for name in ("autocad_extract_attributes", "autocad_export_attribute_sheet"):
         reads = by_name[name]["plugin"]
         assert reads["role"] == "when_there" and reads["operations"] == ["block_attributes"], name
-        assert "faster_from" not in reads, name
+        assert reads["faster_from"] == READS_1_9_SINCE, name
     # The two writing tools write through the plug-in too, in one transaction, when it is there (D-148).
     for name in ("autocad_set_attributes", "autocad_apply_attribute_sheet"):
         writes = by_name[name]["plugin"]
         assert writes["role"] == "when_there" and writes["operations"] == ["block_attributes", "write_attributes"], name
-        assert writes["version_needed"] is None and "faster_from" not in writes, name
+        assert writes["version_needed"] is None and writes["faster_from"] == READS_1_9_SINCE, name
     # And the standards check's object facts; its layers and the reference stay COM's (D-145).
     standards = by_name["autocad_check_standards"]["plugin"]
     assert standards["role"] == "when_there" and standards["operations"] == ["entity_properties"]
-    assert "faster_from" not in standards
+    assert standards["faster_from"] == READS_1_9_SINCE
     # The layer merge reads and merges through the plug-in when it is there, COM otherwise (D-147).
     merging = by_name["autocad_merge_layers"]["plugin"]
     assert merging["role"] == "when_there" and merging["operations"] == ["layer_objects", "merge_layers"]
-    assert merging["version_needed"] is None and "faster_from" not in merging
+    assert merging["version_needed"] is None and merging["faster_from"] == READS_1_9_SINCE
+    # The preview's extents read is a 1.8.0 operation, but only with the space filter (DXF 410) of 1.9.0 (D-151).
+    preview = by_name["autocad_preview"]["plugin"]
+    assert preview["role"] == "when_there" and preview["operations"] == ["entity_extents"]
+    assert preview["faster_from"] == READS_1_9_SINCE
     assert by_name["autocad_batch_draw"]["plugin"]["role"] == "when_there"  # quiet input when it is there
     assert by_name["autocad_sequence"]["plugin"]["runs_other_tools"] is True
     # A keyword's value is not an operation: saved commands have an action called "show".
     assert by_name["autocad_saved_command"]["plugin"]["operations"] == []
+
+
+def test_a_read_not_yet_in_a_release_names_no_plugin_and_the_named_ones_are_apart(registered, monkeypatch):
+    # The reads plug-in 1.9.0 carries are no longer "not in a release yet" (D-155).
+    assert READS_1_9 and not READS_1_9 & bridge.NEWER_READS
+    code = exporter.CodeMap()
+    known = set(exporter.plugin_operations())
+    release = exporter.plugin_version()
+
+    def use(name):
+        return exporter.plugin_use(code, mcp._tool_manager.get_tool(name).fn, known, release)
+
+    assert use("autocad_count_blocks")["faster_from"] == READS_1_9_SINCE
+    # A read put in NEWER_READS (the next wave's) names no plug-in, even next to an older read.
+    monkeypatch.setattr(bridge, "NEWER_READS", frozenset({"block_references", "count_entities"}))
+    assert "faster_from" not in use("autocad_count_blocks")
+    assert "faster_from" not in use("autocad_list_entities")
+    assert use("autocad_get_extents")["faster_from"] == READS_SINCE
+
+
+def test_a_space_filter_pair_is_found_only_as_a_list_starting_with_410():
+    code = exporter.CodeMap()
+    module = "autocad_mcp.tools.document"
+    assert code.filters_by_space({(module, "_measured_model_box")})
+    assert code.filters_by_space({(module, "_measured_sheet_box")})
+    assert not code.filters_by_space({(module, "_measured_box")})
+    assert not code.filters_by_space({("autocad_mcp.tools.query", "nothing_of_that_name")})
 
 
 def test_operation_names_are_read_from_the_plugins_list(tmp_path):
